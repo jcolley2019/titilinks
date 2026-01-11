@@ -1,35 +1,38 @@
 import { motion } from 'framer-motion';
 import { Palette, BarChart2, Layers, Zap, Shield } from 'lucide-react';
-
-const features = [
-  {
-    icon: Palette,
-    title: 'Stunning Themes',
-    description: 'Choose from beautiful presets or customize colors, fonts, and layouts to match your brand perfectly.'
-  },
-  {
-    icon: BarChart2,
-    title: 'Deep Analytics',
-    description: 'Track every click, view, and conversion. Know exactly where your audience comes from and what they want.'
-  },
-  {
-    icon: Layers,
-    title: 'Mode Switching',
-    description: 'Show different content to different audiences. Shopping mode, recruiting mode—switch with one click.'
-  },
-  {
-    icon: Zap,
-    title: 'Blazing Fast',
-    description: 'Sub-100ms load times. Your page loads before they can blink, so they never bounce.'
-  },
-  {
-    icon: Shield,
-    title: 'Privacy First',
-    description: "Your data stays yours. We don't sell your analytics or share visitor information."
-  }
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function FeaturesSection() {
+  const { t } = useLanguage();
+
+  const features = [
+    {
+      icon: Palette,
+      title: t('features.themes.title'),
+      description: t('features.themes.desc')
+    },
+    {
+      icon: BarChart2,
+      title: t('features.analytics.title'),
+      description: t('features.analytics.desc')
+    },
+    {
+      icon: Layers,
+      title: t('features.modes.title'),
+      description: t('features.modes.desc')
+    },
+    {
+      icon: Zap,
+      title: t('features.speed.title'),
+      description: t('features.speed.desc')
+    },
+    {
+      icon: Shield,
+      title: t('features.privacy.title'),
+      description: t('features.privacy.desc')
+    }
+  ];
+
   return (
     <section id="features" className="py-24 px-4 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
@@ -43,11 +46,11 @@ export function FeaturesSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Everything you need to{' '}
-            <span className="italic gradient-text">convert</span>
+            {t('features.title')}{' '}
+            <span className="italic gradient-text">{t('features.title2')}</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Powerful features that help you turn clicks into customers
+            {t('features.subtitle')}
           </p>
         </motion.div>
 

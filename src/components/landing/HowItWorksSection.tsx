@@ -1,28 +1,31 @@
 import { motion } from 'framer-motion';
 import { UserPlus, Paintbrush, Share2 } from 'lucide-react';
-
-const steps = [
-  {
-    icon: UserPlus,
-    step: '01',
-    title: 'Sign up in seconds',
-    description: 'Create your account with email or Google. No credit card required to get started.'
-  },
-  {
-    icon: Paintbrush,
-    step: '02',
-    title: 'Customize your page',
-    description: 'Add your links, products, and media. Pick a theme that matches your vibe.'
-  },
-  {
-    icon: Share2,
-    step: '03',
-    title: 'Share & grow',
-    description: 'Drop your link in your bio and watch the analytics roll in. Optimize and convert.'
-  }
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function HowItWorksSection() {
+  const { t } = useLanguage();
+
+  const steps = [
+    {
+      icon: UserPlus,
+      step: '01',
+      title: t('how.step1.title'),
+      description: t('how.step1.desc')
+    },
+    {
+      icon: Paintbrush,
+      step: '02',
+      title: t('how.step2.title'),
+      description: t('how.step2.desc')
+    },
+    {
+      icon: Share2,
+      step: '03',
+      title: t('how.step3.title'),
+      description: t('how.step3.desc')
+    }
+  ];
+
   return (
     <section className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
@@ -34,10 +37,10 @@ export function HowItWorksSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Live in <span className="italic gradient-text">3 simple steps</span>
+            {t('how.title')} <span className="italic gradient-text">{t('how.title2')}</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From signup to sharing in under 5 minutes
+            {t('how.subtitle')}
           </p>
         </motion.div>
 

@@ -1,6 +1,16 @@
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function SolutionSection() {
+  const { t } = useLanguage();
+
+  const features = [
+    t('solution.feature1'),
+    t('solution.feature2'),
+    t('solution.feature3'),
+    t('solution.feature4')
+  ];
+
   return (
     <section className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
@@ -12,20 +22,14 @@ export function SolutionSection() {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-              Your bio link,{' '}
-              <span className="italic gradient-text">elevated</span>
+              {t('solution.title')}{' '}
+              <span className="italic gradient-text">{t('solution.title2')}</span>
             </h2>
             <p className="text-lg text-muted-foreground mb-6">
-              TitiLINKS transforms your single bio link into a dynamic, trackable storefront 
-              that converts followers into customers—in minutes, not months.
+              {t('solution.description')}
             </p>
             <ul className="space-y-4">
-              {[
-                'Beautiful, mobile-first design',
-                'Built-in analytics & tracking',
-                'Mode switching for different audiences',
-                'Lightning-fast load times'
-              ].map((item, i) => (
+              {features.map((item, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <div className="h-2 w-2 rounded-full bg-primary" />
                   <span>{item}</span>
@@ -85,7 +89,7 @@ export function SolutionSection() {
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               className="absolute -top-4 -right-4 p-4 rounded-xl bg-card border border-primary/20 shadow-lg"
             >
-              <p className="text-sm font-medium text-primary">+127 clicks today</p>
+              <p className="text-sm font-medium text-primary">{t('solution.clicks')}</p>
             </motion.div>
           </motion.div>
         </div>

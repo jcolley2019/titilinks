@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { LanguageProvider } from "@/hooks/useLanguage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -11,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
 import Setup from "./pages/Setup";
+import Settings from "./pages/Settings";
 import AISetup from "./pages/AISetup";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import PublicProfile from "./pages/PublicProfile";
@@ -20,8 +22,9 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -68,6 +71,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/dashboard/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
@@ -75,6 +86,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+  </LanguageProvider>
   </QueryClientProvider>
 );
 

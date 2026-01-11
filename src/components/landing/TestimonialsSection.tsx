@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const testimonials = [
   {
@@ -26,6 +27,8 @@ const testimonials = [
 ];
 
 export function TestimonialsSection() {
+  const { t } = useLanguage();
+
   return (
     <section className="py-24 px-4 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
@@ -39,10 +42,10 @@ export function TestimonialsSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Loved by <span className="italic gradient-text">creators</span>
+            {t('testimonials.title')} <span className="italic gradient-text">{t('testimonials.title2')}</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Join thousands of creators who've upgraded their bio link
+            {t('testimonials.subtitle')}
           </p>
         </motion.div>
 

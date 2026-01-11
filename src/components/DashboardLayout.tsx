@@ -9,7 +9,8 @@ import {
   Sparkles,
   LogOut,
   Menu,
-  X
+  X,
+  Cog
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/dashboard/setup', label: 'Setup', icon: Settings },
   { path: '/dashboard/ai-setup', label: 'AI Setup', icon: Sparkles },
+  { path: '/dashboard/settings', label: 'Settings', icon: Cog },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {

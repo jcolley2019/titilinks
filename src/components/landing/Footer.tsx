@@ -1,41 +1,44 @@
 import { Link } from 'react-router-dom';
 import { Link2 } from 'lucide-react';
-
-const footerLinks = {
-  Product: [
-    { label: 'Features', href: '#features' },
-    { label: 'Pricing', href: '#pricing' },
-    { label: 'Demo', href: '#demo' },
-    { label: 'Changelog', href: '#' },
-  ],
-  Company: [
-    { label: 'About', href: '#' },
-    { label: 'Blog', href: '#' },
-    { label: 'Careers', href: '#' },
-    { label: 'Press', href: '#' },
-  ],
-  Resources: [
-    { label: 'Help Center', href: '#' },
-    { label: 'API Docs', href: '#' },
-    { label: 'Status', href: '#' },
-    { label: 'Contact', href: '#' },
-  ],
-  Legal: [
-    { label: 'Privacy', href: '#' },
-    { label: 'Terms', href: '#' },
-    { label: 'Cookies', href: '#' },
-    { label: 'Licenses', href: '#' },
-  ],
-};
-
-const socialLinks = [
-  { label: 'Twitter', emoji: '𝕏', href: '#' },
-  { label: 'Instagram', emoji: '📸', href: '#' },
-  { label: 'TikTok', emoji: '🎵', href: '#' },
-  { label: 'Discord', emoji: '💬', href: '#' },
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function Footer() {
+  const { t } = useLanguage();
+
+  const footerLinks = {
+    [t('footer.product')]: [
+      { label: 'Features', href: '#features' },
+      { label: 'Pricing', href: '#pricing' },
+      { label: 'Demo', href: '#demo' },
+      { label: 'Changelog', href: '#' },
+    ],
+    [t('footer.company')]: [
+      { label: 'About', href: '#' },
+      { label: 'Blog', href: '#' },
+      { label: 'Careers', href: '#' },
+      { label: 'Press', href: '#' },
+    ],
+    [t('footer.resources')]: [
+      { label: 'Help Center', href: '#' },
+      { label: 'API Docs', href: '#' },
+      { label: 'Status', href: '#' },
+      { label: 'Contact', href: '#' },
+    ],
+    [t('footer.legal')]: [
+      { label: 'Privacy', href: '#' },
+      { label: 'Terms', href: '#' },
+      { label: 'Cookies', href: '#' },
+      { label: 'Licenses', href: '#' },
+    ],
+  };
+
+  const socialLinks = [
+    { label: 'Twitter', emoji: '𝕏', href: '#' },
+    { label: 'Instagram', emoji: '📸', href: '#' },
+    { label: 'TikTok', emoji: '🎵', href: '#' },
+    { label: 'Discord', emoji: '💬', href: '#' },
+  ];
+
   return (
     <footer className="py-16 px-4 border-t border-border">
       <div className="container max-w-6xl mx-auto">
@@ -51,7 +54,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted-foreground mb-4">
-              The link-in-bio for creators who sell. Turn clicks into customers.
+              {t('footer.tagline')}
             </p>
             <div className="flex gap-3">
               {socialLinks.map((social) => (
@@ -89,10 +92,10 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-border gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} TitiLINKS. All rights reserved.
+            © {new Date().getFullYear()} TitiLINKS. {t('footer.copyright')}
           </p>
           <p className="text-sm text-muted-foreground">
-            Made with ✨ for creators everywhere
+            {t('footer.made')}
           </p>
         </div>
       </div>
