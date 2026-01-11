@@ -66,6 +66,8 @@ const translations: Record<Language, Record<string, string>> = {
     'features.speed.desc': 'Sub-100ms load times. Your page loads before they can blink, so they never bounce.',
     'features.privacy.title': 'Privacy First',
     'features.privacy.desc': "Your data stays yours. We don't sell your analytics or share visitor information.",
+    'features.builder.title': 'Manual or AI Builder',
+    'features.builder.desc': 'Build your page your way—craft it manually with full control, or let AI create it for you in seconds.',
     
     // How It Works
     'how.title': 'Live in',
@@ -192,6 +194,8 @@ const translations: Record<Language, Record<string, string>> = {
     'features.speed.desc': 'Tiempos de carga de menos de 100ms. Tu página carga antes de que puedan parpadear.',
     'features.privacy.title': 'Privacidad Primero',
     'features.privacy.desc': 'Tus datos son tuyos. No vendemos tus analíticas ni compartimos información de visitantes.',
+    'features.builder.title': 'Constructor Manual o con IA',
+    'features.builder.desc': 'Construye tu página a tu manera—créala manualmente con control total, o deja que la IA la cree por ti en segundos.',
     
     // How It Works
     'how.title': 'En vivo en',
