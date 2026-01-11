@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
+import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
 
 export function SolutionSection() {
   const { t } = useLanguage();
@@ -53,16 +54,24 @@ export function SolutionSection() {
               {/* Screen content */}
               <div className="absolute inset-4 top-8 bg-gradient-to-b from-amber-100 to-amber-50 rounded-[2rem] flex flex-col items-center overflow-hidden">
                 {/* Header image area */}
-                <div className="w-full h-44 bg-gradient-to-br from-amber-200 via-rose-100 to-sky-200 relative">
-                  {/* Decorative elements to simulate a photo background */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-amber-50/80" />
+                <div className="w-full h-44 relative overflow-hidden">
+                  <img 
+                    src={mockupCreatorPhoto} 
+                    alt="Creator profile" 
+                    className="w-full h-full object-cover object-top"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-amber-50/90" />
                 </div>
                 
                 {/* Profile section - overlapping the header */}
                 <div className="relative -mt-12 flex flex-col items-center px-4 w-full">
-                  {/* Avatar with gold ring */}
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-rose-100 border-4 border-white shadow-lg flex items-center justify-center mb-2 overflow-hidden">
-                    <span className="text-2xl font-bold text-amber-700">✨</span>
+                  {/* Avatar with photo */}
+                  <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden mb-2">
+                    <img 
+                      src={mockupCreatorPhoto} 
+                      alt="Creator avatar" 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <h3 className="font-bold text-gray-800 text-lg">SoyCreadora 🥰</h3>
                   <p className="text-xs text-gray-600 text-center mb-4">Welcome to my world ✨</p>
