@@ -16,7 +16,7 @@ import {
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
-import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
@@ -407,6 +407,17 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   const item = block.items[0];
   if (!item) return null;
 
+  // Parse block style config from title
+  let blockStyle: Partial<BlockStyleConfig> = {};
+  try {
+    const parsed = JSON.parse(block.title || '{}');
+    if (parsed.style) {
+      blockStyle = parsed.style;
+    }
+  } catch {
+    // Not JSON, ignore
+  }
+
   const handleClick = (e: React.MouseEvent) => {
     const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
     if (!shouldNavigate) {
@@ -423,7 +434,7 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
         className="block"
         onClick={handleClick}
       >
-        <LinkButton theme={theme}>
+        <LinkButton theme={theme} blockStyle={blockStyle}>
           <div className="relative">
             {item.is_adult && (
               <div className="absolute -top-2 -right-2">
@@ -501,6 +512,17 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
 function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
+  // Parse block style config from title
+  let blockStyle: Partial<BlockStyleConfig> = {};
+  try {
+    const parsed = JSON.parse(block.title || '{}');
+    if (parsed.style) {
+      blockStyle = parsed.style;
+    }
+  } catch {
+    // Not JSON, ignore
+  }
+
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
     const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
     if (!shouldNavigate) {
@@ -510,9 +532,6 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
 
   return (
     <div className="space-y-3">
-      {block.title && (
-        <h3 className="text-sm font-medium mb-3 opacity-70" style={{ color: theme.typography.text_color }}>{block.title}</h3>
-      )}
       {block.items.map((item) => (
         <a
           key={item.id}
@@ -524,6 +543,7 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
         >
           <LinkButton
             theme={theme}
+            blockStyle={blockStyle}
             leftThumbnail={item.image_url || undefined}
           >
             <div className="flex items-center justify-between w-full">

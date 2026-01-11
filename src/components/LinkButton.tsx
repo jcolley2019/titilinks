@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import type { ThemeJson } from '@/lib/theme-defaults';
+import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
+import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 
 interface LinkButtonProps {
@@ -8,6 +9,7 @@ interface LinkButtonProps {
   leftIcon?: React.ReactNode;
   leftThumbnail?: string;
   theme?: ThemeJson;
+  blockStyle?: Partial<BlockStyleConfig>;
   className?: string;
   as?: 'button' | 'div';
   onClick?: (e: React.MouseEvent) => void;
@@ -18,6 +20,7 @@ export function LinkButton({
   leftIcon,
   leftThumbnail,
   theme,
+  blockStyle,
   className,
   as: Component = 'div',
   onClick,
@@ -32,14 +35,75 @@ export function LinkButton({
     shadowEnabled: false,
   };
 
+  // Merge block style with defaults
+  const style: BlockStyleConfig = {
+    ...DEFAULT_BLOCK_STYLE,
+    ...blockStyle,
+  };
+
   // Use theme if provided, otherwise use defaults
-  const fillColor = theme?.buttons?.fill_color || defaultStyles.fillColor;
+  const baseFillColor = theme?.buttons?.fill_color || defaultStyles.fillColor;
   const textColor = theme?.buttons?.text_color || defaultStyles.textColor;
   const shape = theme?.buttons?.shape || defaultStyles.shape;
-  const borderEnabled = theme?.buttons?.border_enabled ?? defaultStyles.borderEnabled;
-  const borderColor = theme?.buttons?.border_color || defaultStyles.borderColor;
+  const themeBorderEnabled = theme?.buttons?.border_enabled ?? defaultStyles.borderEnabled;
+  const themeBorderColor = theme?.buttons?.border_color || defaultStyles.borderColor;
   const shadowEnabled = theme?.buttons?.shadow_enabled ?? defaultStyles.shadowEnabled;
   const motionEnabled = theme?.motion?.enabled ?? true;
+
+  // Calculate styles based on variant
+  const getVariantStyles = (): React.CSSProperties => {
+    const opacity = style.background_opacity;
+    const borderWidth = style.border_width || (themeBorderEnabled ? 2 : 0);
+    const borderColor = style.border_color || themeBorderColor;
+
+    switch (style.variant) {
+      case 'outline':
+        return {
+          backgroundColor: 'transparent',
+          border: `${Math.max(borderWidth, 1)}px solid ${borderColor || baseFillColor}`,
+          color: textColor,
+        };
+      case 'glass':
+        return {
+          backgroundColor: `${baseFillColor}${Math.round(opacity * 0.15 * 255).toString(16).padStart(2, '0')}`,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor || `${baseFillColor}40`}` : `1px solid ${baseFillColor}30`,
+          color: textColor,
+        };
+      case 'minimal':
+        return {
+          backgroundColor: 'transparent',
+          border: 'none',
+          color: textColor,
+          boxShadow: 'none',
+        };
+      case 'filled':
+      default:
+        // Apply opacity to fill color
+        const fillWithOpacity = opacity < 1 
+          ? `${baseFillColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`
+          : baseFillColor;
+        return {
+          backgroundColor: fillWithOpacity,
+          border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor}` : (themeBorderEnabled ? `2px solid ${themeBorderColor}` : 'none'),
+          color: textColor,
+        };
+    }
+  };
+
+  // Get font family based on block style
+  const getFontFamily = (): string => {
+    switch (style.font_style) {
+      case 'mono':
+        return 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
+      case 'serif':
+        return 'Georgia, Cambria, "Times New Roman", Times, serif';
+      case 'normal':
+      default:
+        return 'inherit';
+    }
+  };
 
   const getButtonRadius = () => {
     switch (shape) {
@@ -51,6 +115,7 @@ export function LinkButton({
   };
 
   const hasLeftContent = leftIcon || leftThumbnail;
+  const variantStyles = getVariantStyles();
 
   return (
     <Component
@@ -64,12 +129,12 @@ export function LinkButton({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
         // Prevent layout shift
         'transform-gpu will-change-transform',
-        // Backdrop blur for glass effect
-        'backdrop-blur-sm',
+        // Glass variant gets stronger blur
+        style.variant === 'glass' && 'backdrop-blur-md',
         // Microinteractions (when motion enabled)
         motionEnabled && [
           'active:scale-[0.99] transition-transform duration-100 ease-out',
-          'hover:shadow-md hover:-translate-y-[1px]',
+          style.variant !== 'minimal' && 'hover:shadow-md hover:-translate-y-[1px]',
         ],
         // Reduced motion: always disable animations regardless of theme setting
         'motion-reduce:transition-none motion-reduce:transform-none',
@@ -77,12 +142,12 @@ export function LinkButton({
         className
       )}
       style={{
-        backgroundColor: fillColor,
-        color: textColor,
+        ...variantStyles,
         borderRadius: getButtonRadius(),
         padding: hasLeftContent ? '0.5rem 1rem 0.5rem 0.5rem' : '1rem 1.25rem',
-        border: borderEnabled ? `2px solid ${borderColor}` : 'none',
-        boxShadow: shadowEnabled ? '0 4px 14px rgba(0,0,0,0.15)' : 'none',
+        boxShadow: style.variant === 'minimal' ? 'none' : (shadowEnabled ? '0 4px 14px rgba(0,0,0,0.15)' : variantStyles.boxShadow),
+        fontFamily: getFontFamily(),
+        letterSpacing: style.letter_spacing ? `${style.letter_spacing}em` : undefined,
       }}
     >
       {/* Left content: icon or thumbnail - fixed h-12 w-12 to prevent CLS */}

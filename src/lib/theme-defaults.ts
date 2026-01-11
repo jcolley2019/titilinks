@@ -28,6 +28,25 @@ export interface ThemeMotion {
   enabled: boolean;
 }
 
+// Per-block style variants for link/button blocks
+export interface BlockStyleConfig {
+  variant: 'filled' | 'outline' | 'glass' | 'minimal';
+  border_width: number;
+  border_color: string;
+  background_opacity: number;
+  font_style: 'normal' | 'mono' | 'serif';
+  letter_spacing: number;
+}
+
+export const DEFAULT_BLOCK_STYLE: BlockStyleConfig = {
+  variant: 'filled',
+  border_width: 0,
+  border_color: '',
+  background_opacity: 1,
+  font_style: 'normal',
+  letter_spacing: 0,
+};
+
 export interface ThemeJson {
   background: ThemeBackground;
   buttons: ThemeButtons;
