@@ -469,6 +469,22 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
     }
   };
 
+  // Get platform icon based on label
+  const getPlatformEmoji = (label: string): string => {
+    const lower = label.toLowerCase();
+    if (lower.includes('tiktok')) return '🎵';
+    if (lower.includes('instagram')) return '📸';
+    if (lower.includes('youtube')) return '▶️';
+    if (lower.includes('facebook')) return '👤';
+    if (lower.includes('snapchat')) return '👻';
+    if (lower.includes('twitch') || lower.includes('kick')) return '🎮';
+    if (lower.includes('discord')) return '💬';
+    if (lower.includes('twitter') || lower === 'x') return '𝕏';
+    if (lower.includes('spotify')) return '🎧';
+    if (lower.includes('apple')) return '🍎';
+    return '🔗';
+  };
+
   return (
     <div className="flex flex-wrap justify-center gap-3">
       {block.items.map((item) => (
@@ -477,14 +493,18 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-11 w-11 rounded-full transition-colors relative"
+          className="flex items-center justify-center h-11 w-11 rounded-full transition-colors relative overflow-hidden"
           style={{
             backgroundColor: `${theme.buttons.fill_color}20`,
           }}
           title={item.label}
           onClick={(e) => handleClick(e, item)}
         >
-          <Share2 className="h-5 w-5" style={{ color: theme.typography.text_color }} />
+          {item.image_url ? (
+            <img src={item.image_url} alt={item.label} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-lg">{getPlatformEmoji(item.label)}</span>
+          )}
           {item.is_adult && (
             <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
               <span className="text-[8px] font-bold text-white">18</span>
@@ -539,7 +559,7 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
         >
           <motion.div
             whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-between transition-colors"
+            className="flex items-center gap-3 transition-colors"
             style={{
               backgroundColor: `${theme.buttons.fill_color}15`,
               borderRadius: getButtonRadius(),
@@ -547,6 +567,18 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
               border: theme.buttons.border_enabled ? `1px solid ${theme.buttons.border_color}40` : '1px solid rgba(255,255,255,0.1)',
             }}
           >
+            {/* Thumbnail */}
+            {item.image_url && (
+              <div className="flex-shrink-0">
+                <div 
+                  className="h-10 w-10 rounded-full overflow-hidden bg-white/10"
+                  style={{ border: `1px solid ${theme.buttons.fill_color}30` }}
+                >
+                  <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            )}
+            
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium truncate" style={{ color: theme.typography.text_color }}>{item.label}</p>
@@ -569,6 +601,8 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
                 <p className="text-xs truncate mt-0.5 opacity-60" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
               )}
             </div>
+            
+            <ExternalLink className="h-4 w-4 flex-shrink-0 ml-2 opacity-50" style={{ color: theme.typography.text_color }} />
             <ExternalLink className="h-4 w-4 flex-shrink-0 ml-2 opacity-50" style={{ color: theme.typography.text_color }} />
           </motion.div>
         </a>
