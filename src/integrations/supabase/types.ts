@@ -343,6 +343,33 @@ export type Database = {
           },
         ]
       }
+      pending_canva_auth: {
+        Row: {
+          code_verifier: string
+          created_at: string
+          expires_at: string
+          id: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          code_verifier: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          code_verifier?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
