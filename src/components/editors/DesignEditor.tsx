@@ -7,7 +7,16 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
@@ -36,6 +45,78 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('background');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Custom presets state
+  const [customPresets, setCustomPresets] = useState<Array<{ id: string; name: string; theme_json: unknown }>>([]);
+  const [loadingPresets, setLoadingPresets] = useState(true);
+  const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [savingPreset, setSavingPreset] = useState(false);
+
+  // Fetch custom presets
+  const fetchCustomPresets = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('custom_theme_presets')
+        .select('id, name, theme_json')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setCustomPresets(data || []);
+    } catch (error) {
+      console.error('Error fetching custom presets:', error);
+    } finally {
+      setLoadingPresets(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomPresets();
+  }, [user]);
+
+  const saveCustomPreset = async () => {
+    if (!user || !newPresetName.trim()) return;
+    
+    setSavingPreset(true);
+    try {
+      const { error } = await supabase
+        .from('custom_theme_presets')
+        .insert({
+          user_id: user.id,
+          name: newPresetName.trim(),
+          theme_json: JSON.parse(JSON.stringify(theme)),
+        });
+      
+      if (error) throw error;
+      toast.success('Preset saved!');
+      setSavePresetOpen(false);
+      setNewPresetName('');
+      fetchCustomPresets();
+    } catch (error) {
+      console.error('Error saving preset:', error);
+      toast.error('Failed to save preset');
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  const deleteCustomPreset = async (presetId: string) => {
+    try {
+      const { error } = await supabase
+        .from('custom_theme_presets')
+        .delete()
+        .eq('id', presetId);
+      
+      if (error) throw error;
+      toast.success('Preset deleted');
+      fetchCustomPresets();
+    } catch (error) {
+      console.error('Error deleting preset:', error);
+      toast.error('Failed to delete preset');
+    }
+  };
 
   useEffect(() => {
     setTheme(getThemeWithDefaults(themeJson));
@@ -156,7 +237,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         <CardContent>
           {/* Theme Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
-            <Label className="text-sm font-medium mb-3 block">Quick Start Presets</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-medium">Quick Start Presets</Label>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {THEME_PRESETS.map((preset) => (
                 <button
@@ -200,6 +283,132 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Custom Presets Section */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Bookmark className="h-4 w-4" />
+                My Saved Presets
+              </Label>
+              <Dialog open={savePresetOpen} onOpenChange={setSavePresetOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
+                    <Plus className="h-3 w-3" />
+                    Save Current
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[400px]">
+                  <DialogHeader>
+                    <DialogTitle>Save Theme Preset</DialogTitle>
+                    <DialogDescription>
+                      Save your current theme settings as a reusable preset.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Label htmlFor="preset-name" className="text-sm font-medium">
+                      Preset Name
+                    </Label>
+                    <Input
+                      id="preset-name"
+                      value={newPresetName}
+                      onChange={(e) => setNewPresetName(e.target.value)}
+                      placeholder="e.g., My Brand Theme"
+                      className="mt-2"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSavePresetOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={saveCustomPreset}
+                      disabled={!newPresetName.trim() || savingPreset}
+                    >
+                      {savingPreset ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Save Preset
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {loadingPresets ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : customPresets.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No saved presets yet. Customize your theme and save it!
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {customPresets.map((preset) => {
+                  const presetTheme = getThemeWithDefaults(preset.theme_json);
+                  return (
+                    <div
+                      key={preset.id}
+                      className="relative p-3 rounded-lg border border-border hover:border-primary/50 transition-all text-left group"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setTheme(presetTheme)}
+                        className="w-full text-left"
+                      >
+                        {/* Mini preview */}
+                        <div
+                          className="h-12 rounded-md mb-2 overflow-hidden"
+                          style={{
+                            background:
+                              presetTheme.background.type === 'solid'
+                                ? presetTheme.background.solid_color
+                                : presetTheme.background.type === 'gradient'
+                                ? presetTheme.background.gradient_css
+                                : '#1a1a2e',
+                          }}
+                        >
+                          <div className="flex items-center justify-center h-full gap-1 px-2">
+                            {[1, 2].map((i) => (
+                              <div
+                                key={i}
+                                className="h-3 flex-1 rounded-full"
+                                style={{
+                                  backgroundColor: presetTheme.buttons.fill_color,
+                                  borderRadius:
+                                    presetTheme.buttons.shape === 'pill'
+                                      ? '9999px'
+                                      : presetTheme.buttons.shape === 'rounded'
+                                      ? '4px'
+                                      : '2px',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-foreground">{preset.name}</span>
+                      </button>
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteCustomPreset(preset.id);
+                        }}
+                        className="absolute top-2 right-2 p-1 rounded-md bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/20"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
