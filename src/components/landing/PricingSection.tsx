@@ -3,14 +3,17 @@ import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useState } from 'react';
 
 export function PricingSection() {
   const { t } = useLanguage();
+  const [isAnnual, setIsAnnual] = useState(false);
 
   const plans = [
     {
       name: t('pricing.free'),
-      price: '$0',
+      monthlyPrice: '$0',
+      annualPrice: '$0',
       period: t('pricing.free.period'),
       description: t('pricing.free.desc'),
       features: [
@@ -25,8 +28,9 @@ export function PricingSection() {
     },
     {
       name: t('pricing.pro'),
-      price: '$9',
-      period: t('pricing.pro.period'),
+      monthlyPrice: '$8',
+      annualPrice: '$5',
+      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
       description: t('pricing.pro.desc'),
       features: [
         'Everything in Free',
@@ -41,10 +45,11 @@ export function PricingSection() {
       popular: true
     },
     {
-      name: t('pricing.business'),
-      price: '$29',
-      period: t('pricing.business.period'),
-      description: t('pricing.business.desc'),
+      name: t('pricing.premium'),
+      monthlyPrice: '$30',
+      annualPrice: '$25',
+      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
+      description: t('pricing.premium.desc'),
       features: [
         'Everything in Pro',
         'Team collaboration',
@@ -54,7 +59,7 @@ export function PricingSection() {
         'Dedicated support',
         'SLA guarantee'
       ],
-      cta: t('pricing.cta.business'),
+      cta: t('pricing.cta.premium'),
       popular: false
     }
   ];
@@ -72,9 +77,36 @@ export function PricingSection() {
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             {t('pricing.title')} <span className="italic gradient-text">{t('pricing.title2')}</span> {t('pricing.title3')}
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
             {t('pricing.subtitle')}
           </p>
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-4">
+            <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {t('pricing.monthly')}
+            </span>
+            <button
+              onClick={() => setIsAnnual(!isAnnual)}
+              className={`relative w-14 h-7 rounded-full transition-colors ${
+                isAnnual ? 'bg-primary' : 'bg-muted'
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-background transition-transform ${
+                  isAnnual ? 'translate-x-7' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {t('pricing.annual')}
+            </span>
+            {isAnnual && (
+              <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full gradient-gold text-primary-foreground">
+                {t('pricing.save')}
+              </span>
+            )}
+          </div>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8">
@@ -99,7 +131,9 @@ export function PricingSection() {
 
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-4xl font-bold">{plan.price}</span>
+                <span className="text-4xl font-bold">
+                  {isAnnual ? plan.annualPrice : plan.monthlyPrice}
+                </span>
                 <span className="text-muted-foreground">{plan.period}</span>
               </div>
               <p className="text-muted-foreground mb-6">{plan.description}</p>
