@@ -278,10 +278,29 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     updateBackground({ image_url: '' }, true);
   };
 
-  const connectToCanva = () => {
-    // Full page navigation at top-level context (handles iframe scenarios)
-    if (window.top) window.top.location.href = '/api/canva/connect';
-    else window.location.href = '/api/canva/connect';
+  const connectToCanva = async () => {
+    try {
+      // Call the edge function to get the Canva auth URL while we still have the session
+      const { data, error } = await supabase.functions.invoke('canva-connect', {
+        body: { redirectOrigin: window.location.origin }
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to connect to Canva");
+        return;
+      }
+
+      if (data?.authUrl) {
+        // Navigate to Canva at the top-level context
+        if (window.top) window.top.location.href = data.authUrl;
+        else window.location.href = data.authUrl;
+      } else {
+        toast.error("No authorization URL received");
+      }
+    } catch (err) {
+      console.error('Error initiating Canva connect:', err);
+      toast.error("Failed to initiate Canva connection");
+    }
   };
 
   return (
