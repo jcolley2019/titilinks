@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Palette, BarChart2, Layers, Zap, Shield } from 'lucide-react';
+import { Palette, BarChart2, Layers, Zap, Shield, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export function FeaturesSection() {
@@ -30,6 +30,11 @@ export function FeaturesSection() {
       icon: Shield,
       title: t('features.privacy.title'),
       description: t('features.privacy.desc')
+    },
+    {
+      icon: Sparkles,
+      title: t('features.builder.title'),
+      description: t('features.builder.desc')
     }
   ];
 
