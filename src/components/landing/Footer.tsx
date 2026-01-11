@@ -92,7 +92,7 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-border gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} TitiLINKS. {t('footer.copyright')}
+            © {new Date().getFullYear()} <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span>. {t('footer.copyright')}
           </p>
           <p className="text-sm text-muted-foreground">
             {t('footer.made')}

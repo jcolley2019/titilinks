@@ -326,7 +326,7 @@ export default function PublicProfile() {
         {/* Footer - extra padding for sticky CTA */}
         <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
           <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
-            Powered by <span className="font-semibold">TitiLINKS</span>
+            Powered by <span className="font-semibold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
           </p>
         </footer>
       </div>
