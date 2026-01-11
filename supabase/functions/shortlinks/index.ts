@@ -14,10 +14,32 @@ function generateCode(length = 7): string {
   return result;
 }
 
+// Dangerous URL schemes that could enable XSS or phishing attacks
+const BLOCKED_SCHEMES = ["javascript:", "data:", "file:", "vbscript:", "blob:"];
+
 function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    
+    // Only allow http and https protocols
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+    
+    // Block dangerous schemes that might be disguised
+    const lowerUrl = url.toLowerCase().trim();
+    for (const scheme of BLOCKED_SCHEMES) {
+      if (lowerUrl.startsWith(scheme)) {
+        return false;
+      }
+    }
+    
+    // Block URLs with embedded credentials (potential phishing)
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+    
+    return true;
   } catch {
     return false;
   }
