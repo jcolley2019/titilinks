@@ -39,6 +39,7 @@ export function LinkButton({
   const borderEnabled = theme?.buttons?.border_enabled ?? defaultStyles.borderEnabled;
   const borderColor = theme?.buttons?.border_color || defaultStyles.borderColor;
   const shadowEnabled = theme?.buttons?.shadow_enabled ?? defaultStyles.shadowEnabled;
+  const motionEnabled = theme?.motion?.enabled ?? true;
 
   const getButtonRadius = () => {
     switch (shape) {
@@ -59,17 +60,18 @@ export function LinkButton({
         'w-full flex items-center gap-3',
         // Pill by default
         'rounded-full',
-        // Press/tap feedback
-        'active:scale-[0.99] transition-transform duration-100 ease-out',
-        // Hover state for desktop
-        'hover:shadow-md hover:-translate-y-[1px]',
-        // Focus ring
+        // Focus ring (always on)
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
         // Prevent layout shift
         'transform-gpu will-change-transform',
         // Backdrop blur for glass effect
         'backdrop-blur-sm',
-        // Reduced motion: disable animations
+        // Microinteractions (when motion enabled)
+        motionEnabled && [
+          'active:scale-[0.99] transition-transform duration-100 ease-out',
+          'hover:shadow-md hover:-translate-y-[1px]',
+        ],
+        // Reduced motion: always disable animations regardless of theme setting
         'motion-reduce:transition-none motion-reduce:transform-none',
         'motion-reduce:hover:transform-none motion-reduce:active:transform-none',
         className

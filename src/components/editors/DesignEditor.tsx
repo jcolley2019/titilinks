@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -409,6 +409,31 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 })}
               </div>
             )}
+          </div>
+
+          {/* Microinteractions Toggle */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Microinteractions</Label>
+                  <p className="text-xs text-muted-foreground">Hover lift & press animations</p>
+                </div>
+              </div>
+              <Switch
+                checked={theme.motion.enabled}
+                onCheckedChange={(checked) => setTheme(prev => ({
+                  ...prev,
+                  motion: { ...prev.motion, enabled: checked }
+                }))}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Users with "reduce motion" enabled in their device settings will not see animations regardless of this setting.
+            </p>
           </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
