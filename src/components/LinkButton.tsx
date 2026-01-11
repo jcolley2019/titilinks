@@ -82,10 +82,10 @@ export function LinkButton({
         boxShadow: shadowEnabled ? '0 4px 14px rgba(0,0,0,0.15)' : 'none',
       }}
     >
-      {/* Left content: icon or thumbnail */}
+      {/* Left content: icon or thumbnail - fixed h-12 w-12 to prevent CLS */}
       {hasLeftContent && (
         <div 
-          className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden flex items-center justify-center"
+          className="flex-shrink-0 h-12 w-12 rounded-full overflow-hidden flex items-center justify-center"
           style={{
             backgroundColor: leftThumbnail ? 'transparent' : `${textColor}10`,
           }}
@@ -94,7 +94,7 @@ export function LinkButton({
             <img 
               src={leftThumbnail} 
               alt="" 
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
