@@ -385,6 +385,8 @@ function BlockRenderer({ block, onOutboundClick, theme }: BlockRendererProps) {
       return <FeaturedMediaBlock {...blockProps} />;
     case 'hero_card':
       return <HeroCardBlock {...blockProps} />;
+    case 'social_icon_row':
+      return <SocialIconRowBlock {...blockProps} />;
     default:
       return null;
   }
@@ -792,6 +794,101 @@ function HeroCardBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// Social Icon Row - icons only, no labels
+function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+  if (block.items.length === 0) return null;
+
+  // Parse config from block title
+  let config = {
+    icon_size: 'md' as 'sm' | 'md' | 'lg',
+    spacing: 'normal' as 'tight' | 'normal' | 'loose',
+    use_theme_color: true,
+    custom_color: '#ffffff',
+  };
+
+  if (block.title) {
+    try {
+      const parsed = JSON.parse(block.title);
+      config = { ...config, ...parsed };
+    } catch {
+      // Use defaults
+    }
+  }
+
+  const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
+  };
+
+  // Get icon based on label
+  const getIcon = (label: string): string => {
+    const lower = label.toLowerCase();
+    if (lower.includes('tiktok')) return '🎵';
+    if (lower.includes('instagram')) return '📸';
+    if (lower.includes('youtube')) return '▶️';
+    if (lower.includes('facebook')) return '👤';
+    if (lower.includes('snapchat')) return '👻';
+    if (lower.includes('twitch') || lower.includes('kick')) return '🎮';
+    if (lower.includes('discord')) return '💬';
+    if (lower.includes('twitter') || lower === 'x') return '𝕏';
+    if (lower.includes('spotify')) return '🎧';
+    if (lower.includes('apple')) return '🍎';
+    if (lower.includes('linkedin')) return '💼';
+    if (lower.includes('pinterest')) return '📌';
+    if (lower.includes('threads')) return '🧵';
+    if (lower.includes('whatsapp')) return '💬';
+    if (lower.includes('telegram')) return '✈️';
+    return '🔗';
+  };
+
+  const getSize = () => {
+    switch (config.icon_size) {
+      case 'sm': return { container: 'h-11 w-11', icon: 'text-lg' };
+      case 'md': return { container: 'h-12 w-12', icon: 'text-xl' };
+      case 'lg': return { container: 'h-14 w-14', icon: 'text-2xl' };
+    }
+  };
+
+  const getGap = () => {
+    switch (config.spacing) {
+      case 'tight': return 'gap-2';
+      case 'normal': return 'gap-3';
+      case 'loose': return 'gap-4';
+    }
+  };
+
+  const size = getSize();
+  const bgColor = config.use_theme_color 
+    ? `${theme.buttons.fill_color}20` 
+    : `${config.custom_color}20`;
+
+  return (
+    <div className={`flex flex-wrap justify-center ${getGap()}`}>
+      {block.items.map((item) => (
+        <motion.a
+          key={item.id}
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          whileTap={{ scale: 0.95 }}
+          className={`${size.container} rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 motion-reduce:transform-none`}
+          style={{ backgroundColor: bgColor }}
+          title={item.label}
+          onClick={(e) => handleClick(e, item)}
+        >
+          {item.image_url ? (
+            <ThumbnailImage src={item.image_url} alt={item.label} />
+          ) : (
+            <span className={size.icon}>{getIcon(item.label)}</span>
+          )}
+        </motion.a>
+      ))}
+    </div>
   );
 }
 
