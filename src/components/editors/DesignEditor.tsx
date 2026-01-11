@@ -58,7 +58,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   // Canva connection state
   const [canvaError, setCanvaError] = useState<'mfa' | 'generic' | null>(null);
-  const [canvaConnecting, setCanvaConnecting] = useState(false);
   const [canvaConnected, setCanvaConnected] = useState(false);
   const [canvaLoading, setCanvaLoading] = useState(true);
   const navigate = useNavigate();
@@ -279,31 +278,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     updateBackground({ image_url: '' }, true);
   };
 
-  const connectToCanva = async () => {
-    setCanvaConnecting(true);
-    setCanvaError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('canva-connect');
-      if (error) {
-        // Check if error indicates MFA requirement
-        const errorMessage = error.message?.toLowerCase() || '';
-        if (errorMessage.includes('mfa') || errorMessage.includes('multi-factor') || errorMessage.includes('2fa')) {
-          setCanvaError('mfa');
-        } else {
-          setCanvaError('generic');
-        }
-        return;
-      }
-      // If successful, redirect to Canva OAuth
-      if (data?.authUrl) {
-        window.location.href = data.authUrl;
-      }
-    } catch (err) {
-      console.error('Canva connection error:', err);
-      setCanvaError('generic');
-    } finally {
-      setCanvaConnecting(false);
-    }
+  const connectToCanva = () => {
+    // Full page navigation - no iframes, modals, or fetch
+    window.location.assign('/api/canva/connect');
   };
 
   return (
@@ -379,13 +356,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   variant="outline" 
                   className="w-full justify-start gap-2 h-auto py-3"
                   onClick={connectToCanva}
-                  disabled={canvaConnecting}
                 >
-                  {canvaConnecting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Image className="h-4 w-4 text-primary" />
-                  )}
+                  <Image className="h-4 w-4 text-primary" />
                   <div className="text-left">
                     <div className="text-sm font-medium">Connect Canva</div>
                     <div className="text-xs text-muted-foreground">Design headers</div>
@@ -695,14 +667,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   variant="outline" 
                   size="sm" 
                   onClick={connectToCanva}
-                  disabled={canvaConnecting}
                   className="w-full gap-2"
                 >
-                  {canvaConnecting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
+                  <RefreshCw className="h-4 w-4" />
                   Retry
                 </Button>
               </div>
