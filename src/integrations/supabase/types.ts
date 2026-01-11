@@ -202,6 +202,38 @@ export type Database = {
           },
         ]
       }
+      page_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          page_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name?: string | null
+          page_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_subscribers_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pages: {
         Row: {
           avatar_url: string | null
@@ -351,6 +383,10 @@ export type Database = {
         Returns: {
           destination_url: string
         }[]
+      }
+      subscribe_to_page: {
+        Args: { p_email: string; p_name?: string; p_page_id: string }
+        Returns: Json
       }
     }
     Enums: {
