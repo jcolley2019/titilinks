@@ -438,7 +438,7 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-11 w-11 rounded-full transition-colors relative overflow-hidden"
+          className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full transition-colors relative overflow-hidden"
           style={{
             backgroundColor: `${theme.buttons.fill_color}20`,
           }}
@@ -446,7 +446,7 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
-            <img src={item.image_url} alt={item.label} className="w-full h-full object-cover" />
+            <img src={item.image_url} alt={item.label} className="h-full w-full object-cover" />
           ) : (
             <span className="text-lg">{getPlatformEmoji(item.label)}</span>
           )}
