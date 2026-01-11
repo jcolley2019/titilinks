@@ -57,7 +57,7 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section className="py-24 px-4">
+    <section id="pricing" className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -67,7 +67,7 @@ export function PricingSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Simple, transparent pricing
+            Simple, <span className="italic gradient-text">transparent</span> pricing
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Start free and scale as you grow. No hidden fees.
@@ -84,12 +84,12 @@ export function PricingSection() {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className={`relative p-8 rounded-2xl border ${
                 plan.popular 
-                  ? 'border-primary bg-gradient-to-b from-primary/10 to-card' 
+                  ? 'border-primary/50 bg-card glow-gold' 
                   : 'border-border bg-card'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium">
                   Most Popular
                 </div>
               )}
@@ -113,7 +113,7 @@ export function PricingSection() {
               <Button
                 asChild
                 className={`w-full rounded-full ${
-                  plan.popular ? 'gradient-primary' : ''
+                  plan.popular ? 'gradient-gold text-primary-foreground' : ''
                 }`}
                 variant={plan.popular ? 'default' : 'outline'}
               >

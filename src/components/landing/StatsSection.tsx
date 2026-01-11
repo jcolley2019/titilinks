@@ -10,7 +10,7 @@ export function StatsSection() {
   return (
     <section className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
-        <div className="rounded-3xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-border p-12">
+        <div className="rounded-3xl bg-card border border-primary/20 p-12 glow-gold">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -19,7 +19,7 @@ export function StatsSection() {
             className="text-center mb-12"
           >
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Results that speak
+              Results that <span className="italic gradient-text">speak</span>
             </h2>
             <p className="text-muted-foreground text-lg">
               Real numbers from real creators

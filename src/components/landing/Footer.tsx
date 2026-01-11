@@ -29,9 +29,9 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { label: 'Twitter', emoji: '🐦', href: '#' },
+  { label: 'Twitter', emoji: '𝕏', href: '#' },
   { label: 'Instagram', emoji: '📸', href: '#' },
-  { label: 'TikTok', emoji: '📱', href: '#' },
+  { label: 'TikTok', emoji: '🎵', href: '#' },
   { label: 'Discord', emoji: '💬', href: '#' },
 ];
 
@@ -43,10 +43,12 @@ export function Footer() {
           {/* Logo and tagline */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl gradient-primary">
-                <Link2 className="h-5 w-5 text-primary-foreground" />
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                <Link2 className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-xl font-bold">TitiLINKS</span>
+              <span className="text-xl font-bold">
+                Titi<span className="italic text-primary">Links</span>
+              </span>
             </Link>
             <p className="text-muted-foreground mb-4">
               The link-in-bio for creators who sell. Turn clicks into customers.
@@ -56,7 +58,7 @@ export function Footer() {
                 <a
                   key={social.label}
                   href={social.href}
-                  className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+                  className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center hover:border-primary/30 transition-colors"
                   aria-label={social.label}
                 >
                   <span className="text-lg">{social.emoji}</span>
@@ -68,7 +70,7 @@ export function Footer() {
           {/* Links */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="font-semibold mb-4">{category}</h4>
+              <h4 className="font-semibold mb-4 text-primary">{category}</h4>
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.label}>
@@ -90,7 +92,7 @@ export function Footer() {
             © {new Date().getFullYear()} TitiLINKS. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground">
-            Made with ❤️ for creators everywhere
+            Made with ✨ for creators everywhere
           </p>
         </div>
       </div>

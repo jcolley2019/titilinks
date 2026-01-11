@@ -22,39 +22,41 @@ export function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.5 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-background/80 backdrop-blur-lg border-b border-border' : ''
+        isScrolled ? 'bg-background/90 backdrop-blur-lg border-b border-border' : ''
       }`}
     >
       <div className="container max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="p-2 rounded-xl gradient-primary">
-              <Link2 className="h-5 w-5 text-primary-foreground" />
+            <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+              <Link2 className="h-5 w-5 text-primary" />
             </div>
-            <span className="text-xl font-bold">TitiLINKS</span>
+            <span className="text-xl font-bold">
+              Titi<span className="italic text-primary">Links</span>
+            </span>
           </Link>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
-              Features
+              Products
+            </a>
+            <a href="#demo" className="text-muted-foreground hover:text-foreground transition-colors">
+              Templates
             </a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               Pricing
-            </a>
-            <a href="#demo" className="text-muted-foreground hover:text-foreground transition-colors">
-              Demo
             </a>
           </div>
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Button asChild variant="ghost">
-              <Link to="/login">Sign In</Link>
+            <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground">
+              <Link to="/login">Log in</Link>
             </Button>
-            <Button asChild className="gradient-primary rounded-full">
-              <Link to="/login">Get Started</Link>
+            <Button asChild className="gradient-gold text-primary-foreground rounded-full px-6">
+              <Link to="/login">Sign up free</Link>
             </Button>
           </div>
 
@@ -86,7 +88,14 @@ export function Navbar() {
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Features
+                Products
+              </a>
+              <a 
+                href="#demo" 
+                className="text-muted-foreground hover:text-foreground transition-colors py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Templates
               </a>
               <a 
                 href="#pricing" 
@@ -95,19 +104,12 @@ export function Navbar() {
               >
                 Pricing
               </a>
-              <a 
-                href="#demo" 
-                className="text-muted-foreground hover:text-foreground transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Demo
-              </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/login">Sign In</Link>
+                  <Link to="/login">Log in</Link>
                 </Button>
-                <Button asChild className="w-full gradient-primary">
-                  <Link to="/login">Get Started</Link>
+                <Button asChild className="w-full gradient-gold text-primary-foreground">
+                  <Link to="/login">Sign up free</Link>
                 </Button>
               </div>
             </div>

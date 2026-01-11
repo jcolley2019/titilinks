@@ -5,18 +5,18 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 
 export function CTASection() {
   return (
-    <section className="py-24 px-4 bg-muted/30">
+    <section className="py-24 px-4">
       <div className="container max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="relative rounded-3xl bg-gradient-to-br from-primary/20 via-card to-accent/20 border border-border p-12 text-center overflow-hidden"
+          className="relative rounded-3xl bg-card border border-primary/20 p-12 text-center overflow-hidden glow-gold"
         >
           {/* Background decoration */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
           
           <div className="relative z-10">
             <motion.div
@@ -31,7 +31,7 @@ export function CTASection() {
             </motion.div>
 
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
-              Ready to level up your bio?
+              Ready to <span className="italic gradient-text">level up</span> your bio?
             </h2>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
               Join thousands of creators who've already made the switch. 
@@ -39,13 +39,13 @@ export function CTASection() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild size="lg" className="gradient-primary text-lg px-8 h-14 rounded-full">
+              <Button asChild size="lg" className="gradient-gold text-primary-foreground text-lg px-8 h-14 rounded-full">
                 <Link to="/login">
-                  Get Started Free
+                  Start Free Today
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="text-lg px-8 h-14 rounded-full">
+              <Button asChild variant="outline" size="lg" className="text-lg px-8 h-14 rounded-full border-primary/30">
                 <a href="#demo">Watch Demo</a>
               </Button>
             </div>
