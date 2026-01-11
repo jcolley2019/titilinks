@@ -349,6 +349,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          redirect_origin: string | null
           state: string
           user_id: string
         }
@@ -357,6 +358,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          redirect_origin?: string | null
           state: string
           user_id: string
         }
@@ -365,6 +367,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          redirect_origin?: string | null
           state?: string
           user_id?: string
         }

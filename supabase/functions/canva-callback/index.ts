@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// App base URL for redirects back to frontend
-const APP_BASE_URL = "https://titilinks.lovable.app";
+// Default fallback URL for redirects
+const DEFAULT_APP_URL = "https://titilinks.lovable.app";
 
 Deno.serve(async (req) => {
   try {
@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
     // Handle OAuth errors from Canva
     if (error) {
       console.error("Canva OAuth error:", error, errorDescription);
-      const errorRedirect = `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent(errorDescription || error)}`;
+      const errorRedirect = `${DEFAULT_APP_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent(errorDescription || error)}`;
       return new Response(null, {
         status: 302,
         headers: { Location: errorRedirect },
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       console.error("Missing code or state parameter");
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=Missing+authorization+code` },
+        headers: { Location: `${DEFAULT_APP_URL}/dashboard/editor?tab=design&canva=error&message=Missing+authorization+code` },
       });
     }
 
@@ -47,9 +47,12 @@ Deno.serve(async (req) => {
       console.error("State lookup failed:", lookupError);
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=Invalid+or+expired+state` },
+        headers: { Location: `${DEFAULT_APP_URL}/dashboard/editor?tab=design&canva=error&message=Invalid+or+expired+state` },
       });
     }
+
+    // Get the redirect origin from the pending auth record
+    const appBaseUrl = pendingAuth.redirect_origin || DEFAULT_APP_URL;
 
     // Check if expired
     if (new Date(pendingAuth.expires_at) < new Date()) {
@@ -57,7 +60,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("pending_canva_auth").delete().eq("id", pendingAuth.id);
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=Session+expired` },
+        headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=error&message=Session+expired` },
       });
     }
 
@@ -74,7 +77,7 @@ Deno.serve(async (req) => {
       console.error("Missing Canva credentials");
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=Canva+not+configured` },
+        headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=error&message=Canva+not+configured` },
       });
     }
 
@@ -102,13 +105,13 @@ Deno.serve(async (req) => {
       if (errorBody.toLowerCase().includes("mfa") || errorBody.toLowerCase().includes("multi-factor")) {
         return new Response(null, {
           status: 302,
-          headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=MFA+required` },
+          headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=error&message=MFA+required` },
         });
       }
       
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent("Token exchange failed")}` },
+        headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent("Token exchange failed")}` },
       });
     }
 
@@ -133,7 +136,7 @@ Deno.serve(async (req) => {
       console.error("Error storing tokens:", upsertError);
       return new Response(null, {
         status: 302,
-        headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent("Failed to store connection")}` },
+        headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent("Failed to store connection")}` },
       });
     }
 
@@ -145,7 +148,7 @@ Deno.serve(async (req) => {
     // Redirect to success
     return new Response(null, {
       status: 302,
-      headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=connected` },
+      headers: { Location: `${appBaseUrl}/dashboard/editor?tab=design&canva=connected` },
     });
 
   } catch (error: unknown) {
@@ -153,7 +156,7 @@ Deno.serve(async (req) => {
     const message = error instanceof Error ? error.message : "Internal server error";
     return new Response(null, {
       status: 302,
-      headers: { Location: `${APP_BASE_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent(message)}` },
+      headers: { Location: `${DEFAULT_APP_URL}/dashboard/editor?tab=design&canva=error&message=${encodeURIComponent(message)}` },
     });
   }
 });
