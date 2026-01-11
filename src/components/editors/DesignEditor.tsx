@@ -321,38 +321,113 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           </Button>
         </CardHeader>
         <CardContent>
-          {/* Template Gallery Section */}
-          <Collapsible defaultOpen className="mb-6 pb-6 border-b border-border">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <LayoutTemplate className="h-4 w-4 text-primary" />
-                  <Label className="text-sm font-medium cursor-pointer">Template Gallery</Label>
+          {/* Design Tools Section */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <Label className="text-sm font-medium mb-3 block">Design Tools</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Template Gallery Button */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
+                    <LayoutTemplate className="h-4 w-4 text-primary" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Template Gallery</div>
+                      <div className="text-xs text-muted-foreground">Browse templates</div>
+                    </div>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4 col-span-2">
+                  <TemplateGallery 
+                    pageId={pageId} 
+                    onApply={() => {
+                      const fetchTheme = async () => {
+                        const { data } = await supabase
+                          .from('pages')
+                          .select('theme_json')
+                          .eq('id', pageId)
+                          .single();
+                        if (data) {
+                          setTheme(getThemeWithDefaults(data.theme_json));
+                        }
+                      };
+                      fetchTheme();
+                      onUpdate();
+                    }} 
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Connect Canva Button */}
+              {canvaLoading ? (
+                <Button variant="outline" disabled className="w-full justify-start gap-2 h-auto py-3">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Canva</div>
+                    <div className="text-xs text-muted-foreground">Loading...</div>
+                  </div>
+                </Button>
+              ) : canvaConnected ? (
+                <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-green-600">Canva Connected</div>
+                    <div className="text-xs text-muted-foreground">Design in Canva</div>
+                  </div>
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2 h-auto py-3"
+                  onClick={connectToCanva}
+                  disabled={canvaConnecting}
+                >
+                  {canvaConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Image className="h-4 w-4 text-primary" />
+                  )}
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Connect Canva</div>
+                    <div className="text-xs text-muted-foreground">Design headers</div>
+                  </div>
+                </Button>
+              )}
+            </div>
+
+            {/* Canva Error Dialog */}
+            {canvaError && (
+              <div className="mt-3 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="flex-1">
+                    {canvaError === 'mfa' ? (
+                      <>
+                        <p className="text-sm font-medium text-destructive">MFA Required</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Your Canva account requires Multi-Factor Authentication. Please disable MFA temporarily or use a different account.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-destructive">Connection Failed</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Failed to connect to Canva. Please try again.
+                        </p>
+                      </>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2 h-7 text-xs"
+                      onClick={() => setCanvaError(null)}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">Click to expand</span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4">
-              <TemplateGallery 
-                pageId={pageId} 
-                onApply={() => {
-                  // Refresh theme after applying template
-                  const fetchTheme = async () => {
-                    const { data } = await supabase
-                      .from('pages')
-                      .select('theme_json')
-                      .eq('id', pageId)
-                      .single();
-                    if (data) {
-                      setTheme(getThemeWithDefaults(data.theme_json));
-                    }
-                  };
-                  fetchTheme();
-                  onUpdate();
-                }} 
-              />
-            </CollapsibleContent>
-          </Collapsible>
+              </div>
+            )}
+          </div>
 
           {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
