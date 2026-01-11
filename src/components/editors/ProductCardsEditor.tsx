@@ -44,6 +44,9 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
+import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
+
+const MAX_ITEMS = ITEM_CAPS.product_cards;
 
 type BlockItem = Tables<'block_items'>;
 
@@ -87,8 +90,9 @@ function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image must be less than 5MB');
+      const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+      if (!validation.valid) {
+        toast.error(validation.error);
         return;
       }
       onImageChange(item.id, file);
@@ -190,7 +194,7 @@ function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -327,6 +331,10 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
   };
 
   const addProduct = () => {
+    if (items.length >= MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} products allowed`);
+      return;
+    }
     const newItem: ProductItem = {
       id: `new-${Date.now()}-${Math.random()}`,
       label: '',
@@ -383,16 +391,25 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
     const newErrors: Record<string, string> = {};
     let valid = true;
 
+    // Enforce item cap
+    if (items.length > MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} products allowed`);
+      return false;
+    }
+
     items.forEach((item) => {
       if (!item.label.trim()) {
         newErrors[item.id] = 'Label is required';
         valid = false;
-      } else if (!item.url.trim()) {
-        newErrors[item.id] = 'URL is required';
+      } else if (item.label.length > 100) {
+        newErrors[item.id] = 'Label must be less than 100 characters';
         valid = false;
-      } else if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) {
-        newErrors[item.id] = 'URL must include protocol (http:// or https://)';
-        valid = false;
+      } else {
+        const urlError = validateUrl(item.url);
+        if (urlError) {
+          newErrors[item.id] = urlError;
+          valid = false;
+        }
       }
     });
 

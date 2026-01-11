@@ -29,7 +29,10 @@ const formSchema = z.object({
   handle: z.string()
     .min(3, 'Handle must be at least 3 characters')
     .max(30, 'Handle must be less than 30 characters')
-    .regex(/^[a-z0-9_-]+$/, 'Handle can only contain lowercase letters, numbers, hyphens and underscores'),
+    .regex(/^[a-z0-9-]+$/, 'Handle can only contain lowercase letters, numbers, and hyphens')
+    .regex(/^[a-z]/, 'Handle must start with a letter')
+    .regex(/[a-z0-9]$/, 'Handle must end with a letter or number')
+    .refine((val) => !val.includes('--'), 'Handle cannot contain consecutive hyphens'),
   display_name: z.string()
     .min(1, 'Display name is required')
     .max(50, 'Display name must be less than 50 characters'),
@@ -63,11 +66,17 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
     },
   });
 
+  const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
         toast.error('Avatar must be less than 2MB');
+        return;
+      }
+      if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+        toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
         return;
       }
       setAvatarFile(file);
@@ -254,10 +263,11 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                       <Upload className="h-4 w-4" />
                       Upload Avatar
                     </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Max 2MB, JPEG/PNG/GIF/WebP</p>
                     <Input
                       id="avatar"
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png,.gif,.webp"
                       onChange={handleAvatarChange}
                       className="hidden"
                     />

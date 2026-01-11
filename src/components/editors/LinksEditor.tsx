@@ -41,6 +41,9 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
+import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+
+const MAX_ITEMS = ITEM_CAPS.links;
 
 type BlockItem = Tables<'block_items'>;
 
@@ -251,6 +254,10 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
   };
 
   const addLink = () => {
+    if (items.length >= MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} links allowed`);
+      return;
+    }
     const newItem: LinkItem = {
       id: `new-${Date.now()}-${Math.random()}`,
       label: '',
@@ -283,16 +290,25 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
     const newErrors: Record<string, string> = {};
     let valid = true;
 
+    // Enforce item cap
+    if (items.length > MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} links allowed`);
+      return false;
+    }
+
     items.forEach((item) => {
       if (!item.label.trim()) {
         newErrors[item.id] = 'Label is required';
         valid = false;
-      } else if (!item.url.trim()) {
-        newErrors[item.id] = 'URL is required';
+      } else if (item.label.length > 100) {
+        newErrors[item.id] = 'Label must be less than 100 characters';
         valid = false;
-      } else if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) {
-        newErrors[item.id] = 'URL must include protocol (http:// or https://)';
-        valid = false;
+      } else {
+        const urlError = validateUrl(item.url);
+        if (urlError) {
+          newErrors[item.id] = urlError;
+          valid = false;
+        }
       }
     });
 
