@@ -48,36 +48,45 @@ export function SolutionSection() {
             {/* Phone mockup with gold accent */}
             <div className="relative mx-auto w-72 h-[580px] bg-card rounded-[3rem] border-2 border-primary/20 shadow-2xl overflow-hidden glow-gold">
               {/* Notch */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-background rounded-b-2xl" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-background rounded-b-2xl z-20" />
               
               {/* Screen content */}
-              <div className="absolute inset-4 top-8 bg-background rounded-[2rem] flex flex-col items-center justify-center p-6">
-                {/* Avatar with gold ring */}
-                <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center mb-4">
-                  <span className="text-2xl font-bold text-primary">JD</span>
-                </div>
-                <div className="h-4 w-32 bg-foreground/20 rounded mb-1" />
-                <div className="h-3 w-40 bg-muted-foreground/30 rounded mb-6 text-center text-xs text-muted-foreground">
-                  Creator • Entrepreneur • Dreamer
+              <div className="absolute inset-4 top-8 bg-gradient-to-b from-amber-100 to-amber-50 rounded-[2rem] flex flex-col items-center overflow-hidden">
+                {/* Header image area */}
+                <div className="w-full h-44 bg-gradient-to-br from-amber-200 via-rose-100 to-sky-200 relative">
+                  {/* Decorative elements to simulate a photo background */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-amber-50/80" />
                 </div>
                 
-                {/* Mock buttons with colors */}
-                <div className="w-full space-y-3">
-                  <div className="w-full h-12 bg-gradient-to-r from-pink-500 to-rose-500 rounded-full flex items-center px-4 gap-3">
-                    <div className="w-6 h-6 rounded-full bg-white/20" />
-                    <span className="text-white text-sm font-medium">Follow on Instagram</span>
+                {/* Profile section - overlapping the header */}
+                <div className="relative -mt-12 flex flex-col items-center px-4 w-full">
+                  {/* Avatar with gold ring */}
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-rose-100 border-4 border-white shadow-lg flex items-center justify-center mb-2 overflow-hidden">
+                    <span className="text-2xl font-bold text-amber-700">✨</span>
                   </div>
-                  <div className="w-full h-12 bg-gradient-to-r from-gray-700 to-gray-800 rounded-full flex items-center px-4 gap-3">
-                    <div className="w-6 h-6 rounded-full bg-white/20" />
-                    <span className="text-white text-sm font-medium">Watch Latest Video</span>
-                  </div>
-                  <div className="w-full h-12 bg-gradient-to-r from-cyan-500 to-teal-500 rounded-full flex items-center px-4 gap-3">
-                    <div className="w-6 h-6 rounded-full bg-white/20" />
-                    <span className="text-white text-sm font-medium">Join the Conversation</span>
-                  </div>
-                  <div className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center px-4 gap-3">
-                    <div className="w-6 h-6 rounded-full bg-white/20" />
-                    <span className="text-white text-sm font-medium">Listen on Spotify</span>
+                  <h3 className="font-bold text-gray-800 text-lg">SoyCreadora 🥰</h3>
+                  <p className="text-xs text-gray-600 text-center mb-4">Welcome to my world ✨</p>
+                  
+                  {/* Link buttons with thumbnails - like the reference */}
+                  <div className="w-full space-y-2.5 px-1">
+                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-white text-lg">📸</div>
+                      <span className="text-gray-800 text-sm font-medium">Instagram</span>
+                    </div>
+                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center overflow-hidden">
+                        <span className="text-lg">💬</span>
+                      </div>
+                      <span className="text-gray-800 text-sm font-medium">Telegram VIP</span>
+                    </div>
+                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-lg">📱</div>
+                      <span className="text-gray-800 text-sm font-medium">Facebook</span>
+                    </div>
+                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center text-white text-lg">💚</div>
+                      <span className="text-gray-800 text-sm font-medium">WhatsApp</span>
+                    </div>
                   </div>
                 </div>
               </div>
