@@ -24,10 +24,15 @@ export interface ThemeTypography {
   text_color: string;
 }
 
+export interface ThemeMotion {
+  enabled: boolean;
+}
+
 export interface ThemeJson {
   background: ThemeBackground;
   buttons: ThemeButtons;
   typography: ThemeTypography;
+  motion: ThemeMotion;
 }
 
 export const DEFAULT_THEME: ThemeJson = {
@@ -51,6 +56,9 @@ export const DEFAULT_THEME: ThemeJson = {
   typography: {
     font: 'inter',
     text_color: '#ffffff',
+  },
+  motion: {
+    enabled: true,
   },
 };
 
@@ -88,6 +96,9 @@ export const THEME_PRESETS: ThemePreset[] = [
         font: 'inter',
         text_color: '#0f172a',
       },
+      motion: {
+        enabled: true,
+      },
     },
   },
   {
@@ -115,6 +126,9 @@ export const THEME_PRESETS: ThemePreset[] = [
       typography: {
         font: 'inter',
         text_color: '#ffffff',
+      },
+      motion: {
+        enabled: true,
       },
     },
   },
@@ -144,6 +158,9 @@ export const THEME_PRESETS: ThemePreset[] = [
         font: 'inter',
         text_color: '#ffffff',
       },
+      motion: {
+        enabled: true,
+      },
     },
   },
   {
@@ -172,6 +189,9 @@ export const THEME_PRESETS: ThemePreset[] = [
         font: 'inter',
         text_color: '#ffffff',
       },
+      motion: {
+        enabled: true,
+      },
     },
   },
 ];
@@ -195,6 +215,10 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
     typography: {
       ...DEFAULT_THEME.typography,
       ...(parsed.typography || {}),
+    },
+    motion: {
+      ...DEFAULT_THEME.motion,
+      ...(parsed.motion || {}),
     },
   };
 }
