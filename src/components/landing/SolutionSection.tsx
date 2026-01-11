@@ -65,8 +65,8 @@ export function SolutionSection() {
                 
                 {/* Profile section */}
                 <div className="relative -mt-6 flex flex-col items-center px-4 w-full">
-                  <h3 className="font-bold text-gray-800 text-lg">SoyCreadora 🥰</h3>
-                  <p className="text-xs text-gray-600 text-center mb-4">Welcome to my world ✨</p>
+                  <h3 className="font-bold text-gray-800 text-lg">{t('solution.mockup.name')}</h3>
+                  <p className="text-xs text-gray-600 text-center mb-4">{t('solution.mockup.bio')}</p>
                   
                   {/* Link buttons with thumbnails - like the reference */}
                   <div className="w-full space-y-2.5 px-1">

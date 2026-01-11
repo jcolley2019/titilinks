@@ -49,6 +49,8 @@ const translations: Record<Language, Record<string, string>> = {
     'solution.feature3': 'Mode switching for different audiences',
     'solution.feature4': 'Lightning-fast load times',
     'solution.clicks': '+127 clicks today',
+    'solution.mockup.name': 'TheCreator 🥰',
+    'solution.mockup.bio': 'Welcome to my world ✨',
     
     // Features Section
     'features.title': 'Everything you need to',
@@ -173,6 +175,8 @@ const translations: Record<Language, Record<string, string>> = {
     'solution.feature3': 'Cambio de modo para diferentes audiencias',
     'solution.feature4': 'Tiempos de carga ultrarrápidos',
     'solution.clicks': '+127 clics hoy',
+    'solution.mockup.name': 'SoyCreadora 🥰',
+    'solution.mockup.bio': 'Bienvenidos a mi mundo ✨',
     
     // Features Section
     'features.title': 'Todo lo que necesitas para',
