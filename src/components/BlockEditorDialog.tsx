@@ -4,6 +4,7 @@ import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
 import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { LinksEditor } from '@/components/editors/LinksEditor';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
+import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -94,12 +95,15 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
         />
       );
     
-    // Other block types will be added here
     case 'featured_media':
-      // Show coming soon message for unimplemented editors
-      toast.info(`${block.type.replace('_', ' ')} editor coming soon!`);
-      onOpenChange(false);
-      return null;
+      return (
+        <FeaturedMediaEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
 
     default:
       toast.error('Unknown block type');
