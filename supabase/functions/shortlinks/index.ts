@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = claimsData.claims.sub as string;
     console.log("Authenticated user:", userId);
 
     // Parse and validate input
@@ -95,6 +95,48 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Invalid blockItemId: must be a valid UUID or null" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Explicit ownership check: verify user owns this page
+    const { data: pageOwner, error: ownerError } = await supabase
+      .from("pages")
+      .select("user_id")
+      .eq("id", pageId)
+      .maybeSingle();
+
+    if (ownerError) {
+      console.error("Error checking page ownership:", ownerError);
+      return new Response(
+        JSON.stringify({ error: "Failed to verify page ownership" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!pageOwner || pageOwner.user_id !== userId) {
+      console.error("Ownership check failed - user does not own page:", pageId);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: you do not own this page" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Rate limiting: soft limit of 50 short links created per day per user
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: recentCount, error: countError } = await supabase
+      .from("short_links")
+      .select("*", { count: "exact", head: true })
+      .eq("page_id", pageId)
+      .gte("created_at", oneDayAgo);
+
+    if (countError) {
+      console.error("Error checking rate limit:", countError);
+      // Non-blocking: continue even if count fails
+    } else if (recentCount !== null && recentCount >= 50) {
+      console.log("Rate limit exceeded for page:", pageId, "count:", recentCount);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded: maximum 50 short links per day" }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
