@@ -172,6 +172,7 @@ export type Database = {
           created_at: string
           id: string
           page_id: string
+          sticky_cta_enabled: boolean
           type: Database["public"]["Enums"]["mode_type"]
           updated_at: string
         }
@@ -179,6 +180,7 @@ export type Database = {
           created_at?: string
           id?: string
           page_id: string
+          sticky_cta_enabled?: boolean
           type: Database["public"]["Enums"]["mode_type"]
           updated_at?: string
         }
@@ -186,6 +188,7 @@ export type Database = {
           created_at?: string
           id?: string
           page_id?: string
+          sticky_cta_enabled?: boolean
           type?: Database["public"]["Enums"]["mode_type"]
           updated_at?: string
         }
