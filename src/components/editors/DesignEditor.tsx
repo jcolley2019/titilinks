@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,58 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   // Canva connection state
   const [canvaError, setCanvaError] = useState<'mfa' | 'generic' | null>(null);
   const [canvaConnecting, setCanvaConnecting] = useState(false);
+  const [canvaConnected, setCanvaConnected] = useState(false);
+  const [canvaLoading, setCanvaLoading] = useState(true);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Check Canva connection status on mount and handle callback params
+  useEffect(() => {
+    const checkCanvaConnection = async () => {
+      if (!user) {
+        setCanvaLoading(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('canva_connections')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error checking Canva connection:', error);
+        }
+        
+        setCanvaConnected(!!data);
+      } catch (error) {
+        console.error('Error checking Canva connection:', error);
+      } finally {
+        setCanvaLoading(false);
+      }
+    };
+
+    checkCanvaConnection();
+
+    // Handle callback params
+    const canvaStatus = searchParams.get('canva');
+    const message = searchParams.get('message');
+    
+    if (canvaStatus === 'connected') {
+      setCanvaConnected(true);
+      toast.success('Canva connected successfully!');
+      // Clear the URL params
+      navigate('/dashboard/editor?tab=design', { replace: true });
+    } else if (canvaStatus === 'error') {
+      if (message?.toLowerCase().includes('mfa')) {
+        setCanvaError('mfa');
+      } else {
+        toast.error(message || 'Failed to connect Canva');
+      }
+      navigate('/dashboard/editor?tab=design', { replace: true });
+    }
+  }, [user, searchParams, navigate]);
 
   // Fetch custom presets
   const fetchCustomPresets = async () => {
@@ -500,6 +553,49 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             <p className="text-xs text-muted-foreground mt-2">
               Users with "reduce motion" enabled in their device settings will not see animations regardless of this setting.
             </p>
+          </div>
+
+          {/* Canva Integration Section */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <Image className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-medium">Canva Design</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Create custom headers and backgrounds using Canva's design tools.
+            </p>
+            
+            {canvaLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : canvaConnected ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <Check className="h-4 w-4" />
+                  <span>Connected to Canva</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={() => toast.info('Design picker coming soon!')}
+                >
+                  <Image className="h-4 w-4" />
+                  Choose Design
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => navigate('/api/canva/connect')}
+              >
+                <Image className="h-4 w-4" />
+                Connect Canva
+              </Button>
+            )}
           </div>
 
           {/* Canva MFA Error Panel */}
