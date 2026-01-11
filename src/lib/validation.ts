@@ -55,6 +55,11 @@ export const ITEM_CAPS = {
   links: 50,
   social_links: 20,
   primary_cta: 1,
+  hero_card: 1,
+  social_icon_row: 20,
+  email_subscribe: 1,
+  content_section: 10,
+  product_catalog: 24,
 } as const;
 
 export type BlockType = keyof typeof ITEM_CAPS;

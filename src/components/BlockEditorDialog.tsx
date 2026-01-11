@@ -5,6 +5,7 @@ import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { LinksEditor } from '@/components/editors/LinksEditor';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
+import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -98,6 +99,16 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
     case 'featured_media':
       return (
         <FeaturedMediaEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
+
+    case 'hero_card':
+      return (
+        <HeroCardEditor
           blockId={blockId}
           open={open}
           onOpenChange={onOpenChange}

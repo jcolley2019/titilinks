@@ -383,6 +383,8 @@ function BlockRenderer({ block, onOutboundClick, theme }: BlockRendererProps) {
       return <ProductCardsBlock {...blockProps} />;
     case 'featured_media':
       return <FeaturedMediaBlock {...blockProps} />;
+    case 'hero_card':
+      return <HeroCardBlock {...blockProps} />;
     default:
       return null;
   }
@@ -708,6 +710,88 @@ function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
         ))}
       </div>
     </div>
+  );
+}
+
+function HeroCardBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
+  const item = block.items[0];
+  if (!item || !item.image_url) return null;
+
+  // Parse config from badge field
+  let config = {
+    card_radius: 'lg' as 'sm' | 'md' | 'lg',
+    show_profile_avatar: true,
+    text_alignment: 'center' as 'left' | 'center' | 'right',
+    text_color: '#ffffff',
+    overlay_opacity: 0.4,
+  };
+  
+  if (item.badge) {
+    try {
+      const parsed = JSON.parse(item.badge);
+      config = { ...config, ...parsed };
+    } catch (e) {
+      // Use defaults
+    }
+  }
+
+  const getRadius = () => {
+    switch (config.card_radius) {
+      case 'sm': return '12px';
+      case 'md': return '20px';
+      case 'lg': return '28px';
+      default: return '20px';
+    }
+  };
+
+  const getTextAlign = (): React.CSSProperties['textAlign'] => {
+    return config.text_alignment;
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="relative overflow-hidden w-full"
+      style={{ borderRadius: getRadius() }}
+    >
+      {/* Hero Image */}
+      <div className="aspect-[16/9] relative">
+        <img 
+          src={item.image_url} 
+          alt={item.label || 'Hero'} 
+          className="w-full h-full object-cover"
+          loading="eager"
+        />
+        
+        {/* Gradient Overlay */}
+        <div 
+          className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"
+          style={{ opacity: config.overlay_opacity + 0.4 }}
+        />
+        
+        {/* Content Overlay */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 p-5 sm:p-6"
+          style={{ color: config.text_color, textAlign: getTextAlign() }}
+        >
+          {/* Headline */}
+          {item.label && item.label !== 'Hero Card' && (
+            <h2 className="text-xl sm:text-2xl font-bold drop-shadow-lg mb-1">
+              {item.label}
+            </h2>
+          )}
+          
+          {/* Subheadline */}
+          {item.subtitle && (
+            <p className="text-sm sm:text-base opacity-90 drop-shadow">
+              {item.subtitle}
+            </p>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
