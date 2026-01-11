@@ -75,9 +75,13 @@ Deno.serve(async (req) => {
     console.log("Initiating Canva OAuth for user:", user.id);
 
     // Generate PKCE parameters
-    const state = generateRandomString(32);
+    const nonce = generateRandomString(32);
     const codeVerifier = generateRandomString(64); // 43-128 chars required
     const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    // Encode user_id in state so callback can identify the user
+    const statePayload = { userId: user.id, nonce };
+    const state = btoa(JSON.stringify(statePayload));
 
     // Build Canva OAuth authorize URL
     const authUrl = new URL("https://www.canva.com/api/oauth/authorize");
