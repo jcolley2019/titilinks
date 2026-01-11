@@ -19,6 +19,7 @@ import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDi
 import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
+import { ThumbnailImage } from '@/components/ThumbnailImage';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -446,7 +447,7 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
-            <img src={item.image_url} alt={item.label} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+            <ThumbnailImage src={item.image_url} alt={item.label} />
           ) : (
             <span className="text-lg">{getPlatformEmoji(item.label)}</span>
           )}
@@ -565,12 +566,10 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
             >
               <div className="aspect-square flex items-center justify-center overflow-hidden relative" style={{ backgroundColor: `${theme.buttons.fill_color}05` }}>
                 {item.image_url ? (
-                  <img
-                    src={item.image_url}
+                  <ThumbnailImage 
+                    src={item.image_url} 
                     alt={item.label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
-                    loading="lazy"
-                    decoding="async"
+                    className="group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
                   />
                 ) : (
                   <ShoppingBag className="h-8 w-8 opacity-40" style={{ color: theme.typography.text_color }} />
@@ -650,12 +649,10 @@ function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
             >
               {item.image_url ? (
                 <div className="aspect-video">
-                  <img
-                    src={item.image_url}
+                  <ThumbnailImage 
+                    src={item.image_url} 
                     alt={item.label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
-                    loading="lazy"
-                    decoding="async"
+                    className="group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {item.is_adult && (
