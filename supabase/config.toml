@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.qr]
 verify_jwt = false
+
+[functions.canva-connect]
+verify_jwt = false
