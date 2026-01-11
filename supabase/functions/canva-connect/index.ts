@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
 
   try {
     const clientId = Deno.env.get("CANVA_CLIENT_ID");
-    const redirectUri = Deno.env.get("CANVA_REDIRECT_URI") || "https://titilinks.lovable.app/api/canva/callback";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const redirectUri = Deno.env.get("CANVA_REDIRECT_URI") || `${supabaseUrl}/functions/v1/canva-callback`;
     const scopes = Deno.env.get("CANVA_SCOPES") || "design:meta:read design:content:read";
 
     if (!clientId) {
