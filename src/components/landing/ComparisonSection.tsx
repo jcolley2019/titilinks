@@ -38,7 +38,7 @@ export function ComparisonSection() {
             How we compare
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            See why creators are switching to TitiLINKS
+            See why creators are switching to <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span>
           </p>
         </motion.div>
 
@@ -54,7 +54,7 @@ export function ComparisonSection() {
               <tr className="border-b border-border">
                 <th className="text-left py-4 px-4 font-semibold">Feature</th>
                 <th className="text-center py-4 px-4">
-                  <span className="gradient-text font-bold">TitiLINKS</span>
+                  <span className="font-bold"><span className="text-foreground">Titi</span><span className="italic text-primary">Links</span></span>
                 </th>
                 <th className="text-center py-4 px-4 text-muted-foreground">Linktree</th>
                 <th className="text-center py-4 px-4 text-muted-foreground">Others</th>

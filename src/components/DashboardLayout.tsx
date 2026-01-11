@@ -45,7 +45,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:overflow-y-auto lg:bg-card lg:border-r lg:border-border">
         <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
-          <span className="text-2xl font-bold gradient-text">TitiLINKS</span>
+          <span className="text-2xl font-bold">
+            <span className="text-foreground">Titi</span>
+            <span className="italic text-primary">Links</span>
+          </span>
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => {
@@ -80,7 +83,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 bg-card border-b border-border flex items-center justify-between px-4">
-        <span className="text-xl font-bold gradient-text">TitiLINKS</span>
+        <span className="text-xl font-bold">
+          <span className="text-foreground">Titi</span>
+          <span className="italic text-primary">Links</span>
+        </span>
         <Button
           variant="ghost"
           size="icon"
