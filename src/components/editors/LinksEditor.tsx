@@ -74,6 +74,7 @@ function SortableLinkItem({ item, onUpdate, onDelete, errors }: SortableLinkItem
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: item.id });
 
   const style = {
@@ -85,15 +86,21 @@ function SortableLinkItem({ item, onUpdate, onDelete, errors }: SortableLinkItem
     <div
       ref={setNodeRef}
       style={style}
-      className={`border border-border rounded-lg bg-card transition-all ${
-        isDragging ? 'opacity-50 shadow-lg' : ''
-      }`}
+      className={[
+        'border rounded-lg bg-card',
+        'transition-all duration-150 ease-out',
+        'motion-reduce:transition-none motion-reduce:transform-none',
+        isDragging
+          ? 'opacity-90 shadow-lg scale-[1.01] border-primary/50 z-10 relative'
+          : 'border-border',
+        isOver && !isDragging ? 'border-primary/40 bg-primary/5' : '',
+      ].filter(Boolean).join(' ')}
     >
       <div className="flex items-center gap-2 p-3">
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
         >
           <GripVertical className="h-4 w-4" />
         </button>

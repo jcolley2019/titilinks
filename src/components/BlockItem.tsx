@@ -37,6 +37,7 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: block.id });
 
   const style = {
@@ -48,14 +49,28 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 p-4 bg-card border border-border rounded-lg transition-all ${
-        isDragging ? 'opacity-50 shadow-lg scale-[1.02]' : ''
-      } ${!block.is_enabled ? 'opacity-60' : ''}`}
+      className={[
+        'flex items-center gap-3 p-4 bg-card border rounded-lg',
+        // Base transition
+        'transition-all duration-150 ease-out',
+        // Reduced motion support
+        'motion-reduce:transition-none motion-reduce:transform-none',
+        // Dragging state: lift + shadow
+        isDragging
+          ? 'opacity-90 shadow-lg scale-[1.01] border-primary/50 z-10 relative'
+          : 'border-border',
+        // Drop target highlight
+        isOver && !isDragging
+          ? 'border-primary/40 bg-primary/5'
+          : '',
+        // Disabled state
+        !block.is_enabled ? 'opacity-60' : '',
+      ].filter(Boolean).join(' ')}
     >
       <button
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
       >
         <GripVertical className="h-5 w-5" />
       </button>
