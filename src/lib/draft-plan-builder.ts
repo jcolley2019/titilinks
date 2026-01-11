@@ -10,6 +10,7 @@ import {
   ItemKeys,
 } from './page-plan-templates';
 import { generateBios, generateFallbackBios, type GeneratedBios } from './bio-generator';
+import { ITEM_CAPS, isValidUrl as checkValidUrl, sanitizeHandle } from './validation';
 
 // Input from AI setup intake form
 export interface IntakeData {
@@ -99,10 +100,10 @@ export type BuildResult =
   | { success: true; plan: DraftPlan }
   | { success: false; error: string };
 
-// Block item caps
+// Block item caps - use shared constants
 const BLOCK_CAPS: Partial<Record<BlockType, number>> = {
-  featured_media: 3,
-  product_cards: 6,
+  featured_media: ITEM_CAPS.featured_media,
+  product_cards: ITEM_CAPS.product_cards,
 };
 
 // Convert intake data to substitution map
@@ -164,7 +165,8 @@ function isValidUrl(url: string | null | undefined): url is string {
   if (!url || url.trim() === '') return false;
   // Check if it's still a placeholder
   if (url.startsWith('{{') && url.endsWith('}}')) return false;
-  return true;
+  // Check if it has a valid protocol
+  return url.startsWith('http://') || url.startsWith('https://');
 }
 
 // Build draft plan from intake data

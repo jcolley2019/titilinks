@@ -41,6 +41,7 @@ import {
   ImagePlus,
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
+import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
 
 type BlockItem = Tables<'block_items'>;
 
@@ -81,8 +82,9 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image must be less than 5MB');
+      const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
+      if (!validation.valid) {
+        toast.error(validation.error);
         return;
       }
       onImageChange(item.id, file);
@@ -184,7 +186,7 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -235,7 +237,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave }: Fea
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const MAX_ITEMS = 3;
+  const MAX_ITEMS = ITEM_CAPS.featured_media;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -343,16 +345,25 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave }: Fea
     const newErrors: Record<string, string> = {};
     let valid = true;
 
+    // Enforce item cap
+    if (items.length > MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} items allowed`);
+      return false;
+    }
+
     items.forEach((item) => {
       if (!item.label.trim()) {
         newErrors[item.id] = 'Label is required';
         valid = false;
-      } else if (!item.url.trim()) {
-        newErrors[item.id] = 'URL is required';
+      } else if (item.label.length > 100) {
+        newErrors[item.id] = 'Label must be less than 100 characters';
         valid = false;
-      } else if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) {
-        newErrors[item.id] = 'URL must include protocol (http:// or https://)';
-        valid = false;
+      } else {
+        const urlError = validateUrl(item.url);
+        if (urlError) {
+          newErrors[item.id] = urlError;
+          valid = false;
+        }
       }
     });
 

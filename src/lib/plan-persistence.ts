@@ -4,6 +4,45 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { DraftPlan, DraftBlock, DraftItem } from './draft-plan-builder';
 import { ItemKeys } from './page-plan-templates';
+import { handleSchema, isValidUrl } from './validation';
+
+export interface PersistResult {
+  success: boolean;
+  pageId?: string;
+  error?: string;
+}
+
+/**
+ * Validate draft plan before persisting
+ */
+function validatePlan(plan: DraftPlan): { valid: boolean; error?: string } {
+  // Validate handle
+  const handleResult = handleSchema.safeParse(plan.handle);
+  if (!handleResult.success) {
+    return { valid: false, error: handleResult.error.errors[0]?.message || 'Invalid handle' };
+  }
+
+  // Validate display name
+  if (!plan.display_name || plan.display_name.trim().length === 0) {
+    return { valid: false, error: 'Display name is required' };
+  }
+
+  if (plan.display_name.length > 50) {
+    return { valid: false, error: 'Display name must be less than 50 characters' };
+  }
+
+  // Validate all URLs in blocks
+  const allBlocks = [...plan.shop_mode.blocks, ...plan.recruit_mode.blocks];
+  for (const block of allBlocks) {
+    for (const item of block.items) {
+      if (!isValidUrl(item.url)) {
+        return { valid: false, error: `Invalid URL for item "${item.label}": URLs must start with http:// or https://` };
+      }
+    }
+  }
+
+  return { valid: true };
+}
 
 export interface PersistResult {
   success: boolean;
@@ -20,6 +59,12 @@ export async function persistDraftPlan(
   userId: string
 ): Promise<PersistResult> {
   try {
+    // Validate plan first
+    const validation = validatePlan(plan);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
     // 1. Create the Page
     const { data: pageData, error: pageError } = await supabase
       .from('pages')

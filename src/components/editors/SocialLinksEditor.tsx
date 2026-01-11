@@ -44,6 +44,9 @@ import {
   Globe,
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
+import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+
+const MAX_ITEMS = ITEM_CAPS.social_links;
 
 type BlockItem = Tables<'block_items'>;
 
@@ -264,6 +267,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
   };
 
   const addPreset = (preset: typeof SOCIAL_PRESETS[0]) => {
+    if (items.length >= MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      return;
+    }
     const newItem: SocialItem = {
       id: `new-${Date.now()}-${Math.random()}`,
       label: preset.label,
@@ -276,6 +283,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
   };
 
   const addCustom = () => {
+    if (items.length >= MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      return;
+    }
     const newItem: SocialItem = {
       id: `new-${Date.now()}-${Math.random()}`,
       label: 'Custom Link',
@@ -308,16 +319,25 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
     const newErrors: Record<string, string> = {};
     let valid = true;
 
+    // Enforce item cap
+    if (items.length > MAX_ITEMS) {
+      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      return false;
+    }
+
     items.forEach((item) => {
       if (!item.label.trim()) {
         newErrors[item.id] = 'Label is required';
         valid = false;
-      } else if (!item.url.trim()) {
-        newErrors[item.id] = 'URL is required';
+      } else if (item.label.length > 50) {
+        newErrors[item.id] = 'Label must be less than 50 characters';
         valid = false;
-      } else if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) {
-        newErrors[item.id] = 'URL must include protocol (http:// or https://)';
-        valid = false;
+      } else {
+        const urlError = validateUrl(item.url);
+        if (urlError) {
+          newErrors[item.id] = urlError;
+          valid = false;
+        }
       }
     });
 
