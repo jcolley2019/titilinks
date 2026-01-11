@@ -57,13 +57,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseClient = createClient(
+    const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
       console.error("User auth error:", userError);
       return new Response(
@@ -75,13 +75,39 @@ Deno.serve(async (req) => {
     console.log("Initiating Canva OAuth for user:", user.id);
 
     // Generate PKCE parameters
-    const nonce = generateRandomString(32);
-    const codeVerifier = generateRandomString(64); // 43-128 chars required
+    const state = generateRandomString(32);
+    const codeVerifier = generateRandomString(64);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    // Encode user_id in state so callback can identify the user
-    const statePayload = { userId: user.id, nonce };
-    const state = btoa(JSON.stringify(statePayload));
+    // Store state and code_verifier in database (service role)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // Clean up any existing pending auth for this user
+    await supabaseAdmin
+      .from("pending_canva_auth")
+      .delete()
+      .eq("user_id", user.id);
+
+    // Insert new pending auth
+    const { error: insertError } = await supabaseAdmin
+      .from("pending_canva_auth")
+      .insert({
+        user_id: user.id,
+        state: state,
+        code_verifier: codeVerifier,
+      });
+
+    if (insertError) {
+      console.error("Error storing pending auth:", insertError);
+      return new Response(
+        JSON.stringify({ error: "Failed to initiate OAuth" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Build Canva OAuth authorize URL
     const authUrl = new URL("https://www.canva.com/api/oauth/authorize");
@@ -93,23 +119,14 @@ Deno.serve(async (req) => {
     authUrl.searchParams.set("code_challenge", codeChallenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
 
-    // Create secure HTTP-only cookies for state and code_verifier
-    const cookieOptions = "HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600";
-    const stateCookie = `canva_oauth_state=${state}; ${cookieOptions}`;
-    const verifierCookie = `canva_code_verifier=${codeVerifier}; ${cookieOptions}`;
+    console.log("Generated Canva OAuth URL");
 
-    console.log("Redirecting to Canva OAuth URL");
+    // Return JSON with authUrl (frontend will handle redirect)
+    return new Response(
+      JSON.stringify({ authUrl: authUrl.toString() }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
 
-    // Return 302 redirect with cookies (using Headers to allow multiple Set-Cookie)
-    const headers = new Headers();
-    headers.set("Location", authUrl.toString());
-    headers.append("Set-Cookie", stateCookie);
-    headers.append("Set-Cookie", verifierCookie);
-
-    return new Response(null, {
-      status: 302,
-      headers,
-    });
   } catch (error: unknown) {
     console.error("Error in canva-connect:", error);
     const message = error instanceof Error ? error.message : "Internal server error";
