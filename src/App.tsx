@@ -17,6 +17,7 @@ import AISetup from "./pages/AISetup";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import PublicProfile from "./pages/PublicProfile";
 import Templates from "./pages/Templates";
+import TemplateCategory from "./pages/TemplateCategory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ const App = () => (
             />
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/templates" element={<Templates />} />
+            <Route path="/templates/:category" element={<TemplateCategory />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
