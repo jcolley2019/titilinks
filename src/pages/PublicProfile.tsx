@@ -627,7 +627,8 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
-        className="overflow-hidden transition-all duration-200"
+        transition={{ duration: 0.1 }}
+        className="overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
         style={{
           backgroundColor: `${theme.buttons.fill_color}08`,
           borderRadius: getButtonRadius(),
@@ -689,9 +690,8 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
 
           {/* CTA Button */}
           {item.cta_label && (
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="w-full text-center py-2 text-xs font-semibold rounded-lg transition-colors"
+            <div
+              className="w-full text-center py-2 text-xs font-semibold transition-transform duration-100 active:scale-[0.98] transform-gpu motion-reduce:transform-none"
               style={{ 
                 backgroundColor: theme.buttons.fill_color, 
                 color: theme.buttons.text_color,
@@ -699,7 +699,7 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
               }}
             >
               {item.cta_label}
-            </motion.div>
+            </div>
           )}
         </div>
       </motion.div>
@@ -717,7 +717,8 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
-        className="flex overflow-hidden transition-all duration-200"
+        transition={{ duration: 0.1 }}
+        className="flex overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
         style={{
           backgroundColor: `${theme.buttons.fill_color}08`,
           borderRadius: getButtonRadius(),
