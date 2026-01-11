@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,11 +17,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemePreview } from './ThemePreview';
+import { TemplateGallery } from './TemplateGallery';
 
 const GRADIENT_PRESETS = [
   { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
@@ -235,7 +237,40 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           </Button>
         </CardHeader>
         <CardContent>
-          {/* Theme Presets Section */}
+          {/* Template Gallery Section */}
+          <Collapsible defaultOpen className="mb-6 pb-6 border-b border-border">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center gap-2">
+                  <LayoutTemplate className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium cursor-pointer">Template Gallery</Label>
+                </div>
+                <span className="text-xs text-muted-foreground">Click to expand</span>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <TemplateGallery 
+                pageId={pageId} 
+                onApply={() => {
+                  // Refresh theme after applying template
+                  const fetchTheme = async () => {
+                    const { data } = await supabase
+                      .from('pages')
+                      .select('theme_json')
+                      .eq('id', pageId)
+                      .single();
+                    if (data) {
+                      setTheme(getThemeWithDefaults(data.theme_json));
+                    }
+                  };
+                  fetchTheme();
+                  onUpdate();
+                }} 
+              />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
             <div className="flex items-center justify-between mb-3">
               <Label className="text-sm font-medium">Quick Start Presets</Label>
