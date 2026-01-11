@@ -41,7 +41,17 @@ import {
   ImagePlus,
   X,
   ShieldAlert,
+  DollarSign,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
@@ -58,13 +68,21 @@ interface ProductItem {
   subtitle?: string;
   badge?: string;
   is_adult?: boolean;
+  price?: number | null;
+  compare_at_price?: number | null;
+  currency?: string;
+  cta_label?: string;
   imageFile?: File;
   imagePreview?: string;
 }
 
+interface ProductCardsConfig {
+  layout: 'stacked' | 'split';
+}
+
 interface SortableProductItemProps {
   item: ProductItem;
-  onUpdate: (id: string, field: keyof ProductItem, value: string | boolean) => void;
+  onUpdate: (id: string, field: keyof ProductItem, value: string | boolean | number | null) => void;
   onDelete: (id: string) => void;
   onImageChange: (id: string, file: File | null) => void;
   errors: Record<string, string>;
@@ -231,22 +249,76 @@ function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }
           {errors[item.id] && (
             <p className="text-xs text-destructive">{errors[item.id]}</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Subtitle (optional)</Label>
-              <Input
-                value={item.subtitle || ''}
-                onChange={(e) => onUpdate(item.id, 'subtitle', e.target.value)}
-                placeholder="$29.99"
-                className="h-8 text-sm"
-              />
+
+          {/* Pricing Section */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <Label className="text-xs font-medium">Pricing</Label>
             </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Price</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={item.price ?? ''}
+                  onChange={(e) => onUpdate(item.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="29.99"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Compare at</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={item.compare_at_price ?? ''}
+                  onChange={(e) => onUpdate(item.id, 'compare_at_price', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="39.99"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Currency</Label>
+                <Select
+                  value={item.currency || 'USD'}
+                  onValueChange={(value) => onUpdate(item.id, 'currency', value)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="JPY">JPY</SelectItem>
+                    <SelectItem value="CAD">CAD</SelectItem>
+                    <SelectItem value="AUD">AUD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Badge (optional)</Label>
               <Input
                 value={item.badge || ''}
                 onChange={(e) => onUpdate(item.id, 'badge', e.target.value)}
                 placeholder="SALE"
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">CTA Label</Label>
+              <Input
+                value={item.cta_label || ''}
+                onChange={(e) => onUpdate(item.id, 'cta_label', e.target.value)}
+                placeholder="Buy Now"
                 className="h-8 text-sm"
               />
             </div>
@@ -285,6 +357,8 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
   const [items, setItems] = useState<ProductItem[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [config, setConfig] = useState<ProductCardsConfig>({ layout: 'stacked' });
+  const [blockTitle, setBlockTitle] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -300,6 +374,28 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
   const fetchItems = async () => {
     setLoading(true);
     try {
+      // Fetch block config
+      const { data: blockData, error: blockError } = await supabase
+        .from('blocks')
+        .select('title')
+        .eq('id', blockId)
+        .single();
+      
+      if (blockError) throw blockError;
+      
+      // Parse config from block title
+      if (blockData?.title) {
+        try {
+          const parsed = JSON.parse(blockData.title);
+          if (parsed.layout) {
+            setConfig({ layout: parsed.layout });
+          }
+        } catch {
+          // Not JSON, just a plain title
+          setBlockTitle(blockData.title);
+        }
+      }
+
       const { data, error } = await supabase
         .from('block_items')
         .select('*')
@@ -318,6 +414,10 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
           subtitle: item.subtitle || '',
           badge: item.badge || '',
           is_adult: item.is_adult || false,
+          price: item.price,
+          compare_at_price: item.compare_at_price,
+          currency: item.currency || 'USD',
+          cta_label: item.cta_label || '',
         }))
       );
     } catch (error) {
@@ -349,11 +449,15 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
       subtitle: '',
       badge: '',
       is_adult: false,
+      price: null,
+      compare_at_price: null,
+      currency: 'USD',
+      cta_label: '',
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof ProductItem, value: string | boolean) => {
+  const updateItem = (id: string, field: keyof ProductItem, value: string | boolean | number | null) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -451,6 +555,13 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
 
     setSaving(true);
     try {
+      // Save block config (layout) to block title
+      const configJson = JSON.stringify({ layout: config.layout });
+      await supabase
+        .from('blocks')
+        .update({ title: configJson })
+        .eq('id', blockId);
+
       // Delete removed items
       const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
@@ -471,30 +582,29 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
           imageUrl = await uploadImage(item.imageFile);
         }
 
+        const itemData = {
+          block_id: blockId,
+          label: item.label,
+          url: item.url,
+          image_url: imageUrl || null,
+          subtitle: item.subtitle || null,
+          badge: item.badge || null,
+          is_adult: item.is_adult || false,
+          order_index: i,
+          price: item.price ?? null,
+          compare_at_price: item.compare_at_price ?? null,
+          currency: item.currency || 'USD',
+          cta_label: item.cta_label || null,
+        };
+
         if (isNew) {
-          const { error } = await supabase.from('block_items').insert({
-            block_id: blockId,
-            label: item.label,
-            url: item.url,
-            image_url: imageUrl || null,
-            subtitle: item.subtitle || null,
-            badge: item.badge || null,
-            is_adult: item.is_adult || false,
-            order_index: i,
-          });
+          const { error } = await supabase.from('block_items').insert(itemData);
           if (error) throw error;
         } else {
+          const { block_id: _, ...updateData } = itemData;
           const { error } = await supabase
             .from('block_items')
-            .update({
-              label: item.label,
-              url: item.url,
-              image_url: imageUrl || null,
-              subtitle: item.subtitle || null,
-              badge: item.badge || null,
-              is_adult: item.is_adult || false,
-              order_index: i,
-            })
+            .update(updateData)
             .eq('id', item.id);
           if (error) throw error;
         }
@@ -530,6 +640,33 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
+            {/* Layout Selector */}
+            <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
+              <Label className="text-xs font-medium mb-2 block">Card Layout</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={config.layout === 'stacked' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setConfig({ ...config, layout: 'stacked' })}
+                  className="flex-1 gap-2"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  Stacked
+                </Button>
+                <Button
+                  type="button"
+                  variant={config.layout === 'split' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setConfig({ ...config, layout: 'split' })}
+                  className="flex-1 gap-2"
+                >
+                  <LayoutList className="h-4 w-4" />
+                  Split
+                </Button>
+              </div>
+            </div>
+
             {/* Add Product Button */}
             <div className="mb-4">
               <Button

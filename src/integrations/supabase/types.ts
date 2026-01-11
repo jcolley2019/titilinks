@@ -18,12 +18,16 @@ export type Database = {
         Row: {
           badge: string | null
           block_id: string
+          compare_at_price: number | null
           created_at: string
+          cta_label: string | null
+          currency: string | null
           id: string
           image_url: string | null
           is_adult: boolean | null
           label: string
           order_index: number
+          price: number | null
           subtitle: string | null
           updated_at: string
           url: string
@@ -31,12 +35,16 @@ export type Database = {
         Insert: {
           badge?: string | null
           block_id: string
+          compare_at_price?: number | null
           created_at?: string
+          cta_label?: string | null
+          currency?: string | null
           id?: string
           image_url?: string | null
           is_adult?: boolean | null
           label: string
           order_index?: number
+          price?: number | null
           subtitle?: string | null
           updated_at?: string
           url: string
@@ -44,12 +52,16 @@ export type Database = {
         Update: {
           badge?: string | null
           block_id?: string
+          compare_at_price?: number | null
           created_at?: string
+          cta_label?: string | null
+          currency?: string | null
           id?: string
           image_url?: string | null
           is_adult?: boolean | null
           label?: string
           order_index?: number
+          price?: number | null
           subtitle?: string | null
           updated_at?: string
           url?: string
