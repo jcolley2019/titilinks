@@ -3,14 +3,15 @@ import { motion } from 'framer-motion';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockList } from '@/components/BlockList';
 import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
+import { DesignEditor } from '@/components/editors/DesignEditor';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { LinkTools } from '@/components/LinkTools';
@@ -28,6 +29,7 @@ export default function Editor() {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [editorTab, setEditorTab] = useState<'content' | 'design'>('content');
 
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
@@ -143,6 +145,22 @@ export default function Editor() {
             View Page
           </Button>
         </div>
+
+        {/* Main Editor Tabs: Content vs Design */}
+        <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as 'content' | 'design')}>
+          <TabsList className="grid w-full grid-cols-2 max-w-xs">
+            <TabsTrigger value="content" className="gap-2">
+              <Link2 className="h-4 w-4" />
+              Content
+            </TabsTrigger>
+            <TabsTrigger value="design" className="gap-2">
+              <Palette className="h-4 w-4" />
+              Design
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Content Tab */}
+          <TabsContent value="content" className="space-y-6 mt-6">
 
         {/* Mode Selector */}
         <Card className="bg-card border-border">
@@ -281,8 +299,15 @@ export default function Editor() {
           </CardContent>
         </Card>
 
-        {/* Goals Panel */}
-        <GoalsPanel page={page} onUpdate={fetchPageData} />
+            {/* Goals Panel */}
+            <GoalsPanel page={page} onUpdate={fetchPageData} />
+          </TabsContent>
+
+          {/* Design Tab */}
+          <TabsContent value="design" className="mt-6">
+            <DesignEditor pageId={page.id} themeJson={page.theme_json} onUpdate={fetchPageData} />
+          </TabsContent>
+        </Tabs>
       </motion.div>
 
       {/* Block Editor Dialog */}
