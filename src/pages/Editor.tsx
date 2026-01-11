@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
@@ -12,6 +12,7 @@ import { BlockList } from '@/components/BlockList';
 import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -25,6 +26,22 @@ export default function Editor() {
   const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  const domain = window.location.host;
+  const mainLink = page ? `${window.location.protocol}//${domain}/${page.handle}` : '';
+  const recruitLink = page ? `${mainLink}?mode=recruit` : '';
+
+  const copyToClipboard = async (text: string, linkType: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLink(linkType);
+      toast.success('Copied to clipboard!');
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch {
+      toast.error('Failed to copy');
+    }
+  };
 
   const fetchPageData = async () => {
     if (!user) return;
@@ -171,6 +188,68 @@ export default function Editor() {
                 No mode found. Please refresh the page.
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Share Links */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              Share Links
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Main Link</label>
+              <div className="flex gap-2">
+                <Input
+                  value={mainLink}
+                  readOnly
+                  className="bg-secondary/50 font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(mainLink, 'main')}
+                  className="flex-shrink-0"
+                >
+                  {copiedLink === 'main' ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Default link that auto-detects mode based on referrer
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Recruit Link</label>
+              <div className="flex gap-2">
+                <Input
+                  value={recruitLink}
+                  readOnly
+                  className="bg-secondary/50 font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(recruitLink, 'recruit')}
+                  className="flex-shrink-0"
+                >
+                  {copiedLink === 'recruit' ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Forces recruit mode regardless of referrer
+              </p>
+            </div>
           </CardContent>
         </Card>
 
