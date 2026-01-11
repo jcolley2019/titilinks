@@ -36,6 +36,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Parse body to get redirect origin
+    let redirectOrigin = "https://titilinks.lovable.app"; // Fallback
+    try {
+      const body = await req.json();
+      if (body?.redirectOrigin) {
+        redirectOrigin = body.redirectOrigin;
+      }
+    } catch {
+      // No body or invalid JSON, use default
+    }
+
     const clientId = Deno.env.get("CANVA_CLIENT_ID");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const redirectUri = Deno.env.get("CANVA_REDIRECT_URI") || `${supabaseUrl}/functions/v1/canva-callback`;
@@ -100,6 +111,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         state: state,
         code_verifier: codeVerifier,
+        redirect_origin: redirectOrigin,
       });
 
     if (insertError) {
