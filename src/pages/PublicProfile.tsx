@@ -294,8 +294,11 @@ export default function PublicProfile() {
           </div>
         </motion.header>
 
-        {/* Blocks */}
-        <div className="space-y-6">
+        {/* Blocks - keyed by mode for crossfade on mode change */}
+        <div 
+          key={detectedMode}
+          className="space-y-6 animate-mode-fade motion-reduce:animate-none"
+        >
           {blocks.length === 0 ? (
           <EmptyState textColor={theme.typography.text_color} />
           ) : (
@@ -305,6 +308,7 @@ export default function PublicProfile() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
+                className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
               >
                 <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={theme} />
               </motion.section>
