@@ -1,3 +1,14 @@
+/**
+ * Event Tracking Hook - Performance Optimized
+ * 
+ * PERFORMANCE SAFEGUARDS:
+ * - Outbound click tracking uses fetch with `keepalive: true` to ensure
+ *   the request completes even during navigation (like sendBeacon but with headers)
+ * - Never blocks navigation or user interaction
+ * - Fire-and-forget pattern: errors are silently ignored
+ * - Page view tracking is awaitable but runs in background
+ */
+
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Enums, Json } from '@/integrations/supabase/types';

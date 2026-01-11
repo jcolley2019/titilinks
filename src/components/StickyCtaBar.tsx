@@ -69,10 +69,10 @@ export function StickyCtaBar({
         'fixed bottom-0 left-0 right-0 z-50',
         'px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3',
         'bg-gradient-to-t from-black/80 via-black/60 to-transparent',
-        // Fade animation
-        'animate-mode-fade',
-        // Reduced motion
-        'motion-reduce:animate-none'
+        // GPU-accelerated slide-up animation
+        'animate-slide-up-fade transform-gpu will-change-transform',
+        // Reduced motion: just fade
+        'motion-reduce:animate-mode-fade motion-reduce:transform-none'
       )}
     >
       <div className="max-w-[640px] mx-auto">
