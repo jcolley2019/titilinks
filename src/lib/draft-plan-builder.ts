@@ -9,6 +9,7 @@ import {
   getTemplate,
   ItemKeys,
 } from './page-plan-templates';
+import { generateBios, generateFallbackBios, type GeneratedBios } from './bio-generator';
 
 // Input from AI setup intake form
 export interface IntakeData {
@@ -83,7 +84,8 @@ export interface DraftMode {
 export interface DraftPlan {
   handle: string;
   display_name: string;
-  bio: string;
+  bio_short: string;
+  bio_long: string;
   creator_type: CreatorType;
   tone: Tone;
   shop_mode: DraftMode;
@@ -272,11 +274,19 @@ export function buildDraftPlan(intake: IntakeData): BuildResult {
     };
   }
 
-  // Build the complete draft plan
+  // Build the complete draft plan with fallback bios
+  // AI bios can be added later via enhancePlanWithAIBios()
+  const fallbackBios = generateFallbackBios({
+    display_name: intake.display_name,
+    creator_type: intake.creator_type,
+    tone: intake.tone,
+  });
+
   const plan: DraftPlan = {
     handle: intake.handle.toLowerCase().trim(),
     display_name: intake.display_name.trim(),
-    bio: template.profile.bio_suggestion,
+    bio_short: fallbackBios.bio_short,
+    bio_long: fallbackBios.bio_long,
     creator_type: intake.creator_type,
     tone: intake.tone,
     shop_mode: shopMode,
@@ -286,6 +296,29 @@ export function buildDraftPlan(intake: IntakeData): BuildResult {
   };
 
   return { success: true, plan };
+}
+
+/**
+ * Enhance a draft plan with AI-generated bios
+ * This is optional and can be skipped if AI is unavailable
+ */
+export async function enhancePlanWithAIBios(plan: DraftPlan): Promise<DraftPlan> {
+  try {
+    const bios = await generateBios({
+      display_name: plan.display_name,
+      creator_type: plan.creator_type,
+      tone: plan.tone,
+    });
+
+    return {
+      ...plan,
+      bio_short: bios.bio_short,
+      bio_long: bios.bio_long,
+    };
+  } catch (error) {
+    console.error('Failed to enhance plan with AI bios:', error);
+    return plan; // Return original plan if AI fails
+  }
 }
 
 // Utility to count enabled blocks
