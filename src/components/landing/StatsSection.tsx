@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion';
-
-const stats = [
-  { value: '47%', label: 'Higher CTR', description: 'vs. traditional bio links' },
-  { value: '2.8x', label: 'More Conversions', description: 'with mode switching' },
-  { value: '89ms', label: 'Avg Load Time', description: 'globally distributed' }
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function StatsSection() {
+  const { t } = useLanguage();
+
+  const stats = [
+    { value: '47%', label: t('stats.ctr'), description: t('stats.ctr.desc') },
+    { value: '2.8x', label: t('stats.conversions'), description: t('stats.conversions.desc') },
+    { value: '89ms', label: t('stats.load'), description: t('stats.load.desc') }
+  ];
+
   return (
     <section className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
@@ -19,10 +22,10 @@ export function StatsSection() {
             className="text-center mb-12"
           >
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Results that <span className="italic gradient-text">speak</span>
+              {t('stats.title')} <span className="italic gradient-text">{t('stats.title2')}</span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              Real numbers from real creators
+              {t('stats.subtitle')}
             </p>
           </motion.div>
 

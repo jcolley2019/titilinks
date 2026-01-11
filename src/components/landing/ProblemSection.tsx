@@ -1,25 +1,28 @@
 import { motion } from 'framer-motion';
 import { AlertCircle, Clock, BarChart3 } from 'lucide-react';
-
-const problems = [
-  {
-    icon: AlertCircle,
-    title: "Scattered links, lost sales",
-    description: "Your audience clicks away before they find what matters. Multiple links mean multiple chances to lose them."
-  },
-  {
-    icon: Clock,
-    title: "Hours wasted on setup",
-    description: "Building a website takes weeks. Updating it takes hours. Your content moves faster than your tools."
-  },
-  {
-    icon: BarChart3,
-    title: "No idea what's working",
-    description: "You're flying blind. Which links convert? Where do visitors drop off? Traditional bios tell you nothing."
-  }
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function ProblemSection() {
+  const { t } = useLanguage();
+
+  const problems = [
+    {
+      icon: AlertCircle,
+      title: t('problem.item1.title'),
+      description: t('problem.item1.desc')
+    },
+    {
+      icon: Clock,
+      title: t('problem.item2.title'),
+      description: t('problem.item2.desc')
+    },
+    {
+      icon: BarChart3,
+      title: t('problem.item3.title'),
+      description: t('problem.item3.desc')
+    }
+  ];
+
   return (
     <section className="py-24 px-4 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
@@ -33,10 +36,10 @@ export function ProblemSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Sound <span className="italic gradient-text">familiar?</span>
+            {t('problem.title')} <span className="italic gradient-text">{t('problem.title2')}</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Most creators struggle with the same frustrating problems
+            {t('problem.subtitle')}
           </p>
         </motion.div>
 

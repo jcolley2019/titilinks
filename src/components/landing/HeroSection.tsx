@@ -1,9 +1,12 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Users, Link2, Zap } from 'lucide-react';
+import { ArrowRight, Sparkles, Users, Zap } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function HeroSection() {
+  const { t } = useLanguage();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 px-4">
       {/* Background with subtle gold glow */}
@@ -19,7 +22,7 @@ export function HeroSection() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
         >
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Trusted by 50,000+ creators</span>
+          <span className="text-sm font-medium text-primary">{t('hero.badge')}</span>
         </motion.div>
 
         <motion.h1
@@ -28,10 +31,10 @@ export function HeroSection() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
         >
-          Your entire brand.{' '}
-          <span className="italic gradient-text">One</span>
+          {t('hero.title1')}{' '}
+          <span className="italic gradient-text">{t('hero.title2')}</span>
           <br />
-          <span className="italic gradient-text">powerful link.</span>
+          <span className="italic gradient-text">{t('hero.title3')}</span>
         </motion.h1>
 
         <motion.p
@@ -40,7 +43,7 @@ export function HeroSection() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-lg sm:text-xl italic text-muted-foreground max-w-2xl mx-auto mb-4"
         >
-          Creating impact through presence, performance, and purpose.
+          {t('hero.subtitle')}
         </motion.p>
 
         <motion.p
@@ -49,7 +52,7 @@ export function HeroSection() {
           transition={{ duration: 0.5, delay: 0.25 }}
           className="text-base text-muted-foreground max-w-xl mx-auto mb-10"
         >
-          Bring your brand to life with stunning link-in-bio pages. Every connection is a journey, every click a new opportunity.
+          {t('hero.description')}
         </motion.p>
 
         <motion.div
@@ -60,12 +63,12 @@ export function HeroSection() {
         >
           <Button asChild size="lg" className="gradient-gold text-primary-foreground text-lg px-8 h-14 rounded-full font-semibold">
             <Link to="/login">
-              Start Free Today
+              {t('hero.cta')}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="text-lg px-8 h-14 rounded-full border-primary/30 hover:bg-primary/5">
-            <a href="#demo">See Examples</a>
+            <a href="#demo">{t('hero.cta2')}</a>
           </Button>
         </motion.div>
 
@@ -77,11 +80,11 @@ export function HeroSection() {
         >
           <span className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" />
-            Setup in 2 min
+            {t('hero.stat1')}
           </span>
           <span className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
-            50k+ creators
+            {t('hero.stat2')}
           </span>
         </motion.div>
       </div>

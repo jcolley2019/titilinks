@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Link2, Menu, X } from 'lucide-react';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -40,38 +43,42 @@ export function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
-              Products
+              {t('nav.products')}
             </a>
             <a href="#demo" className="text-muted-foreground hover:text-foreground transition-colors">
-              Templates
+              {t('nav.templates')}
             </a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
+              {t('nav.pricing')}
             </a>
           </div>
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
             <Button asChild variant="ghost" className="text-muted-foreground hover:text-foreground">
-              <Link to="/login">Log in</Link>
+              <Link to="/login">{t('nav.login')}</Link>
             </Button>
             <Button asChild className="gradient-gold text-primary-foreground rounded-full px-6">
-              <Link to="/login">Sign up free</Link>
+              <Link to="/login">{t('nav.signup')}</Link>
             </Button>
+            <LanguageToggle />
           </div>
 
           {/* Mobile menu button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+          <div className="flex md:hidden items-center gap-2">
+            <LanguageToggle />
+            <button
+              className="p-2"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -88,28 +95,28 @@ export function Navbar() {
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Products
+                {t('nav.products')}
               </a>
               <a 
                 href="#demo" 
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Templates
+                {t('nav.templates')}
               </a>
               <a 
                 href="#pricing" 
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Pricing
+                {t('nav.pricing')}
               </a>
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/login">Log in</Link>
+                  <Link to="/login">{t('nav.login')}</Link>
                 </Button>
                 <Button asChild className="w-full gradient-gold text-primary-foreground">
-                  <Link to="/login">Sign up free</Link>
+                  <Link to="/login">{t('nav.signup')}</Link>
                 </Button>
               </div>
             </div>

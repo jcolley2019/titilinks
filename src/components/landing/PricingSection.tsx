@@ -2,60 +2,63 @@ import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for getting started',
-    features: [
-      'Unlimited links',
-      '1 custom page',
-      'Basic analytics',
-      'Standard themes',
-      'Mobile optimized'
-    ],
-    cta: 'Start Free',
-    popular: false
-  },
-  {
-    name: 'Pro',
-    price: '$9',
-    period: '/month',
-    description: 'For serious creators',
-    features: [
-      'Everything in Free',
-      'Unlimited pages',
-      'Advanced analytics',
-      'Custom themes',
-      'Mode switching',
-      'Priority support',
-      'Remove branding'
-    ],
-    cta: 'Go Pro',
-    popular: true
-  },
-  {
-    name: 'Business',
-    price: '$29',
-    period: '/month',
-    description: 'For teams & agencies',
-    features: [
-      'Everything in Pro',
-      'Team collaboration',
-      'API access',
-      'Custom domain',
-      'White-label option',
-      'Dedicated support',
-      'SLA guarantee'
-    ],
-    cta: 'Contact Sales',
-    popular: false
-  }
-];
+import { useLanguage } from '@/hooks/useLanguage';
 
 export function PricingSection() {
+  const { t } = useLanguage();
+
+  const plans = [
+    {
+      name: t('pricing.free'),
+      price: '$0',
+      period: t('pricing.free.period'),
+      description: t('pricing.free.desc'),
+      features: [
+        'Unlimited links',
+        '1 custom page',
+        'Basic analytics',
+        'Standard themes',
+        'Mobile optimized'
+      ],
+      cta: t('pricing.cta.free'),
+      popular: false
+    },
+    {
+      name: t('pricing.pro'),
+      price: '$9',
+      period: t('pricing.pro.period'),
+      description: t('pricing.pro.desc'),
+      features: [
+        'Everything in Free',
+        'Unlimited pages',
+        'Advanced analytics',
+        'Custom themes',
+        'Mode switching',
+        'Priority support',
+        'Remove branding'
+      ],
+      cta: t('pricing.cta.pro'),
+      popular: true
+    },
+    {
+      name: t('pricing.business'),
+      price: '$29',
+      period: t('pricing.business.period'),
+      description: t('pricing.business.desc'),
+      features: [
+        'Everything in Pro',
+        'Team collaboration',
+        'API access',
+        'Custom domain',
+        'White-label option',
+        'Dedicated support',
+        'SLA guarantee'
+      ],
+      cta: t('pricing.cta.business'),
+      popular: false
+    }
+  ];
+
   return (
     <section id="pricing" className="py-24 px-4">
       <div className="container max-w-6xl mx-auto">
@@ -67,10 +70,10 @@ export function PricingSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Simple, <span className="italic gradient-text">transparent</span> pricing
+            {t('pricing.title')} <span className="italic gradient-text">{t('pricing.title2')}</span> {t('pricing.title3')}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Start free and scale as you grow. No hidden fees.
+            {t('pricing.subtitle')}
           </p>
         </motion.div>
 
@@ -90,7 +93,7 @@ export function PricingSection() {
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium">
-                  Most Popular
+                  {t('pricing.popular')}
                 </div>
               )}
 
