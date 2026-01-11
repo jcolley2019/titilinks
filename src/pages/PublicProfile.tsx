@@ -16,6 +16,7 @@ import {
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
+import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -218,32 +219,105 @@ export default function PublicProfile() {
     return <NotFoundView handle={handle} />;
   }
 
+  // Get theme with defaults
+  const theme = getThemeWithDefaults(page.theme_json);
+
+  // Build background styles
+  const getBackgroundStyles = (): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      minHeight: '100vh',
+      position: 'relative',
+    };
+
+    switch (theme.background.type) {
+      case 'solid':
+        return { ...base, backgroundColor: theme.background.solid_color };
+      case 'gradient':
+        return { ...base, backgroundImage: theme.background.gradient_css };
+      case 'image':
+        return {
+          ...base,
+          backgroundImage: theme.background.image_url ? `url(${theme.background.image_url})` : undefined,
+          backgroundColor: theme.background.image_url ? undefined : theme.background.solid_color,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'scroll',
+        };
+      default:
+        return base;
+    }
+  };
+
+  // Get font family based on theme
+  const getFontFamily = (): string => {
+    switch (theme.typography.font) {
+      case 'inter':
+        return "'Inter', sans-serif";
+      case 'system':
+        return 'system-ui, sans-serif';
+      case 'serif':
+        return 'Georgia, serif';
+      case 'mono':
+        return 'monospace';
+      default:
+        return "'Inter', sans-serif";
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-lg mx-auto px-4 py-8 pb-20">
+    <div style={getBackgroundStyles()}>
+      {/* Overlay Layer */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundColor: theme.background.overlay_color,
+          opacity: theme.background.overlay_opacity,
+        }}
+      />
+
+      {/* Content Layer */}
+      <div
+        className="relative z-10 max-w-[640px] mx-auto px-4 py-8 pb-20"
+        style={{
+          fontFamily: getFontFamily(),
+          color: theme.typography.text_color,
+        }}
+      >
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <Avatar className="h-20 w-20 mx-auto mb-4 ring-2 ring-primary/20">
+          <Avatar className="h-20 w-20 mx-auto mb-4 ring-2 ring-white/20">
             {page.avatar_url ? (
               <AvatarImage src={page.avatar_url} alt={page.display_name || page.handle} />
             ) : null}
-            <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+            <AvatarFallback 
+              className="text-xl"
+              style={{
+                backgroundColor: theme.buttons.fill_color,
+                color: theme.buttons.text_color,
+              }}
+            >
               {(page.display_name || page.handle).charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-xl font-bold" style={{ color: theme.typography.text_color }}>
             {page.display_name || `@${page.handle}`}
           </h1>
           {page.bio && (
-            <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+            <p 
+              className="text-sm mt-1 max-w-xs mx-auto opacity-80"
+              style={{ color: theme.typography.text_color }}
+            >
               {page.bio}
             </p>
           )}
-          <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted-foreground">
+          <div 
+            className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
+            style={{ color: theme.typography.text_color }}
+          >
             {detectedMode === 'shop' ? (
               <ShoppingBag className="h-3 w-3" />
             ) : (
@@ -256,7 +330,7 @@ export default function PublicProfile() {
         {/* Blocks */}
         <div className="space-y-6">
           {blocks.length === 0 ? (
-            <EmptyState />
+          <EmptyState textColor={theme.typography.text_color} />
           ) : (
             blocks.map((block, index) => (
               <motion.section
@@ -265,7 +339,7 @@ export default function PublicProfile() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <BlockRenderer block={block} onOutboundClick={handleOutboundClick} />
+                <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={theme} />
               </motion.section>
             ))
           )}
@@ -273,8 +347,8 @@ export default function PublicProfile() {
 
         {/* Footer */}
         <footer className="mt-12 text-center">
-          <p className="text-xs text-muted-foreground">
-            Powered by <span className="font-semibold text-primary">TitiLINKS</span>
+          <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
+            Powered by <span className="font-semibold">TitiLINKS</span>
           </p>
         </footer>
       </div>
@@ -295,26 +369,35 @@ type ClickHandler = (blockType: string, blockId: string, itemId: string, url: st
 interface BlockRendererProps {
   block: BlockWithItems;
   onOutboundClick: ClickHandler;
+  theme: ThemeJson;
 }
 
-function BlockRenderer({ block, onOutboundClick }: BlockRendererProps) {
+function BlockRenderer({ block, onOutboundClick, theme }: BlockRendererProps) {
+  const blockProps = { block, onOutboundClick, theme };
+  
   switch (block.type) {
     case 'primary_cta':
-      return <PrimaryCtaBlock block={block} onOutboundClick={onOutboundClick} />;
+      return <PrimaryCtaBlock {...blockProps} />;
     case 'social_links':
-      return <SocialLinksBlock block={block} onOutboundClick={onOutboundClick} />;
+      return <SocialLinksBlock {...blockProps} />;
     case 'links':
-      return <LinksBlock block={block} onOutboundClick={onOutboundClick} />;
+      return <LinksBlock {...blockProps} />;
     case 'product_cards':
-      return <ProductCardsBlock block={block} onOutboundClick={onOutboundClick} />;
+      return <ProductCardsBlock {...blockProps} />;
     case 'featured_media':
-      return <FeaturedMediaBlock block={block} onOutboundClick={onOutboundClick} />;
+      return <FeaturedMediaBlock {...blockProps} />;
     default:
       return null;
   }
 }
 
-function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
+interface ThemedBlockProps {
+  block: BlockWithItems;
+  onOutboundClick: ClickHandler;
+  theme: ThemeJson;
+}
+
+function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   const item = block.items[0];
   if (!item) return null;
 
@@ -322,6 +405,23 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
     const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
     if (!shouldNavigate) {
       e.preventDefault();
+    }
+  };
+
+  const getButtonRadius = () => {
+    switch (theme.buttons.shape) {
+      case 'pill': return '9999px';
+      case 'rounded': return '0.75rem';
+      case 'square': return '0';
+      default: return '0.75rem';
+    }
+  };
+
+  const getButtonPadding = () => {
+    switch (theme.buttons.density) {
+      case 'compact': return '0.75rem 1rem';
+      case 'roomy': return '1.25rem 1.5rem';
+      default: return '1rem 1.25rem';
     }
   };
 
@@ -335,11 +435,19 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
-        className="bg-primary text-primary-foreground rounded-xl p-4 text-center shadow-lg hover:opacity-90 transition-opacity relative"
+        className="text-center transition-opacity hover:opacity-90 relative"
+        style={{
+          backgroundColor: theme.buttons.fill_color,
+          color: theme.buttons.text_color,
+          borderRadius: getButtonRadius(),
+          padding: getButtonPadding(),
+          border: theme.buttons.border_enabled ? `2px solid ${theme.buttons.border_color}` : 'none',
+          boxShadow: theme.buttons.shadow_enabled ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
+        }}
       >
         {item.is_adult && (
           <div className="absolute top-2 right-2">
-            <ShieldAlert className="h-4 w-4 text-primary-foreground/70" />
+            <ShieldAlert className="h-4 w-4" style={{ color: theme.buttons.text_color, opacity: 0.7 }} />
           </div>
         )}
         <p className="font-semibold text-lg">{item.label}</p>
@@ -351,7 +459,7 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
   );
 }
 
-function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
+function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
@@ -369,14 +477,17 @@ function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; o
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-11 w-11 rounded-full bg-secondary hover:bg-secondary/80 transition-colors relative"
+          className="flex items-center justify-center h-11 w-11 rounded-full transition-colors relative"
+          style={{
+            backgroundColor: `${theme.buttons.fill_color}20`,
+          }}
           title={item.label}
           onClick={(e) => handleClick(e, item)}
         >
-          <Share2 className="h-5 w-5 text-foreground" />
+          <Share2 className="h-5 w-5" style={{ color: theme.typography.text_color }} />
           {item.is_adult && (
-            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive flex items-center justify-center">
-              <span className="text-[8px] font-bold text-destructive-foreground">18</span>
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-white">18</span>
             </div>
           )}
         </a>
@@ -385,7 +496,7 @@ function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; o
   );
 }
 
-function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
+function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
@@ -395,10 +506,27 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
     }
   };
 
+  const getButtonRadius = () => {
+    switch (theme.buttons.shape) {
+      case 'pill': return '9999px';
+      case 'rounded': return '0.75rem';
+      case 'square': return '0';
+      default: return '0.75rem';
+    }
+  };
+
+  const getButtonPadding = () => {
+    switch (theme.buttons.density) {
+      case 'compact': return '0.5rem 1rem';
+      case 'roomy': return '1rem 1.25rem';
+      default: return '0.75rem 1rem';
+    }
+  };
+
   return (
     <div className="space-y-2">
       {block.title && (
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">{block.title}</h3>
+        <h3 className="text-sm font-medium mb-3 opacity-70" style={{ color: theme.typography.text_color }}>{block.title}</h3>
       )}
       {block.items.map((item) => (
         <a
@@ -411,28 +539,37 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
         >
           <motion.div
             whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3 hover:border-primary/50 transition-colors"
+            className="flex items-center justify-between transition-colors"
+            style={{
+              backgroundColor: `${theme.buttons.fill_color}15`,
+              borderRadius: getButtonRadius(),
+              padding: getButtonPadding(),
+              border: theme.buttons.border_enabled ? `1px solid ${theme.buttons.border_color}40` : '1px solid rgba(255,255,255,0.1)',
+            }}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-foreground truncate">{item.label}</p>
+                <p className="font-medium truncate" style={{ color: theme.typography.text_color }}>{item.label}</p>
                 {item.is_adult && (
-                  <span className="text-[10px] font-semibold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <span className="text-[10px] font-semibold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                     <ShieldAlert className="h-3 w-3" />
                     18+
                   </span>
                 )}
                 {item.badge && (
-                  <span className="text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  <span 
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
+                  >
                     {item.badge}
                   </span>
                 )}
               </div>
               {item.subtitle && (
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{item.subtitle}</p>
+                <p className="text-xs truncate mt-0.5 opacity-60" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
               )}
             </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
+            <ExternalLink className="h-4 w-4 flex-shrink-0 ml-2 opacity-50" style={{ color: theme.typography.text_color }} />
           </motion.div>
         </a>
       ))}
@@ -440,7 +577,7 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
   );
 }
 
-function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
+function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
@@ -450,10 +587,19 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
     }
   };
 
+  const getButtonRadius = () => {
+    switch (theme.buttons.shape) {
+      case 'pill': return '1rem';
+      case 'rounded': return '0.75rem';
+      case 'square': return '0';
+      default: return '0.75rem';
+    }
+  };
+
   return (
     <div className="space-y-3">
       {block.title && (
-        <h3 className="text-sm font-medium text-muted-foreground">{block.title}</h3>
+        <h3 className="text-sm font-medium opacity-70" style={{ color: theme.typography.text_color }}>{block.title}</h3>
       )}
       <div className="grid grid-cols-2 gap-3">
         {block.items.map((item) => (
@@ -467,9 +613,14 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
-              className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-colors"
+              className="overflow-hidden transition-colors"
+              style={{
+                backgroundColor: `${theme.buttons.fill_color}10`,
+                borderRadius: getButtonRadius(),
+                border: `1px solid ${theme.buttons.fill_color}20`,
+              }}
             >
-              <div className="aspect-square bg-secondary flex items-center justify-center overflow-hidden relative">
+              <div className="aspect-square flex items-center justify-center overflow-hidden relative" style={{ backgroundColor: `${theme.buttons.fill_color}05` }}>
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -478,10 +629,10 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
                     loading="lazy"
                   />
                 ) : (
-                  <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+                  <ShoppingBag className="h-8 w-8 opacity-40" style={{ color: theme.typography.text_color }} />
                 )}
                 {item.is_adult && (
-                  <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-0.5">
+                  <div className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-0.5">
                     <ShieldAlert className="h-3 w-3" />
                     18+
                   </div>
@@ -489,15 +640,18 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
               </div>
               <div className="p-3">
                 <div className="flex items-start justify-between gap-1">
-                  <p className="font-medium text-sm text-foreground line-clamp-2">{item.label}</p>
+                  <p className="font-medium text-sm line-clamp-2" style={{ color: theme.typography.text_color }}>{item.label}</p>
                   {item.badge && (
-                    <span className="text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded flex-shrink-0">
+                    <span 
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
+                    >
                       {item.badge}
                     </span>
                   )}
                 </div>
                 {item.subtitle && (
-                  <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>
+                  <p className="text-xs mt-1 opacity-60" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
                 )}
               </div>
             </motion.div>
@@ -508,7 +662,7 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
   );
 }
 
-function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
+function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
@@ -518,10 +672,19 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
     }
   };
 
+  const getButtonRadius = () => {
+    switch (theme.buttons.shape) {
+      case 'pill': return '1rem';
+      case 'rounded': return '0.75rem';
+      case 'square': return '0';
+      default: return '0.75rem';
+    }
+  };
+
   return (
     <div className="space-y-3">
       {block.title && (
-        <h3 className="text-sm font-medium text-muted-foreground">{block.title}</h3>
+        <h3 className="text-sm font-medium opacity-70" style={{ color: theme.typography.text_color }}>{block.title}</h3>
       )}
       <div className="space-y-3">
         {block.items.map((item) => (
@@ -535,7 +698,11 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
-              className="relative rounded-xl overflow-hidden bg-card border border-border hover:border-primary/50 transition-colors"
+              className="relative overflow-hidden transition-colors"
+              style={{
+                borderRadius: getButtonRadius(),
+                border: `1px solid ${theme.buttons.fill_color}20`,
+              }}
             >
               {item.image_url ? (
                 <div className="aspect-video">
@@ -547,7 +714,7 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {item.is_adult && (
-                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                    <div className="absolute top-2 right-2 bg-red-500/90 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
                       <ShieldAlert className="h-3 w-3" />
                       18+
                     </div>
@@ -557,10 +724,10 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
                   </div>
                 </div>
               ) : (
-                <div className="aspect-video bg-secondary flex items-center justify-center relative">
-                  <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                <div className="aspect-video flex items-center justify-center relative" style={{ backgroundColor: `${theme.buttons.fill_color}10` }}>
+                  <ImageIcon className="h-10 w-10 opacity-40" style={{ color: theme.typography.text_color }} />
                   {item.is_adult && (
-                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                    <div className="absolute top-2 right-2 bg-red-500/90 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
                       <ShieldAlert className="h-3 w-3" />
                       18+
                     </div>
@@ -575,13 +742,13 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
   );
 }
 
-function EmptyState() {
+function EmptyState({ textColor }: { textColor: string }) {
   return (
     <div className="text-center py-12">
-      <div className="rounded-full bg-secondary p-4 w-fit mx-auto mb-4">
-        <LinkIcon className="h-8 w-8 text-muted-foreground" />
+      <div className="rounded-full bg-white/10 p-4 w-fit mx-auto mb-4">
+        <LinkIcon className="h-8 w-8" style={{ color: textColor, opacity: 0.6 }} />
       </div>
-      <p className="text-muted-foreground">No content yet</p>
+      <p style={{ color: textColor, opacity: 0.6 }}>No content yet</p>
     </div>
   );
 }
