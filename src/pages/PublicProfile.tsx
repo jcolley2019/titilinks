@@ -446,7 +446,7 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
-            <img src={item.image_url} alt={item.label} className="h-full w-full object-cover" />
+            <img src={item.image_url} alt={item.label} className="h-full w-full object-cover" loading="lazy" decoding="async" />
           ) : (
             <span className="text-lg">{getPlatformEmoji(item.label)}</span>
           )}
@@ -568,8 +568,9 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
                   <img
                     src={item.image_url}
                     alt={item.label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
                     loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <ShoppingBag className="h-8 w-8 opacity-40" style={{ color: theme.typography.text_color }} />
@@ -652,8 +653,9 @@ function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
                   <img
                     src={item.image_url}
                     alt={item.label}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
                     loading="lazy"
+                    decoding="async"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {item.is_adult && (
