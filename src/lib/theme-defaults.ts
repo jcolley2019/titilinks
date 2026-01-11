@@ -54,6 +54,128 @@ export const DEFAULT_THEME: ThemeJson = {
   },
 };
 
+export interface ThemePreset {
+  id: string;
+  name: string;
+  description: string;
+  theme: ThemeJson;
+}
+
+export const THEME_PRESETS: ThemePreset[] = [
+  {
+    id: 'clean-light',
+    name: 'Clean Light',
+    description: 'Minimal white background with subtle styling',
+    theme: {
+      background: {
+        type: 'solid',
+        solid_color: '#f8fafc',
+        gradient_css: '',
+        image_url: '',
+        overlay_color: '#000000',
+        overlay_opacity: 0,
+      },
+      buttons: {
+        shape: 'rounded',
+        fill_color: '#0f172a',
+        text_color: '#ffffff',
+        border_enabled: false,
+        border_color: '#0f172a',
+        shadow_enabled: false,
+        density: 'normal',
+      },
+      typography: {
+        font: 'inter',
+        text_color: '#0f172a',
+      },
+    },
+  },
+  {
+    id: 'clean-dark',
+    name: 'Clean Dark',
+    description: 'Sleek dark theme with high contrast',
+    theme: {
+      background: {
+        type: 'solid',
+        solid_color: '#0f0f0f',
+        gradient_css: '',
+        image_url: '',
+        overlay_color: '#000000',
+        overlay_opacity: 0,
+      },
+      buttons: {
+        shape: 'pill',
+        fill_color: '#ffffff',
+        text_color: '#0f0f0f',
+        border_enabled: false,
+        border_color: '#ffffff',
+        shadow_enabled: false,
+        density: 'normal',
+      },
+      typography: {
+        font: 'inter',
+        text_color: '#ffffff',
+      },
+    },
+  },
+  {
+    id: 'gradient-pop',
+    name: 'Gradient Pop',
+    description: 'Vibrant gradient with bold colors',
+    theme: {
+      background: {
+        type: 'gradient',
+        solid_color: '#1a1a2e',
+        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        image_url: '',
+        overlay_color: '#000000',
+        overlay_opacity: 0.2,
+      },
+      buttons: {
+        shape: 'pill',
+        fill_color: '#ffffff',
+        text_color: '#764ba2',
+        border_enabled: false,
+        border_color: '#ffffff',
+        shadow_enabled: true,
+        density: 'roomy',
+      },
+      typography: {
+        font: 'inter',
+        text_color: '#ffffff',
+      },
+    },
+  },
+  {
+    id: 'photo-background',
+    name: 'Photo Background',
+    description: 'Ready for your background image',
+    theme: {
+      background: {
+        type: 'image',
+        solid_color: '#1a1a2e',
+        gradient_css: '',
+        image_url: '',
+        overlay_color: '#000000',
+        overlay_opacity: 0.5,
+      },
+      buttons: {
+        shape: 'rounded',
+        fill_color: 'rgba(255,255,255,0.15)',
+        text_color: '#ffffff',
+        border_enabled: true,
+        border_color: 'rgba(255,255,255,0.3)',
+        shadow_enabled: false,
+        density: 'normal',
+      },
+      typography: {
+        font: 'inter',
+        text_color: '#ffffff',
+      },
+    },
+  },
+];
+
 export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
   if (!themeJson || typeof themeJson !== 'object') {
     return { ...DEFAULT_THEME };

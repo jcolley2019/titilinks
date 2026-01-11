@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemePreview } from './ThemePreview';
 
@@ -154,6 +154,54 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Theme Presets Section */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <Label className="text-sm font-medium mb-3 block">Quick Start Presets</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {THEME_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setTheme(preset.theme)}
+                  className="relative p-3 rounded-lg border border-border hover:border-primary/50 transition-all text-left group"
+                >
+                  {/* Mini preview */}
+                  <div
+                    className="h-12 rounded-md mb-2 overflow-hidden"
+                    style={{
+                      background:
+                        preset.theme.background.type === 'solid'
+                          ? preset.theme.background.solid_color
+                          : preset.theme.background.type === 'gradient'
+                          ? preset.theme.background.gradient_css
+                          : '#1a1a2e',
+                    }}
+                  >
+                    <div className="flex items-center justify-center h-full gap-1 px-2">
+                      {[1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="h-3 flex-1 rounded-full"
+                          style={{
+                            backgroundColor: preset.theme.buttons.fill_color,
+                            borderRadius:
+                              preset.theme.buttons.shape === 'pill'
+                                ? '9999px'
+                                : preset.theme.buttons.shape === 'rounded'
+                                ? '4px'
+                                : '2px',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium text-foreground">{preset.name}</span>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{preset.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="background" className="gap-2">
