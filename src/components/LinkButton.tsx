@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import type { ThemeJson } from '@/lib/theme-defaults';
+import { ThumbnailImage } from '@/components/ThumbnailImage';
 
 interface LinkButtonProps {
   children: React.ReactNode;
@@ -91,12 +92,10 @@ export function LinkButton({
           }}
         >
           {leftThumbnail ? (
-            <img 
+            <ThumbnailImage 
               src={leftThumbnail} 
               alt="" 
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
+              className="rounded-full"
             />
           ) : (
             leftIcon
