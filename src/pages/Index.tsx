@@ -17,7 +17,7 @@ import { Footer } from '@/components/landing/Footer';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background dark">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <HeroSection />
       <ProblemSection />
