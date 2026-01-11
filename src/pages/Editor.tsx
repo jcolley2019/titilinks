@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { LinkTools } from '@/components/LinkTools';
+import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -169,7 +170,10 @@ export default function Editor() {
             <CardTitle className="text-lg font-medium text-foreground">Page Mode</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs value={selectedMode} onValueChange={(v) => setSelectedMode(v as 'shop' | 'recruit')}>
+            <Tabs value={selectedMode} onValueChange={(v) => {
+              triggerHaptic('medium');
+              setSelectedMode(v as 'shop' | 'recruit');
+            }}>
               <TabsList className="grid w-full grid-cols-2 max-w-md">
                 <TabsTrigger value="shop" className="gap-2">
                   <ShoppingBag className="h-4 w-4" />
