@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Target, Loader2, Save } from 'lucide-react';
+import { LinkTools } from '@/components/LinkTools';
 import type { Tables } from '@/integrations/supabase/types';
 
 type BlockItem = Tables<'block_items'>;
@@ -28,6 +29,18 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
   const [items, setItems] = useState<BlockItem[]>([]);
   const [primaryOfferId, setPrimaryOfferId] = useState<string | null>(page.goal_primary_offer_item_id);
   const [recruitId, setRecruitId] = useState<string | null>(page.goal_recruit_item_id);
+
+  const baseUrl = `${window.location.protocol}//${window.location.host}`;
+
+  const primaryOfferItem = useMemo(
+    () => items.find((item) => item.id === primaryOfferId),
+    [items, primaryOfferId]
+  );
+
+  const recruitItem = useMemo(
+    () => items.find((item) => item.id === recruitId),
+    [items, recruitId]
+  );
 
   useEffect(() => {
     fetchItems();
@@ -156,6 +169,16 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
               <p className="text-xs text-muted-foreground">
                 Track clicks to your primary sales offer.
               </p>
+              {primaryOfferItem && (
+                <div className="mt-2">
+                  <LinkTools
+                    baseUrl={baseUrl}
+                    pageId={page.id}
+                    destinationUrl={primaryOfferItem.url}
+                    blockItemId={primaryOfferItem.id}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -181,6 +204,16 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
               <p className="text-xs text-muted-foreground">
                 Track clicks to your recruitment or signup link.
               </p>
+              {recruitItem && (
+                <div className="mt-2">
+                  <LinkTools
+                    baseUrl={baseUrl}
+                    pageId={page.id}
+                    destinationUrl={recruitItem.url}
+                    blockItemId={recruitItem.id}
+                  />
+                </div>
+              )}
             </div>
 
             {items.length === 0 && (
