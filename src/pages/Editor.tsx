@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockList } from '@/components/BlockList';
+import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -21,6 +22,8 @@ export default function Editor() {
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
   const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const fetchPageData = async () => {
     if (!user) return;
@@ -64,8 +67,15 @@ export default function Editor() {
   };
 
   const handleEditBlock = (blockId: string) => {
-    // For now, just show a toast - block editing can be implemented later
-    toast.info('Block editor coming soon!');
+    setEditingBlockId(blockId);
+    setEditorOpen(true);
+  };
+
+  const handleEditorClose = (open: boolean) => {
+    setEditorOpen(open);
+    if (!open) {
+      setEditingBlockId(null);
+    }
   };
 
   const currentMode = modes.find((m) => m.type === selectedMode);
@@ -163,6 +173,13 @@ export default function Editor() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Block Editor Dialog */}
+      <BlockEditorDialog
+        blockId={editingBlockId}
+        open={editorOpen}
+        onOpenChange={handleEditorClose}
+      />
     </DashboardLayout>
   );
 }
