@@ -257,6 +257,57 @@ export type Database = {
         }
         Relationships: []
       }
+      short_links: {
+        Row: {
+          block_item_id: string | null
+          click_count: number | null
+          code: string
+          created_at: string
+          destination_url: string
+          id: string
+          last_clicked_at: string | null
+          page_id: string
+          updated_at: string
+        }
+        Insert: {
+          block_item_id?: string | null
+          click_count?: number | null
+          code: string
+          created_at?: string
+          destination_url: string
+          id?: string
+          last_clicked_at?: string | null
+          page_id: string
+          updated_at?: string
+        }
+        Update: {
+          block_item_id?: string | null
+          click_count?: number | null
+          code?: string
+          created_at?: string
+          destination_url?: string
+          id?: string
+          last_clicked_at?: string | null
+          page_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_links_block_item_id_fkey"
+            columns: ["block_item_id"]
+            isOneToOne: false
+            referencedRelation: "block_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "short_links_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -265,6 +316,12 @@ export type Database = {
       get_block_owner: { Args: { block_id: string }; Returns: string }
       get_mode_owner: { Args: { mode_id: string }; Returns: string }
       get_page_owner: { Args: { page_id: string }; Returns: string }
+      resolve_short_link: {
+        Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
+        Returns: {
+          destination_url: string
+        }[]
+      }
     }
     Enums: {
       block_type:
