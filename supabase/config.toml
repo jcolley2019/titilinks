@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.canva-callback]
 verify_jwt = false
+
+[functions.canva-token]
+verify_jwt = false
