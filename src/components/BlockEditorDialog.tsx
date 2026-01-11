@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
+import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -61,10 +62,19 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
         />
       );
     
+    case 'social_links':
+      return (
+        <SocialLinksEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
+    
     // Other block types will be added here
     case 'product_cards':
     case 'featured_media':
-    case 'social_links':
     case 'links':
       // Show coming soon message for unimplemented editors
       toast.info(`${block.type.replace('_', ' ')} editor coming soon!`);
