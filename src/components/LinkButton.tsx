@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
+import { triggerHaptic } from '@/hooks/useHapticFeedback';
 
 interface LinkButtonProps {
   children: React.ReactNode;
@@ -117,9 +118,14 @@ export function LinkButton({
   const hasLeftContent = leftIcon || leftThumbnail;
   const variantStyles = getVariantStyles();
 
+  const handleTouchStart = () => {
+    triggerHaptic('light');
+  };
+
   return (
     <Component
       onClick={onClick}
+      onTouchStart={handleTouchStart}
       className={cn(
         // Layout
         'w-full flex items-center gap-3',
