@@ -2,10 +2,7 @@ import { useState } from 'react';
 import { type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
-import { Smartphone, Tablet, Monitor } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-type DeviceFrame = 'mobile' | 'tablet' | 'desktop';
+import { DeviceFrame, DeviceSelector, type DeviceType } from '@/components/DeviceFrame';
 
 interface ThemePreviewProps {
   theme: ThemeJson;
@@ -15,7 +12,7 @@ interface ThemePreviewProps {
 }
 
 export function ThemePreview({ theme, displayName, bio, avatarUrl }: ThemePreviewProps) {
-  const [deviceFrame, setDeviceFrame] = useState<DeviceFrame>('mobile');
+  const [deviceType, setDeviceType] = useState<DeviceType>('iphone');
 
   // Font family mapping
   const fontFamily =
@@ -27,66 +24,20 @@ export function ThemePreview({ theme, displayName, bio, avatarUrl }: ThemePrevie
       ? 'Georgia, serif'
       : 'monospace';
 
-  // Device width mapping
-  const getDeviceWidth = () => {
-    switch (deviceFrame) {
-      case 'mobile':
-        return '375px';
-      case 'tablet':
-        return '768px';
-      case 'desktop':
-        return '100%';
-    }
-  };
-
-  const deviceOptions: { value: DeviceFrame; icon: typeof Smartphone; label: string }[] = [
-    { value: 'mobile', icon: Smartphone, label: 'Mobile' },
-    { value: 'tablet', icon: Tablet, label: 'Tablet' },
-    { value: 'desktop', icon: Monitor, label: 'Desktop' },
-  ];
-
   return (
     <div className="flex flex-col h-full">
       {/* Device Frame Toggle */}
-      <div className="flex items-center justify-center gap-1 p-2 bg-muted/50 rounded-t-lg border border-b-0 border-border">
-        {deviceOptions.map((option) => {
-          const Icon = option.icon;
-          return (
-            <button
-              key={option.value}
-              onClick={() => setDeviceFrame(option.value)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                deviceFrame === option.value
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{option.label}</span>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-center p-3 bg-muted/30 rounded-t-lg border border-b-0 border-border">
+        <DeviceSelector value={deviceType} onChange={setDeviceType} />
       </div>
 
       {/* Preview Container */}
-      <div className="relative flex-1 min-h-[400px] rounded-b-lg overflow-hidden border border-border bg-muted/30 flex items-start justify-center p-4">
+      <div className="relative flex-1 min-h-[500px] rounded-b-lg overflow-hidden border border-border bg-gradient-to-b from-muted/50 to-muted/20 flex items-start justify-center p-6">
         {/* Device Frame */}
-        <div
-          className={cn(
-            'relative rounded-lg overflow-hidden border border-border/50 shadow-lg transition-all duration-200 ease-out',
-            'motion-reduce:transition-none',
-            deviceFrame !== 'desktop' && 'max-h-[600px]'
-          )}
-          style={{
-            width: getDeviceWidth(),
-            maxWidth: '100%',
-          }}
-        >
+        <DeviceFrame device={deviceType}>
           <PageBackground theme={theme}>
             <div
-              className="mx-auto max-w-[420px] px-4 pb-8 pt-8 flex flex-col items-center"
+              className="mx-auto max-w-[340px] px-4 pb-8 pt-6 flex flex-col items-center min-h-full"
               style={{
                 fontFamily,
                 color: theme.typography.text_color,
@@ -143,11 +94,11 @@ export function ThemePreview({ theme, displayName, bio, avatarUrl }: ThemePrevie
 
               {/* Footer label */}
               <div className="mt-8 text-xs opacity-50">
-                Live Preview • {deviceFrame === 'mobile' ? '375px' : deviceFrame === 'tablet' ? '768px' : 'Full'}
+                Live Preview
               </div>
             </div>
           </PageBackground>
-        </div>
+        </DeviceFrame>
       </div>
     </div>
   );
