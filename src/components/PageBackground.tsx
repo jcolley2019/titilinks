@@ -87,11 +87,10 @@ export function PageBackground({
       {/* Global overlay tint (configurable color + opacity) */}
       <div className="pointer-events-none absolute inset-0 bg-[rgb(var(--overlay-rgb))] opacity-[var(--overlay-opacity)]" />
 
-      {/* Bottom haze gradient overlay (Linktree-style readability) */}
-      {/* You can tune the to-* opacity to match your preferred look */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/60" />
+      {/* Bottom haze gradient overlay - respects overlay color for cohesive look */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0)_40%,rgba(var(--overlay-rgb),0.35)_70%,rgba(var(--overlay-rgb),0.65)_100%)]" />
 
-      {/* Optional subtle top vignette (helps header text readability) */}
+      {/* Subtle top vignette (helps header text readability) */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-black/20" />
 
       {/* Content */}
