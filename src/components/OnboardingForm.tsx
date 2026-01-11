@@ -125,6 +125,8 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
       if (checkError) throw checkError;
       if (existingPage) {
         form.setError('handle', { message: 'This handle is already taken' });
+        toast.error('This handle is already taken. Please choose a different one.');
+        setStep(1); // Go back to step 1 to show the error
         setIsSubmitting(false);
         return;
       }
