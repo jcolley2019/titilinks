@@ -411,9 +411,9 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
       case 'pill': return '9999px';
-      case 'rounded': return '0.75rem';
-      case 'square': return '0';
-      default: return '0.75rem';
+      case 'rounded': return '16px';
+      case 'square': return '6px';
+      default: return '16px';
     }
   };
 
@@ -509,9 +509,9 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
       case 'pill': return '9999px';
-      case 'rounded': return '0.75rem';
-      case 'square': return '0';
-      default: return '0.75rem';
+      case 'rounded': return '16px';
+      case 'square': return '6px';
+      default: return '16px';
     }
   };
 
@@ -589,10 +589,10 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
 
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
-      case 'pill': return '1rem';
-      case 'rounded': return '0.75rem';
-      case 'square': return '0';
-      default: return '0.75rem';
+      case 'pill': return '9999px';
+      case 'rounded': return '16px';
+      case 'square': return '6px';
+      default: return '16px';
     }
   };
 
@@ -674,10 +674,10 @@ function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
 
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
-      case 'pill': return '1rem';
-      case 'rounded': return '0.75rem';
-      case 'square': return '0';
-      default: return '0.75rem';
+      case 'pill': return '9999px';
+      case 'rounded': return '16px';
+      case 'square': return '6px';
+      default: return '16px';
     }
   };
 
