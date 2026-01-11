@@ -123,8 +123,8 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
-          refresh_token: string | null
-          scope: string | null
+          refresh_token: string
+          scope: string
           updated_at: string
           user_id: string
         }
@@ -133,8 +133,8 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
-          refresh_token?: string | null
-          scope?: string | null
+          refresh_token: string
+          scope: string
           updated_at?: string
           user_id: string
         }
@@ -143,8 +143,8 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
-          refresh_token?: string | null
-          scope?: string | null
+          refresh_token?: string
+          scope?: string
           updated_at?: string
           user_id?: string
         }
