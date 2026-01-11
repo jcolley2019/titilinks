@@ -12,6 +12,7 @@ import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
 import Setup from "./pages/Setup";
 import AISetup from "./pages/AISetup";
+import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import PublicProfile from "./pages/PublicProfile";
 import NotFound from "./pages/NotFound";
 
@@ -67,6 +68,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
