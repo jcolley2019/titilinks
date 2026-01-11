@@ -31,7 +31,10 @@ export default function CanvaConnect() {
     // Initiate Canva OAuth flow
     const initiateCanvaConnect = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('canva-connect');
+        // Pass the current origin so the callback knows where to redirect
+        const { data, error } = await supabase.functions.invoke('canva-connect', {
+          body: { redirectOrigin: window.location.origin }
+        });
 
         if (error) {
           console.error('Canva connect error:', error);
