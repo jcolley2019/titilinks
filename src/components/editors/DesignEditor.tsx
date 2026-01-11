@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemePreview } from './ThemePreview';
 
 const GRADIENT_PRESETS = [
   { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
@@ -23,9 +24,12 @@ interface DesignEditorProps {
   pageId: string;
   themeJson: unknown;
   onUpdate: () => void;
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
 }
 
-export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps) {
+export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl }: DesignEditorProps) {
   const { user } = useAuth();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
   const [saving, setSaving] = useState(false);
@@ -136,18 +140,20 @@ export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps)
   };
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
-          <Palette className="h-5 w-5 text-primary" />
-          Design Settings
-        </CardTitle>
-        <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save
-        </Button>
-      </CardHeader>
-      <CardContent>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Controls Panel */}
+      <Card className="bg-card border-border">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
+            <Palette className="h-5 w-5 text-primary" />
+            Design Settings
+          </CardTitle>
+          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save
+          </Button>
+        </CardHeader>
+        <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="background" className="gap-2">
@@ -551,7 +557,25 @@ export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps)
             </div>
           </TabsContent>
         </Tabs>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Live Preview Panel */}
+      <div className="lg:sticky lg:top-6 lg:self-start">
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-medium text-foreground">Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ThemePreview
+              theme={theme}
+              displayName={displayName}
+              bio={bio}
+              avatarUrl={avatarUrl}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
