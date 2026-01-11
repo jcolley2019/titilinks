@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [savePresetOpen, setSavePresetOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [savingPreset, setSavingPreset] = useState(false);
+
+  // Canva connection state
+  const [canvaError, setCanvaError] = useState<'mfa' | 'generic' | null>(null);
+  const [canvaConnecting, setCanvaConnecting] = useState(false);
 
   // Fetch custom presets
   const fetchCustomPresets = async () => {
@@ -220,6 +224,33 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   const removeBackgroundImage = () => {
     updateBackground({ image_url: '' }, true);
+  };
+
+  const connectToCanva = async () => {
+    setCanvaConnecting(true);
+    setCanvaError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('canva-connect');
+      if (error) {
+        // Check if error indicates MFA requirement
+        const errorMessage = error.message?.toLowerCase() || '';
+        if (errorMessage.includes('mfa') || errorMessage.includes('multi-factor') || errorMessage.includes('2fa')) {
+          setCanvaError('mfa');
+        } else {
+          setCanvaError('generic');
+        }
+        return;
+      }
+      // If successful, redirect to Canva OAuth
+      if (data?.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (err) {
+      console.error('Canva connection error:', err);
+      setCanvaError('generic');
+    } finally {
+      setCanvaConnecting(false);
+    }
   };
 
   return (
@@ -470,6 +501,42 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               Users with "reduce motion" enabled in their device settings will not see animations regardless of this setting.
             </p>
           </div>
+
+          {/* Canva MFA Error Panel */}
+          {canvaError === 'mfa' && (
+            <div className="mb-6 pb-6 border-b border-border">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">
+                      Canva requires MFA to be enabled
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      In Canva: Settings → Login → set a password (if needed), then enable MFA (Login verification).
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Return here and try again once enabled.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={connectToCanva}
+                  disabled={canvaConnecting}
+                  className="w-full gap-2"
+                >
+                  {canvaConnecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Canva Setup Help Panel */}
           <Collapsible className="mb-6 pb-6 border-b border-border">
