@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.canva-connect]
 verify_jwt = false
+
+[functions.canva-callback]
+verify_jwt = false
