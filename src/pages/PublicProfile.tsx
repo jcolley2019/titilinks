@@ -17,6 +17,7 @@ import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
 import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
+import { PageBackground } from '@/components/PageBackground';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -222,32 +223,6 @@ export default function PublicProfile() {
   // Get theme with defaults
   const theme = getThemeWithDefaults(page.theme_json);
 
-  // Build background styles
-  const getBackgroundStyles = (): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      minHeight: '100vh',
-      position: 'relative',
-    };
-
-    switch (theme.background.type) {
-      case 'solid':
-        return { ...base, backgroundColor: theme.background.solid_color };
-      case 'gradient':
-        return { ...base, backgroundImage: theme.background.gradient_css };
-      case 'image':
-        return {
-          ...base,
-          backgroundImage: theme.background.image_url ? `url(${theme.background.image_url})` : undefined,
-          backgroundColor: theme.background.image_url ? undefined : theme.background.solid_color,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'scroll',
-        };
-      default:
-        return base;
-    }
-  };
-
   // Get font family based on theme
   const getFontFamily = (): string => {
     switch (theme.typography.font) {
@@ -265,19 +240,10 @@ export default function PublicProfile() {
   };
 
   return (
-    <div style={getBackgroundStyles()}>
-      {/* Overlay Layer */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundColor: theme.background.overlay_color,
-          opacity: theme.background.overlay_opacity,
-        }}
-      />
-
+    <PageBackground theme={theme}>
       {/* Content Layer */}
       <div
-        className="relative z-10 max-w-[640px] mx-auto px-4 py-8 pb-20"
+        className="max-w-[640px] mx-auto px-4 py-8 pb-20"
         style={{
           fontFamily: getFontFamily(),
           color: theme.typography.text_color,
@@ -360,7 +326,7 @@ export default function PublicProfile() {
         onConfirm={handleAdultConfirm}
         onCancel={handleAdultCancel}
       />
-    </div>
+    </PageBackground>
   );
 }
 
