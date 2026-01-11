@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Instagram, Youtube, ShoppingCart, CreditCard, Music, MessageCircle } from 'lucide-react';
+import { Instagram, Youtube, ShoppingCart, Music, MessageCircle } from 'lucide-react';
 import { ReactNode } from 'react';
 
 interface Integration {
@@ -29,10 +29,6 @@ const integrations: Integration[] = [
     icon: <ShoppingCart className="w-5 h-5 text-green-500" />
   },
   { 
-    name: 'Stripe', 
-    icon: <CreditCard className="w-5 h-5 text-purple-500" />
-  },
-  { 
     name: 'Spotify', 
     icon: <Music className="w-5 h-5 text-green-400" />
   },
@@ -47,6 +43,14 @@ const integrations: Integration[] = [
   { 
     name: 'Discord', 
     icon: <MessageCircle className="w-5 h-5 text-indigo-400" />
+  },
+  { 
+    name: 'Kick', 
+    icon: (
+      <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.08 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/>
+      </svg>
+    )
   },
 ];
 
@@ -74,7 +78,7 @@ export function IntegrationsSection() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex flex-wrap justify-center gap-4"
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
         >
           {integrations.map((integration, index) => (
             <motion.div
@@ -83,7 +87,7 @@ export function IntegrationsSection() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="flex items-center gap-3 px-6 py-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
+              className="flex items-center justify-center gap-3 px-4 py-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
             >
               {integration.icon}
               <span className="font-medium">{integration.name}</span>
