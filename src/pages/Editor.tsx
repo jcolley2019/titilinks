@@ -1,10 +1,63 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Link as LinkIcon } from 'lucide-react';
+import { Plus, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { OnboardingForm } from '@/components/OnboardingForm';
 
 export default function Editor() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [hasPage, setHasPage] = useState(false);
+
+  const checkUserPage = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('pages')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setHasPage(!!data);
+    } catch (error) {
+      console.error('Error checking user page:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkUserPage();
+  }, [user]);
+
+  const handleOnboardingComplete = () => {
+    setHasPage(true);
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!hasPage) {
+    return (
+      <DashboardLayout>
+        <OnboardingForm onComplete={handleOnboardingComplete} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <motion.div
