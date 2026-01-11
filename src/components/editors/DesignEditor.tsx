@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -7,10 +7,17 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2 } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
+import { useAuth } from '@/hooks/useAuth';
+
+const GRADIENT_PRESETS = [
+  { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
+  { name: 'Sunset', css: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #ff9ff3 100%)' },
+  { name: 'Ocean', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B8DD6 100%)' },
+];
 
 interface DesignEditorProps {
   pageId: string;
@@ -19,20 +26,22 @@ interface DesignEditorProps {
 }
 
 export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps) {
+  const { user } = useAuth();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('background');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTheme(getThemeWithDefaults(themeJson));
   }, [themeJson]);
 
-  const handleSave = async () => {
-    setSaving(true);
+  const saveTheme = async (newTheme: ThemeJson) => {
     try {
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: JSON.parse(JSON.stringify(theme)) })
+        .update({ theme_json: JSON.parse(JSON.stringify(newTheme)) })
         .eq('id', pageId);
 
       if (error) throw error;
@@ -41,16 +50,26 @@ export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps)
     } catch (error) {
       console.error('Error saving theme:', error);
       toast.error('Failed to save design');
-    } finally {
-      setSaving(false);
     }
   };
 
-  const updateBackground = (updates: Partial<ThemeJson['background']>) => {
-    setTheme((prev) => ({
-      ...prev,
-      background: { ...prev.background, ...updates },
-    }));
+  const handleSave = async () => {
+    setSaving(true);
+    await saveTheme(theme);
+    setSaving(false);
+  };
+
+  const updateBackground = (updates: Partial<ThemeJson['background']>, autoSave = false) => {
+    setTheme((prev) => {
+      const newTheme = {
+        ...prev,
+        background: { ...prev.background, ...updates },
+      };
+      if (autoSave) {
+        saveTheme(newTheme);
+      }
+      return newTheme;
+    });
   };
 
   const updateButtons = (updates: Partial<ThemeJson['buttons']>) => {
@@ -65,6 +84,55 @@ export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps)
       ...prev,
       typography: { ...prev.typography, ...updates },
     }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be 5MB or less');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/bg-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('page-assets')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('page-assets')
+        .getPublicUrl(fileName);
+
+      updateBackground({ image_url: urlData.publicUrl }, true);
+      toast.success('Background image uploaded!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeBackgroundImage = () => {
+    updateBackground({ image_url: '' }, true);
   };
 
   return (
@@ -136,58 +204,152 @@ export function DesignEditor({ pageId, themeJson, onUpdate }: DesignEditorProps)
             )}
 
             {theme.background.type === 'gradient' && (
-              <div className="space-y-2">
-                <Label>Gradient CSS</Label>
-                <Input
-                  value={theme.background.gradient_css}
-                  onChange={(e) => updateBackground({ gradient_css: e.target.value })}
-                  placeholder="linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-                />
+              <div className="space-y-3">
+                <Label>Choose a Preset Gradient</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {GRADIENT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => updateBackground({ gradient_css: preset.css })}
+                      className={`relative h-16 rounded-md border-2 transition-all ${
+                        theme.background.gradient_css === preset.css
+                          ? 'border-primary ring-2 ring-primary/30'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      style={{ background: preset.css }}
+                    >
+                      {theme.background.gradient_css === preset.css && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
+                          <Check className="h-5 w-5 text-white" />
+                        </div>
+                      )}
+                      <span className="absolute bottom-1 left-1 text-xs text-white drop-shadow-md">
+                        {preset.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
                 <div
-                  className="h-16 rounded-md border border-border"
+                  className="h-20 rounded-md border border-border"
                   style={{ background: theme.background.gradient_css }}
                 />
               </div>
             )}
 
             {theme.background.type === 'image' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Image URL</Label>
+              <div className="space-y-3">
+                <Label>Background Image</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                {theme.background.image_url ? (
+                  <div className="relative">
+                    <div
+                      className="h-32 rounded-md border border-border bg-cover bg-center"
+                      style={{ backgroundImage: `url(${theme.background.image_url})` }}
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8"
+                      onClick={removeBackgroundImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full h-24 border-dashed gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Upload className="h-5 w-5" />
+                    )}
+                    {uploading ? 'Uploading...' : 'Upload Image'}
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Max 5MB. Supported: JPEG, PNG, GIF, WebP
+                </p>
+              </div>
+            )}
+
+            {/* Overlay Controls - shown for all background types */}
+            <div className="pt-4 border-t border-border space-y-3">
+              <Label className="text-muted-foreground">Overlay Settings</Label>
+              <div className="space-y-2">
+                <Label>Overlay Color</Label>
+                <div className="flex gap-2">
                   <Input
-                    value={theme.background.image_url}
-                    onChange={(e) => updateBackground({ image_url: e.target.value })}
-                    placeholder="https://example.com/bg.jpg"
+                    type="color"
+                    value={theme.background.overlay_color}
+                    onChange={(e) => updateBackground({ overlay_color: e.target.value })}
+                    className="w-16 h-10 p-1 cursor-pointer"
+                  />
+                  <Input
+                    value={theme.background.overlay_color}
+                    onChange={(e) => updateBackground({ overlay_color: e.target.value })}
+                    placeholder="#000000"
+                    className="flex-1"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Overlay Color</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="color"
-                      value={theme.background.overlay_color}
-                      onChange={(e) => updateBackground({ overlay_color: e.target.value })}
-                      className="w-16 h-10 p-1 cursor-pointer"
-                    />
-                    <Input
-                      value={theme.background.overlay_color}
-                      onChange={(e) => updateBackground({ overlay_color: e.target.value })}
-                      className="flex-1"
-                    />
+              </div>
+              <div className="space-y-2">
+                <Label>Overlay Opacity: {Math.round(theme.background.overlay_opacity * 100)}%</Label>
+                <Slider
+                  value={[theme.background.overlay_opacity]}
+                  onValueChange={([v]) => updateBackground({ overlay_opacity: v })}
+                  min={0}
+                  max={0.8}
+                  step={0.05}
+                />
+              </div>
+
+              {/* Background Preview */}
+              <div className="pt-2">
+                <Label className="text-muted-foreground mb-2 block">Preview</Label>
+                <div
+                  className="relative h-24 rounded-md border border-border overflow-hidden"
+                  style={{
+                    background:
+                      theme.background.type === 'solid'
+                        ? theme.background.solid_color
+                        : theme.background.type === 'gradient'
+                        ? theme.background.gradient_css
+                        : theme.background.image_url
+                        ? `url(${theme.background.image_url})`
+                        : '#1a1a2e',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                >
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundColor: theme.background.overlay_color,
+                      opacity: theme.background.overlay_opacity,
+                    }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span
+                      className="text-sm font-medium px-3 py-1 rounded"
+                      style={{ color: theme.typography.text_color }}
+                    >
+                      Your content here
+                    </span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Overlay Opacity: {Math.round(theme.background.overlay_opacity * 100)}%</Label>
-                  <Slider
-                    value={[theme.background.overlay_opacity]}
-                    onValueChange={([v]) => updateBackground({ overlay_opacity: v })}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                  />
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </TabsContent>
 
           {/* Buttons Tab */}
