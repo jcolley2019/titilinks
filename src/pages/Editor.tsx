@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
@@ -13,6 +13,7 @@ import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { LinkTools } from '@/components/LinkTools';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -28,8 +29,9 @@ export default function Editor() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
+  const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
-  const mainLink = page ? `${window.location.protocol}//${domain}/${page.handle}` : '';
+  const mainLink = page ? `${baseUrl}/${page.handle}` : '';
   const recruitLink = page ? `${mainLink}?mode=recruit` : '';
 
   const copyToClipboard = async (text: string, linkType: string) => {
@@ -249,6 +251,32 @@ export default function Editor() {
               <p className="text-xs text-muted-foreground">
                 Forces recruit mode regardless of referrer
               </p>
+            </div>
+
+            {/* Link Tools Section */}
+            <div className="pt-4 border-t border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Link Tools</span>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Main Hub Link</label>
+                <LinkTools
+                  baseUrl={baseUrl}
+                  pageId={page.id}
+                  destinationUrl={mainLink}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Recruit Link</label>
+                <LinkTools
+                  baseUrl={baseUrl}
+                  pageId={page.id}
+                  destinationUrl={recruitLink}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
