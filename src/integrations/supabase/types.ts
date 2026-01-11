@@ -360,6 +360,11 @@ export type Database = {
         | "featured_media"
         | "social_links"
         | "links"
+        | "hero_card"
+        | "social_icon_row"
+        | "email_subscribe"
+        | "content_section"
+        | "product_catalog"
       event_type: "page_view" | "outbound_click" | "mode_routed"
       mode_type: "shop" | "recruit"
     }
@@ -495,6 +500,11 @@ export const Constants = {
         "featured_media",
         "social_links",
         "links",
+        "hero_card",
+        "social_icon_row",
+        "email_subscribe",
+        "content_section",
+        "product_catalog",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
       mode_type: ["shop", "recruit"],
