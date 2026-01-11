@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -470,6 +470,61 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               Users with "reduce motion" enabled in their device settings will not see animations regardless of this setting.
             </p>
           </div>
+
+          {/* Canva Setup Help Panel */}
+          <Collapsible className="mb-6 pb-6 border-b border-border">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium cursor-pointer text-muted-foreground">Canva Setup Help</Label>
+                </div>
+                <span className="text-xs text-muted-foreground">Click to expand</span>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4 space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4 text-sm">
+                <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
+                
+                <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
+                  <li>
+                    In{' '}
+                    <a 
+                      href="https://www.canva.com/developers/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      Canva Developer Portal
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    , create a <strong className="text-foreground">Canva Connect</strong> integration under <strong className="text-foreground">"Your integrations"</strong>
+                  </li>
+                  <li>
+                    Add redirect URL:{' '}
+                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">
+                      https://titilinks.lovable.app/api/canva/callback
+                    </code>
+                  </li>
+                  <li>
+                    Enable scopes:{' '}
+                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">design:meta:read</code>
+                    {' '}and{' '}
+                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">design:content:read</code>
+                  </li>
+                  <li>
+                    Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into Lovable environment variables
+                  </li>
+                </ol>
+
+                <div className="mt-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    <strong>Note:</strong> The Canva "Your apps" → Code upload screen is for Apps SDK and is <em>not</em> used for this feature. Use "Your integrations" instead.
+                  </p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
