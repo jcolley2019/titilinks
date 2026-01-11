@@ -142,6 +142,22 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.legal': 'Legal',
     'footer.copyright': 'All rights reserved.',
     'footer.made': 'Made with ✨ for creators everywhere',
+    
+    // Templates Page
+    'templates.title': 'Find your perfect',
+    'templates.title2': 'template',
+    'templates.subtitle': 'Browse templates designed for your industry and start customizing in seconds.',
+    'templates.comingSoon': 'Click any category to explore templates coming soon!',
+    'templates.category.fashion': 'Fashion',
+    'templates.category.healthFitness': 'Health and Fitness',
+    'templates.category.influencer': 'Influencer and Creator',
+    'templates.category.marketing': 'Marketing',
+    'templates.category.music': 'Music',
+    'templates.category.smallBusiness': 'Small Business',
+    'templates.category.socialMedia': 'Social Media',
+    'templates.category.sports': 'Sports',
+    'templates.category.telegram': 'Telegram',
+    'templates.category.whatsapp': 'Whatsapp',
   },
   es: {
     // Navbar
@@ -276,6 +292,22 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.legal': 'Legal',
     'footer.copyright': 'Todos los derechos reservados.',
     'footer.made': 'Hecho con ✨ para creadores en todo el mundo',
+    
+    // Templates Page
+    'templates.title': 'Encuentra tu',
+    'templates.title2': 'plantilla perfecta',
+    'templates.subtitle': 'Explora plantillas diseñadas para tu industria y comienza a personalizar en segundos.',
+    'templates.comingSoon': '¡Haz clic en cualquier categoría para explorar plantillas próximamente!',
+    'templates.category.fashion': 'Moda',
+    'templates.category.healthFitness': 'Salud y Fitness',
+    'templates.category.influencer': 'Influencer y Creador',
+    'templates.category.marketing': 'Marketing',
+    'templates.category.music': 'Música',
+    'templates.category.smallBusiness': 'Pequeños Negocios',
+    'templates.category.socialMedia': 'Redes Sociales',
+    'templates.category.sports': 'Deportes',
+    'templates.category.telegram': 'Telegram',
+    'templates.category.whatsapp': 'Whatsapp',
   }
 };
 

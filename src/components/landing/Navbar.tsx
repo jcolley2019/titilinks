@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Link2, Menu, X, ChevronDown, LinkIcon, QrCode, ExternalLink } from 'lucide-react';
@@ -88,9 +88,9 @@ export function Navbar() {
                 )}
               </AnimatePresence>
             </div>
-            <a href="#demo" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/templates" className="text-muted-foreground hover:text-foreground transition-colors">
               {t('nav.templates')}
-            </a>
+            </Link>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
               {t('nav.pricing')}
             </a>
@@ -149,13 +149,13 @@ export function Navbar() {
                   ))}
                 </div>
               </div>
-              <a 
-                href="#demo" 
+              <Link 
+                to="/templates" 
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t('nav.templates')}
-              </a>
+              </Link>
               <a 
                 href="#pricing" 
                 className="text-muted-foreground hover:text-foreground transition-colors py-2"
