@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
+import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
 import { getThemeWithDefaults, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
@@ -624,6 +625,7 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
       rel="noopener noreferrer"
       className="block group"
       onClick={(e) => handleClick(e, item)}
+      onTouchStart={() => triggerHaptic('light')}
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
@@ -714,6 +716,7 @@ function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
       rel="noopener noreferrer"
       className="block group"
       onClick={(e) => handleClick(e, item)}
+      onTouchStart={() => triggerHaptic('light')}
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
