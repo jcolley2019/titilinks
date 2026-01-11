@@ -13,6 +13,7 @@ import {
   Share2,
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
+import { useEventTracking } from '@/hooks/useEventTracking';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -20,34 +21,40 @@ type Block = Tables<'blocks'>;
 type BlockItem = Tables<'block_items'>;
 
 type ModeType = Enums<'mode_type'>;
+type RoutingReason = 'param' | 'utm' | 'referrer' | 'default';
 
 interface BlockWithItems extends Block {
   items: BlockItem[];
 }
 
-function detectMode(searchParams: URLSearchParams): ModeType {
+interface ModeDetectionResult {
+  mode: ModeType;
+  reason: RoutingReason;
+}
+
+function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
   // 1. Check query param mode=recruit
   const modeParam = searchParams.get('mode');
   if (modeParam === 'recruit') {
-    return 'recruit';
+    return { mode: 'recruit', reason: 'param' };
   }
 
   // 2. Check utm_campaign=recruit
   const utmCampaign = searchParams.get('utm_campaign');
   if (utmCampaign === 'recruit') {
-    return 'recruit';
+    return { mode: 'recruit', reason: 'utm' };
   }
 
   // 3. Check referrer for social platforms -> shop
   if (typeof document !== 'undefined' && document.referrer) {
     const referrer = document.referrer.toLowerCase();
     if (referrer.includes('tiktok.com') || referrer.includes('instagram.com')) {
-      return 'shop';
+      return { mode: 'shop', reason: 'referrer' };
     }
   }
 
   // 4. Default -> shop
-  return 'shop';
+  return { mode: 'shop', reason: 'default' };
 }
 
 export default function PublicProfile() {
@@ -58,7 +65,15 @@ export default function PublicProfile() {
   const [blocks, setBlocks] = useState<BlockWithItems[]>([]);
   const [notFound, setNotFound] = useState(false);
 
-  const detectedMode = useMemo(() => detectMode(searchParams), [searchParams]);
+  const { mode: detectedMode, reason: routingReason } = useMemo(() => detectMode(searchParams), [searchParams]);
+  const { trackPageLoad, trackOutboundClick } = useEventTracking(page?.id || null, detectedMode);
+
+  // Track page load events when page is loaded
+  useEffect(() => {
+    if (page && !loading) {
+      trackPageLoad(routingReason);
+    }
+  }, [page, loading, trackPageLoad, routingReason]);
 
   useEffect(() => {
     if (handle) {
@@ -200,7 +215,7 @@ export default function PublicProfile() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <BlockRenderer block={block} />
+                <BlockRenderer block={block} onOutboundClick={trackOutboundClick} />
               </motion.section>
             ))
           )}
@@ -217,26 +232,37 @@ export default function PublicProfile() {
   );
 }
 
-function BlockRenderer({ block }: { block: BlockWithItems }) {
+type ClickHandler = (blockType: string, blockId: string, itemId: string, url: string) => void;
+
+interface BlockRendererProps {
+  block: BlockWithItems;
+  onOutboundClick: ClickHandler;
+}
+
+function BlockRenderer({ block, onOutboundClick }: BlockRendererProps) {
   switch (block.type) {
     case 'primary_cta':
-      return <PrimaryCtaBlock block={block} />;
+      return <PrimaryCtaBlock block={block} onOutboundClick={onOutboundClick} />;
     case 'social_links':
-      return <SocialLinksBlock block={block} />;
+      return <SocialLinksBlock block={block} onOutboundClick={onOutboundClick} />;
     case 'links':
-      return <LinksBlock block={block} />;
+      return <LinksBlock block={block} onOutboundClick={onOutboundClick} />;
     case 'product_cards':
-      return <ProductCardsBlock block={block} />;
+      return <ProductCardsBlock block={block} onOutboundClick={onOutboundClick} />;
     case 'featured_media':
-      return <FeaturedMediaBlock block={block} />;
+      return <FeaturedMediaBlock block={block} onOutboundClick={onOutboundClick} />;
     default:
       return null;
   }
 }
 
-function PrimaryCtaBlock({ block }: { block: BlockWithItems }) {
+function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   const item = block.items[0];
   if (!item) return null;
+
+  const handleClick = () => {
+    onOutboundClick(block.type, block.id, item.id, item.url);
+  };
 
   return (
     <a
@@ -244,6 +270,7 @@ function PrimaryCtaBlock({ block }: { block: BlockWithItems }) {
       target="_blank"
       rel="noopener noreferrer"
       className="block"
+      onClick={handleClick}
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
@@ -258,7 +285,7 @@ function PrimaryCtaBlock({ block }: { block: BlockWithItems }) {
   );
 }
 
-function SocialLinksBlock({ block }: { block: BlockWithItems }) {
+function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
   return (
@@ -271,6 +298,7 @@ function SocialLinksBlock({ block }: { block: BlockWithItems }) {
           rel="noopener noreferrer"
           className="flex items-center justify-center h-11 w-11 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
           title={item.label}
+          onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
         >
           <Share2 className="h-5 w-5 text-foreground" />
         </a>
@@ -279,7 +307,7 @@ function SocialLinksBlock({ block }: { block: BlockWithItems }) {
   );
 }
 
-function LinksBlock({ block }: { block: BlockWithItems }) {
+function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
   return (
@@ -294,6 +322,7 @@ function LinksBlock({ block }: { block: BlockWithItems }) {
           target="_blank"
           rel="noopener noreferrer"
           className="block"
+          onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
         >
           <motion.div
             whileTap={{ scale: 0.98 }}
@@ -320,7 +349,7 @@ function LinksBlock({ block }: { block: BlockWithItems }) {
   );
 }
 
-function ProductCardsBlock({ block }: { block: BlockWithItems }) {
+function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
   return (
@@ -336,6 +365,7 @@ function ProductCardsBlock({ block }: { block: BlockWithItems }) {
             target="_blank"
             rel="noopener noreferrer"
             className="block group"
+            onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
@@ -374,7 +404,7 @@ function ProductCardsBlock({ block }: { block: BlockWithItems }) {
   );
 }
 
-function FeaturedMediaBlock({ block }: { block: BlockWithItems }) {
+function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
   return (
@@ -390,6 +420,7 @@ function FeaturedMediaBlock({ block }: { block: BlockWithItems }) {
             target="_blank"
             rel="noopener noreferrer"
             className="block group"
+            onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
