@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,9 +11,11 @@ import {
   Users,
   Image as ImageIcon,
   Share2,
+  ShieldAlert,
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
+import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -65,8 +67,56 @@ export default function PublicProfile() {
   const [blocks, setBlocks] = useState<BlockWithItems[]>([]);
   const [notFound, setNotFound] = useState(false);
 
+  // Adult content interstitial state
+  const [pendingAdultLink, setPendingAdultLink] = useState<{
+    url: string;
+    blockType: string;
+    blockId: string;
+    itemId: string;
+  } | null>(null);
+
   const { mode: detectedMode, reason: routingReason } = useMemo(() => detectMode(searchParams), [searchParams]);
   const { trackPageLoad, trackOutboundClick } = useEventTracking(page?.id || null, detectedMode);
+
+  // Handle outbound click with adult content check
+  const handleOutboundClick = useCallback((
+    blockType: string,
+    blockId: string,
+    itemId: string,
+    url: string,
+    isAdult?: boolean
+  ) => {
+    // If adult content and user hasn't consented, show dialog
+    if (isAdult && !hasAdultConsent()) {
+      setPendingAdultLink({ url, blockType, blockId, itemId });
+      return false; // Prevent navigation
+    }
+    
+    // Track the click
+    trackOutboundClick(blockType, blockId, itemId, url);
+    return true; // Allow navigation
+  }, [trackOutboundClick]);
+
+  const handleAdultConfirm = useCallback(() => {
+    if (pendingAdultLink) {
+      // Track the click
+      trackOutboundClick(
+        pendingAdultLink.blockType,
+        pendingAdultLink.blockId,
+        pendingAdultLink.itemId,
+        pendingAdultLink.url
+      );
+      // Open the link
+      window.open(pendingAdultLink.url, '_blank', 'noopener,noreferrer');
+      setPendingAdultLink(null);
+    }
+  }, [pendingAdultLink, trackOutboundClick]);
+
+  const handleAdultCancel = useCallback(() => {
+    setPendingAdultLink(null);
+  }, []);
+
+  // Track page load events when page is loaded
 
   // Track page load events when page is loaded
   useEffect(() => {
@@ -215,7 +265,7 @@ export default function PublicProfile() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <BlockRenderer block={block} onOutboundClick={trackOutboundClick} />
+                <BlockRenderer block={block} onOutboundClick={handleOutboundClick} />
               </motion.section>
             ))
           )}
@@ -228,11 +278,19 @@ export default function PublicProfile() {
           </p>
         </footer>
       </div>
+
+      {/* Adult Content Dialog */}
+      <AdultContentDialog
+        open={!!pendingAdultLink}
+        onOpenChange={(open) => !open && setPendingAdultLink(null)}
+        onConfirm={handleAdultConfirm}
+        onCancel={handleAdultCancel}
+      />
     </div>
   );
 }
 
-type ClickHandler = (blockType: string, blockId: string, itemId: string, url: string) => void;
+type ClickHandler = (blockType: string, blockId: string, itemId: string, url: string, isAdult?: boolean) => boolean;
 
 interface BlockRendererProps {
   block: BlockWithItems;
@@ -260,8 +318,11 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
   const item = block.items[0];
   if (!item) return null;
 
-  const handleClick = () => {
-    onOutboundClick(block.type, block.id, item.id, item.url);
+  const handleClick = (e: React.MouseEvent) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
   };
 
   return (
@@ -274,8 +335,13 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
-        className="bg-primary text-primary-foreground rounded-xl p-4 text-center shadow-lg hover:opacity-90 transition-opacity"
+        className="bg-primary text-primary-foreground rounded-xl p-4 text-center shadow-lg hover:opacity-90 transition-opacity relative"
       >
+        {item.is_adult && (
+          <div className="absolute top-2 right-2">
+            <ShieldAlert className="h-4 w-4 text-primary-foreground/70" />
+          </div>
+        )}
         <p className="font-semibold text-lg">{item.label}</p>
         {item.subtitle && (
           <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
@@ -288,6 +354,13 @@ function PrimaryCtaBlock({ block, onOutboundClick }: { block: BlockWithItems; on
 function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
+  const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="flex flex-wrap justify-center gap-3">
       {block.items.map((item) => (
@@ -296,11 +369,16 @@ function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; o
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-11 w-11 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+          className="flex items-center justify-center h-11 w-11 rounded-full bg-secondary hover:bg-secondary/80 transition-colors relative"
           title={item.label}
-          onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
+          onClick={(e) => handleClick(e, item)}
         >
           <Share2 className="h-5 w-5 text-foreground" />
+          {item.is_adult && (
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive flex items-center justify-center">
+              <span className="text-[8px] font-bold text-destructive-foreground">18</span>
+            </div>
+          )}
         </a>
       ))}
     </div>
@@ -309,6 +387,13 @@ function SocialLinksBlock({ block, onOutboundClick }: { block: BlockWithItems; o
 
 function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
+
+  const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -322,7 +407,7 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
           target="_blank"
           rel="noopener noreferrer"
           className="block"
-          onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
+          onClick={(e) => handleClick(e, item)}
         >
           <motion.div
             whileTap={{ scale: 0.98 }}
@@ -331,6 +416,12 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-foreground truncate">{item.label}</p>
+                {item.is_adult && (
+                  <span className="text-[10px] font-semibold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <ShieldAlert className="h-3 w-3" />
+                    18+
+                  </span>
+                )}
                 {item.badge && (
                   <span className="text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                     {item.badge}
@@ -352,6 +443,13 @@ function LinksBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutbo
 function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
+  const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="space-y-3">
       {block.title && (
@@ -365,13 +463,13 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
             target="_blank"
             rel="noopener noreferrer"
             className="block group"
-            onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
+            onClick={(e) => handleClick(e, item)}
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
               className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-colors"
             >
-              <div className="aspect-square bg-secondary flex items-center justify-center overflow-hidden">
+              <div className="aspect-square bg-secondary flex items-center justify-center overflow-hidden relative">
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -381,6 +479,12 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
                   />
                 ) : (
                   <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+                )}
+                {item.is_adult && (
+                  <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-0.5">
+                    <ShieldAlert className="h-3 w-3" />
+                    18+
+                  </div>
                 )}
               </div>
               <div className="p-3">
@@ -407,6 +511,13 @@ function ProductCardsBlock({ block, onOutboundClick }: { block: BlockWithItems; 
 function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems; onOutboundClick: ClickHandler }) {
   if (block.items.length === 0) return null;
 
+  const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    if (!shouldNavigate) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="space-y-3">
       {block.title && (
@@ -420,7 +531,7 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
             target="_blank"
             rel="noopener noreferrer"
             className="block group"
-            onClick={() => onOutboundClick(block.type, block.id, item.id, item.url)}
+            onClick={(e) => handleClick(e, item)}
           >
             <motion.div
               whileTap={{ scale: 0.98 }}
@@ -435,13 +546,25 @@ function FeaturedMediaBlock({ block, onOutboundClick }: { block: BlockWithItems;
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {item.is_adult && (
+                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                      <ShieldAlert className="h-3 w-3" />
+                      18+
+                    </div>
+                  )}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <p className="font-semibold text-white">{item.label}</p>
                   </div>
                 </div>
               ) : (
-                <div className="aspect-video bg-secondary flex items-center justify-center">
+                <div className="aspect-video bg-secondary flex items-center justify-center relative">
                   <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                  {item.is_adult && (
+                    <div className="absolute top-2 right-2 bg-destructive/90 text-destructive-foreground px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                      <ShieldAlert className="h-3 w-3" />
+                      18+
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
