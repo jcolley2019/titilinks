@@ -20,6 +20,7 @@ import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
+import { StickyCtaBar } from '@/components/StickyCtaBar';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -70,6 +71,7 @@ export default function PublicProfile() {
   const [page, setPage] = useState<Page | null>(null);
   const [blocks, setBlocks] = useState<BlockWithItems[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [stickyCtaEnabled, setStickyCtaEnabled] = useState(false);
 
   // Adult content interstitial state
   const [pendingAdultLink, setPendingAdultLink] = useState<{
@@ -169,9 +171,13 @@ export default function PublicProfile() {
 
       if (!modeData) {
         setBlocks([]);
+        setStickyCtaEnabled(false);
         setLoading(false);
         return;
       }
+
+      // Store sticky CTA setting
+      setStickyCtaEnabled((modeData as Mode & { sticky_cta_enabled?: boolean }).sticky_cta_enabled ?? false);
 
       // Fetch enabled blocks for this mode
       const { data: blocksData, error: blocksError } = await supabase
@@ -317,13 +323,32 @@ export default function PublicProfile() {
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="mt-12 text-center">
+        {/* Footer - extra padding for sticky CTA */}
+        <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
           <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
             Powered by <span className="font-semibold">TitiLINKS</span>
           </p>
         </footer>
       </div>
+
+      {/* Sticky CTA Bar */}
+      {(() => {
+        const primaryCtaBlock = blocks.find(b => b.type === 'primary_cta');
+        const primaryCtaItem = primaryCtaBlock?.items[0];
+        return primaryCtaItem ? (
+          <StickyCtaBar
+            enabled={stickyCtaEnabled}
+            ctaLabel={primaryCtaItem.label}
+            ctaUrl={primaryCtaItem.url}
+            theme={theme}
+            onOutboundClick={() => {
+              if (primaryCtaBlock) {
+                handleOutboundClick('primary_cta', primaryCtaBlock.id, primaryCtaItem.id, primaryCtaItem.url, primaryCtaItem.is_adult || false);
+              }
+            }}
+          />
+        ) : null;
+      })()}
 
       {/* Adult Content Dialog */}
       <AdultContentDialog
@@ -381,27 +406,29 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   };
 
   return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block"
-      onClick={handleClick}
-    >
-      <LinkButton theme={theme}>
-        <div className="relative">
-          {item.is_adult && (
-            <div className="absolute -top-2 -right-2">
-              <ShieldAlert className="h-4 w-4 opacity-70" />
-            </div>
-          )}
-          <p className="font-semibold text-lg">{item.label}</p>
-          {item.subtitle && (
-            <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
-          )}
-        </div>
-      </LinkButton>
-    </a>
+    <div data-block-type="primary_cta">
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+        onClick={handleClick}
+      >
+        <LinkButton theme={theme}>
+          <div className="relative">
+            {item.is_adult && (
+              <div className="absolute -top-2 -right-2">
+                <ShieldAlert className="h-4 w-4 opacity-70" />
+              </div>
+            )}
+            <p className="font-semibold text-lg">{item.label}</p>
+            {item.subtitle && (
+              <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
+            )}
+          </div>
+        </LinkButton>
+      </a>
+    </div>
   );
 }
 

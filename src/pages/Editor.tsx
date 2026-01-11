@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
@@ -14,11 +14,12 @@ import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { LinkTools } from '@/components/LinkTools';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
-type Mode = Tables<'modes'>;
+type Mode = Tables<'modes'> & { sticky_cta_enabled?: boolean };
 
 export default function Editor() {
   const { user } = useAuth();
@@ -185,6 +186,43 @@ export default function Editor() {
                 ? 'Showcase products and drive sales with your audience.'
                 : 'Attract and recruit new team members or collaborators.'}
             </p>
+            
+            {/* Sticky CTA Toggle */}
+            {currentMode && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <Pin className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Sticky CTA</p>
+                    <p className="text-xs text-muted-foreground">Show floating CTA after scroll</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={currentMode.sticky_cta_enabled ?? false}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      const { error } = await supabase
+                        .from('modes')
+                        .update({ sticky_cta_enabled: checked })
+                        .eq('id', currentMode.id);
+                      
+                      if (error) throw error;
+                      
+                      // Update local state
+                      setModes(prev => prev.map(m => 
+                        m.id === currentMode.id 
+                          ? { ...m, sticky_cta_enabled: checked } 
+                          : m
+                      ));
+                      toast.success(checked ? 'Sticky CTA enabled' : 'Sticky CTA disabled');
+                    } catch (error) {
+                      console.error('Error updating sticky CTA:', error);
+                      toast.error('Failed to update setting');
+                    }
+                  }}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
