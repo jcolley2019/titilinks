@@ -14,16 +14,267 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      block_items: {
+        Row: {
+          badge: string | null
+          block_id: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_adult: boolean | null
+          label: string
+          order_index: number
+          subtitle: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          badge?: string | null
+          block_id: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_adult?: boolean | null
+          label: string
+          order_index?: number
+          subtitle?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          badge?: string | null
+          block_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_adult?: boolean | null
+          label?: string
+          order_index?: number
+          subtitle?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_items_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blocks: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          mode_id: string
+          order_index: number
+          title: string | null
+          type: Database["public"]["Enums"]["block_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          mode_id: string
+          order_index?: number
+          title?: string | null
+          type: Database["public"]["Enums"]["block_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          mode_id?: string
+          order_index?: number
+          title?: string | null
+          type?: Database["public"]["Enums"]["block_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocks_mode_id_fkey"
+            columns: ["mode_id"]
+            isOneToOne: false
+            referencedRelation: "modes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id: string
+          metadata_json: Json | null
+          mode: Database["public"]["Enums"]["mode_type"]
+          page_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata_json?: Json | null
+          mode: Database["public"]["Enums"]["mode_type"]
+          page_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata_json?: Json | null
+          mode?: Database["public"]["Enums"]["mode_type"]
+          page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modes: {
+        Row: {
+          created_at: string
+          id: string
+          page_id: string
+          type: Database["public"]["Enums"]["mode_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_id: string
+          type: Database["public"]["Enums"]["mode_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_id?: string
+          type?: Database["public"]["Enums"]["mode_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modes_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pages: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          goal_primary_offer_item_id: string | null
+          goal_recruit_item_id: string | null
+          handle: string
+          id: string
+          theme_json: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          goal_primary_offer_item_id?: string | null
+          goal_recruit_item_id?: string | null
+          handle: string
+          id?: string
+          theme_json?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          goal_primary_offer_item_id?: string | null
+          goal_recruit_item_id?: string | null
+          handle?: string
+          id?: string
+          theme_json?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_goal_primary_offer"
+            columns: ["goal_primary_offer_item_id"]
+            isOneToOne: false
+            referencedRelation: "block_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_goal_recruit"
+            columns: ["goal_recruit_item_id"]
+            isOneToOne: false
+            referencedRelation: "block_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_block_owner: { Args: { block_id: string }; Returns: string }
+      get_mode_owner: { Args: { mode_id: string }; Returns: string }
+      get_page_owner: { Args: { page_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      block_type:
+        | "primary_cta"
+        | "product_cards"
+        | "featured_media"
+        | "social_links"
+        | "links"
+      event_type: "page_view" | "outbound_click" | "mode_routed"
+      mode_type: "shop" | "recruit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +401,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      block_type: [
+        "primary_cta",
+        "product_cards",
+        "featured_media",
+        "social_links",
+        "links",
+      ],
+      event_type: ["page_view", "outbound_click", "mode_routed"],
+      mode_type: ["shop", "recruit"],
+    },
   },
 } as const
