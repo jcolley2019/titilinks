@@ -18,6 +18,7 @@ import { useEventTracking } from '@/hooks/useEventTracking';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
 import { getThemeWithDefaults, type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
+import { LinkButton } from '@/components/LinkButton';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -374,23 +375,6 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
     }
   };
 
-  const getButtonRadius = () => {
-    switch (theme.buttons.shape) {
-      case 'pill': return '9999px';
-      case 'rounded': return '16px';
-      case 'square': return '6px';
-      default: return '16px';
-    }
-  };
-
-  const getButtonPadding = () => {
-    switch (theme.buttons.density) {
-      case 'compact': return '0.75rem 1rem';
-      case 'roomy': return '1.25rem 1.5rem';
-      default: return '1rem 1.25rem';
-    }
-  };
-
   return (
     <a
       href={item.url}
@@ -399,28 +383,19 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
       className="block"
       onClick={handleClick}
     >
-      <motion.div
-        whileTap={{ scale: 0.98 }}
-        className="text-center transition-opacity hover:opacity-90 relative"
-        style={{
-          backgroundColor: theme.buttons.fill_color,
-          color: theme.buttons.text_color,
-          borderRadius: getButtonRadius(),
-          padding: getButtonPadding(),
-          border: theme.buttons.border_enabled ? `2px solid ${theme.buttons.border_color}` : 'none',
-          boxShadow: theme.buttons.shadow_enabled ? '0 4px 14px rgba(0,0,0,0.25)' : 'none',
-        }}
-      >
-        {item.is_adult && (
-          <div className="absolute top-2 right-2">
-            <ShieldAlert className="h-4 w-4" style={{ color: theme.buttons.text_color, opacity: 0.7 }} />
-          </div>
-        )}
-        <p className="font-semibold text-lg">{item.label}</p>
-        {item.subtitle && (
-          <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
-        )}
-      </motion.div>
+      <LinkButton theme={theme}>
+        <div className="relative">
+          {item.is_adult && (
+            <div className="absolute -top-2 -right-2">
+              <ShieldAlert className="h-4 w-4 opacity-70" />
+            </div>
+          )}
+          <p className="font-semibold text-lg">{item.label}</p>
+          {item.subtitle && (
+            <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
+          )}
+        </div>
+      </LinkButton>
     </a>
   );
 }
@@ -492,25 +467,8 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
     }
   };
 
-  const getButtonRadius = () => {
-    switch (theme.buttons.shape) {
-      case 'pill': return '9999px';
-      case 'rounded': return '16px';
-      case 'square': return '6px';
-      default: return '16px';
-    }
-  };
-
-  const getButtonPadding = () => {
-    switch (theme.buttons.density) {
-      case 'compact': return '0.5rem 1rem';
-      case 'roomy': return '1rem 1.25rem';
-      default: return '0.75rem 1rem';
-    }
-  };
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {block.title && (
         <h3 className="text-sm font-medium mb-3 opacity-70" style={{ color: theme.typography.text_color }}>{block.title}</h3>
       )}
@@ -523,54 +481,35 @@ function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           className="block"
           onClick={(e) => handleClick(e, item)}
         >
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-3 transition-colors"
-            style={{
-              backgroundColor: `${theme.buttons.fill_color}15`,
-              borderRadius: getButtonRadius(),
-              padding: getButtonPadding(),
-              border: theme.buttons.border_enabled ? `1px solid ${theme.buttons.border_color}40` : '1px solid rgba(255,255,255,0.1)',
-            }}
+          <LinkButton
+            theme={theme}
+            leftThumbnail={item.image_url || undefined}
           >
-            {/* Thumbnail */}
-            {item.image_url && (
-              <div className="flex-shrink-0">
-                <div 
-                  className="h-10 w-10 rounded-full overflow-hidden bg-white/10"
-                  style={{ border: `1px solid ${theme.buttons.fill_color}30` }}
-                >
-                  <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+            <div className="flex items-center justify-between w-full">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate">{item.label}</p>
+                  {item.is_adult && (
+                    <span className="text-[10px] font-semibold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5 flex-shrink-0">
+                      <ShieldAlert className="h-3 w-3" />
+                      18+
+                    </span>
+                  )}
+                  {item.badge && (
+                    <span 
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
-              </div>
-            )}
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="font-medium truncate" style={{ color: theme.typography.text_color }}>{item.label}</p>
-                {item.is_adult && (
-                  <span className="text-[10px] font-semibold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <ShieldAlert className="h-3 w-3" />
-                    18+
-                  </span>
-                )}
-                {item.badge && (
-                  <span 
-                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
-                  >
-                    {item.badge}
-                  </span>
+                {item.subtitle && (
+                  <p className="text-xs truncate mt-0.5 opacity-60">{item.subtitle}</p>
                 )}
               </div>
-              {item.subtitle && (
-                <p className="text-xs truncate mt-0.5 opacity-60" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
-              )}
             </div>
-            
-            <ExternalLink className="h-4 w-4 flex-shrink-0 ml-2 opacity-50" style={{ color: theme.typography.text_color }} />
-            <ExternalLink className="h-4 w-4 flex-shrink-0 ml-2 opacity-50" style={{ color: theme.typography.text_color }} />
-          </motion.div>
+          </LinkButton>
         </a>
       ))}
     </div>
