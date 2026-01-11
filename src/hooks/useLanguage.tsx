@@ -12,6 +12,12 @@ const translations: Record<Language, Record<string, string>> = {
   en: {
     // Navbar
     'nav.products': 'Products',
+    'nav.products.linkInBio': 'Link in Bio',
+    'nav.products.linkInBio.desc': 'Your entire brand in one link',
+    'nav.products.linkShortener': 'Link Shortener',
+    'nav.products.linkShortener.desc': 'Create trackable short URLs',
+    'nav.products.qrGenerator': 'QR Generator',
+    'nav.products.qrGenerator.desc': 'Generate QR codes for any link',
     'nav.templates': 'Templates',
     'nav.pricing': 'Pricing',
     'nav.login': 'Log in',
@@ -140,6 +146,12 @@ const translations: Record<Language, Record<string, string>> = {
   es: {
     // Navbar
     'nav.products': 'Productos',
+    'nav.products.linkInBio': 'Link en Bio',
+    'nav.products.linkInBio.desc': 'Toda tu marca en un enlace',
+    'nav.products.linkShortener': 'Acortador de Links',
+    'nav.products.linkShortener.desc': 'Crea URLs cortas rastreables',
+    'nav.products.qrGenerator': 'Generador QR',
+    'nav.products.qrGenerator.desc': 'Genera códigos QR para cualquier link',
     'nav.templates': 'Plantillas',
     'nav.pricing': 'Precios',
     'nav.login': 'Iniciar sesión',
