@@ -279,8 +279,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   };
 
   const connectToCanva = () => {
-    // Full page navigation - no iframes, modals, or fetch
-    window.location.assign('/api/canva/connect');
+    // Full page navigation at top-level context (handles iframe scenarios)
+    if (window.top) window.top.location.href = '/api/canva/connect';
+    else window.location.href = '/api/canva/connect';
   };
 
   return (
