@@ -5,6 +5,7 @@ import type { Tables, Json } from '@/integrations/supabase/types';
 
 type Event = Tables<'events'>;
 type Page = Tables<'pages'>;
+type ShortLink = Tables<'short_links'>;
 
 interface AnalyticsData {
   pageViews7Days: number;
@@ -23,6 +24,8 @@ interface AnalyticsData {
     primaryOfferId: string | null;
     recruitId: string | null;
   };
+  shortLinks: ShortLink[];
+  totalShortLinkClicks: number;
   loading: boolean;
   error: string | null;
 }
@@ -42,6 +45,7 @@ export function useAnalytics(): AnalyticsData {
   const { user } = useAuth();
   const [page, setPage] = useState<Page | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [shortLinks, setShortLinks] = useState<ShortLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +72,7 @@ export function useAnalytics(): AnalyticsData {
         if (!pageData) {
           setPage(null);
           setEvents([]);
+          setShortLinks([]);
           setLoading(false);
           return;
         }
@@ -86,6 +91,17 @@ export function useAnalytics(): AnalyticsData {
         if (eventsError) throw eventsError;
 
         setEvents(eventsData || []);
+
+        // Fetch short links for this page
+        const { data: shortLinksData, error: shortLinksError } = await supabase
+          .from('short_links')
+          .select('*')
+          .eq('page_id', pageData.id)
+          .order('click_count', { ascending: false });
+
+        if (shortLinksError) throw shortLinksError;
+
+        setShortLinks(shortLinksData || []);
       } catch (err) {
         console.error('Error fetching analytics:', err);
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
@@ -189,6 +205,12 @@ export function useAnalytics(): AnalyticsData {
       }).length;
     }
 
+    // Total short link clicks
+    const totalShortLinkClicks = shortLinks.reduce(
+      (sum, link) => sum + (link.click_count || 0),
+      0
+    );
+
     return {
       pageViews7Days,
       pageViews30Days,
@@ -206,8 +228,10 @@ export function useAnalytics(): AnalyticsData {
         primaryOfferId: page?.goal_primary_offer_item_id || null,
         recruitId: page?.goal_recruit_item_id || null,
       },
+      shortLinks,
+      totalShortLinkClicks,
     };
-  }, [events, page]);
+  }, [events, page, shortLinks]);
 
   return {
     ...analytics,

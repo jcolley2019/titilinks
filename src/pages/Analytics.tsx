@@ -15,8 +15,18 @@ import {
   Users,
   ExternalLink,
   AlertCircle,
+  Link2,
 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function Analytics() {
   const analytics = useAnalytics();
@@ -230,6 +240,57 @@ export default function Analytics() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Short Links Metrics */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-foreground">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-5 w-5 text-primary" />
+                Short Links
+              </div>
+              <div className="text-sm font-normal text-muted-foreground">
+                Total clicks: <span className="text-primary font-semibold">{analytics.totalShortLinkClicks}</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {analytics.shortLinks.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-24">Code</TableHead>
+                      <TableHead>Destination</TableHead>
+                      <TableHead className="w-24 text-right">Clicks</TableHead>
+                      <TableHead className="w-32 text-right">Last Click</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {analytics.shortLinks.map((link) => (
+                      <TableRow key={link.id}>
+                        <TableCell className="font-mono text-sm">/l/{link.code}</TableCell>
+                        <TableCell className="max-w-[300px] truncate text-muted-foreground">
+                          {link.destination_url}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {link.click_count || 0}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground text-sm">
+                          {link.last_clicked_at
+                            ? formatDistanceToNow(new Date(link.last_clicked_at), { addSuffix: true })
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <EmptyState message="No short links created yet" />
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
     </DashboardLayout>
   );
