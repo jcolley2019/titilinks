@@ -40,7 +40,9 @@ import {
   ChevronUp,
   ImagePlus,
   X,
+  ShieldAlert,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
 
 type BlockItem = Tables<'block_items'>;
@@ -52,13 +54,14 @@ interface ProductItem {
   image_url?: string;
   subtitle?: string;
   badge?: string;
+  is_adult?: boolean;
   imageFile?: File;
   imagePreview?: string;
 }
 
 interface SortableProductItemProps {
   item: ProductItem;
-  onUpdate: (id: string, field: keyof ProductItem, value: string) => void;
+  onUpdate: (id: string, field: keyof ProductItem, value: string | boolean) => void;
   onDelete: (id: string) => void;
   onImageChange: (id: string, file: File | null) => void;
   errors: Record<string, string>;
@@ -237,6 +240,20 @@ function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }
               />
             </div>
           </div>
+
+          {/* Adult Content Toggle */}
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs font-normal text-muted-foreground">
+                18+ Link (shows warning before opening)
+              </Label>
+            </div>
+            <Switch
+              checked={item.is_adult || false}
+              onCheckedChange={(checked) => onUpdate(item.id, 'is_adult', checked)}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -289,6 +306,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
           image_url: item.image_url || undefined,
           subtitle: item.subtitle || '',
           badge: item.badge || '',
+          is_adult: item.is_adult || false,
         }))
       );
     } catch (error) {
@@ -315,11 +333,12 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
       url: '',
       subtitle: '',
       badge: '',
+      is_adult: false,
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof ProductItem, value: string) => {
+  const updateItem = (id: string, field: keyof ProductItem, value: string | boolean) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -436,6 +455,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
             image_url: imageUrl || null,
             subtitle: item.subtitle || null,
             badge: item.badge || null,
+            is_adult: item.is_adult || false,
             order_index: i,
           });
           if (error) throw error;
@@ -448,6 +468,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
               image_url: imageUrl || null,
               subtitle: item.subtitle || null,
               badge: item.badge || null,
+              is_adult: item.is_adult || false,
               order_index: i,
             })
             .eq('id', item.id);

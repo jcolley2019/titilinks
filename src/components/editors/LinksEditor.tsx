@@ -37,7 +37,9 @@ import {
   Trash2, 
   ChevronDown,
   ChevronUp,
+  ShieldAlert,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
 
 type BlockItem = Tables<'block_items'>;
@@ -48,11 +50,12 @@ interface LinkItem {
   url: string;
   subtitle?: string;
   badge?: string;
+  is_adult?: boolean;
 }
 
 interface SortableLinkItemProps {
   item: LinkItem;
-  onUpdate: (id: string, field: keyof LinkItem, value: string) => void;
+  onUpdate: (id: string, field: keyof LinkItem, value: string | boolean) => void;
   onDelete: (id: string) => void;
   errors: Record<string, string>;
 }
@@ -163,6 +166,20 @@ function SortableLinkItem({ item, onUpdate, onDelete, errors }: SortableLinkItem
               />
             </div>
           </div>
+
+          {/* Adult Content Toggle */}
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs font-normal text-muted-foreground">
+                18+ Link (shows warning before opening)
+              </Label>
+            </div>
+            <Switch
+              checked={item.is_adult || false}
+              onCheckedChange={(checked) => onUpdate(item.id, 'is_adult', checked)}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -213,6 +230,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
           url: item.url,
           subtitle: item.subtitle || '',
           badge: item.badge || '',
+          is_adult: item.is_adult || false,
         }))
       );
     } catch (error) {
@@ -239,11 +257,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
       url: '',
       subtitle: '',
       badge: '',
+      is_adult: false,
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof LinkItem, value: string) => {
+  const updateItem = (id: string, field: keyof LinkItem, value: string | boolean) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -310,6 +329,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
             url: item.url,
             subtitle: item.subtitle || null,
             badge: item.badge || null,
+            is_adult: item.is_adult || false,
             order_index: i,
           });
           if (error) throw error;
@@ -321,6 +341,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
               url: item.url,
               subtitle: item.subtitle || null,
               badge: item.badge || null,
+              is_adult: item.is_adult || false,
               order_index: i,
             })
             .eq('id', item.id);
