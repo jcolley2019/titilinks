@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockList } from '@/components/BlockList';
+import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -172,6 +173,9 @@ export default function Editor() {
             )}
           </CardContent>
         </Card>
+
+        {/* Goals Panel */}
+        <GoalsPanel page={page} onUpdate={fetchPageData} />
       </motion.div>
 
       {/* Block Editor Dialog */}
