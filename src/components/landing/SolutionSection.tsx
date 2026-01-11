@@ -68,25 +68,31 @@ export function SolutionSection() {
                   <h3 className="font-bold text-gray-800 text-lg">{t('solution.mockup.name')}</h3>
                   <p className="text-xs text-gray-600 text-center mb-4">{t('solution.mockup.bio')}</p>
                   
-                  {/* Link buttons with thumbnails - like the reference */}
-                  <div className="w-full space-y-2.5 px-1">
-                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center text-white text-lg">📸</div>
-                      <span className="text-gray-800 text-sm font-medium">Instagram</span>
-                    </div>
-                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center overflow-hidden">
-                        <span className="text-lg">💬</span>
+                  {/* Link buttons with circular photo thumbnails */}
+                  <div className="w-full space-y-2 px-1">
+                    <div className="w-full h-12 bg-white rounded-full flex items-center pl-1 pr-4 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img src={mockupCreatorPhoto} alt="" className="w-full h-full object-cover" />
                       </div>
-                      <span className="text-gray-800 text-sm font-medium">Telegram VIP</span>
+                      <span className="text-gray-700 text-sm font-medium flex-1 text-center">TikTok</span>
                     </div>
-                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-lg">📱</div>
-                      <span className="text-gray-800 text-sm font-medium">Facebook</span>
+                    <div className="w-full h-12 bg-white rounded-full flex items-center pl-1 pr-4 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img src={mockupCreatorPhoto} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-gray-700 text-sm font-medium flex-1 text-center">Instagram</span>
                     </div>
-                    <div className="w-full h-14 bg-white rounded-xl flex items-center px-3 gap-3 shadow-sm border border-gray-100">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center text-white text-lg">💚</div>
-                      <span className="text-gray-800 text-sm font-medium">WhatsApp</span>
+                    <div className="w-full h-12 bg-white rounded-full flex items-center pl-1 pr-4 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img src={mockupCreatorPhoto} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-gray-700 text-sm font-medium flex-1 text-center">YouTube</span>
+                    </div>
+                    <div className="w-full h-12 bg-white rounded-full flex items-center pl-1 pr-4 shadow-sm border border-gray-100">
+                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                        <img src={mockupCreatorPhoto} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <span className="text-gray-700 text-sm font-medium flex-1 text-center">Green World 🌍</span>
                     </div>
                   </div>
                 </div>
