@@ -29,8 +29,13 @@ export default function CanvaConnect() {
         }
 
         if (data?.authUrl) {
-          // Redirect to Canva OAuth
-          window.location.href = data.authUrl;
+          // Redirect to Canva OAuth - use top window to escape iframe
+          // This is needed because Canva blocks being loaded in iframes
+          if (window.top) {
+            window.top.location.href = data.authUrl;
+          } else {
+            window.location.href = data.authUrl;
+          }
         } else {
           setError('No authorization URL received');
         }
