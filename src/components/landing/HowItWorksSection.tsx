@@ -34,7 +34,7 @@ export function HowItWorksSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Live in 3 simple steps
+            Live in <span className="italic gradient-text">3 simple steps</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             From signup to sharing in under 5 minutes
@@ -43,7 +43,7 @@ export function HowItWorksSection() {
 
         <div className="grid md:grid-cols-3 gap-8 relative">
           {/* Connecting line */}
-          <div className="hidden md:block absolute top-16 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-primary via-accent to-primary" />
+          <div className="hidden md:block absolute top-16 left-[20%] right-[20%] h-px bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
 
           {steps.map((step, index) => (
             <motion.div
@@ -54,9 +54,9 @@ export function HowItWorksSection() {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className="relative text-center"
             >
-              <div className="relative z-10 w-32 h-32 mx-auto mb-6 rounded-full bg-card border-2 border-primary flex items-center justify-center">
+              <div className="relative z-10 w-32 h-32 mx-auto mb-6 rounded-full bg-card border-2 border-primary/30 flex items-center justify-center glow-gold">
                 <step.icon className="h-12 w-12 text-primary" />
-                <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full gradient-gold text-primary-foreground text-sm font-bold flex items-center justify-center">
                   {step.step}
                 </span>
               </div>

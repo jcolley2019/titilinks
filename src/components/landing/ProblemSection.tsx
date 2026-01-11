@@ -21,8 +21,10 @@ const problems = [
 
 export function ProblemSection() {
   return (
-    <section className="py-24 px-4 bg-muted/30">
-      <div className="container max-w-6xl mx-auto">
+    <section className="py-24 px-4 relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
+      
+      <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -31,7 +33,7 @@ export function ProblemSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            Sound familiar?
+            Sound <span className="italic gradient-text">familiar?</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Most creators struggle with the same frustrating problems
@@ -46,10 +48,10 @@ export function ProblemSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="relative p-8 rounded-2xl bg-card border border-border hover:border-destructive/50 transition-colors group"
+              className="relative p-8 rounded-2xl bg-card border border-border hover:border-primary/30 transition-colors group"
             >
-              <div className="p-3 rounded-xl bg-destructive/10 w-fit mb-4 group-hover:bg-destructive/20 transition-colors">
-                <problem.icon className="h-6 w-6 text-destructive" />
+              <div className="p-3 rounded-xl bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
+                <problem.icon className="h-6 w-6 text-primary" />
               </div>
               <h3 className="text-xl font-semibold mb-2">{problem.title}</h3>
               <p className="text-muted-foreground">{problem.description}</p>

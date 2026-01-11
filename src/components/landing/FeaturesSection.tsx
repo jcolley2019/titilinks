@@ -25,14 +25,16 @@ const features = [
   {
     icon: Shield,
     title: 'Privacy First',
-    description: 'Your data stays yours. We don\'t sell your analytics or share visitor information.'
+    description: "Your data stays yours. We don't sell your analytics or share visitor information."
   }
 ];
 
 export function FeaturesSection() {
   return (
-    <section className="py-24 px-4 bg-muted/30">
-      <div className="container max-w-6xl mx-auto">
+    <section id="features" className="py-24 px-4 relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
+      
+      <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -42,7 +44,7 @@ export function FeaturesSection() {
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             Everything you need to{' '}
-            <span className="gradient-text">convert</span>
+            <span className="italic gradient-text">convert</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Powerful features that help you turn clicks into customers
@@ -57,7 +59,7 @@ export function FeaturesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="p-6 rounded-2xl bg-card border border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all group"
+              className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all group"
             >
               <div className="p-3 rounded-xl bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
                 <feature.icon className="h-6 w-6 text-primary" />
