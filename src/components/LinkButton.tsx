@@ -68,6 +68,9 @@ export function LinkButton({
         'transform-gpu will-change-transform',
         // Backdrop blur for glass effect
         'backdrop-blur-sm',
+        // Reduced motion: disable animations
+        'motion-reduce:transition-none motion-reduce:transform-none',
+        'motion-reduce:hover:transform-none motion-reduce:active:transform-none',
         className
       )}
       style={{
