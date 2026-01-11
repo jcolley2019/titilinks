@@ -8,6 +8,7 @@ import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
 import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
+import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -131,6 +132,16 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
     case 'email_subscribe':
       return (
         <EmailSubscribeEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
+
+    case 'content_section':
+      return (
+        <ContentSectionEditor
           blockId={blockId}
           open={open}
           onOpenChange={onOpenChange}
