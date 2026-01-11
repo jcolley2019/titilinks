@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { ThumbnailUpload } from './ThumbnailUpload';
 
 const MAX_ITEMS = ITEM_CAPS.social_links;
 
@@ -77,13 +78,14 @@ const itemSchema = z.object({
     ),
   subtitle: z.string().max(100).optional(),
   badge: z.string().max(20).optional(),
+  image_url: z.string().nullable().optional(),
 });
 
 type SocialItem = z.infer<typeof itemSchema>;
 
 interface SortableItemProps {
   item: SocialItem;
-  onUpdate: (id: string, field: keyof SocialItem, value: string) => void;
+  onUpdate: (id: string, field: keyof SocialItem, value: string | null) => void;
   onDelete: (id: string) => void;
   errors: Record<string, string>;
 }
@@ -196,6 +198,19 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
               />
             </div>
           </div>
+
+          {/* Thumbnail Upload */}
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-normal text-muted-foreground">
+                Custom Icon (optional)
+              </Label>
+            </div>
+            <ThumbnailUpload
+              value={item.image_url}
+              onChange={(url) => onUpdate(item.id, 'image_url', url)}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -247,6 +262,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
           url: item.url,
           subtitle: item.subtitle || '',
           badge: item.badge || '',
+          image_url: item.image_url || null,
         }))
       );
     } catch (error) {
@@ -277,6 +293,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
       url: '',
       subtitle: '',
       badge: '',
+      image_url: null,
     };
     setItems([...items, newItem]);
     setShowPresets(false);
@@ -293,11 +310,12 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
       url: '',
       subtitle: '',
       badge: '',
+      image_url: null,
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof SocialItem, value: string) => {
+  const updateItem = (id: string, field: keyof SocialItem, value: string | null) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -374,6 +392,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
             url: item.url,
             subtitle: item.subtitle || null,
             badge: item.badge || null,
+            image_url: item.image_url || null,
             order_index: i,
           });
           if (error) throw error;
@@ -385,6 +404,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
               url: item.url,
               subtitle: item.subtitle || null,
               badge: item.badge || null,
+              image_url: item.image_url || null,
               order_index: i,
             })
             .eq('id', item.id);

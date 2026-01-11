@@ -42,6 +42,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { ThumbnailUpload } from './ThumbnailUpload';
 
 const MAX_ITEMS = ITEM_CAPS.links;
 
@@ -54,11 +55,12 @@ interface LinkItem {
   subtitle?: string;
   badge?: string;
   is_adult?: boolean;
+  image_url?: string | null;
 }
 
 interface SortableLinkItemProps {
   item: LinkItem;
-  onUpdate: (id: string, field: keyof LinkItem, value: string | boolean) => void;
+  onUpdate: (id: string, field: keyof LinkItem, value: string | boolean | null) => void;
   onDelete: (id: string) => void;
   errors: Record<string, string>;
 }
@@ -170,6 +172,19 @@ function SortableLinkItem({ item, onUpdate, onDelete, errors }: SortableLinkItem
             </div>
           </div>
 
+          {/* Thumbnail Upload */}
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-normal text-muted-foreground">
+                Thumbnail (optional)
+              </Label>
+            </div>
+            <ThumbnailUpload
+              value={item.image_url}
+              onChange={(url) => onUpdate(item.id, 'image_url', url)}
+            />
+          </div>
+
           {/* Adult Content Toggle */}
           <div className="flex items-center justify-between pt-2 border-t border-border">
             <div className="flex items-center gap-2">
@@ -234,6 +249,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
           subtitle: item.subtitle || '',
           badge: item.badge || '',
           is_adult: item.is_adult || false,
+          image_url: item.image_url || null,
         }))
       );
     } catch (error) {
@@ -265,11 +281,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
       subtitle: '',
       badge: '',
       is_adult: false,
+      image_url: null,
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof LinkItem, value: string | boolean) => {
+  const updateItem = (id: string, field: keyof LinkItem, value: string | boolean | null) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -346,6 +363,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
             subtitle: item.subtitle || null,
             badge: item.badge || null,
             is_adult: item.is_adult || false,
+            image_url: item.image_url || null,
             order_index: i,
           });
           if (error) throw error;
@@ -358,6 +376,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
               subtitle: item.subtitle || null,
               badge: item.badge || null,
               is_adult: item.is_adult || false,
+              image_url: item.image_url || null,
               order_index: i,
             })
             .eq('id', item.id);
