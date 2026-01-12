@@ -62,13 +62,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [hasPage, setHasPage] = useState<boolean | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
   const [userPlan, setUserPlan] = useState<UserPlan>('Free');
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
 
   // TODO: Fetch actual plan from subscription data when Stripe is enabled
   // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
 
-  // Scroll to top on route change
+  // Scroll to top on route change and check scroll position for indicator
   useEffect(() => {
     window.scrollTo(0, 0);
+    setShowScrollIndicator(true);
+  }, [location.pathname]);
+
+  // Handle scroll to show/hide bottom indicator
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      // Hide indicator when near bottom (within 100px)
+      const isNearBottom = scrollTop + windowHeight >= documentHeight - 100;
+      setShowScrollIndicator(!isNearBottom && documentHeight > windowHeight + 50);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial state
+    
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
 
   // Check if user has set up their profile/page and calculate completion
@@ -398,6 +418,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </div>
       </main>
+
+      {/* Mobile scroll indicator shadow */}
+      <div 
+        className={`lg:hidden fixed bottom-16 left-0 right-0 h-12 pointer-events-none transition-opacity duration-300 ${
+          showScrollIndicator ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{
+          background: 'linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%)'
+        }}
+      />
     </div>
   );
 }
