@@ -17,9 +17,9 @@ import {
   RefreshCw,
   Wallpaper,
   LayoutTemplate,
-  X,
   Clock,
   Calendar,
+  AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -44,63 +44,46 @@ interface CanvaDesignPickerProps {
   isCreating: boolean;
 }
 
-// Mock data for UI shell - will be replaced with real API calls
-const MOCK_DESIGNS: CanvaDesign[] = [
-  {
-    id: '1',
-    title: 'Summer Campaign Banner',
-    thumbnail_url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2025-01-10T10:00:00Z',
-    updated_at: '2025-01-11T14:30:00Z',
-  },
-  {
-    id: '2',
-    title: 'Profile Header Dark',
-    thumbnail_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2025-01-08T09:00:00Z',
-    updated_at: '2025-01-09T11:00:00Z',
-  },
-  {
-    id: '3',
-    title: 'Gradient Background',
-    thumbnail_url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2025-01-05T08:00:00Z',
-    updated_at: '2025-01-06T16:00:00Z',
-  },
-  {
-    id: '4',
-    title: 'Neon City Wallpaper',
-    thumbnail_url: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2025-01-03T12:00:00Z',
-    updated_at: '2025-01-04T09:00:00Z',
-  },
-  {
-    id: '5',
-    title: 'Minimal White Design',
-    thumbnail_url: 'https://images.unsplash.com/photo-1553356084-58ef4a67b2a7?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2025-01-01T10:00:00Z',
-    updated_at: '2025-01-02T15:00:00Z',
-  },
-  {
-    id: '6',
-    title: 'Abstract Art Header',
-    thumbnail_url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=300&fit=crop',
-    edit_url: null,
-    view_url: null,
-    created_at: '2024-12-28T08:00:00Z',
-    updated_at: '2024-12-29T11:00:00Z',
-  },
-];
+// Helper function to fetch Canva designs
+async function fetchCanvaDesigns({
+  query = '',
+  limit = 20,
+  continuation = '',
+}: {
+  query?: string;
+  limit?: number;
+  continuation?: string;
+}): Promise<{
+  designs: CanvaDesign[];
+  continuation: string | null;
+  has_more: boolean;
+}> {
+  const params = new URLSearchParams();
+  if (query) params.set('query', query);
+  params.set('limit', String(limit));
+  if (continuation) params.set('continuation', continuation);
+
+  const response = await supabase.functions.invoke(
+    `canva-list-designs?${params.toString()}`,
+    { method: 'GET' }
+  );
+
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+
+  const result = response.data as {
+    designs?: CanvaDesign[];
+    continuation?: string | null;
+    has_more?: boolean;
+  };
+
+  return {
+    designs: result.designs || [],
+    continuation: result.continuation || null,
+    has_more: !!result.has_more,
+  };
+}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -259,6 +242,7 @@ export function CanvaDesignPicker({
 }: CanvaDesignPickerProps) {
   const [designs, setDesigns] = useState<CanvaDesign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'recent' | 'search'>('recent');
   const [continuation, setContinuation] = useState<string | null>(null);
@@ -270,9 +254,10 @@ export function CanvaDesignPicker({
   const [searchResults, setSearchResults] = useState<CanvaDesign[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const fetchDesigns = useCallback(async (query = '', reset = true) => {
+  const loadDesigns = useCallback(async (query = '', reset = true) => {
     if (reset) {
       setLoading(true);
+      setError(null);
       if (query) {
         setSearchResults([]);
       } else {
@@ -284,57 +269,34 @@ export function CanvaDesignPicker({
     }
 
     try {
-      const params = new URLSearchParams();
-      if (query) params.set('query', query);
-      params.set('limit', '20');
-      if (!reset && continuation) params.set('continuation', continuation);
-
-      const response = await supabase.functions.invoke(`canva-list-designs?${params.toString()}`, {
-        method: 'GET',
+      const result = await fetchCanvaDesigns({
+        query,
+        limit: 20,
+        continuation: !reset && continuation ? continuation : '',
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      const result = response.data as {
-        designs?: CanvaDesign[];
-        continuation?: string | null;
-        has_more?: boolean;
-      };
-
-      const newDesigns = result.designs || [];
-
       if (query) {
         if (reset) {
-          setSearchResults(newDesigns);
+          setSearchResults(result.designs);
         } else {
-          setSearchResults((prev) => [...prev, ...newDesigns]);
+          setSearchResults((prev) => [...prev, ...result.designs]);
         }
         setHasSearched(true);
         setActiveTab('search');
       } else {
         if (reset) {
-          setDesigns(newDesigns);
+          setDesigns(result.designs);
         } else {
-          setDesigns((prev) => [...prev, ...newDesigns]);
+          setDesigns((prev) => [...prev, ...result.designs]);
         }
       }
 
-      setContinuation(result.continuation || null);
-      setHasMore(!!result.has_more);
+      setContinuation(result.continuation);
+      setHasMore(result.has_more);
     } catch (err) {
       console.error('Error fetching designs:', err);
-      // Use mock data as fallback for UI development
-      if (query) {
-        setSearchResults(MOCK_DESIGNS.filter(d => 
-          d.title.toLowerCase().includes(query.toLowerCase())
-        ));
-        setHasSearched(true);
-        setActiveTab('search');
-      } else {
-        setDesigns(MOCK_DESIGNS);
-      }
+      const message = err instanceof Error ? err.message : 'Failed to load designs';
+      setError(message);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -343,17 +305,18 @@ export function CanvaDesignPicker({
 
   useEffect(() => {
     if (open) {
-      fetchDesigns();
+      loadDesigns();
       setSelectedDesign(null);
       setSearchQuery('');
       setHasSearched(false);
       setActiveTab('recent');
+      setError(null);
     }
   }, [open]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      fetchDesigns(searchQuery.trim(), true);
+      loadDesigns(searchQuery.trim(), true);
     }
   };
 
@@ -442,7 +405,7 @@ export function CanvaDesignPicker({
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => fetchDesigns('', true)}
+                  onClick={() => loadDesigns('', true)}
                   title="Refresh"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -479,6 +442,21 @@ export function CanvaDesignPicker({
                           </div>
                         ))}
                       </div>
+                    ) : error ? (
+                      <div className="text-center py-12">
+                        <AlertCircle className="h-12 w-12 mx-auto mb-3 text-destructive opacity-70" />
+                        <p className="text-sm font-medium text-destructive">Failed to load designs</p>
+                        <p className="text-xs mt-1 text-muted-foreground max-w-xs mx-auto">{error}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => loadDesigns('', true)}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Retry
+                        </Button>
+                      </div>
                     ) : displayedDesigns.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
                         <Image className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -504,7 +482,7 @@ export function CanvaDesignPicker({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => fetchDesigns(activeTab === 'search' ? searchQuery : '', false)}
+                          onClick={() => loadDesigns(activeTab === 'search' ? searchQuery : '', false)}
                           disabled={loadingMore}
                         >
                           {loadingMore && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -527,6 +505,21 @@ export function CanvaDesignPicker({
                             <Skeleton className="h-4 w-3/4" />
                           </div>
                         ))}
+                      </div>
+                    ) : error ? (
+                      <div className="text-center py-12">
+                        <AlertCircle className="h-12 w-12 mx-auto mb-3 text-destructive opacity-70" />
+                        <p className="text-sm font-medium text-destructive">Search failed</p>
+                        <p className="text-xs mt-1 text-muted-foreground max-w-xs mx-auto">{error}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => loadDesigns(searchQuery, true)}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Retry
+                        </Button>
                       </div>
                     ) : searchResults.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
