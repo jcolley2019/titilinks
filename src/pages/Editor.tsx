@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OnboardingForm } from '@/components/OnboardingForm';
@@ -18,9 +18,18 @@ import { Switch } from '@/components/ui/switch';
 import { LinkTools } from '@/components/LinkTools';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { Tables } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'> & { sticky_cta_enabled?: boolean };
+
+interface ThemeJson {
+  pages?: {
+    page1?: { label?: string };
+    page2?: { label?: string };
+  };
+  [key: string]: unknown;
+}
 
 export default function Editor() {
   const { user } = useAuth();
@@ -32,11 +41,58 @@ export default function Editor() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [editorTab, setEditorTab] = useState<'content' | 'design'>('content');
+  const [page1Label, setPage1Label] = useState('');
+  const [page2Label, setPage2Label] = useState('');
 
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
   const mainLink = page ? `${baseUrl}/${page.handle}` : '';
   const recruitLink = page ? `${mainLink}?mode=recruit` : '';
+
+  // Parse theme_json for page labels
+  const themeJson = (page?.theme_json as ThemeJson) || {};
+  const displayPage1Label = page1Label || themeJson.pages?.page1?.label || 'Page 1';
+  const displayPage2Label = page2Label || themeJson.pages?.page2?.label || 'Page 2';
+
+  // Initialize labels from theme_json when page loads
+  useEffect(() => {
+    if (page?.theme_json) {
+      const theme = page.theme_json as ThemeJson;
+      setPage1Label(theme.pages?.page1?.label || '');
+      setPage2Label(theme.pages?.page2?.label || '');
+    }
+  }, [page?.id]);
+
+  const updatePageLabel = async (pageKey: 'page1' | 'page2', label: string) => {
+    if (!page) return;
+    
+    try {
+      const currentTheme = (page.theme_json as ThemeJson) || {};
+      const updatedTheme: ThemeJson = {
+        ...currentTheme,
+        pages: {
+          ...currentTheme.pages,
+          [pageKey]: {
+            ...currentTheme.pages?.[pageKey],
+            label: label || undefined, // Remove if empty
+          },
+        },
+      };
+
+      const { error } = await supabase
+        .from('pages')
+        .update({ theme_json: updatedTheme as Json })
+        .eq('id', page.id);
+
+      if (error) throw error;
+
+      setPage({ ...page, theme_json: updatedTheme as Json });
+      toast.success('Page label updated');
+    } catch (error) {
+      console.error('Error updating page label:', error);
+      toast.error('Failed to update label');
+    }
+  };
 
   const copyToClipboard = async (text: string, linkType: string) => {
     try {
@@ -169,26 +225,51 @@ export default function Editor() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-medium text-foreground">Pages</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Page Label Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Page 1 Label</label>
+                <Input
+                  value={page1Label}
+                  onChange={(e) => setPage1Label(e.target.value)}
+                  onBlur={() => updatePageLabel('page1', page1Label)}
+                  placeholder="Page 1"
+                  className="bg-secondary/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Page 2 Label</label>
+                <Input
+                  value={page2Label}
+                  onChange={(e) => setPage2Label(e.target.value)}
+                  onBlur={() => updatePageLabel('page2', page2Label)}
+                  placeholder="Page 2"
+                  className="bg-secondary/50"
+                />
+              </div>
+            </div>
+
+            {/* Mode Tabs */}
             <Tabs value={selectedMode} onValueChange={(v) => {
               triggerHaptic('medium');
               setSelectedMode(v as 'shop' | 'recruit');
             }}>
               <TabsList className="grid w-full grid-cols-2 max-w-md">
                 <TabsTrigger value="shop" className="gap-2">
-                  <ShoppingBag className="h-4 w-4" />
-                  Page 1
+                  <FileText className="h-4 w-4" />
+                  {displayPage1Label}
                 </TabsTrigger>
                 <TabsTrigger value="recruit" className="gap-2">
-                  <Users className="h-4 w-4" />
-                  Page 2
+                  <FileText className="h-4 w-4" />
+                  {displayPage2Label}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <p className="text-sm text-muted-foreground mt-3">
+            <p className="text-sm text-muted-foreground">
               {selectedMode === 'shop'
-                ? 'Showcase products and drive sales with your audience.'
-                : 'Attract and recruit new team members or collaborators.'}
+                ? 'Configure content for your first page.'
+                : 'Configure content for your second page.'}
             </p>
             
             {/* Sticky CTA Toggle */}
@@ -234,12 +315,8 @@ export default function Editor() {
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
-              {selectedMode === 'shop' ? (
-                <ShoppingBag className="h-5 w-5 text-primary" />
-              ) : (
-                <Users className="h-5 w-5 text-primary" />
-              )}
-              {selectedMode === 'shop' ? 'Page 1' : 'Page 2'} Blocks
+              <FileText className="h-5 w-5 text-primary" />
+              {selectedMode === 'shop' ? displayPage1Label : displayPage2Label} Blocks
             </CardTitle>
           </CardHeader>
           <CardContent>
