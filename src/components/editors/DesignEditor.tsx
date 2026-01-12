@@ -232,6 +232,19 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }));
   };
 
+  const updateHeader = (updates: Partial<NonNullable<ThemeJson['header']>>, autoSave = false) => {
+    setTheme((prev) => {
+      const newTheme = {
+        ...prev,
+        header: { ...(prev.header || { image_url: '', enabled: false, source: null }), ...updates },
+      };
+      if (autoSave) {
+        saveTheme(newTheme);
+      }
+      return newTheme;
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -461,10 +474,20 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   open={showCanvaPicker}
                   onOpenChange={setShowCanvaPicker}
                   onApplyToHeader={(url) => {
-                    updateBackground({ image_url: url }, true);
+                    // Update header with the Canva design
+                    updateHeader({ 
+                      image_url: url, 
+                      enabled: true,
+                      source: 'canva' 
+                    }, true);
                   }}
                   onApplyToBackground={(url) => {
-                    updateBackground({ image_url: url }, true);
+                    // Update background type to image, set URL and source, keep overlay settings
+                    updateBackground({ 
+                      type: 'image',
+                      image_url: url, 
+                      source: 'canva' 
+                    }, true);
                   }}
                   onCreateNew={createDesignInCanva}
                   isCreating={creatingDesign}
