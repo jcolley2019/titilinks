@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { type ThemeJson, applyAutoContrast } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
+import { SmoothImage } from '@/components/SmoothImage';
 import { DeviceFrame, DeviceSelector, type DeviceType } from '@/components/DeviceFrame';
 
 interface ThemePreviewProps {
@@ -46,15 +47,15 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
                 color: theme.typography.text_color,
               }}
             >
-              {/* Avatar */}
+              {/* Avatar - Fixed size container */}
               <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white/20 bg-white/10 flex items-center justify-center mb-4 flex-shrink-0">
                 {avatarUrl ? (
-                  <img
+                  <SmoothImage
                     src={avatarUrl}
                     alt={displayName || 'Profile'}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    decoding="async"
+                    containerClassName="w-full h-full"
+                    className="rounded-full"
+                    skeletonClassName="rounded-full"
                   />
                 ) : (
                   <div 
