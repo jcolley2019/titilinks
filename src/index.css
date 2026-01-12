@@ -153,4 +153,14 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Show scrollbar on desktop */
+  .lg\:scrollbar-default {
+    -ms-overflow-style: auto;
+    scrollbar-width: auto;
+  }
+  
+  .lg\:scrollbar-default::-webkit-scrollbar {
+    display: block;
+  }
 }

@@ -66,6 +66,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // TODO: Fetch actual plan from subscription data when Stripe is enabled
   // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   // Check if user has set up their profile/page and calculate completion
   useEffect(() => {
     async function checkUserPage() {
@@ -388,7 +393,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* Main Content */}
-      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
+      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen overflow-y-auto scrollbar-hide lg:scrollbar-default">
         <div className="p-4 lg:p-8">
           {children}
         </div>
