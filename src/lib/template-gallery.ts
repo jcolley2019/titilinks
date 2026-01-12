@@ -52,6 +52,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'square',
@@ -88,6 +89,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -126,6 +128,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.1,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -162,6 +165,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -202,6 +206,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -238,6 +243,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'square',
@@ -276,6 +282,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -312,6 +319,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'square',
@@ -352,6 +360,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -388,6 +397,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.2,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -428,6 +438,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -464,6 +475,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'square',
@@ -502,6 +514,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -538,6 +551,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -576,6 +590,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -612,6 +627,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -652,6 +668,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'square',
@@ -688,6 +705,7 @@ export const TEMPLATES: TemplateDefinition[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'pill',
