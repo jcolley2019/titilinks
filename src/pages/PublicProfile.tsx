@@ -21,6 +21,7 @@ import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyl
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
+import { SmoothImage } from '@/components/SmoothImage';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
 
@@ -263,12 +264,13 @@ export default function PublicProfile() {
           animate={{ opacity: 1, y: 0 }}
           className="relative mb-8 -mx-4 -mt-8"
         >
-          {/* Header Image */}
+          {/* Header Image - Fixed height container */}
           <div className="relative h-48 overflow-hidden">
-            <img 
+            <SmoothImage 
               src={theme.header.image_url} 
               alt="Header" 
-              className="w-full h-full object-cover"
+              containerClassName="h-full w-full"
+              skeletonClassName="bg-muted/30"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
           </div>
@@ -331,12 +333,13 @@ export default function PublicProfile() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          {/* Card with header image */}
-          <div className="mb-4 rounded-2xl overflow-hidden mx-auto max-w-md shadow-lg">
-            <img 
+          {/* Card with header image - Fixed height container */}
+          <div className="mb-4 rounded-2xl overflow-hidden mx-auto max-w-md shadow-lg h-40">
+            <SmoothImage 
               src={theme.header.image_url} 
               alt="Header" 
-              className="w-full h-40 object-cover"
+              containerClassName="h-full w-full"
+              skeletonClassName="bg-muted/30"
             />
           </div>
           
@@ -391,12 +394,13 @@ export default function PublicProfile() {
         >
           {/* Split layout container */}
           <div className="rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10">
-            {/* Header image section */}
+            {/* Header image section - Fixed height container */}
             <div className="h-32 overflow-hidden">
-              <img 
+              <SmoothImage 
                 src={theme.header.image_url} 
                 alt="Header" 
-                className="w-full h-full object-cover"
+                containerClassName="h-full w-full"
+                skeletonClassName="bg-muted/30"
               />
             </div>
             
