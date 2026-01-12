@@ -1,30 +1,30 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   PenSquare, 
   BarChart3, 
-  Settings, 
   Sparkles,
   LogOut,
   Menu,
   X,
-  Cog
+  Cog,
+  UserCircle
 } from 'lucide-react';
-import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
+// Base nav items (Setup is conditionally added)
+const baseNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/dashboard/editor', label: 'Editor', icon: PenSquare },
   { path: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/dashboard/setup', label: 'Setup', icon: Settings },
   { path: '/dashboard/ai-setup', label: 'AI Setup', icon: Sparkles },
   { path: '/dashboard/settings', label: 'Settings', icon: Cog },
 ];
@@ -32,8 +32,35 @@ const navItems = [
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasPage, setHasPage] = useState<boolean | null>(null);
+
+  // Check if user has set up their profile/page
+  useEffect(() => {
+    async function checkUserPage() {
+      if (!user) {
+        setHasPage(null);
+        return;
+      }
+      const { data } = await supabase
+        .from('pages')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setHasPage(!!data);
+    }
+    checkUserPage();
+  }, [user]);
+
+  // Build nav items - only include Setup if user hasn't set up their profile
+  const navItems = hasPage === false
+    ? [
+        ...baseNavItems.slice(0, 3), // Dashboard, Editor, Analytics
+        { path: '/dashboard/setup', label: 'Profile Setup', icon: UserCircle },
+        ...baseNavItems.slice(3), // AI Setup, Settings
+      ]
+    : baseNavItems;
 
   const handleSignOut = async () => {
     await signOut();
