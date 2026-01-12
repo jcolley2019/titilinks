@@ -167,7 +167,7 @@ export default function Editor() {
         {/* Mode Selector */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium text-foreground">Page Mode</CardTitle>
+            <CardTitle className="text-lg font-medium text-foreground">Pages</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={selectedMode} onValueChange={(v) => {
@@ -177,11 +177,11 @@ export default function Editor() {
               <TabsList className="grid w-full grid-cols-2 max-w-md">
                 <TabsTrigger value="shop" className="gap-2">
                   <ShoppingBag className="h-4 w-4" />
-                  Shop
+                  Page 1
                 </TabsTrigger>
                 <TabsTrigger value="recruit" className="gap-2">
                   <Users className="h-4 w-4" />
-                  Recruit
+                  Page 2
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -239,7 +239,7 @@ export default function Editor() {
               ) : (
                 <Users className="h-5 w-5 text-primary" />
               )}
-              {selectedMode === 'shop' ? 'Shop' : 'Recruit'} Blocks
+              {selectedMode === 'shop' ? 'Page 1' : 'Page 2'} Blocks
             </CardTitle>
           </CardHeader>
           <CardContent>
