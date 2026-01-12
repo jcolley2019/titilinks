@@ -501,6 +501,87 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </Button>
               )}
             </div>
+            
+            {/* Canva Setup Help - Show when not connected */}
+            {!canvaConnected && !canvaLoading && (
+              <Collapsible className="mt-3">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Canva Setup Help</span>
+                    </div>
+                    <span className="text-muted-foreground">Click to expand</span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-xs">
+                    <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
+                    
+                    <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                      <li>
+                        In{' '}
+                        <a 
+                          href="https://www.canva.com/developers/" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-0.5"
+                        >
+                          Canva Developer Portal
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                        , create a <strong className="text-foreground">Canva Connect</strong> integration
+                      </li>
+                      <li>
+                        Add redirect URL:{' '}
+                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">
+                          https://titilinks.lovable.app/api/canva/callback
+                        </code>
+                      </li>
+                      <li>
+                        Enable scopes:{' '}
+                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:meta:read</code>
+                        {' '}and{' '}
+                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:content:read</code>
+                      </li>
+                      <li>
+                        Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into environment variables
+                      </li>
+                    </ol>
+
+                    <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        <strong>Note:</strong> Use "Your integrations" not "Your apps" in Canva.
+                      </p>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Canva MFA Error - Show inline */}
+            {canvaError === 'mfa' && (
+              <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-foreground">MFA Required</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Enable MFA in Canva Settings → Login, then retry.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={connectToCanva}
+                  className="w-full h-7 text-xs gap-1.5"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Canva Studio Section - Only show when connected and has content */}
@@ -1027,135 +1108,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               When enabled, automatically adjusts overlay opacity and text color for better readability on image backgrounds.
             </p>
           </div>
-
-          {/* Canva Integration Section */}
-          <div className="mb-6 pb-6 border-b border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <Image className="h-4 w-4 text-primary" />
-              <Label className="text-sm font-medium">Canva Design</Label>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Create custom headers and backgrounds using Canva's design tools.
-            </p>
-            
-            {canvaLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : canvaConnected ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                  <Check className="h-4 w-4" />
-                  <span>Connected to Canva</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={() => toast.info('Design picker coming soon!')}
-                >
-                  <Image className="h-4 w-4" />
-                  Choose Design
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2"
-                onClick={() => navigate('/api/canva/connect')}
-              >
-                <Image className="h-4 w-4" />
-                Connect Canva
-              </Button>
-            )}
-          </div>
-
-          {/* Canva MFA Error Panel */}
-          {canvaError === 'mfa' && (
-            <div className="mb-6 pb-6 border-b border-border">
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">
-                      Canva requires MFA to be enabled
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      In Canva: Settings → Login → set a password (if needed), then enable MFA (Login verification).
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Return here and try again once enabled.
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={connectToCanva}
-                  className="w-full gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Retry
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Canva Setup Help Panel */}
-          <Collapsible className="mb-6 pb-6 border-b border-border">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
-                <div className="flex items-center gap-2">
-                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-sm font-medium cursor-pointer text-muted-foreground">Canva Setup Help</Label>
-                </div>
-                <span className="text-xs text-muted-foreground">Click to expand</span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4 space-y-4">
-              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4 text-sm">
-                <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
-                
-                <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
-                  <li>
-                    In{' '}
-                    <a 
-                      href="https://www.canva.com/developers/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline inline-flex items-center gap-1"
-                    >
-                      Canva Developer Portal
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                    , create a <strong className="text-foreground">Canva Connect</strong> integration under <strong className="text-foreground">"Your integrations"</strong>
-                  </li>
-                  <li>
-                    Add redirect URL:{' '}
-                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">
-                      https://titilinks.lovable.app/api/canva/callback
-                    </code>
-                  </li>
-                  <li>
-                    Enable scopes:{' '}
-                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">design:meta:read</code>
-                    {' '}and{' '}
-                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">design:content:read</code>
-                  </li>
-                  <li>
-                    Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into Lovable environment variables
-                  </li>
-                </ol>
-
-                <div className="mt-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    <strong>Note:</strong> The Canva "Your apps" → Code upload screen is for Apps SDK and is <em>not</em> used for this feature. Use "Your integrations" instead.
-                  </p>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
