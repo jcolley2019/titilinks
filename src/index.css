@@ -144,7 +144,29 @@
     color: hsl(43 65% 55%);
   }
 
-  /* Hide scrollbar utility */
+  /* Hide scrollbar on mobile/tablet, show on desktop */
+  .scrollbar-hide-mobile {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide-mobile::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Show scrollbar on desktop (lg breakpoint: 1024px+) */
+  @media (min-width: 1024px) {
+    .scrollbar-hide-mobile {
+      -ms-overflow-style: auto;
+      scrollbar-width: auto;
+    }
+    
+    .scrollbar-hide-mobile::-webkit-scrollbar {
+      display: block;
+    }
+  }
+
+  /* Hide scrollbar utility (always hidden) */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -152,15 +174,5 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
-  }
-
-  /* Show scrollbar on desktop */
-  .lg\:scrollbar-default {
-    -ms-overflow-style: auto;
-    scrollbar-width: auto;
-  }
-  
-  .lg\:scrollbar-default::-webkit-scrollbar {
-    display: block;
   }
 }

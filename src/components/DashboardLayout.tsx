@@ -393,7 +393,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* Main Content */}
-      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen overflow-y-auto scrollbar-hide lg:scrollbar-default">
+      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen scrollbar-hide-mobile">
         <div className="p-4 lg:p-8">
           {children}
         </div>
