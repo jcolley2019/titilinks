@@ -47,7 +47,7 @@ export default function Editor() {
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
   const mainLink = page ? `${baseUrl}/${page.handle}` : '';
-  const recruitLink = page ? `${mainLink}?mode=recruit` : '';
+  const page2Link = page ? `${mainLink}?page=2` : '';
 
   // Parse theme_json for page labels
   const themeJson = (page?.theme_json as ThemeJson) || {};
@@ -368,17 +368,17 @@ export default function Editor() {
               <label className="text-sm font-medium text-foreground">Page 2 Link</label>
               <div className="flex gap-2">
                 <Input
-                  value={recruitLink}
+                  value={page2Link}
                   readOnly
                   className="bg-secondary/50 font-mono text-sm"
                 />
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => copyToClipboard(recruitLink, 'recruit')}
+                  onClick={() => copyToClipboard(page2Link, 'page2')}
                   className="flex-shrink-0"
                 >
-                  {copiedLink === 'recruit' ? (
+                  {copiedLink === 'page2' ? (
                     <Check className="h-4 w-4 text-green-500" />
                   ) : (
                     <Copy className="h-4 w-4" />
@@ -398,7 +398,7 @@ export default function Editor() {
               </div>
               
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Main Hub Link</label>
+                <label className="text-sm text-muted-foreground">Default Link</label>
                 <LinkTools
                   baseUrl={baseUrl}
                   pageId={page.id}
@@ -407,11 +407,11 @@ export default function Editor() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Recruit Link</label>
+                <label className="text-sm text-muted-foreground">Page 2 Link</label>
                 <LinkTools
                   baseUrl={baseUrl}
                   pageId={page.id}
-                  destinationUrl={recruitLink}
+                  destinationUrl={page2Link}
                 />
               </div>
             </div>
