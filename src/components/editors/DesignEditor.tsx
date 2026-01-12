@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemePreview } from './ThemePreview';
 import { TemplateGallery } from './TemplateGallery';
@@ -234,9 +235,15 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   const updateHeader = (updates: Partial<NonNullable<ThemeJson['header']>>, autoSave = false) => {
     setTheme((prev) => {
+      const defaultHeader: NonNullable<ThemeJson['header']> = { 
+        image_url: '', 
+        enabled: false, 
+        source: null, 
+        layout: 'overlay' 
+      };
       const newTheme = {
         ...prev,
-        header: { ...(prev.header || { image_url: '', enabled: false, source: null }), ...updates },
+        header: { ...defaultHeader, ...(prev.header || {}), ...updates },
       };
       if (autoSave) {
         saveTheme(newTheme);
@@ -552,6 +559,33 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                           <Trash2 className="h-3 w-3" />
                           Remove
                         </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Header Layout Selector */}
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <Label className="text-xs font-medium mb-2 block">Header Layout</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'overlay' as const, label: 'Overlay', desc: 'Text on image' },
+                          { value: 'card' as const, label: 'Card', desc: 'Image in card' },
+                          { value: 'split' as const, label: 'Split', desc: 'Storefront style' },
+                        ].map((layout) => (
+                          <button
+                            key={layout.value}
+                            type="button"
+                            onClick={() => updateHeader({ layout: layout.value }, true)}
+                            className={cn(
+                              'p-2 rounded-lg border text-center transition-all',
+                              (theme.header?.layout || 'overlay') === layout.value
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-primary/50'
+                            )}
+                          >
+                            <div className="text-xs font-medium">{layout.label}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{layout.desc}</div>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
