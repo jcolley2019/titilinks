@@ -7,6 +7,13 @@ export interface ThemeBackground {
   image_url: string;
   overlay_color: string;
   overlay_opacity: number;
+  source: 'upload' | 'canva' | null;
+}
+
+export interface ThemeHeader {
+  image_url: string;
+  enabled: boolean;
+  source: 'upload' | 'canva' | null;
 }
 
 export interface ThemeButtons {
@@ -52,7 +59,14 @@ export interface ThemeJson {
   buttons: ThemeButtons;
   typography: ThemeTypography;
   motion: ThemeMotion;
+  header?: ThemeHeader;
 }
+
+export const DEFAULT_HEADER: ThemeHeader = {
+  image_url: '',
+  enabled: false,
+  source: null,
+};
 
 export const DEFAULT_THEME: ThemeJson = {
   background: {
@@ -62,6 +76,7 @@ export const DEFAULT_THEME: ThemeJson = {
     image_url: '',
     overlay_color: '#000000',
     overlay_opacity: 0.5,
+    source: null,
   },
   buttons: {
     shape: 'rounded',
@@ -79,6 +94,7 @@ export const DEFAULT_THEME: ThemeJson = {
   motion: {
     enabled: true,
   },
+  header: DEFAULT_HEADER,
 };
 
 export interface ThemePreset {
@@ -101,6 +117,7 @@ export const THEME_PRESETS: ThemePreset[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -132,6 +149,7 @@ export const THEME_PRESETS: ThemePreset[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -163,6 +181,7 @@ export const THEME_PRESETS: ThemePreset[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.2,
+        source: null,
       },
       buttons: {
         shape: 'pill',
@@ -194,6 +213,7 @@ export const THEME_PRESETS: ThemePreset[] = [
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.5,
+        source: null,
       },
       buttons: {
         shape: 'rounded',
@@ -238,6 +258,10 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
     motion: {
       ...DEFAULT_THEME.motion,
       ...(parsed.motion || {}),
+    },
+    header: {
+      ...DEFAULT_HEADER,
+      ...(parsed.header || {}),
     },
   };
 }
