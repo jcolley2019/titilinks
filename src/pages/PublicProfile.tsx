@@ -249,23 +249,97 @@ export default function PublicProfile() {
     }
   };
 
-  return (
-    <PageBackground theme={theme}>
-      {/* Content Layer */}
-      <div
-        className="max-w-[640px] mx-auto px-4 py-8 pb-20"
-        style={{
-          fontFamily: getFontFamily(),
-          color: theme.typography.text_color,
-        }}
-      >
-        {/* Header */}
+  // Render header based on layout
+  const renderHeader = () => {
+    const headerLayout = theme.header?.layout || 'overlay';
+    const hasHeaderImage = theme.header?.enabled && theme.header?.image_url;
+
+    // Overlay layout: Full-width header image with content overlaid
+    if (headerLayout === 'overlay' && hasHeaderImage) {
+      return (
+        <motion.header
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative mb-8 -mx-4 -mt-8"
+        >
+          {/* Header Image */}
+          <div className="relative h-48 overflow-hidden">
+            <img 
+              src={theme.header.image_url} 
+              alt="Header" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          </div>
+          
+          {/* Overlaid Profile Info */}
+          <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 text-center px-4">
+            <Avatar className="h-20 w-20 mx-auto mb-2 ring-4 ring-background shadow-lg">
+              {page.avatar_url ? (
+                <AvatarImage src={page.avatar_url} alt={page.display_name || page.handle} />
+              ) : null}
+              <AvatarFallback 
+                className="text-xl"
+                style={{
+                  backgroundColor: theme.buttons.fill_color,
+                  color: theme.buttons.text_color,
+                }}
+              >
+                {(page.display_name || page.handle).charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+          
+          {/* Spacer for overlaid avatar */}
+          <div className="h-12" />
+          
+          {/* Text below avatar */}
+          <div className="text-center mt-4 px-4">
+            <h1 className="text-xl font-bold" style={{ color: theme.typography.text_color }}>
+              {page.display_name || `@${page.handle}`}
+            </h1>
+            {page.bio && (
+              <p 
+                className="text-sm mt-1 max-w-xs mx-auto opacity-80"
+                style={{ color: theme.typography.text_color }}
+              >
+                {page.bio}
+              </p>
+            )}
+            <div 
+              className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
+              style={{ color: theme.typography.text_color }}
+            >
+              {detectedMode === 'shop' ? (
+                <ShoppingBag className="h-3 w-3" />
+              ) : (
+                <Users className="h-3 w-3" />
+              )}
+              <span className="capitalize">{detectedMode}</span>
+            </div>
+          </div>
+        </motion.header>
+      );
+    }
+
+    // Card layout: Header image inside a rounded card with text below
+    if (headerLayout === 'card' && hasHeaderImage) {
+      return (
         <motion.header
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <Avatar className="h-20 w-20 mx-auto mb-4 ring-2 ring-white/20">
+          {/* Card with header image */}
+          <div className="mb-4 rounded-2xl overflow-hidden mx-auto max-w-md shadow-lg">
+            <img 
+              src={theme.header.image_url} 
+              alt="Header" 
+              className="w-full h-40 object-cover"
+            />
+          </div>
+          
+          <Avatar className="h-20 w-20 mx-auto mb-4 ring-2 ring-white/20 -mt-12 relative z-10 shadow-lg">
             {page.avatar_url ? (
               <AvatarImage src={page.avatar_url} alt={page.display_name || page.handle} />
             ) : null}
@@ -279,6 +353,7 @@ export default function PublicProfile() {
               {(page.display_name || page.handle).charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
+          
           <h1 className="text-xl font-bold" style={{ color: theme.typography.text_color }}>
             {page.display_name || `@${page.handle}`}
           </h1>
@@ -302,6 +377,132 @@ export default function PublicProfile() {
             <span className="capitalize">{detectedMode}</span>
           </div>
         </motion.header>
+      );
+    }
+
+    // Split layout: Modern storefront style with side-by-side or stacked content
+    if (headerLayout === 'split' && hasHeaderImage) {
+      return (
+        <motion.header
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          {/* Split layout container */}
+          <div className="rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10">
+            {/* Header image section */}
+            <div className="h-32 overflow-hidden">
+              <img 
+                src={theme.header.image_url} 
+                alt="Header" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            
+            {/* Profile section */}
+            <div className="p-4 text-center">
+              <Avatar className="h-16 w-16 mx-auto mb-3 ring-2 ring-white/20 -mt-12 relative z-10 shadow-lg">
+                {page.avatar_url ? (
+                  <AvatarImage src={page.avatar_url} alt={page.display_name || page.handle} />
+                ) : null}
+                <AvatarFallback 
+                  className="text-lg"
+                  style={{
+                    backgroundColor: theme.buttons.fill_color,
+                    color: theme.buttons.text_color,
+                  }}
+                >
+                  {(page.display_name || page.handle).charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              
+              <h1 className="text-lg font-bold" style={{ color: theme.typography.text_color }}>
+                {page.display_name || `@${page.handle}`}
+              </h1>
+              {page.bio && (
+                <p 
+                  className="text-sm mt-1 opacity-80"
+                  style={{ color: theme.typography.text_color }}
+                >
+                  {page.bio}
+                </p>
+              )}
+              <div 
+                className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
+                style={{ color: theme.typography.text_color }}
+              >
+                {detectedMode === 'shop' ? (
+                  <ShoppingBag className="h-3 w-3" />
+                ) : (
+                  <Users className="h-3 w-3" />
+                )}
+                <span className="capitalize">{detectedMode}</span>
+              </div>
+            </div>
+          </div>
+        </motion.header>
+      );
+    }
+
+    // Default layout (no header image or fallback)
+    return (
+      <motion.header
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-8"
+      >
+        <Avatar className="h-20 w-20 mx-auto mb-4 ring-2 ring-white/20">
+          {page.avatar_url ? (
+            <AvatarImage src={page.avatar_url} alt={page.display_name || page.handle} />
+          ) : null}
+          <AvatarFallback 
+            className="text-xl"
+            style={{
+              backgroundColor: theme.buttons.fill_color,
+              color: theme.buttons.text_color,
+            }}
+          >
+            {(page.display_name || page.handle).charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <h1 className="text-xl font-bold" style={{ color: theme.typography.text_color }}>
+          {page.display_name || `@${page.handle}`}
+        </h1>
+        {page.bio && (
+          <p 
+            className="text-sm mt-1 max-w-xs mx-auto opacity-80"
+            style={{ color: theme.typography.text_color }}
+          >
+            {page.bio}
+          </p>
+        )}
+        <div 
+          className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
+          style={{ color: theme.typography.text_color }}
+        >
+          {detectedMode === 'shop' ? (
+            <ShoppingBag className="h-3 w-3" />
+          ) : (
+            <Users className="h-3 w-3" />
+          )}
+          <span className="capitalize">{detectedMode}</span>
+        </div>
+      </motion.header>
+    );
+  };
+
+  return (
+    <PageBackground theme={theme}>
+      {/* Content Layer */}
+      <div
+        className="max-w-[640px] mx-auto px-4 py-8 pb-20"
+        style={{
+          fontFamily: getFontFamily(),
+          color: theme.typography.text_color,
+        }}
+      >
+        {/* Header */}
+        {renderHeader()}
 
         {/* Blocks - keyed by mode for crossfade on mode change */}
         <div 

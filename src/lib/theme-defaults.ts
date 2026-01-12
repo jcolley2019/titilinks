@@ -10,10 +10,13 @@ export interface ThemeBackground {
   source: 'upload' | 'canva' | null;
 }
 
+export type HeaderLayout = 'overlay' | 'card' | 'split';
+
 export interface ThemeHeader {
   image_url: string;
   enabled: boolean;
   source: 'upload' | 'canva' | null;
+  layout: HeaderLayout;
 }
 
 export interface ThemeButtons {
@@ -66,6 +69,7 @@ export const DEFAULT_HEADER: ThemeHeader = {
   image_url: '',
   enabled: false,
   source: null,
+  layout: 'overlay',
 };
 
 export const DEFAULT_THEME: ThemeJson = {
