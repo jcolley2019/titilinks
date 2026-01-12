@@ -500,64 +500,78 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 </Button>
               )}
-            </div>
-            
-            {/* Canva Setup Help - Show when not connected */}
-            {!canvaConnected && !canvaLoading && (
-              <Collapsible className="mt-3">
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-muted-foreground">Canva Setup Help</span>
-                    </div>
-                    <span className="text-muted-foreground">Click to expand</span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-xs">
-                    <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
-                    
-                    <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                      <li>
-                        In{' '}
-                        <a 
-                          href="https://www.canva.com/developers/" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center gap-0.5"
-                        >
-                          Canva Developer Portal
-                          <ExternalLink className="h-2.5 w-2.5" />
-                        </a>
-                        , create a <strong className="text-foreground">Canva Connect</strong> integration
-                      </li>
-                      <li>
-                        Add redirect URL:{' '}
-                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">
-                          https://titilinks.lovable.app/api/canva/callback
-                        </code>
-                      </li>
-                      <li>
-                        Enable scopes:{' '}
-                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:meta:read</code>
-                        {' '}and{' '}
-                        <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:content:read</code>
-                      </li>
-                      <li>
-                        Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into environment variables
-                      </li>
-                    </ol>
 
-                    <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                        <strong>Note:</strong> Use "Your integrations" not "Your apps" in Canva.
-                      </p>
+              {/* Canva Connect Button - Not connected */}
+              {!canvaConnected && !canvaLoading && (
+                <div className="flex flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2 h-auto py-3"
+                    onClick={connectToCanva}
+                  >
+                    <Image className="h-4 w-4 text-primary" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Canva Studio</div>
+                      <div className="text-xs text-muted-foreground">Connect to import</div>
                     </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+                  </Button>
+                  
+                  {/* Canva Setup Help - Below the button */}
+                  <Collapsible className="mt-2">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground text-[11px]">Canva Setup Help - Click to expand</span>
+                        </div>
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-xs">
+                        <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
+                        
+                        <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                          <li>
+                            In{' '}
+                            <a 
+                              href="https://www.canva.com/developers/" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline inline-flex items-center gap-0.5"
+                            >
+                              Canva Developer Portal
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                            , create a <strong className="text-foreground">Canva Connect</strong> integration
+                          </li>
+                          <li>
+                            Add redirect URL:{' '}
+                            <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">
+                              https://titilinks.lovable.app/api/canva/callback
+                            </code>
+                          </li>
+                          <li>
+                            Enable scopes:{' '}
+                            <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:meta:read</code>
+                            {' '}and{' '}
+                            <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:content:read</code>
+                          </li>
+                          <li>
+                            Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into environment variables
+                          </li>
+                        </ol>
+
+                        <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            <strong>Note:</strong> Use "Your integrations" not "Your apps" in Canva.
+                          </p>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
+            </div>
 
             {/* Canva MFA Error - Show inline */}
             {canvaError === 'mfa' && (
