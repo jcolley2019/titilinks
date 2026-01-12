@@ -303,6 +303,28 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }
   };
 
+  const disconnectCanva = async () => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('canva_connections')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (error) {
+        toast.error("Failed to disconnect Canva");
+        return;
+      }
+      
+      setCanvaConnected(false);
+      toast.success("Canva disconnected");
+    } catch (err) {
+      console.error('Error disconnecting Canva:', err);
+      toast.error("Failed to disconnect Canva");
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Controls Panel */}
@@ -364,13 +386,24 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 </Button>
               ) : canvaConnected ? (
-                <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-green-600">Canva Connected</div>
-                    <div className="text-xs text-muted-foreground">Design in Canva</div>
-                  </div>
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-green-600">Canva Connected</div>
+                      <div className="text-xs text-muted-foreground">Ready to design</div>
+                    </div>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-auto aspect-square text-muted-foreground hover:text-destructive"
+                    onClick={disconnectCanva}
+                    title="Disconnect Canva"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               ) : (
                 <Button 
                   variant="outline" 
