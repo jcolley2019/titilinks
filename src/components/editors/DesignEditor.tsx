@@ -62,6 +62,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [canvaConnected, setCanvaConnected] = useState(false);
   const [canvaLoading, setCanvaLoading] = useState(true);
   const [creatingDesign, setCreatingDesign] = useState(false);
+  const [showCanvaPicker, setShowCanvaPicker] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -447,29 +448,27 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   Import a Canva design as your header image or background.
                 </p>
                 
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-center gap-2"
-                    >
-                      <Image className="h-4 w-4" />
-                      Choose a Canva design
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-4">
-                    <CanvaDesignPicker
-                      onApplyToHeader={(url) => {
-                        updateBackground({ image_url: url }, true);
-                      }}
-                      onApplyToBackground={(url) => {
-                        updateBackground({ image_url: url }, true);
-                      }}
-                      onCreateNew={createDesignInCanva}
-                      isCreating={creatingDesign}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-center gap-2"
+                  onClick={() => setShowCanvaPicker(true)}
+                >
+                  <Image className="h-4 w-4" />
+                  Choose a Canva design
+                </Button>
+                
+                <CanvaDesignPicker
+                  open={showCanvaPicker}
+                  onOpenChange={setShowCanvaPicker}
+                  onApplyToHeader={(url) => {
+                    updateBackground({ image_url: url }, true);
+                  }}
+                  onApplyToBackground={(url) => {
+                    updateBackground({ image_url: url }, true);
+                  }}
+                  onCreateNew={createDesignInCanva}
+                  isCreating={creatingDesign}
+                />
 
                 {/* Canva Error Display */}
                 {canvaError && (
