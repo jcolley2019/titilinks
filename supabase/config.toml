@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.canva-create-design]
 verify_jwt = false
+
+[functions.canva-list-designs]
+verify_jwt = false
+
+[functions.canva-export-design]
+verify_jwt = false
