@@ -25,6 +25,7 @@ import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme
 import { useAuth } from '@/hooks/useAuth';
 import { ThemePreview } from './ThemePreview';
 import { TemplateGallery } from './TemplateGallery';
+import { CanvaDesignPicker } from './CanvaDesignPicker';
 
 const GRADIENT_PRESETS = [
   { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
@@ -426,24 +427,20 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 </Button>
               ) : canvaConnected ? (
-                <div className="space-y-2">
+                <Collapsible>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10"
-                      onClick={() => createDesignInCanva('header')}
-                      disabled={creatingDesign}
-                    >
-                      {creatingDesign ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-green-500" />
-                      ) : (
-                        <Image className="h-4 w-4 text-green-500" />
-                      )}
-                      <div className="text-left">
-                        <div className="text-sm font-medium text-green-600">Design Header</div>
-                        <div className="text-xs text-muted-foreground">1200×400px in Canva</div>
-                      </div>
-                    </Button>
+                    <CollapsibleTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10"
+                      >
+                        <Check className="h-4 w-4 text-green-500" />
+                        <div className="text-left">
+                          <div className="text-sm font-medium text-green-600">Canva Connected</div>
+                          <div className="text-xs text-muted-foreground">Click to browse designs</div>
+                        </div>
+                      </Button>
+                    </CollapsibleTrigger>
                     <Button 
                       variant="ghost" 
                       size="icon"
@@ -454,7 +451,20 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
+                  <CollapsibleContent className="pt-4">
+                    <CanvaDesignPicker
+                      onApplyToHeader={(url) => {
+                        // For now, apply as background image since we don't have a separate header field
+                        updateBackground({ image_url: url }, true);
+                      }}
+                      onApplyToBackground={(url) => {
+                        updateBackground({ image_url: url }, true);
+                      }}
+                      onCreateNew={createDesignInCanva}
+                      isCreating={creatingDesign}
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
               ) : (
                 <Button 
                   variant="outline" 
