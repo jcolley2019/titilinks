@@ -183,7 +183,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
             <div className="space-y-2">
               <Label htmlFor="recruit-goal" className="text-sm font-medium">
-                Recruit Goal
+                Page 2 Goal
               </Label>
               <Select
                 value={recruitId || 'none'}
@@ -202,7 +202,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Track clicks to your recruitment or signup link.
+                Track clicks to your Page 2 primary link.
               </p>
               {recruitItem && (
                 <div className="mt-2">

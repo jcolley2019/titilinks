@@ -244,6 +244,12 @@ export default function PublicProfile() {
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = applyAutoContrast(rawTheme);
 
+  // Get custom page labels from theme_json
+  const themePages = (page.theme_json as { pages?: { page1?: { label?: string }; page2?: { label?: string } } })?.pages;
+  const page1Label = themePages?.page1?.label || 'Page 1';
+  const page2Label = themePages?.page2?.label || 'Page 2';
+  const currentPageLabel = detectedMode === 'shop' ? page1Label : page2Label;
+
   // Get font family based on theme
   const getFontFamily = (): string => {
     switch (theme.typography.font) {
@@ -322,12 +328,7 @@ export default function PublicProfile() {
               className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
               style={{ color: theme.typography.text_color }}
             >
-              {detectedMode === 'shop' ? (
-                <ShoppingBag className="h-3 w-3" />
-              ) : (
-                <Users className="h-3 w-3" />
-              )}
-              <span className="capitalize">{detectedMode}</span>
+              <span>{currentPageLabel}</span>
             </div>
           </div>
         </motion.header>
@@ -382,12 +383,7 @@ export default function PublicProfile() {
             className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
             style={{ color: theme.typography.text_color }}
           >
-            {detectedMode === 'shop' ? (
-              <ShoppingBag className="h-3 w-3" />
-            ) : (
-              <Users className="h-3 w-3" />
-            )}
-            <span className="capitalize">{detectedMode}</span>
+            <span>{currentPageLabel}</span>
           </div>
         </motion.header>
       );
@@ -445,12 +441,7 @@ export default function PublicProfile() {
                 className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
                 style={{ color: theme.typography.text_color }}
               >
-                {detectedMode === 'shop' ? (
-                  <ShoppingBag className="h-3 w-3" />
-                ) : (
-                  <Users className="h-3 w-3" />
-                )}
-                <span className="capitalize">{detectedMode}</span>
+                <span>{currentPageLabel}</span>
               </div>
             </div>
           </div>
@@ -494,12 +485,7 @@ export default function PublicProfile() {
           className="flex items-center justify-center gap-1 mt-2 text-xs opacity-60"
           style={{ color: theme.typography.text_color }}
         >
-          {detectedMode === 'shop' ? (
-            <ShoppingBag className="h-3 w-3" />
-          ) : (
-            <Users className="h-3 w-3" />
-          )}
-          <span className="capitalize">{detectedMode}</span>
+          <span>{currentPageLabel}</span>
         </div>
       </motion.header>
     );
