@@ -57,9 +57,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [savingPreset, setSavingPreset] = useState(false);
 
   // Canva connection state
-  const [canvaError, setCanvaError] = useState<'mfa' | 'generic' | null>(null);
+  const [canvaError, setCanvaError] = useState<'mfa' | 'generic' | 'missing_scope' | null>(null);
   const [canvaConnected, setCanvaConnected] = useState(false);
   const [canvaLoading, setCanvaLoading] = useState(true);
+  const [creatingDesign, setCreatingDesign] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -325,6 +326,45 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }
   };
 
+  const createDesignInCanva = async (designType: 'header' | 'wallpaper') => {
+    setCreatingDesign(true);
+    setCanvaError(null);
+    
+    try {
+      const dimensions = designType === 'header' 
+        ? { width: 1200, height: 400, title: 'Profile Header' }
+        : { width: 1080, height: 1920, title: 'Profile Wallpaper' };
+      
+      const { data, error } = await supabase.functions.invoke('canva-create-design', {
+        body: dimensions
+      });
+
+      if (error) {
+        console.error('Canva create design error:', error);
+        toast.error(error.message || "Failed to create design");
+        return;
+      }
+
+      if (data?.code === 'MISSING_SCOPE') {
+        setCanvaError('missing_scope');
+        return;
+      }
+
+      if (data?.edit_url) {
+        // Open Canva editor in new tab
+        window.open(data.edit_url, '_blank', 'noopener,noreferrer');
+        toast.success("Opening Canva editor...");
+      } else {
+        toast.error("Failed to get design URL from Canva");
+      }
+    } catch (err) {
+      console.error('Error creating Canva design:', err);
+      toast.error("Failed to create design in Canva");
+    } finally {
+      setCreatingDesign(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Controls Panel */}
@@ -386,23 +426,34 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 </Button>
               ) : canvaConnected ? (
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10">
-                    <Check className="h-4 w-4 text-green-500" />
-                    <div className="text-left">
-                      <div className="text-sm font-medium text-green-600">Canva Connected</div>
-                      <div className="text-xs text-muted-foreground">Ready to design</div>
-                    </div>
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="h-auto aspect-square text-muted-foreground hover:text-destructive"
-                    onClick={disconnectCanva}
-                    title="Disconnect Canva"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10"
+                      onClick={() => createDesignInCanva('header')}
+                      disabled={creatingDesign}
+                    >
+                      {creatingDesign ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-green-500" />
+                      ) : (
+                        <Image className="h-4 w-4 text-green-500" />
+                      )}
+                      <div className="text-left">
+                        <div className="text-sm font-medium text-green-600">Design Header</div>
+                        <div className="text-xs text-muted-foreground">1200×400px in Canva</div>
+                      </div>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="h-auto aspect-square text-muted-foreground hover:text-destructive"
+                      onClick={disconnectCanva}
+                      title="Disconnect Canva"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <Button 
@@ -431,6 +482,24 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                         <p className="text-xs text-muted-foreground mt-1">
                           Your Canva account requires Multi-Factor Authentication. Please disable MFA temporarily or use a different account.
                         </p>
+                      </>
+                    ) : canvaError === 'missing_scope' ? (
+                      <>
+                        <p className="text-sm font-medium text-destructive">Permission Required</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Design creation requires additional permissions. Please reconnect Canva to grant the required access.
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2 h-7 text-xs"
+                          onClick={() => {
+                            setCanvaError(null);
+                            disconnectCanva();
+                          }}
+                        >
+                          Reconnect Canva
+                        </Button>
                       </>
                     ) : (
                       <>

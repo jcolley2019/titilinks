@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.canva-token]
 verify_jwt = false
+
+[functions.canva-create-design]
+verify_jwt = false

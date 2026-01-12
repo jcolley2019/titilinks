@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("CANVA_CLIENT_ID");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const redirectUri = Deno.env.get("CANVA_REDIRECT_URI") || `${supabaseUrl}/functions/v1/canva-callback`;
-    const scopes = Deno.env.get("CANVA_SCOPES") || "design:meta:read design:content:read";
+    const scopes = "design:meta:read design:content:read design:content:write";
 
     if (!clientId) {
       console.error("Missing CANVA_CLIENT_ID");
