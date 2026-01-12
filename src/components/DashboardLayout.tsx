@@ -12,12 +12,15 @@ import {
   Cog,
   UserCircle,
   CheckCircle2,
-  Crown
+  Crown,
+  Zap,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardLayoutProps {
@@ -32,9 +35,14 @@ interface ProfileCompletion {
 type UserPlan = 'Free' | 'Pro' | 'Premium';
 
 const planBadgeStyles: Record<UserPlan, string> = {
-  Free: 'bg-muted text-muted-foreground border-border',
-  Pro: 'bg-primary/10 text-primary border-primary/30',
+  Free: 'bg-muted text-muted-foreground border-border cursor-pointer hover:bg-muted/80',
+  Pro: 'bg-primary/10 text-primary border-primary/30 cursor-pointer hover:bg-primary/20',
   Premium: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
+};
+
+const planFeatures = {
+  Pro: ['Unlimited links', 'Custom themes', 'Advanced analytics', 'Priority support'],
+  Premium: ['Everything in Pro', 'Custom domain', 'Remove branding', 'API access'],
 };
 
 // Base nav items (Setup is conditionally added)
@@ -174,13 +182,50 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <span className="text-foreground">Titi</span>
             <span className="italic text-primary">Links</span>
           </span>
-          <Badge 
-            variant="outline" 
-            className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
-          >
-            {userPlan === 'Premium' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
-            {userPlan}
-          </Badge>
+          {userPlan === 'Free' ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
+                >
+                  {userPlan}
+                </Badge>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-4" align="start">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    <span className="font-semibold text-sm">Upgrade your plan</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Unlock more features and grow your audience faster.
+                  </p>
+                  <div className="space-y-1.5">
+                    {planFeatures.Pro.slice(0, 3).map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        <span>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Link to="/#pricing">
+                    <Button size="sm" className="w-full mt-2 gap-1">
+                      View Plans <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Badge 
+              variant="outline" 
+              className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
+            >
+              {userPlan === 'Premium' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
+              {userPlan}
+            </Badge>
+          )}
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => {
@@ -224,13 +269,42 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <span className="text-foreground">Titi</span>
             <span className="italic text-primary">Links</span>
           </span>
-          <Badge 
-            variant="outline" 
-            className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
-          >
-            {userPlan === 'Premium' && <Crown className="h-2 w-2 mr-0.5" />}
-            {userPlan}
-          </Badge>
+          {userPlan === 'Free' ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Badge 
+                  variant="outline" 
+                  className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
+                >
+                  {userPlan}
+                </Badge>
+              </PopoverTrigger>
+              <PopoverContent className="w-60 p-3" align="start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-semibold text-xs">Upgrade your plan</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Unlock more features and grow faster.
+                  </p>
+                  <Link to="/#pricing">
+                    <Button size="sm" className="w-full text-xs h-7 gap-1">
+                      View Plans <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Badge 
+              variant="outline" 
+              className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
+            >
+              {userPlan === 'Premium' && <Crown className="h-2 w-2 mr-0.5" />}
+              {userPlan}
+            </Badge>
+          )}
         </div>
         <Button
           variant="ghost"
