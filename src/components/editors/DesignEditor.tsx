@@ -416,45 +416,50 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   />
                 </CollapsibleContent>
               </Collapsible>
+            </div>
+          </div>
 
-              {/* Connect Canva Button */}
-              {canvaLoading ? (
-                <Button variant="outline" disabled className="w-full justify-start gap-2 h-auto py-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Canva</div>
-                    <div className="text-xs text-muted-foreground">Loading...</div>
+          {/* Canva Studio Section */}
+          {canvaConnected && (
+              <div className="mb-6 pb-6 border-b border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Image className="h-5 w-5 text-primary" />
+                    <Label className="text-sm font-medium">Canva Studio</Label>
                   </div>
-                </Button>
-              ) : canvaConnected ? (
-                <Collapsible>
-                  <div className="flex gap-2">
-                    <CollapsibleTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 justify-start gap-2 h-auto py-3 border-green-500/50 bg-green-500/10"
-                      >
-                        <Check className="h-4 w-4 text-green-500" />
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-green-600">Canva Connected</div>
-                          <div className="text-xs text-muted-foreground">Click to browse designs</div>
-                        </div>
-                      </Button>
-                    </CollapsibleTrigger>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-500 border border-green-500/30">
+                      <Check className="h-3 w-3" />
+                      Connected
+                    </span>
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-auto aspect-square text-muted-foreground hover:text-destructive"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
                       onClick={disconnectCanva}
                       title="Disconnect Canva"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </Button>
                   </div>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Import a Canva design as your header image or background.
+                </p>
+                
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-center gap-2"
+                    >
+                      <Image className="h-4 w-4" />
+                      Choose a Canva design
+                    </Button>
+                  </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4">
                     <CanvaDesignPicker
                       onApplyToHeader={(url) => {
-                        // For now, apply as background image since we don't have a separate header field
                         updateBackground({ image_url: url }, true);
                       }}
                       onApplyToBackground={(url) => {
@@ -465,73 +470,60 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                     />
                   </CollapsibleContent>
                 </Collapsible>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start gap-2 h-auto py-3"
-                  onClick={connectToCanva}
-                >
-                  <Image className="h-4 w-4 text-primary" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Connect Canva</div>
-                    <div className="text-xs text-muted-foreground">Design headers</div>
-                  </div>
-                </Button>
-              )}
-            </div>
 
-            {/* Canva Error Dialog */}
-            {canvaError && (
-              <div className="mt-3 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
-                  <div className="flex-1">
-                    {canvaError === 'mfa' ? (
-                      <>
-                        <p className="text-sm font-medium text-destructive">MFA Required</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Your Canva account requires Multi-Factor Authentication. Please disable MFA temporarily or use a different account.
-                        </p>
-                      </>
-                    ) : canvaError === 'missing_scope' ? (
-                      <>
-                        <p className="text-sm font-medium text-destructive">Permission Required</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Design creation requires additional permissions. Please reconnect Canva to grant the required access.
-                        </p>
+                {/* Canva Error Display */}
+                {canvaError && (
+                  <div className="mt-3 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                      <div className="flex-1">
+                        {canvaError === 'mfa' ? (
+                          <>
+                            <p className="text-sm font-medium text-destructive">MFA Required</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Your Canva account requires Multi-Factor Authentication.
+                            </p>
+                          </>
+                        ) : canvaError === 'missing_scope' ? (
+                          <>
+                            <p className="text-sm font-medium text-destructive">Permission Required</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Design creation requires additional permissions.
+                            </p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-2 h-7 text-xs"
+                              onClick={() => {
+                                setCanvaError(null);
+                                disconnectCanva();
+                              }}
+                            >
+                              Reconnect Canva
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium text-destructive">Error</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Something went wrong. Please try again.
+                            </p>
+                          </>
+                        )}
                         <Button 
-                          variant="outline" 
+                          variant="ghost" 
                           size="sm" 
                           className="mt-2 h-7 text-xs"
-                          onClick={() => {
-                            setCanvaError(null);
-                            disconnectCanva();
-                          }}
+                          onClick={() => setCanvaError(null)}
                         >
-                          Reconnect Canva
+                          Dismiss
                         </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-medium text-destructive">Connection Failed</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Failed to connect to Canva. Please try again.
-                        </p>
-                      </>
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2 h-7 text-xs"
-                      onClick={() => setCanvaError(null)}
-                    >
-                      Dismiss
-                    </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
-          </div>
 
           {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
