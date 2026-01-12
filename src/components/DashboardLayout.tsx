@@ -11,11 +11,13 @@ import {
   X,
   Cog,
   UserCircle,
-  CheckCircle2
+  CheckCircle2,
+  Crown
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardLayoutProps {
@@ -26,6 +28,14 @@ interface ProfileCompletion {
   percentage: number;
   items: { label: string; completed: boolean }[];
 }
+
+type UserPlan = 'Free' | 'Pro' | 'Premium';
+
+const planBadgeStyles: Record<UserPlan, string> = {
+  Free: 'bg-muted text-muted-foreground border-border',
+  Pro: 'bg-primary/10 text-primary border-primary/30',
+  Premium: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
+};
 
 // Base nav items (Setup is conditionally added)
 const baseNavItems = [
@@ -43,6 +53,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasPage, setHasPage] = useState<boolean | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
+  const [userPlan, setUserPlan] = useState<UserPlan>('Free');
+
+  // TODO: Fetch actual plan from subscription data when Stripe is enabled
+  // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
 
   // Check if user has set up their profile/page and calculate completion
   useEffect(() => {
@@ -155,11 +169,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-background dark">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:overflow-y-auto lg:bg-card lg:border-r lg:border-border">
-        <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
+        <div className="flex h-16 items-center justify-between px-6 border-b border-border">
           <span className="text-2xl font-bold">
             <span className="text-foreground">Titi</span>
             <span className="italic text-primary">Links</span>
           </span>
+          <Badge 
+            variant="outline" 
+            className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
+          >
+            {userPlan === 'Premium' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
+            {userPlan}
+          </Badge>
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => {
@@ -198,10 +219,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 bg-card border-b border-border flex items-center justify-between px-4">
-        <span className="text-xl font-bold">
-          <span className="text-foreground">Titi</span>
-          <span className="italic text-primary">Links</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold">
+            <span className="text-foreground">Titi</span>
+            <span className="italic text-primary">Links</span>
+          </span>
+          <Badge 
+            variant="outline" 
+            className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
+          >
+            {userPlan === 'Premium' && <Crown className="h-2 w-2 mr-0.5" />}
+            {userPlan}
+          </Badge>
+        </div>
         <Button
           variant="ghost"
           size="icon"
