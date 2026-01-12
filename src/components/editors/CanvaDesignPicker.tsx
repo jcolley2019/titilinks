@@ -20,6 +20,8 @@ import {
   Clock,
   Calendar,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -180,19 +182,121 @@ function DesignCard({
   );
 }
 
+// Import step types
+type ImportStep = 'exporting' | 'uploading' | 'applying';
+type ImportStatus = 'idle' | 'in_progress' | 'success' | 'error';
+
+interface ImportState {
+  status: ImportStatus;
+  currentStep: ImportStep | null;
+  completedSteps: ImportStep[];
+  error: string | null;
+  target: 'header' | 'background' | null;
+}
+
+const IMPORT_STEPS: { key: ImportStep; label: string }[] = [
+  { key: 'exporting', label: 'Exporting from Canva…' },
+  { key: 'uploading', label: 'Uploading to TitiLINKS…' },
+  { key: 'applying', label: 'Applying to your page…' },
+];
+
+function ImportProgressUI({
+  importState,
+  onRetry,
+  onCancel,
+}: {
+  importState: ImportState;
+  onRetry: () => void;
+  onCancel: () => void;
+}) {
+  if (importState.status === 'idle') return null;
+
+  return (
+    <div className="space-y-4">
+      {/* Steps */}
+      <div className="space-y-3">
+        {IMPORT_STEPS.map((step, index) => {
+          const isCompleted = importState.completedSteps.includes(step.key);
+          const isCurrent = importState.currentStep === step.key;
+          const isPending = !isCompleted && !isCurrent;
+          const hasError = importState.status === 'error' && isCurrent;
+
+          return (
+            <div
+              key={step.key}
+              className={cn(
+                'flex items-center gap-3 text-sm transition-opacity',
+                isPending && 'opacity-40'
+              )}
+            >
+              {/* Step indicator */}
+              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                {isCompleted ? (
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                ) : hasError ? (
+                  <XCircle className="h-5 w-5 text-destructive" />
+                ) : isCurrent ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                ) : (
+                  <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30" />
+                )}
+              </div>
+
+              {/* Step label */}
+              <span
+                className={cn(
+                  'flex-1',
+                  isCompleted && 'text-muted-foreground line-through',
+                  isCurrent && !hasError && 'text-foreground font-medium',
+                  hasError && 'text-destructive font-medium'
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Error state */}
+      {importState.status === 'error' && (
+        <div className="pt-2 space-y-3">
+          <div className="flex items-start gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive">{importState.error || 'Something went wrong'}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={onRetry} className="flex-1">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+            <Button size="sm" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailPanel({
   design,
   onApplyToHeader,
   onApplyToBackground,
-  exporting,
-  exportProgress,
+  importState,
+  onRetry,
+  onCancel,
 }: {
   design: CanvaDesign | null;
   onApplyToHeader: () => void;
   onApplyToBackground: () => void;
-  exporting: boolean;
-  exportProgress: string | null;
+  importState: ImportState;
+  onRetry: () => void;
+  onCancel: () => void;
 }) {
+  const isImporting = importState.status === 'in_progress' || importState.status === 'error';
+
   if (!design) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
@@ -230,13 +334,14 @@ function DetailPanel({
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons or Progress */}
       <div className="space-y-2 pt-4 border-t border-border mt-4">
-        {exporting ? (
-          <div className="flex items-center justify-center gap-2 py-3">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">{exportProgress || 'Exporting...'}</span>
-          </div>
+        {isImporting ? (
+          <ImportProgressUI
+            importState={importState}
+            onRetry={onRetry}
+            onCancel={onCancel}
+          />
         ) : (
           <>
             <Button
@@ -278,11 +383,18 @@ export function CanvaDesignPicker({
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedDesign, setSelectedDesign] = useState<CanvaDesign | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<CanvaDesign[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  
+  // Import state with 3-step tracking
+  const [importState, setImportState] = useState<ImportState>({
+    status: 'idle',
+    currentStep: null,
+    completedSteps: [],
+    error: null,
+    target: null,
+  });
 
   // Refs for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -425,15 +537,30 @@ export function CanvaDesignPicker({
     }
   };
 
+  const resetImportState = () => {
+    setImportState({
+      status: 'idle',
+      currentStep: null,
+      completedSteps: [],
+      error: null,
+      target: null,
+    });
+  };
+
   const handleExportAndApply = async (target: 'header' | 'background') => {
     if (!selectedDesign) return;
 
-    setExporting(true);
-    setExportProgress('Starting export...');
+    // Reset and start import
+    setImportState({
+      status: 'in_progress',
+      currentStep: 'exporting',
+      completedSteps: [],
+      error: null,
+      target,
+    });
 
     try {
-      setExportProgress('Exporting from Canva...');
-
+      // Step 1: Exporting from Canva
       const { data, error } = await supabase.functions.invoke('canva-export-design', {
         body: {
           design_id: selectedDesign.id,
@@ -445,11 +572,26 @@ export function CanvaDesignPicker({
         throw new Error(error.message);
       }
 
+      // Step 2: Uploading (handled by edge function, but we show the step)
+      setImportState(prev => ({
+        ...prev,
+        currentStep: 'uploading',
+        completedSteps: ['exporting'],
+      }));
+
+      // Small delay to show the uploading step (upload is done in edge function)
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       if (!data?.url) {
         throw new Error('No URL returned from export');
       }
 
-      setExportProgress('Applying to profile...');
+      // Step 3: Applying to page
+      setImportState(prev => ({
+        ...prev,
+        currentStep: 'applying',
+        completedSteps: ['exporting', 'uploading'],
+      }));
 
       if (target === 'header') {
         onApplyToHeader(data.url);
@@ -459,21 +601,59 @@ export function CanvaDesignPicker({
         toast.success('Background image applied!');
       }
 
+      // Mark as complete and close
+      setImportState(prev => ({
+        ...prev,
+        status: 'success',
+        completedSteps: ['exporting', 'uploading', 'applying'],
+        currentStep: null,
+      }));
+
       onOpenChange(false);
     } catch (err) {
       console.error('Export error:', err);
-      toast.error('Failed to export design');
-    } finally {
-      setExporting(false);
-      setExportProgress(null);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to export design';
+      
+      setImportState(prev => ({
+        ...prev,
+        status: 'error',
+        error: errorMessage,
+      }));
     }
   };
+
+  const handleRetryImport = () => {
+    if (importState.target) {
+      handleExportAndApply(importState.target);
+    }
+  };
+
+  const handleCancelImport = () => {
+    resetImportState();
+  };
+
+  // Prevent closing while importing
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && importState.status === 'in_progress') {
+      // Don't allow closing during import
+      return;
+    }
+    if (!newOpen) {
+      resetImportState();
+    }
+    onOpenChange(newOpen);
+  };
+
+  const isImporting = importState.status === 'in_progress';
 
   const hasSearchQuery = searchQuery.trim().length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] max-h-[700px] p-0 gap-0 flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className={cn(
+        "max-w-4xl h-[85vh] max-h-[700px] p-0 gap-0 flex flex-col",
+        isImporting && "[&>button]:hidden" // Hide close button during import
+      )}>
         {/* Top Bar */}
         <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -680,8 +860,9 @@ export function CanvaDesignPicker({
               design={selectedDesign}
               onApplyToHeader={() => handleExportAndApply('header')}
               onApplyToBackground={() => handleExportAndApply('background')}
-              exporting={exporting}
-              exportProgress={exportProgress}
+              importState={importState}
+              onRetry={handleRetryImport}
+              onCancel={handleCancelImport}
             />
           </div>
         </div>
@@ -689,40 +870,44 @@ export function CanvaDesignPicker({
         {/* Mobile Bottom Panel */}
         {selectedDesign && (
           <div className="md:hidden border-t border-border p-4 flex-shrink-0 bg-background">
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
-                {selectedDesign.thumbnail_url ? (
-                  <img
-                    src={selectedDesign.thumbnail_url}
-                    alt={selectedDesign.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Image className="h-5 w-5 text-muted-foreground/50" />
-                  </div>
-                )}
+            {importState.status === 'in_progress' || importState.status === 'error' ? (
+              <div className="space-y-3">
+                <ImportProgressUI
+                  importState={importState}
+                  onRetry={handleRetryImport}
+                  onCancel={handleCancelImport}
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{selectedDesign.title}</p>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
+                  {selectedDesign.thumbnail_url ? (
+                    <img
+                      src={selectedDesign.thumbnail_url}
+                      alt={selectedDesign.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Image className="h-5 w-5 text-muted-foreground/50" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{selectedDesign.title}</p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <Button size="sm" onClick={() => handleExportAndApply('background')}>
+                    <Wallpaper className="h-4 w-4 mr-1" />
+                    Background
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleExportAndApply('header')}>
+                    <LayoutTemplate className="h-4 w-4 mr-1" />
+                    Header
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
-                {exporting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <Button size="sm" onClick={() => handleExportAndApply('background')}>
-                      <Wallpaper className="h-4 w-4 mr-1" />
-                      Background
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleExportAndApply('header')}>
-                      <LayoutTemplate className="h-4 w-4 mr-1" />
-                      Header
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         )}
       </DialogContent>
