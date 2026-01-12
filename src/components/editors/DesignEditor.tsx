@@ -881,6 +881,31 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </p>
           </div>
 
+          {/* Auto-Contrast Toggle */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Palette className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Match styles to background</Label>
+                  <p className="text-xs text-muted-foreground">Auto-adjust colors for readability</p>
+                </div>
+              </div>
+              <Switch
+                checked={theme.auto_contrast ?? false}
+                onCheckedChange={(checked) => setTheme(prev => ({
+                  ...prev,
+                  auto_contrast: checked
+                }))}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              When enabled, automatically adjusts overlay opacity and text color for better readability on image backgrounds.
+            </p>
+          </div>
+
           {/* Canva Integration Section */}
           <div className="mb-6 pb-6 border-b border-border">
             <div className="flex items-center gap-2 mb-3">
