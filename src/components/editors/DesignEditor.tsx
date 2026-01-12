@@ -454,36 +454,73 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   />
                 </CollapsibleContent>
               </Collapsible>
+
+              {/* Canva Connect Button */}
+              {!canvaConnected && !canvaLoading && (
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2 h-auto py-3"
+                  onClick={connectToCanva}
+                >
+                  <Image className="h-4 w-4 text-primary" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Canva Studio</div>
+                    <div className="text-xs text-muted-foreground">Connect to import</div>
+                  </div>
+                </Button>
+              )}
+
+              {/* Canva Loading */}
+              {canvaLoading && (
+                <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3" disabled>
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Canva Studio</div>
+                    <div className="text-xs text-muted-foreground">Checking...</div>
+                  </div>
+                </Button>
+              )}
+
+              {/* Canva Connected - Opens Picker */}
+              {canvaConnected && (
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2 h-auto py-3"
+                  onClick={() => setShowCanvaPicker(true)}
+                >
+                  <Image className="h-4 w-4 text-primary" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      Canva Studio
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-500/20 text-green-500">
+                        <Check className="h-2.5 w-2.5" />
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">Import designs</div>
+                  </div>
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Canva Studio Section */}
+          {/* Canva Studio Section - Only show when connected and has content */}
           {canvaConnected && (
+            (theme.background.source === 'canva' || theme.header?.source === 'canva' || theme.canva_last_import) && (
               <div className="mb-6 pb-6 border-b border-border">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Image className="h-5 w-5 text-primary" />
-                    <Label className="text-sm font-medium">Canva Studio</Label>
+                    <Image className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">Canva Imports</Label>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-500 border border-green-500/30">
-                      <Check className="h-3 w-3" />
-                      Connected
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={disconnectCanva}
-                      title="Disconnect Canva"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={disconnectCanva}
+                  >
+                    Disconnect
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Import a Canva design as your header image or background.
-                </p>
 
                 {/* Canva Background Preview */}
                 {theme.background.source === 'canva' && theme.background.image_url && (
@@ -762,7 +799,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 )}
               </div>
-            )}
+            )
+          )}
 
           {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
