@@ -7,6 +7,11 @@ type Event = Tables<'events'>;
 type Page = Tables<'pages'>;
 type ShortLink = Tables<'short_links'>;
 
+interface PageLabels {
+  page1: string;
+  page2: string;
+}
+
 interface AnalyticsData {
   pageViews7Days: number;
   pageViews30Days: number;
@@ -26,6 +31,7 @@ interface AnalyticsData {
   };
   shortLinks: ShortLink[];
   totalShortLinkClicks: number;
+  pageLabels: PageLabels;
   loading: boolean;
   error: string | null;
 }
@@ -116,6 +122,13 @@ export function useAnalytics(): AnalyticsData {
   const analytics = useMemo(() => {
     const sevenDaysAgo = getDaysAgo(7);
     const thirtyDaysAgo = getDaysAgo(30);
+
+    // Extract page labels from theme_json
+    const themeJson = page?.theme_json as { pages?: { page1?: { label?: string }; page2?: { label?: string } } } | null;
+    const pageLabels: PageLabels = {
+      page1: themeJson?.pages?.page1?.label || 'Page 1',
+      page2: themeJson?.pages?.page2?.label || 'Page 2',
+    };
 
     // Filter events by type and date
     const pageViewEvents = events.filter((e) => e.event_type === 'page_view');
@@ -230,6 +243,7 @@ export function useAnalytics(): AnalyticsData {
       },
       shortLinks,
       totalShortLinkClicks,
+      pageLabels,
     };
   }, [events, page, shortLinks]);
 

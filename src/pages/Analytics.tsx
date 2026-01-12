@@ -94,13 +94,13 @@ export default function Analytics() {
           />
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
-            label="Page 1"
+            label={analytics.pageLabels.page1}
             value={analytics.viewsByMode.shop}
             subValue={`${analytics.clicksByMode.shop} clicks`}
           />
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
-            label="Page 2"
+            label={analytics.pageLabels.page2}
             value={analytics.viewsByMode.recruit}
             subValue={`${analytics.clicksByMode.recruit} clicks`}
           />
@@ -124,7 +124,7 @@ export default function Analytics() {
                     isSet={!!analytics.goals.primaryOfferId}
                   />
                   <GoalMetric
-                    label="Page 2 Goal"
+                    label={`${analytics.pageLabels.page2} Goal`}
                     clicks={analytics.goalClicks.recruit}
                     isSet={!!analytics.goals.recruitId}
                   />
@@ -220,14 +220,14 @@ export default function Analytics() {
               {analytics.pageViews30Days > 0 ? (
                 <div className="space-y-4">
                   <ModeBar
-                    label="Page 1"
+                    label={analytics.pageLabels.page1}
                     views={analytics.viewsByMode.shop}
                     clicks={analytics.clicksByMode.shop}
                     totalViews={analytics.pageViews30Days}
                     icon={<Eye className="h-4 w-4" />}
                   />
                   <ModeBar
-                    label="Page 2"
+                    label={analytics.pageLabels.page2}
                     views={analytics.viewsByMode.recruit}
                     clicks={analytics.clicksByMode.recruit}
                     totalViews={analytics.pageViews30Days}
