@@ -359,6 +359,29 @@ function DetailPanel({
               <LayoutTemplate className="h-4 w-4" />
               Use as Header
             </Button>
+            
+            {/* Recommended sizes helper */}
+            <div className="mt-3 p-2.5 rounded-md bg-muted/50 border border-border/50">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+                Recommended sizes
+              </p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Wallpaper className="h-3 w-3" />
+                    Background
+                  </span>
+                  <span className="font-mono text-[11px]">1080 × 1920</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <LayoutTemplate className="h-3 w-3" />
+                    Header
+                  </span>
+                  <span className="font-mono text-[11px]">1200 × 400</span>
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>
