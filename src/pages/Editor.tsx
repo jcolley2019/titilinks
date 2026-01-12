@@ -340,7 +340,7 @@ export default function Editor() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Main Link</label>
+              <label className="text-sm font-medium text-foreground">Default Link</label>
               <div className="flex gap-2">
                 <Input
                   value={mainLink}
@@ -361,11 +361,11 @@ export default function Editor() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Default link that auto-detects mode based on referrer
+                Default link that can auto-detect which page to show.
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Recruit Link</label>
+              <label className="text-sm font-medium text-foreground">Page 2 Link</label>
               <div className="flex gap-2">
                 <Input
                   value={recruitLink}
@@ -386,7 +386,7 @@ export default function Editor() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Forces recruit mode regardless of referrer
+                Forces Page 2 regardless of referrer.
               </p>
             </div>
 
