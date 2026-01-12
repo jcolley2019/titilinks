@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type KeyboardEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,20 +44,44 @@ interface CanvaDesignPickerProps {
   isCreating: boolean;
 }
 
+// Custom hook for debouncing
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 // Helper function to fetch Canva designs
 async function fetchCanvaDesigns({
   query = '',
   limit = 20,
   continuation = '',
+  signal,
 }: {
   query?: string;
   limit?: number;
   continuation?: string;
+  signal?: AbortSignal;
 }): Promise<{
   designs: CanvaDesign[];
   continuation: string | null;
   has_more: boolean;
 }> {
+  // Check if already aborted
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
   const params = new URLSearchParams();
   if (query) params.set('query', query);
   params.set('limit', String(limit));
@@ -67,6 +91,11 @@ async function fetchCanvaDesigns({
     `canva-list-designs?${params.toString()}`,
     { method: 'GET' }
   );
+
+  // Check if aborted after the request
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
 
   if (response.error) {
     throw new Error(response.error.message);
@@ -252,17 +281,28 @@ export function CanvaDesignPicker({
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<CanvaDesign[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
-  const loadDesigns = useCallback(async (query = '', reset = true) => {
+  // Refs for cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+
+  // Debounce search query by 300ms
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  const loadDesigns = useCallback(async (reset = true) => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     if (reset) {
       setLoading(true);
       setError(null);
-      if (query) {
-        setSearchResults([]);
-      } else {
-        setDesigns([]);
-      }
+      setDesigns([]);
       setContinuation(null);
     } else {
       setLoadingMore(true);
@@ -270,30 +310,25 @@ export function CanvaDesignPicker({
 
     try {
       const result = await fetchCanvaDesigns({
-        query,
+        query: '',
         limit: 20,
         continuation: !reset && continuation ? continuation : '',
+        signal,
       });
 
-      if (query) {
-        if (reset) {
-          setSearchResults(result.designs);
-        } else {
-          setSearchResults((prev) => [...prev, ...result.designs]);
-        }
-        setHasSearched(true);
-        setActiveTab('search');
+      if (reset) {
+        setDesigns(result.designs);
       } else {
-        if (reset) {
-          setDesigns(result.designs);
-        } else {
-          setDesigns((prev) => [...prev, ...result.designs]);
-        }
+        setDesigns((prev) => [...prev, ...result.designs]);
       }
 
       setContinuation(result.continuation);
       setHasMore(result.has_more);
     } catch (err) {
+      // Ignore abort errors
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
       console.error('Error fetching designs:', err);
       const message = err instanceof Error ? err.message : 'Failed to load designs';
       setError(message);
@@ -303,26 +338,90 @@ export function CanvaDesignPicker({
     }
   }, [continuation]);
 
+  const loadSearchResults = useCallback(async (query: string, reset = true) => {
+    if (!query.trim()) return;
+
+    // Cancel any pending search request
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    searchAbortControllerRef.current = new AbortController();
+    const signal = searchAbortControllerRef.current.signal;
+
+    if (reset) {
+      setSearchLoading(true);
+      setSearchError(null);
+      // Keep previous results while loading to avoid flicker
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const result = await fetchCanvaDesigns({
+        query,
+        limit: 20,
+        continuation: !reset && continuation ? continuation : '',
+        signal,
+      });
+
+      if (reset) {
+        setSearchResults(result.designs);
+      } else {
+        setSearchResults((prev) => [...prev, ...result.designs]);
+      }
+
+      setContinuation(result.continuation);
+      setHasMore(result.has_more);
+      setActiveTab('search');
+    } catch (err) {
+      // Ignore abort errors
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
+      console.error('Error searching designs:', err);
+      const message = err instanceof Error ? err.message : 'Search failed';
+      setSearchError(message);
+    } finally {
+      setSearchLoading(false);
+      setLoadingMore(false);
+    }
+  }, [continuation]);
+
+  // Auto-search when debounced query changes
+  useEffect(() => {
+    if (debouncedSearchQuery.trim()) {
+      loadSearchResults(debouncedSearchQuery, true);
+    } else if (debouncedSearchQuery === '' && searchResults.length > 0) {
+      // Clear search results and switch to recent when query is cleared
+      setSearchResults([]);
+      setActiveTab('recent');
+    }
+  }, [debouncedSearchQuery]);
+
+  // Load designs when modal opens
   useEffect(() => {
     if (open) {
-      loadDesigns();
+      loadDesigns(true);
       setSelectedDesign(null);
       setSearchQuery('');
-      setHasSearched(false);
+      setSearchResults([]);
       setActiveTab('recent');
       setError(null);
+      setSearchError(null);
+    } else {
+      // Cancel pending requests when modal closes
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
     }
   }, [open]);
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      loadDesigns(searchQuery.trim(), true);
-    }
-  };
-
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      loadSearchResults(searchQuery.trim(), true);
     }
   };
 
@@ -370,7 +469,7 @@ export function CanvaDesignPicker({
     }
   };
 
-  const displayedDesigns = activeTab === 'search' ? searchResults : designs;
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -398,14 +497,14 @@ export function CanvaDesignPicker({
                     onKeyDown={handleKeyPress}
                     className="pl-9"
                   />
+                  {searchLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
-                <Button variant="outline" size="icon" onClick={handleSearch}>
-                  <Search className="h-4 w-4" />
-                </Button>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => loadDesigns('', true)}
+                  onClick={() => loadDesigns(true)}
                   title="Refresh"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -424,9 +523,16 @@ export function CanvaDesignPicker({
                   <Clock className="h-3.5 w-3.5" />
                   Recent
                 </TabsTrigger>
-                <TabsTrigger value="search" className="gap-1.5" disabled={!hasSearched}>
+                <TabsTrigger 
+                  value="search" 
+                  className="gap-1.5" 
+                  disabled={!hasSearchQuery && searchResults.length === 0}
+                >
                   <Search className="h-3.5 w-3.5" />
                   Search results
+                  {searchResults.length > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">({searchResults.length})</span>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -451,13 +557,13 @@ export function CanvaDesignPicker({
                           variant="outline"
                           size="sm"
                           className="mt-4"
-                          onClick={() => loadDesigns('', true)}
+                          onClick={() => loadDesigns(true)}
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
                           Retry
                         </Button>
                       </div>
-                    ) : displayedDesigns.length === 0 ? (
+                    ) : designs.length === 0 ? (
                       <div className="text-center py-12 text-muted-foreground">
                         <Image className="h-12 w-12 mx-auto mb-3 opacity-50" />
                         <p className="text-sm font-medium">No designs found</p>
@@ -465,7 +571,7 @@ export function CanvaDesignPicker({
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {displayedDesigns.map((design) => (
+                        {designs.map((design) => (
                           <DesignCard
                             key={design.id}
                             design={design}
@@ -477,12 +583,12 @@ export function CanvaDesignPicker({
                     )}
 
                     {/* Load More */}
-                    {hasMore && !loading && (
+                    {hasMore && !loading && activeTab === 'recent' && (
                       <div className="pt-4 text-center">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => loadDesigns(activeTab === 'search' ? searchQuery : '', false)}
+                          onClick={() => loadDesigns(false)}
                           disabled={loadingMore}
                         >
                           {loadingMore && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -497,7 +603,7 @@ export function CanvaDesignPicker({
               <TabsContent value="search" className="flex-1 m-0 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-4">
-                    {loading ? (
+                    {searchLoading && searchResults.length === 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {[...Array(6)].map((_, i) => (
                           <div key={i} className="space-y-2">
@@ -506,38 +612,61 @@ export function CanvaDesignPicker({
                           </div>
                         ))}
                       </div>
-                    ) : error ? (
+                    ) : searchError ? (
                       <div className="text-center py-12">
                         <AlertCircle className="h-12 w-12 mx-auto mb-3 text-destructive opacity-70" />
                         <p className="text-sm font-medium text-destructive">Search failed</p>
-                        <p className="text-xs mt-1 text-muted-foreground max-w-xs mx-auto">{error}</p>
+                        <p className="text-xs mt-1 text-muted-foreground max-w-xs mx-auto">{searchError}</p>
                         <Button
                           variant="outline"
                           size="sm"
                           className="mt-4"
-                          onClick={() => loadDesigns(searchQuery, true)}
+                          onClick={() => loadSearchResults(searchQuery, true)}
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
                           Retry
                         </Button>
                       </div>
-                    ) : searchResults.length === 0 ? (
+                    ) : searchResults.length === 0 && hasSearchQuery ? (
                       <div className="text-center py-12 text-muted-foreground">
                         <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
                         <p className="text-sm font-medium">No results found</p>
                         <p className="text-xs mt-1">Try a different search term</p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {searchResults.map((design) => (
-                          <DesignCard
-                            key={design.id}
-                            design={design}
-                            isSelected={selectedDesign?.id === design.id}
-                            onClick={() => setSelectedDesign(design)}
-                          />
-                        ))}
+                    ) : searchResults.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm font-medium">Search your designs</p>
+                        <p className="text-xs mt-1">Type to search your Canva designs</p>
                       </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {searchResults.map((design) => (
+                            <DesignCard
+                              key={design.id}
+                              design={design}
+                              isSelected={selectedDesign?.id === design.id}
+                              onClick={() => setSelectedDesign(design)}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Load More for search */}
+                        {hasMore && !searchLoading && (
+                          <div className="pt-4 text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => loadSearchResults(searchQuery, false)}
+                              disabled={loadingMore}
+                            >
+                              {loadingMore && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                              Load More
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </ScrollArea>
