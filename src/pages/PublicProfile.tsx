@@ -43,19 +43,28 @@ interface ModeDetectionResult {
 }
 
 function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
-  // 1. Check query param mode=recruit
+  // 1. Check query param page=2 (new neutral param)
+  const pageParam = searchParams.get('page');
+  if (pageParam === '2') {
+    return { mode: 'recruit', reason: 'param' };
+  }
+  if (pageParam === '1') {
+    return { mode: 'shop', reason: 'param' };
+  }
+
+  // 2. Check query param mode=recruit (backward compatibility)
   const modeParam = searchParams.get('mode');
   if (modeParam === 'recruit') {
     return { mode: 'recruit', reason: 'param' };
   }
 
-  // 2. Check utm_campaign=recruit
+  // 3. Check utm_campaign=recruit
   const utmCampaign = searchParams.get('utm_campaign');
   if (utmCampaign === 'recruit') {
     return { mode: 'recruit', reason: 'utm' };
   }
 
-  // 3. Check referrer for social platforms -> shop
+  // 4. Check referrer for social platforms -> shop
   if (typeof document !== 'undefined' && document.referrer) {
     const referrer = document.referrer.toLowerCase();
     if (referrer.includes('tiktok.com') || referrer.includes('instagram.com')) {
@@ -63,7 +72,7 @@ function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
     }
   }
 
-  // 4. Default -> shop
+  // 5. Default -> shop (Page 1)
   return { mode: 'shop', reason: 'default' };
 }
 
