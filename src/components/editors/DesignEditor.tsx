@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
@@ -460,6 +460,102 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 <p className="text-xs text-muted-foreground mb-4">
                   Import a Canva design as your header image or background.
                 </p>
+
+                {/* Canva Background Preview */}
+                {theme.background.source === 'canva' && theme.background.image_url && (
+                  <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Wallpaper className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium">Background</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Canva</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-20 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
+                        <img 
+                          src={theme.background.image_url} 
+                          alt="Background" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-xs justify-start gap-1.5"
+                          onClick={() => setShowCanvaPicker(true)}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Replace
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs justify-start gap-1.5 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            // Revert to solid color, clear image and source
+                            updateBackground({ 
+                              type: 'solid',
+                              image_url: '', 
+                              source: null 
+                            }, true);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Canva Header Preview */}
+                {theme.header?.enabled && theme.header?.image_url && (
+                  <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium">Header</span>
+                      {theme.header.source === 'canva' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Canva</span>
+                      )}
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-20 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
+                        <img 
+                          src={theme.header.image_url} 
+                          alt="Header" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-7 text-xs justify-start gap-1.5"
+                          onClick={() => setShowCanvaPicker(true)}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Replace
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs justify-start gap-1.5 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            // Disable header and clear image/source
+                            updateHeader({ 
+                              enabled: false,
+                              image_url: '', 
+                              source: null 
+                            }, true);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <Button 
                   variant="outline" 
@@ -467,7 +563,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   onClick={() => setShowCanvaPicker(true)}
                 >
                   <Image className="h-4 w-4" />
-                  Choose a Canva design
+                  {(theme.background.source === 'canva' && theme.background.image_url) || 
+                   (theme.header?.enabled && theme.header?.image_url) 
+                    ? 'Add another Canva design' 
+                    : 'Choose a Canva design'}
                 </Button>
                 
                 <CanvaDesignPicker
