@@ -17,7 +17,7 @@ import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
-import { getThemeWithDefaults, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
@@ -230,8 +230,9 @@ export default function PublicProfile() {
     return <NotFoundView handle={handle} />;
   }
 
-  // Get theme with defaults
-  const theme = getThemeWithDefaults(page.theme_json);
+  // Get theme with defaults and apply auto-contrast if enabled
+  const rawTheme = getThemeWithDefaults(page.theme_json);
+  const theme = applyAutoContrast(rawTheme);
 
   // Get font family based on theme
   const getFontFamily = (): string => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type ThemeJson } from '@/lib/theme-defaults';
+import { type ThemeJson, applyAutoContrast } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { LinkButton } from '@/components/LinkButton';
 import { DeviceFrame, DeviceSelector, type DeviceType } from '@/components/DeviceFrame';
@@ -11,8 +11,11 @@ interface ThemePreviewProps {
   avatarUrl?: string;
 }
 
-export function ThemePreview({ theme, displayName, bio, avatarUrl }: ThemePreviewProps) {
+export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: ThemePreviewProps) {
   const [deviceType, setDeviceType] = useState<DeviceType>('iphone');
+  
+  // Apply auto-contrast adjustments if enabled
+  const theme = applyAutoContrast(rawTheme);
 
   // Font family mapping
   const fontFamily =

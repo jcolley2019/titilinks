@@ -63,6 +63,7 @@ export interface ThemeJson {
   typography: ThemeTypography;
   motion: ThemeMotion;
   header?: ThemeHeader;
+  auto_contrast?: boolean;
 }
 
 export const DEFAULT_HEADER: ThemeHeader = {
@@ -99,6 +100,7 @@ export const DEFAULT_THEME: ThemeJson = {
     enabled: true,
   },
   header: DEFAULT_HEADER,
+  auto_contrast: false,
 };
 
 export interface ThemePreset {
@@ -267,5 +269,38 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
       ...DEFAULT_HEADER,
       ...(parsed.header || {}),
     },
+    auto_contrast: parsed.auto_contrast ?? DEFAULT_THEME.auto_contrast,
   };
+}
+
+/**
+ * Applies auto-contrast adjustments to a theme when enabled.
+ * - If background is image and overlay_opacity < 0.25, set overlay_opacity to 0.35
+ * - Ensure typography text_color is white for readability
+ */
+export function applyAutoContrast(theme: ThemeJson): ThemeJson {
+  if (!theme.auto_contrast) {
+    return theme;
+  }
+
+  const adjustedTheme = { ...theme };
+
+  // If background is image type
+  if (theme.background.type === 'image') {
+    // Ensure minimum overlay opacity for readability
+    if (theme.background.overlay_opacity < 0.25) {
+      adjustedTheme.background = {
+        ...theme.background,
+        overlay_opacity: 0.35,
+      };
+    }
+
+    // Ensure text is white for contrast on image backgrounds
+    adjustedTheme.typography = {
+      ...theme.typography,
+      text_color: '#ffffff',
+    };
+  }
+
+  return adjustedTheme;
 }
