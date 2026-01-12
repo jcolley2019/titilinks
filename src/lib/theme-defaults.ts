@@ -12,6 +12,14 @@ export interface ThemeBackground {
 
 export type HeaderLayout = 'overlay' | 'card' | 'split';
 
+export interface CanvaImportMetadata {
+  design_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  target: 'header' | 'background';
+  imported_at: string;
+}
+
 export interface ThemeHeader {
   image_url: string;
   enabled: boolean;
@@ -64,6 +72,7 @@ export interface ThemeJson {
   motion: ThemeMotion;
   header?: ThemeHeader;
   auto_contrast?: boolean;
+  canva_last_import?: CanvaImportMetadata;
 }
 
 export const DEFAULT_HEADER: ThemeHeader = {
@@ -270,6 +279,7 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
       ...(parsed.header || {}),
     },
     auto_contrast: parsed.auto_contrast ?? DEFAULT_THEME.auto_contrast,
+    canva_last_import: parsed.canva_last_import,
   };
 }
 

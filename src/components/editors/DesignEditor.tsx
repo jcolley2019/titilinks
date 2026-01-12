@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper } from 'lucide-react';
+import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
@@ -33,6 +33,23 @@ const GRADIENT_PRESETS = [
   { name: 'Sunset', css: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #ff9ff3 100%)' },
   { name: 'Ocean', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B8DD6 100%)' },
 ];
+
+// Helper to format relative time
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 interface DesignEditorProps {
   pageId: string;
@@ -591,36 +608,103 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   </div>
                 )}
                 
+                {/* Last Imported from Canva */}
+                {theme.canva_last_import && (
+                  <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium">Last imported from Canva</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
+                        {theme.canva_last_import.thumbnail_url ? (
+                          <img 
+                            src={theme.canva_last_import.thumbnail_url} 
+                            alt={theme.canva_last_import.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Image className="h-4 w-4 text-muted-foreground/50" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" title={theme.canva_last_import.title}>
+                          {theme.canva_last_import.title}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <span className="capitalize">{theme.canva_last_import.target}</span>
+                          <span>•</span>
+                          <span>{formatRelativeTime(theme.canva_last_import.imported_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <Button 
                   variant="outline" 
                   className="w-full justify-center gap-2"
                   onClick={() => setShowCanvaPicker(true)}
                 >
                   <Image className="h-4 w-4" />
-                  {(theme.background.source === 'canva' && theme.background.image_url) || 
-                   (theme.header?.enabled && theme.header?.image_url) 
-                    ? 'Add another Canva design' 
-                    : 'Choose a Canva design'}
+                  {theme.canva_last_import 
+                    ? 'Import another design'
+                    : (theme.background.source === 'canva' && theme.background.image_url) || 
+                      (theme.header?.enabled && theme.header?.image_url) 
+                      ? 'Add another Canva design' 
+                      : 'Choose a Canva design'}
                 </Button>
                 
                 <CanvaDesignPicker
                   open={showCanvaPicker}
                   onOpenChange={setShowCanvaPicker}
-                  onApplyToHeader={(url) => {
+                  onApplyToHeader={(result) => {
                     // Update header with the Canva design
                     updateHeader({ 
-                      image_url: url, 
+                      image_url: result.url, 
                       enabled: true,
                       source: 'canva' 
-                    }, true);
+                    }, false);
+                    // Store import metadata and save
+                    setTheme(prev => {
+                      const newTheme = {
+                        ...prev,
+                        canva_last_import: {
+                          design_id: result.design_id,
+                          title: result.title,
+                          thumbnail_url: result.thumbnail_url,
+                          target: 'header' as const,
+                          imported_at: new Date().toISOString(),
+                        },
+                      };
+                      saveTheme(newTheme);
+                      return newTheme;
+                    });
                   }}
-                  onApplyToBackground={(url) => {
-                    // Update background type to image, set URL and source, keep overlay settings
+                  onApplyToBackground={(result) => {
+                    // Update background type to image, set URL and source
                     updateBackground({ 
                       type: 'image',
-                      image_url: url, 
+                      image_url: result.url, 
                       source: 'canva' 
-                    }, true);
+                    }, false);
+                    // Store import metadata and save
+                    setTheme(prev => {
+                      const newTheme = {
+                        ...prev,
+                        canva_last_import: {
+                          design_id: result.design_id,
+                          title: result.title,
+                          thumbnail_url: result.thumbnail_url,
+                          target: 'background' as const,
+                          imported_at: new Date().toISOString(),
+                        },
+                      };
+                      saveTheme(newTheme);
+                      return newTheme;
+                    });
                   }}
                   onCreateNew={createDesignInCanva}
                   isCreating={creatingDesign}

@@ -37,11 +37,18 @@ interface CanvaDesign {
   updated_at: string;
 }
 
+interface CanvaImportResult {
+  url: string;
+  design_id: string;
+  title: string;
+  thumbnail_url: string | null;
+}
+
 interface CanvaDesignPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onApplyToHeader: (url: string) => void;
-  onApplyToBackground: (url: string) => void;
+  onApplyToHeader: (result: CanvaImportResult) => void;
+  onApplyToBackground: (result: CanvaImportResult) => void;
   onCreateNew: (type: 'header' | 'wallpaper') => void;
   isCreating: boolean;
 }
@@ -616,11 +623,18 @@ export function CanvaDesignPicker({
         completedSteps: ['exporting', 'uploading'],
       }));
 
+      const importResult: CanvaImportResult = {
+        url: data.url,
+        design_id: selectedDesign.id,
+        title: selectedDesign.title,
+        thumbnail_url: selectedDesign.thumbnail_url,
+      };
+
       if (target === 'header') {
-        onApplyToHeader(data.url);
+        onApplyToHeader(importResult);
         toast.success('Header image applied!');
       } else {
-        onApplyToBackground(data.url);
+        onApplyToBackground(importResult);
         toast.success('Background image applied!');
       }
 
