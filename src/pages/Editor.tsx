@@ -365,7 +365,7 @@ export default function Editor() {
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Page 2 Link</label>
+              <label className="text-sm font-medium text-foreground">{displayPage2Label} Link</label>
               <div className="flex gap-2">
                 <Input
                   value={page2Link}
@@ -407,7 +407,7 @@ export default function Editor() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Page 2 Link</label>
+                <label className="text-sm text-muted-foreground">{displayPage2Label} Link</label>
                 <LinkTools
                   baseUrl={baseUrl}
                   pageId={page.id}
