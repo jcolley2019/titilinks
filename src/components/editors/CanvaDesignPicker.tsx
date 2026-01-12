@@ -1,19 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Search, 
-  Image, 
-  Loader2, 
-  RefreshCw, 
-  Check, 
-  X,
+import {
+  Search,
+  Image,
+  Loader2,
+  RefreshCw,
   Wallpaper,
   LayoutTemplate,
-  Plus
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -66,31 +62,29 @@ export function CanvaDesignPicker({
       params.set('limit', '20');
       if (!reset && continuation) params.set('continuation', continuation);
 
-      const { data, error } = await supabase.functions.invoke('canva-list-designs', {
+      // Supabase invoke supports query params by appending them to the function name
+      const response = await supabase.functions.invoke(`canva-list-designs?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: null,
       });
-
-      // Note: invoke doesn't support query params directly, so we need to use a different approach
-      const response = await supabase.functions.invoke(`canva-list-designs?${params.toString()}`);
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      const result = response.data;
-      
+      const result = response.data as {
+        designs?: CanvaDesign[];
+        continuation?: string | null;
+        has_more?: boolean;
+      };
+
       if (reset) {
         setDesigns(result.designs || []);
       } else {
-        setDesigns(prev => [...prev, ...(result.designs || [])]);
+        setDesigns((prev) => [...prev, ...(result.designs || [])]);
       }
-      
-      setContinuation(result.continuation);
-      setHasMore(result.has_more);
+
+      setContinuation(result.continuation || null);
+      setHasMore(!!result.has_more);
     } catch (err) {
       console.error('Error fetching designs:', err);
       toast.error('Failed to load Canva designs');
@@ -102,13 +96,13 @@ export function CanvaDesignPicker({
 
   useEffect(() => {
     fetchDesigns();
-  }, []);
+  }, [fetchDesigns]);
 
   const handleSearch = () => {
     fetchDesigns(searchQuery, true);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
