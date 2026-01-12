@@ -10,14 +10,21 @@ import {
   Menu,
   X,
   Cog,
-  UserCircle
+  UserCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardLayoutProps {
   children: ReactNode;
+}
+
+interface ProfileCompletion {
+  percentage: number;
+  items: { label: string; completed: boolean }[];
 }
 
 // Base nav items (Setup is conditionally added)
@@ -35,20 +42,64 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { signOut, user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasPage, setHasPage] = useState<boolean | null>(null);
+  const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
 
-  // Check if user has set up their profile/page
+  // Check if user has set up their profile/page and calculate completion
   useEffect(() => {
     async function checkUserPage() {
       if (!user) {
         setHasPage(null);
+        setProfileCompletion(null);
         return;
       }
-      const { data } = await supabase
+
+      // Fetch page with related data for completion calculation
+      const { data: page } = await supabase
         .from('pages')
-        .select('id')
+        .select(`
+          id,
+          display_name,
+          bio,
+          avatar_url,
+          handle
+        `)
         .eq('user_id', user.id)
         .maybeSingle();
-      setHasPage(!!data);
+
+      setHasPage(!!page);
+
+      if (page) {
+        // Fetch blocks count for this page
+        const { data: modes } = await supabase
+          .from('modes')
+          .select('id')
+          .eq('page_id', page.id);
+
+        const modeIds = modes?.map(m => m.id) || [];
+        
+        let hasBlocks = false;
+        if (modeIds.length > 0) {
+          const { count } = await supabase
+            .from('blocks')
+            .select('id', { count: 'exact', head: true })
+            .in('mode_id', modeIds);
+          hasBlocks = (count || 0) > 0;
+        }
+
+        // Calculate completion
+        const items = [
+          { label: 'Display name', completed: !!page.display_name },
+          { label: 'Bio', completed: !!page.bio },
+          { label: 'Profile photo', completed: !!page.avatar_url },
+          { label: 'Custom handle', completed: !!page.handle && page.handle.length > 3 },
+          { label: 'Add content blocks', completed: hasBlocks },
+        ];
+
+        const completedCount = items.filter(i => i.completed).length;
+        const percentage = Math.round((completedCount / items.length) * 100);
+
+        setProfileCompletion({ percentage, items });
+      }
     }
     checkUserPage();
   }, [user]);
@@ -65,6 +116,39 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  // Profile completion indicator component
+  const ProfileCompletionIndicator = () => {
+    if (!profileCompletion || profileCompletion.percentage === 100) return null;
+
+    return (
+      <div className="mx-4 mb-4 p-3 rounded-lg bg-secondary/50 border border-border">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-foreground">Profile Completion</span>
+          <span className="text-xs font-bold text-primary">{profileCompletion.percentage}%</span>
+        </div>
+        <Progress value={profileCompletion.percentage} className="h-2 mb-3" />
+        <div className="space-y-1.5">
+          {profileCompletion.items.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-[11px]">
+              <CheckCircle2 
+                className={`h-3 w-3 ${item.completed ? 'text-green-500' : 'text-muted-foreground/40'}`} 
+              />
+              <span className={item.completed ? 'text-muted-foreground line-through' : 'text-foreground'}>
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+        <Link 
+          to="/dashboard/editor"
+          className="mt-3 block text-center text-xs text-primary hover:underline"
+        >
+          Complete your profile →
+        </Link>
+      </div>
+    );
   };
 
   return (
@@ -96,6 +180,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             );
           })}
         </nav>
+        
+        {/* Profile Completion Indicator */}
+        <ProfileCompletionIndicator />
+        
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
           <Button
             variant="ghost"
