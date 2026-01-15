@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   Crown,
   Zap,
-  ArrowRight
+  ArrowRight,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -419,15 +420,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </main>
 
-      {/* Mobile scroll indicator shadow */}
+      {/* Mobile scroll indicator shadow with animated chevron */}
       <div 
-        className={`lg:hidden fixed bottom-16 left-0 right-0 h-12 pointer-events-none transition-opacity duration-300 ${
+        className={`lg:hidden fixed bottom-16 left-0 right-0 h-16 pointer-events-none transition-opacity duration-300 flex flex-col items-center justify-end pb-1 ${
           showScrollIndicator ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
           background: 'linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%)'
         }}
-      />
+      >
+        <ChevronDown className="w-5 h-5 text-muted-foreground animate-bounce" />
+      </div>
     </div>
   );
 }
