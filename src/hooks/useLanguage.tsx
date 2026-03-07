@@ -187,8 +187,9 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.title3': 'enlace poderoso.',
     'hero.subtitle': 'Creando impacto a través de presencia, rendimiento y propósito.',
     'hero.description': 'Da vida a tu marca con impresionantes páginas de enlace en bio. Cada conexión es un viaje, cada clic una nueva oportunidad.',
-    'hero.cta': 'Comienza Gratis Hoy',
+    'hero.cta': 'Comienza Gratis',
     'hero.cta2': 'Ver Ejemplos',
+    'hero.handlePlaceholder': 'tunombre',
     'hero.stat1': 'Configura en 2 min',
     'hero.stat2': 'Hecho para Creadores',
     
