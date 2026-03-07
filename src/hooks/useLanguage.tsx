@@ -30,8 +30,9 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.title3': 'powerful link.',
     'hero.subtitle': 'Creating impact through presence, performance, and purpose.',
     'hero.description': 'Bring your brand to life with stunning link-in-bio pages. Every connection is a journey, every click a new opportunity.',
-    'hero.cta': 'Start Free Today',
+    'hero.cta': 'Get Started for Free',
     'hero.cta2': 'See Examples',
+    'hero.handlePlaceholder': 'yourname',
     'hero.stat1': 'Setup in 2 min',
     'hero.stat2': 'Built for Creators',
     
