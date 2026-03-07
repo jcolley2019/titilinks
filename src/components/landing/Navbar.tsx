@@ -145,8 +145,17 @@ export function Navbar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-              className="relative z-10 flex flex-col h-full pt-20 pb-10 px-6"
+              className="relative z-10 flex flex-col h-full pt-6 pb-10 px-6"
             >
+              {/* Close / Back button */}
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-2 text-primary mb-6 active:opacity-60 transition-opacity self-start"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+                <span className="text-[15px] font-medium">Close</span>
+              </button>
               {/* Nav links */}
               <nav className="flex flex-col gap-1">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">
