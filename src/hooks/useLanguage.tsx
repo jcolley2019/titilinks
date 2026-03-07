@@ -24,7 +24,7 @@ const translations: Record<Language, Record<string, string>> = {
     'nav.signup': 'Sign up free',
     
     // Hero
-    'hero.badge': 'Trusted by 50,000+ creators',
+    'hero.badge': 'Built for Creators, by Creators',
     'hero.title1': 'Your entire brand.',
     'hero.title2': 'One',
     'hero.title3': 'powerful link.',
