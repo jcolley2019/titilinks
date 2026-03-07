@@ -101,6 +101,19 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbar globally on mobile/tablet */
+  @media (max-width: 1023px) {
+    html, body {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+    }
   }
 }
 
