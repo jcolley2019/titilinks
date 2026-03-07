@@ -59,9 +59,10 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-0 justify-center items-center mb-8 max-w-lg mx-auto"
+          className="flex flex-col gap-3 justify-center items-center mb-8 max-w-md mx-auto px-2"
         >
-          <div className="flex w-full rounded-full bg-card border border-border overflow-hidden shadow-lg">
+          {/* Mobile: stacked layout. Desktop: inline pill */}
+          <div className="hidden sm:flex w-full rounded-full bg-card border border-border overflow-hidden shadow-lg">
             <div className="flex items-center pl-5 pr-1 py-3 text-muted-foreground text-base whitespace-nowrap">
               titilinks.app/
             </div>
@@ -75,6 +76,23 @@ export function HeroSection() {
                 {t('hero.cta')}
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile: clean stacked input + button */}
+          <div className="flex sm:hidden flex-col w-full gap-3">
+            <div className="flex items-center w-full rounded-2xl bg-card border border-border px-4 py-3.5 shadow-sm">
+              <span className="text-muted-foreground text-[15px] mr-1">titilinks.app/</span>
+              <input
+                type="text"
+                placeholder={t('hero.handlePlaceholder')}
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-[15px]"
+              />
+            </div>
+            <Button asChild size="lg" className="gradient-gold text-primary-foreground text-[15px] w-full h-13 rounded-2xl font-semibold shadow-md">
+              <Link to="/login">
+                {t('hero.cta')}
+              </Link>
+            </Button>
           </div>
         </motion.div>
 
