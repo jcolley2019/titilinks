@@ -124,57 +124,114 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu */}
+      </div>
+
+      {/* Mobile fullscreen overlay menu – Apple style */}
+      <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="md:hidden py-4 border-t border-border"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-40 md:hidden"
           >
-            <div className="flex flex-col gap-4">
-              <div className="py-2">
-                <div className="text-muted-foreground font-medium mb-2">{t('nav.products')}</div>
-                <div className="flex flex-col gap-1 pl-2">
-                  {products.map((product) => (
-                    <a
-                      key={product.key}
-                      href={product.href}
-                      className="flex items-center gap-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <product.icon className="h-4 w-4 text-primary" />
-                      <span>{t(`nav.products.${product.key}`)}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-              <Link 
-                to="/templates" 
-                className="text-muted-foreground hover:text-foreground transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
+            {/* Backdrop blur */}
+            <div className="absolute inset-0 bg-background/95 backdrop-blur-xl" />
+
+            {/* Content */}
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+              className="relative z-10 flex flex-col h-full pt-20 pb-10 px-6"
+            >
+              {/* Nav links */}
+              <nav className="flex flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">
+                  {t('nav.products')}
+                </span>
+                {products.map((product, i) => (
+                  <motion.a
+                    key={product.key}
+                    href={product.href}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.08 * i, duration: 0.25 }}
+                    className="flex items-center gap-3 py-3.5 px-1 rounded-xl text-foreground/80 active:bg-muted/40 transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <product.icon className="h-[18px] w-[18px] text-primary" />
+                    </div>
+                    <span className="text-[17px] font-medium">{t(`nav.products.${product.key}`)}</span>
+                  </motion.a>
+                ))}
+
+                <div className="h-px bg-border/50 my-3" />
+
+                <motion.div
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25, duration: 0.25 }}
+                >
+                  <Link
+                    to="/templates"
+                    className="flex items-center py-3.5 px-1 rounded-xl text-foreground/80 active:bg-muted/40 transition-colors text-[17px] font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('nav.templates')}
+                  </Link>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3, duration: 0.25 }}
+                >
+                  <a
+                    href="#pricing"
+                    className="flex items-center py-3.5 px-1 rounded-xl text-foreground/80 active:bg-muted/40 transition-colors text-[17px] font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('nav.pricing')}
+                  </a>
+                </motion.div>
+              </nav>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* CTAs at bottom */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.3 }}
+                className="flex flex-col gap-3"
               >
-                {t('nav.templates')}
-              </Link>
-              <a 
-                href="#pricing" 
-                className="text-muted-foreground hover:text-foreground transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t('nav.pricing')}
-              </a>
-              <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/login">{t('nav.login')}</Link>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full h-[52px] rounded-2xl text-[17px] font-semibold border-border/60"
+                >
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    {t('nav.login')}
+                  </Link>
                 </Button>
-                <Button asChild className="w-full gradient-gold text-primary-foreground">
-                  <Link to="/login">{t('nav.signup')}</Link>
+                <Button
+                  asChild
+                  className="w-full h-[52px] rounded-2xl text-[17px] font-semibold gradient-gold text-primary-foreground"
+                >
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    {t('nav.signup')}
+                  </Link>
                 </Button>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </motion.nav>
   );
 }
