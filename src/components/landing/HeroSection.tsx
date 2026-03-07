@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Users, Zap } from 'lucide-react';
+import { Sparkles, Users, Zap } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export function HeroSection() {
@@ -59,17 +59,23 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8"
+          className="flex flex-col sm:flex-row gap-0 justify-center items-center mb-8 max-w-lg mx-auto"
         >
-          <Button asChild size="lg" className="gradient-gold text-primary-foreground text-lg px-8 h-14 rounded-full font-semibold">
-            <Link to="/login">
-              {t('hero.cta')}
-              <ArrowRight className="ml-2 h-5 w-5" />
+          <div className="flex w-full rounded-full bg-card border border-border overflow-hidden shadow-lg">
+            <div className="flex items-center pl-5 pr-1 py-3 text-muted-foreground text-base whitespace-nowrap">
+              titilinks.app/
+            </div>
+            <input
+              type="text"
+              placeholder={t('hero.handlePlaceholder')}
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-base py-3 pr-2"
+            />
+            <Link to="/login" className="shrink-0">
+              <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 h-full rounded-full font-semibold m-1">
+                {t('hero.cta')}
+              </Button>
             </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="text-lg px-8 h-14 rounded-full border-primary/30 hover:bg-primary/5">
-            <a href="#demo">{t('hero.cta2')}</a>
-          </Button>
+          </div>
         </motion.div>
 
         <motion.div
