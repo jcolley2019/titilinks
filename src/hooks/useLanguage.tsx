@@ -33,7 +33,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.cta': 'Start Free Today',
     'hero.cta2': 'See Examples',
     'hero.stat1': 'Setup in 2 min',
-    'hero.stat2': '50k+ creators',
+    'hero.stat2': 'Built for Creators',
     
     // Problem Section
     'problem.title': 'Sound',
@@ -189,7 +189,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.cta': 'Comienza Gratis Hoy',
     'hero.cta2': 'Ver Ejemplos',
     'hero.stat1': 'Configura en 2 min',
-    'hero.stat2': '50k+ creadores',
+    'hero.stat2': 'Hecho para Creadores',
     
     // Problem Section
     'problem.title': '¿Te suena',
