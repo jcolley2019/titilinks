@@ -33,7 +33,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.cta': 'Start Free Today',
     'hero.cta2': 'See Examples',
     'hero.stat1': 'Setup in 2 min',
-    'hero.stat2': '50k+ creators',
+    'hero.stat2': 'Built for Creators',
     
     // Problem Section
     'problem.title': 'Sound',
