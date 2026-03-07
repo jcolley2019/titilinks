@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Users, Zap } from 'lucide-react';
+import { Sparkles, Users, Zap } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export function HeroSection() {
