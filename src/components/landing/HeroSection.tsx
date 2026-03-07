@@ -88,7 +88,7 @@ export function HeroSection() {
                 className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-[15px]"
               />
             </div>
-            <Button asChild size="lg" className="gradient-gold text-primary-foreground text-[15px] w-full h-13 rounded-2xl font-semibold shadow-md">
+            <Button asChild size="lg" className="gradient-gold text-primary-foreground text-[15px] w-full h-14 rounded-2xl font-semibold shadow-md">
               <Link to="/login">
                 {t('hero.cta')}
               </Link>
