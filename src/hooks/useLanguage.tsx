@@ -282,6 +282,7 @@ const translations: Record<Language, Record<string, string>> = {
     'pricing.cta.free': 'Comienza Gratis',
     'pricing.cta.pro': 'Ir a Pro',
     'pricing.cta.premium': 'Contactar Ventas',
+    'pricing.comingSoon': 'Próximamente',
     
     // CTA
     'cta.badge': 'Comienza gratis hoy',
