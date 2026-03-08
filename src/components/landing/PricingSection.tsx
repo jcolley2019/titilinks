@@ -24,7 +24,8 @@ export function PricingSection() {
         'Mobile optimized'
       ],
       cta: t('pricing.cta.free'),
-      popular: false
+      popular: false,
+      comingSoon: false
     },
     {
       name: t('pricing.pro'),
@@ -42,7 +43,8 @@ export function PricingSection() {
         'Remove branding'
       ],
       cta: t('pricing.cta.pro'),
-      popular: true
+      popular: true,
+      comingSoon: false
     },
     {
       name: t('pricing.premium'),
@@ -60,7 +62,8 @@ export function PricingSection() {
         'SLA guarantee'
       ],
       cta: t('pricing.cta.premium'),
-      popular: false
+      popular: false,
+      comingSoon: true
     }
   ];
 
@@ -126,6 +129,11 @@ export function PricingSection() {
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium">
                   {t('pricing.popular')}
+                </div>
+              )}
+              {plan.comingSoon && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-muted text-muted-foreground text-sm font-medium border border-border">
+                  {t('pricing.comingSoon')}
                 </div>
               )}
 
