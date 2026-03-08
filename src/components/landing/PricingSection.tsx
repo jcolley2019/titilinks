@@ -60,7 +60,9 @@ export function PricingSection() {
         'SLA guarantee'
       ],
       cta: t('pricing.cta.premium'),
-      popular: false
+      popular: false,
+      comingSoon: true
+    }
     }
   ];
 
