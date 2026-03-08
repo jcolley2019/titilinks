@@ -128,6 +128,11 @@ export function PricingSection() {
                   {t('pricing.popular')}
                 </div>
               )}
+              {plan.comingSoon && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-muted text-muted-foreground text-sm font-medium border border-border">
+                  {t('pricing.comingSoon')}
+                </div>
+              )}
 
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
