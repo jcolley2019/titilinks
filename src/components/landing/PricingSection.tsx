@@ -43,7 +43,8 @@ export function PricingSection() {
         'Remove branding'
       ],
       cta: t('pricing.cta.pro'),
-      popular: true
+      popular: true,
+      comingSoon: false
     },
     {
       name: t('pricing.premium'),
@@ -63,7 +64,6 @@ export function PricingSection() {
       cta: t('pricing.cta.premium'),
       popular: false,
       comingSoon: true
-    }
     }
   ];
 
