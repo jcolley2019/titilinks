@@ -62,8 +62,8 @@ export function HeroSection() {
           className="flex flex-col gap-3 justify-center items-center mb-8 max-w-md mx-auto px-2"
         >
           {/* Mobile: stacked layout. Desktop: inline pill */}
-          <div className="hidden sm:flex w-full rounded-xl bg-card border border-border overflow-hidden shadow-lg">
-            <div className="flex items-center pl-5 pr-1 py-3 text-muted-foreground text-base whitespace-nowrap">
+           <div className="hidden sm:flex items-center w-full rounded-xl bg-card border border-border overflow-hidden shadow-lg p-1.5">
+            <div className="flex items-center pl-4 pr-1 text-muted-foreground text-base whitespace-nowrap">
               titilinks.app/
             </div>
             <input
@@ -72,7 +72,7 @@ export function HeroSection() {
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-base py-3 pr-2"
             />
             <Link to="/login" className="shrink-0">
-              <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 h-full rounded-lg font-semibold m-1">
+              <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 py-3 rounded-lg font-semibold">
                 {t('hero.cta')}
               </Button>
             </Link>
