@@ -24,7 +24,8 @@ export function PricingSection() {
         'Mobile optimized'
       ],
       cta: t('pricing.cta.free'),
-      popular: false
+      popular: false,
+      comingSoon: false
     },
     {
       name: t('pricing.pro'),
