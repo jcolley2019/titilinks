@@ -3,11 +3,13 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Moon, Bell } from 'lucide-react';
+import { Globe, Sun, Moon, Bell } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useTheme } from 'next-themes';
 
 export default function Settings() {
   const { language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
 
   return (
     <DashboardLayout>
@@ -55,6 +57,38 @@ export default function Settings() {
                 <span className={`text-sm font-medium ${language === 'es' ? 'text-primary' : 'text-muted-foreground'}`}>
                   ES
                 </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sun className="h-5 w-5 text-primary" />
+              Appearance
+            </CardTitle>
+            <CardDescription>
+              Choose between light and dark mode
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base font-medium">
+                  {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Toggle between light and dark appearance
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Sun className={`h-4 w-4 ${theme !== 'dark' ? 'text-primary' : 'text-muted-foreground'}`} />
+                <Switch
+                  checked={theme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+                <Moon className={`h-4 w-4 ${theme === 'dark' ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
             </div>
           </CardContent>
