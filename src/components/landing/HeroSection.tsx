@@ -62,7 +62,7 @@ export function HeroSection() {
           className="flex flex-col gap-3 justify-center items-center mb-8 max-w-md mx-auto px-2"
         >
           {/* Mobile: stacked layout. Desktop: inline pill */}
-          <div className="hidden sm:flex w-full rounded-full bg-card border border-border overflow-hidden shadow-lg">
+          <div className="hidden sm:flex w-full rounded-xl bg-card border border-border overflow-hidden shadow-lg">
             <div className="flex items-center pl-5 pr-1 py-3 text-muted-foreground text-base whitespace-nowrap">
               titilinks.app/
             </div>
