@@ -72,7 +72,7 @@ export function HeroSection() {
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-base py-3 pr-2"
             />
             <Link to="/login" className="shrink-0">
-              <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 h-full rounded-full font-semibold m-1">
+              <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 h-full rounded-lg font-semibold m-1">
                 {t('hero.cta')}
               </Button>
             </Link>
