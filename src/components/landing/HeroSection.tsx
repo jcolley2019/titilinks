@@ -81,7 +81,7 @@ export function HeroSection() {
 
           {/* Mobile: stacked */}
           <div className="flex sm:hidden flex-col w-full gap-3">
-            <div className="flex items-center w-full rounded-2xl glass-card px-4 py-3.5">
+            <div className="flex items-center w-full rounded-2xl glass-card px-4 py-3.5 border border-primary/40">
               <span className="text-muted-foreground text-[15px] mr-1">titilinks.app/</span>
               <input
                 type="text"
