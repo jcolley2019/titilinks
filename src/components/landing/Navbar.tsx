@@ -12,6 +12,8 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProductsOpen, setIsProductsOpen] = useState(false);
   const { t } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   const products = [
     { key: 'linkInBio', icon: LinkIcon, href: '#features' },
