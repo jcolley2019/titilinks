@@ -108,6 +108,14 @@ export function Navbar() {
               <Link to="/login">{t('nav.signup')}</Link>
             </Button>
             <LanguageToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              className="rounded-full hover:bg-foreground hover:text-background transition-colors"
+            >
+              {isDark ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
+            </Button>
           </div>
 
           {/* Mobile menu button */}
