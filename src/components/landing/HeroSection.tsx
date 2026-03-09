@@ -63,7 +63,7 @@ export function HeroSection() {
           className="flex flex-col gap-3 justify-center items-center mb-8 max-w-md mx-auto px-2"
         >
           {/* Desktop: inline pill */}
-           <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5">
+           <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5 border border-primary/40">
             <div className="flex items-center pl-4 pr-1 text-muted-foreground text-base whitespace-nowrap">
               titilinks.app/
             </div>
