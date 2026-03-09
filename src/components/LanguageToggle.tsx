@@ -14,7 +14,7 @@ export function LanguageToggle() {
       variant="outline"
       size="sm"
       onClick={toggleLanguage}
-      className="rounded-full border-primary/30 hover:bg-primary/5 gap-2 px-3"
+      className="rounded-full border-primary/30 hover:bg-foreground hover:text-background hover:border-foreground gap-2 px-3 transition-colors"
     >
       <Globe className="h-4 w-4" />
       <span className="uppercase font-medium">{language === 'en' ? 'EN' : 'ES'}</span>
