@@ -30,9 +30,7 @@ export function TestimonialsSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 px-4 relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
-      
+    <section className="py-24 px-4 relative mesh-gradient-rich noise-overlay">
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -57,7 +55,7 @@ export function TestimonialsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="p-6 rounded-2xl bg-card border border-border"
+              className="p-6 rounded-2xl glass-card hover:shadow-lg hover:shadow-primary/5 transition-all"
             >
               <div className="flex gap-1 mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
@@ -78,6 +76,7 @@ export function TestimonialsSection() {
           ))}
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
     </section>
   );
 }

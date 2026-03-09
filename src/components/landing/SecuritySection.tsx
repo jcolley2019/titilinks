@@ -2,32 +2,16 @@ import { motion } from 'framer-motion';
 import { Shield, Lock, Eye, Server } from 'lucide-react';
 
 const securityFeatures = [
-  {
-    icon: Shield,
-    title: 'Enterprise-grade security',
-    description: 'Bank-level encryption protects all your data'
-  },
-  {
-    icon: Lock,
-    title: 'HTTPS everywhere',
-    description: 'All connections are encrypted end-to-end'
-  },
-  {
-    icon: Eye,
-    title: 'Privacy first',
-    description: 'We never sell your data or visitor information'
-  },
-  {
-    icon: Server,
-    title: '99.9% uptime SLA',
-    description: 'Your page is always online when you need it'
-  }
+  { icon: Shield, title: 'Enterprise-grade security', description: 'Bank-level encryption protects all your data' },
+  { icon: Lock, title: 'HTTPS everywhere', description: 'All connections are encrypted end-to-end' },
+  { icon: Eye, title: 'Privacy first', description: 'We never sell your data or visitor information' },
+  { icon: Server, title: '99.9% uptime SLA', description: 'Your page is always online when you need it' }
 ];
 
 export function SecuritySection() {
   return (
-    <section className="py-24 px-4 bg-muted/30">
-      <div className="container max-w-6xl mx-auto">
+    <section className="py-24 px-4 relative mesh-gradient-soft noise-overlay">
+      <div className="container max-w-6xl mx-auto relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -40,9 +24,7 @@ export function SecuritySection() {
               <span className="text-sm font-medium text-green-500">Security & Privacy</span>
             </div>
             
-            <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-              Your data is safe with us
-            </h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-6">Your data is safe with us</h2>
             <p className="text-lg text-muted-foreground mb-8">
               We take security seriously. Your pages, analytics, and visitor data are protected 
               with industry-leading security practices.
@@ -77,13 +59,13 @@ export function SecuritySection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative"
           >
-            <div className="aspect-square max-w-md mx-auto rounded-3xl bg-gradient-to-br from-green-500/20 via-card to-primary/20 border border-border flex items-center justify-center">
+            <div className="aspect-square max-w-md mx-auto rounded-3xl glass-card border-primary/10 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-primary/10" />
               <div className="relative">
-                <div className="w-32 h-32 rounded-full bg-green-500/20 flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full bg-green-500/20 flex items-center justify-center backdrop-blur-sm">
                   <Shield className="h-16 w-16 text-green-500" />
                 </div>
                 
-                {/* Orbiting icons */}
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
@@ -98,6 +80,7 @@ export function SecuritySection() {
           </motion.div>
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
     </section>
   );
 }

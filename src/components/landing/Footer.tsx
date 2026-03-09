@@ -40,10 +40,9 @@ export function Footer() {
   ];
 
   return (
-    <footer className="py-16 px-4 border-t border-border">
-      <div className="container max-w-6xl mx-auto">
+    <footer className="py-16 px-4 border-t border-border/50 relative mesh-gradient-soft">
+      <div className="container max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
-          {/* Logo and tagline */}
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
@@ -53,15 +52,13 @@ export function Footer() {
                 Titi<span className="italic text-primary">Links</span>
               </span>
             </Link>
-            <p className="text-muted-foreground mb-4">
-              {t('footer.tagline')}
-            </p>
+            <p className="text-muted-foreground mb-4">{t('footer.tagline')}</p>
             <div className="flex gap-3">
               {socialLinks.map((social) => (
                 <a
                   key={social.label}
                   href={social.href}
-                  className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center hover:border-primary/30 transition-colors"
+                  className="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:border-primary/30 transition-colors"
                   aria-label={social.label}
                 >
                   <span className="text-lg">{social.emoji}</span>
@@ -70,17 +67,13 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Links */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
               <h4 className="font-semibold mb-4 text-primary">{category}</h4>
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <a href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
                       {link.label}
                     </a>
                   </li>
@@ -90,13 +83,11 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-border gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-border/50 gap-4">
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span>. {t('footer.copyright')}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {t('footer.made')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('footer.made')}</p>
         </div>
       </div>
     </footer>

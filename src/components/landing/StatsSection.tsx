@@ -11,15 +11,18 @@ export function StatsSection() {
   ];
 
   return (
-    <section className="py-24 px-4">
+    <section className="py-24 px-4 relative">
       <div className="container max-w-6xl mx-auto">
-        <div className="rounded-3xl bg-card border border-primary/20 p-12 glow-gold">
+        <div className="rounded-3xl glass-card border-primary/20 p-12 glow-gold relative overflow-hidden">
+          {/* Internal ambient glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[200px] bg-primary/8 rounded-full blur-[80px]" />
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-12"
+            className="text-center mb-12 relative z-10"
           >
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               {t('stats.title')} <span className="italic gradient-text">{t('stats.title2')}</span>
@@ -29,7 +32,7 @@ export function StatsSection() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 text-center">
+          <div className="grid md:grid-cols-3 gap-8 text-center relative z-10">
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}

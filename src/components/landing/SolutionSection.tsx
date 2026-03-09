@@ -14,8 +14,8 @@ export function SolutionSection() {
   ];
 
   return (
-    <section className="py-24 px-4">
-      <div className="container max-w-6xl mx-auto">
+    <section className="py-24 px-4 relative mesh-gradient-soft">
+      <div className="container max-w-6xl mx-auto relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -47,14 +47,13 @@ export function SolutionSection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="relative"
           >
-            {/* Phone mockup with gold accent */}
-            <div className="relative mx-auto w-72 h-[580px] bg-card rounded-[3rem] border-2 border-primary/20 shadow-2xl overflow-hidden glow-gold">
+            {/* Phone mockup */}
+            <div className="relative mx-auto w-72 h-[580px] rounded-[3rem] border-2 border-primary/20 shadow-2xl overflow-hidden glow-gold glass-card">
               {/* Notch */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-background rounded-b-2xl z-20" />
               
               {/* Screen content */}
               <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden">
-                {/* Header image area - takes up most of the screen */}
                 <div className="w-full h-64 relative overflow-hidden flex-shrink-0">
                   <img 
                     src={mockupCreatorPhoto} 
@@ -63,18 +62,14 @@ export function SolutionSection() {
                   />
                 </div>
                 
-                {/* Bottom section with gradient background */}
                 <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col">
-                  {/* Gradient overlay from image */}
                   <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-amber-200" />
                   
-                  {/* Profile info */}
                   <div className="flex flex-col items-center pt-2 pb-1">
                     <h3 className="font-bold text-gray-800 text-sm">{t('solution.mockup.name')}</h3>
                     <p className="text-[10px] text-gray-600 text-center">{t('solution.mockup.bio')}</p>
                   </div>
                   
-                  {/* Link buttons - full width */}
                   <div className="flex-1 flex flex-col justify-end px-2 pb-1 space-y-1.5">
                     <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
                       <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
@@ -103,7 +98,6 @@ export function SolutionSection() {
                       <span className="text-gray-700 text-xs font-medium flex-1 text-center">Green World</span>
                     </div>
                     
-                    {/* TitiLinks branding */}
                     <div className="text-center py-1">
                       <p className="text-[9px] text-gray-600">
                         <span className="text-gray-700">Titi</span>
@@ -115,17 +109,18 @@ export function SolutionSection() {
               </div>
             </div>
 
-            {/* Floating elements */}
+            {/* Floating element */}
             <motion.div
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -top-4 -right-4 p-4 rounded-xl bg-card border border-primary/20 shadow-lg"
+              className="absolute -top-4 -right-4 p-4 rounded-xl glass-card shadow-lg"
             >
               <p className="text-sm font-medium text-primary">{t('solution.clicks')}</p>
             </motion.div>
           </motion.div>
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
     </section>
   );
 }

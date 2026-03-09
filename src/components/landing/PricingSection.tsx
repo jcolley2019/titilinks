@@ -16,13 +16,7 @@ export function PricingSection() {
       annualPrice: '$0',
       period: t('pricing.free.period'),
       description: t('pricing.free.desc'),
-      features: [
-        'Unlimited links',
-        '1 custom page',
-        'Basic analytics',
-        'Standard themes',
-        'Mobile optimized'
-      ],
+      features: ['Unlimited links', '1 custom page', 'Basic analytics', 'Standard themes', 'Mobile optimized'],
       cta: t('pricing.cta.free'),
       popular: false,
       comingSoon: false
@@ -33,15 +27,7 @@ export function PricingSection() {
       annualPrice: '$5',
       period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
       description: t('pricing.pro.desc'),
-      features: [
-        'Everything in Free',
-        'Unlimited pages',
-        'Advanced analytics',
-        'Custom themes',
-        'Mode switching',
-        'Priority support',
-        'Remove branding'
-      ],
+      features: ['Everything in Free', 'Unlimited pages', 'Advanced analytics', 'Custom themes', 'Mode switching', 'Priority support', 'Remove branding'],
       cta: t('pricing.cta.pro'),
       popular: true,
       comingSoon: false
@@ -52,15 +38,7 @@ export function PricingSection() {
       annualPrice: '$25',
       period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
       description: t('pricing.premium.desc'),
-      features: [
-        'Everything in Pro',
-        'Team collaboration',
-        'API access',
-        'Custom domain',
-        'White-label option',
-        'Dedicated support',
-        'SLA guarantee'
-      ],
+      features: ['Everything in Pro', 'Team collaboration', 'API access', 'Custom domain', 'White-label option', 'Dedicated support', 'SLA guarantee'],
       cta: t('pricing.cta.premium'),
       popular: false,
       comingSoon: true
@@ -68,8 +46,8 @@ export function PricingSection() {
   ];
 
   return (
-    <section id="pricing" className="py-24 px-4">
-      <div className="container max-w-6xl mx-auto">
+    <section id="pricing" className="py-24 px-4 relative mesh-gradient-rich noise-overlay">
+      <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -91,15 +69,9 @@ export function PricingSection() {
             </span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative w-14 h-7 rounded-full transition-colors ${
-                isAnnual ? 'bg-primary' : 'bg-muted'
-              }`}
+              className={`relative w-14 h-7 rounded-full transition-colors ${isAnnual ? 'bg-primary' : 'bg-muted'}`}
             >
-              <span
-                className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-background transition-transform ${
-                  isAnnual ? 'translate-x-7' : 'translate-x-0'
-                }`}
-              />
+              <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-background transition-transform ${isAnnual ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
             <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
               {t('pricing.annual')}
@@ -120,28 +92,24 @@ export function PricingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative p-8 rounded-2xl border ${
-                plan.popular 
-                  ? 'border-primary/50 bg-card glow-gold' 
-                  : 'border-border bg-card'
+              className={`relative p-8 rounded-2xl glass-card ${
+                plan.popular ? 'border-primary/40 glow-gold' : ''
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium shadow-lg">
                   {t('pricing.popular')}
                 </div>
               )}
               {plan.comingSoon && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-muted text-muted-foreground text-sm font-medium border border-border">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full glass text-muted-foreground text-sm font-medium">
                   {t('pricing.comingSoon')}
                 </div>
               )}
 
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-4xl font-bold">
-                  {isAnnual ? plan.annualPrice : plan.monthlyPrice}
-                </span>
+                <span className="text-4xl font-bold">{isAnnual ? plan.annualPrice : plan.monthlyPrice}</span>
                 <span className="text-muted-foreground">{plan.period}</span>
               </div>
               <p className="text-muted-foreground mb-6">{plan.description}</p>
@@ -157,9 +125,7 @@ export function PricingSection() {
 
               <Button
                 asChild
-                className={`w-full rounded-full ${
-                  plan.popular ? 'gradient-gold text-primary-foreground' : ''
-                }`}
+                className={`w-full rounded-full ${plan.popular ? 'gradient-gold text-primary-foreground shadow-lg shadow-primary/20' : ''}`}
                 variant={plan.popular ? 'default' : 'outline'}
               >
                 <Link to="/login">{plan.cta}</Link>
@@ -168,6 +134,7 @@ export function PricingSection() {
           ))}
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
     </section>
   );
 }
