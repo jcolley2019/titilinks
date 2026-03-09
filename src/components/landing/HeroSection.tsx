@@ -20,10 +20,10 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-8"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground border border-foreground mb-8"
         >
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold text-foreground">{t('hero.badge')}</span>
+          <span className="text-sm font-bold text-background">{t('hero.badge')}</span>
         </motion.div>
 
         <motion.h1
