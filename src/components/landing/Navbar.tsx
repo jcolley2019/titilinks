@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link2, Menu, X, ChevronDown, LinkIcon, QrCode, ExternalLink } from 'lucide-react';
+import { Link2, Menu, X, ChevronDown, LinkIcon, QrCode, ExternalLink, Lightbulb, LightbulbOff } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useTheme } from 'next-themes';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProductsOpen, setIsProductsOpen] = useState(false);
   const { t } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   const products = [
     { key: 'linkInBio', icon: LinkIcon, href: '#features' },
@@ -105,11 +108,27 @@ export function Navbar() {
               <Link to="/login">{t('nav.signup')}</Link>
             </Button>
             <LanguageToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              className="rounded-full hover:bg-foreground hover:text-background transition-colors"
+            >
+              {isDark ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
+            </Button>
           </div>
 
           {/* Mobile menu button */}
           <div className="flex md:hidden items-center gap-2">
             <LanguageToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              className="rounded-full hover:bg-foreground hover:text-background transition-colors"
+            >
+              {isDark ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
