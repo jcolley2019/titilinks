@@ -24,9 +24,7 @@ export function ProblemSection() {
   ];
 
   return (
-    <section className="py-24 px-4 relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
-      
+    <section className="py-24 px-4 relative mesh-gradient-soft noise-overlay">
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -51,7 +49,7 @@ export function ProblemSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="relative p-8 rounded-2xl bg-card border border-border hover:border-primary/30 transition-colors group"
+              className="relative p-8 rounded-2xl glass-card hover:border-primary/30 transition-all group"
             >
               <div className="p-3 rounded-xl bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
                 <problem.icon className="h-6 w-6 text-primary" />
@@ -62,6 +60,7 @@ export function ProblemSection() {
           ))}
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
     </section>
   );
 }
