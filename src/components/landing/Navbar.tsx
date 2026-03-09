@@ -124,6 +124,14 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              className="rounded-full hover:bg-foreground hover:text-background transition-colors"
+            >
+              {isDark ? <Lightbulb className="h-5 w-5" /> : <LightbulbOff className="h-5 w-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
