@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link2, Menu, X, ChevronDown, LinkIcon, QrCode, ExternalLink } from 'lucide-react';
+import { Link2, Menu, X, ChevronDown, LinkIcon, QrCode, ExternalLink, Lightbulb, LightbulbOff } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useTheme } from 'next-themes';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
