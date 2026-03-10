@@ -65,7 +65,7 @@ export function HeroSection() {
           {/* Desktop: inline pill */}
            <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
             <div className="flex items-center pl-4 pr-1 text-muted-foreground text-base whitespace-nowrap">
-              titilinks.app/
+              titilinks.com/
             </div>
             <input
               type="text"
