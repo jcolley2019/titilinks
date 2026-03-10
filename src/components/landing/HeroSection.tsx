@@ -82,7 +82,7 @@ export function HeroSection() {
           {/* Mobile: stacked */}
           <div className="flex sm:hidden flex-col w-full gap-3">
             <div className="flex items-center w-full rounded-2xl glass-card px-4 py-3.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
-              <span className="text-muted-foreground text-[15px] mr-1">titilinks.app/</span>
+              <span className="text-muted-foreground text-[15px] mr-1">titilinks.com/</span>
               <input
                 type="text"
                 placeholder={t('hero.handlePlaceholder')}
