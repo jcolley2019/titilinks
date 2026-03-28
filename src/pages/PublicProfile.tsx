@@ -1281,7 +1281,7 @@ function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
     }
   };
 
-  const size = getSize();
+  const sizeClass = getSize();
   const bgColor = config.use_theme_color 
     ? `${theme.buttons.fill_color}20` 
     : `${config.custom_color}20`;
@@ -1295,7 +1295,7 @@ function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
           target="_blank"
           rel="noopener noreferrer"
           whileTap={{ scale: 0.95 }}
-          className={`${size.container} rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 motion-reduce:transform-none`}
+          className={`${sizeClass} rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 motion-reduce:transform-none`}
           style={{ backgroundColor: bgColor }}
           title={item.label}
           onClick={(e) => handleClick(e, item)}
