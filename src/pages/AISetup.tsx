@@ -600,7 +600,7 @@ export default function AISetup() {
 
               {/* Step 5: Preview */}
               {step === 5 && draftPlan && (
-                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review your page before creating">
+                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review and edit your page before creating">
                   <div className="space-y-6">
                     {/* Profile & Bios */}
                     <div className="p-4 bg-secondary/30 rounded-lg space-y-3">
@@ -623,6 +623,28 @@ export default function AISetup() {
                           <p className="text-foreground text-sm">{draftPlan.bio_long}</p>
                         </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={regeneratingBio}
+                        onClick={async () => {
+                          setRegeneratingBio(true);
+                          try {
+                            const updated = await enhancePlanWithAIBios(draftPlan);
+                            setDraftPlan(updated);
+                            toast.success('Bio regenerated!');
+                          } catch {
+                            toast.error('Failed to regenerate bio');
+                          } finally {
+                            setRegeneratingBio(false);
+                          }
+                        }}
+                        className="gap-2"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${regeneratingBio ? 'animate-spin' : ''}`} />
+                        {regeneratingBio ? 'Regenerating...' : 'Regenerate Bio Only'}
+                      </Button>
                       <div className="flex gap-2 flex-wrap text-xs">
                         <span className="px-2 py-1 bg-primary/10 text-primary rounded">
                           {creatorTypes.find(t => t.value === draftPlan.creator_type)?.label || draftPlan.creator_type}
@@ -633,6 +655,46 @@ export default function AISetup() {
                       </div>
                     </div>
 
+                    {/* Tone Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Choose a different tone</Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={draftPlan.tone}
+                          onValueChange={async (newTone) => {
+                            setChangingTone(true);
+                            try {
+                              const data = form.getValues();
+                              const intake = formDataToIntake({ ...data, tone: newTone as FormData['tone'] });
+                              const result = buildDraftPlan(intake);
+                              if (result.success) {
+                                let plan = result.plan;
+                                if (useAICopy) {
+                                  plan = await enhancePlanWithAIBios(plan);
+                                }
+                                setDraftPlan(plan);
+                                toast.success('Plan regenerated with new tone');
+                              }
+                            } catch {
+                              toast.error('Failed to change tone');
+                            } finally {
+                              setChangingTone(false);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {toneOptions.map((tone) => (
+                              <SelectItem key={tone.value} value={tone.value}>{tone.label} — {tone.description}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {changingTone && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                      </div>
+                    </div>
+
                     {/* Shop Mode Blocks */}
                     <div className="space-y-3">
                       <h3 className="font-medium text-foreground flex items-center gap-2">
@@ -640,7 +702,20 @@ export default function AISetup() {
                         Shop Mode ({draftPlan.shop_mode.blocks.filter(b => b.is_enabled).length} blocks)
                       </h3>
                       {draftPlan.shop_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
-                        <BlockPreview key={`shop-${i}`} block={block} />
+                        <BlockPreview
+                          key={`shop-${i}`}
+                          block={block}
+                          onUpdateItem={(itemKey, field, value) => {
+                            setDraftPlan(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev, shop_mode: { ...prev.shop_mode, blocks: prev.shop_mode.blocks.map(b => ({
+                                ...b,
+                                items: b.items.map(item => item.item_key === itemKey ? { ...item, [field]: value } : item),
+                              })) } };
+                              return updated;
+                            });
+                          }}
+                        />
                       ))}
                     </div>
 
@@ -651,7 +726,20 @@ export default function AISetup() {
                         Recruit Mode ({draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).length} blocks)
                       </h3>
                       {draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
-                        <BlockPreview key={`recruit-${i}`} block={block} />
+                        <BlockPreview
+                          key={`recruit-${i}`}
+                          block={block}
+                          onUpdateItem={(itemKey, field, value) => {
+                            setDraftPlan(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev, recruit_mode: { ...prev.recruit_mode, blocks: prev.recruit_mode.blocks.map(b => ({
+                                ...b,
+                                items: b.items.map(item => item.item_key === itemKey ? { ...item, [field]: value } : item),
+                              })) } };
+                              return updated;
+                            });
+                          }}
+                        />
                       ))}
                     </div>
 
