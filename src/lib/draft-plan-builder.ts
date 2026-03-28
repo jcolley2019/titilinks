@@ -109,9 +109,9 @@ const BLOCK_CAPS: Partial<Record<BlockType, number>> = {
 // Convert intake data to substitution map
 function buildSubstitutionMap(intake: IntakeData): SubstitutionMap {
   return {
-    PERSONAL_WEBSITE_URL: intake.personal_website_url,
-    PRIMARY_OFFER_URL: intake.primary_offer_url,
-    CREATOR_PROGRAM_URL: intake.creator_program_url,
+    PERSONAL_WEBSITE_URL: intake.personal_website_url || '',
+    PRIMARY_OFFER_URL: intake.primary_offer_url || '',
+    CREATOR_PROGRAM_URL: intake.creator_program_url || '',
     SOCIAL_TIKTOK: intake.social_tiktok,
     SOCIAL_INSTAGRAM: intake.social_instagram,
     SOCIAL_YOUTUBE: intake.social_youtube,
