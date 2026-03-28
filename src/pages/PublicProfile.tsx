@@ -1247,7 +1247,7 @@ function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
           {item.image_url ? (
             <ThumbnailImage src={item.image_url} alt={item.label} />
           ) : (
-            <span className={size.icon}>{getIcon(item.label)}</span>
+            <SocialSvgIcon label={item.label} size={getIconSize()} />
           )}
         </motion.a>
       ))}
