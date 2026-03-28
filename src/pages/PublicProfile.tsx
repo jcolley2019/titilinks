@@ -710,7 +710,7 @@ function SocialSvgIcon({ label, size = 20 }: { label: string; size?: number }) {
   );
 }
 
-
+function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
