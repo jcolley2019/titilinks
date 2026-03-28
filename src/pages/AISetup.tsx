@@ -50,6 +50,12 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { buildDraftPlan, enhancePlanWithAIBios, type DraftPlan, type IntakeData } from '@/lib/draft-plan-builder';
 import { persistDraftPlan, checkHandleAvailable } from '@/lib/plan-persistence';
+import { supabase } from '@/integrations/supabase/client';
+
+interface AISuggestion {
+  ctas: { label: string; subtitle: string }[];
+  bio: string;
+}
 
 const creatorTypes = [
   { value: 'streaming_tiktok', label: 'Streaming / TikTok Creator' },
@@ -122,6 +128,8 @@ export default function AISetup() {
   const [applying, setApplying] = useState(false);
   const [draftPlan, setDraftPlan] = useState<DraftPlan | null>(null);
   const [useAICopy, setUseAICopy] = useState(true);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -152,9 +160,44 @@ export default function AISetup() {
     return await form.trigger(fieldsToValidate);
   };
 
+  const fetchAISuggestions = async () => {
+    const { display_name, creator_type, tone } = form.getValues();
+    if (!creator_type || !tone) return;
+
+    const creatorLabel = creatorTypes.find(t => t.value === creator_type)?.label || creator_type;
+    const toneLabel = toneOptions.find(t => t.value === tone)?.label || tone;
+
+    setSuggestionsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-onboarding-content', {
+        body: {
+          brand_description: `${display_name || 'A creator'} — a ${creatorLabel}`,
+          audience: `Social media followers looking for a ${toneLabel.toLowerCase()} creator experience`,
+          goal: 'Drive clicks to primary offer and grow audience',
+        },
+      });
+
+      if (error) throw error;
+      if (data?.ctas && data?.bio) {
+        setAiSuggestions(data as AISuggestion);
+      }
+    } catch (err) {
+      console.error('Failed to fetch AI suggestions:', err);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
   const handleNext = async () => {
     const isValid = await validateStep(step);
-    if (isValid) setStep(step + 1);
+    if (isValid) {
+      const nextStep = step + 1;
+      setStep(nextStep);
+      // Fetch AI suggestions when entering Step 2
+      if (nextStep === 2 && !aiSuggestions) {
+        fetchAISuggestions();
+      }
+    }
   };
 
   const handleBack = () => setStep(step - 1);
@@ -430,6 +473,43 @@ export default function AISetup() {
                         </FormItem>
                       )} />
                     </TooltipProvider>
+
+                    {/* AI Suggestions Panel */}
+                    {(suggestionsLoading || aiSuggestions) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+                          {suggestionsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                        </div>
+                        {aiSuggestions && (
+                          <>
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground font-medium">Suggested CTA buttons:</p>
+                              {aiSuggestions.ctas.map((cta, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  <span className="text-primary font-bold mt-0.5">{i + 1}.</span>
+                                  <div>
+                                    <p className="font-medium text-foreground">{cta.label}</p>
+                                    <p className="text-xs text-muted-foreground">{cta.subtitle}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground font-medium mb-1">Suggested bio:</p>
+                              <p className="text-sm text-foreground italic">"{aiSuggestions.bio}"</p>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">These will be used when generating your page preview.</p>
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+
                     <div className="flex justify-between pt-4">
                       <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
                       <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>
