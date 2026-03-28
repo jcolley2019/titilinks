@@ -131,6 +131,8 @@ export default function AISetup() {
   const [useAICopy, setUseAICopy] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [regeneratingBio, setRegeneratingBio] = useState(false);
+  const [changingTone, setChangingTone] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -770,19 +772,76 @@ export default function AISetup() {
   );
 }
 
-function BlockPreview({ block }: { block: { type: string; title: string; items: { item_key: string; label: string; url: string }[] } }) {
+function BlockPreview({ block, onUpdateItem }: { 
+  block: { type: string; title: string; items: { item_key: string; label: string; url: string }[] };
+  onUpdateItem?: (itemKey: string, field: 'label' | 'url', value: string) => void;
+}) {
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState<string | null>(null);
+  const [labelValue, setLabelValue] = useState('');
+  const [urlValue, setUrlValue] = useState('');
+
+  const commitLabel = (itemKey: string) => {
+    if (onUpdateItem && labelValue.trim()) onUpdateItem(itemKey, 'label', labelValue.trim());
+    setEditingLabel(null);
+  };
+  const commitUrl = (itemKey: string) => {
+    if (onUpdateItem && urlValue.trim()) onUpdateItem(itemKey, 'url', urlValue.trim());
+    setEditingUrl(null);
+  };
+
   return (
     <div className="p-3 border border-border rounded-lg">
       <div className="flex items-center justify-between mb-2">
         <span className="font-medium text-sm text-foreground">{block.title}</span>
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">{block.type}</span>
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {block.items.map((item) => (
-          <div key={item.item_key} className="flex items-center gap-2 text-sm">
-            <Check className="h-3 w-3 text-green-500" />
-            <span className="text-foreground truncate flex-1">{item.label}</span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          <div key={item.item_key} className="space-y-1">
+            <div className="flex items-center gap-2 text-sm group">
+              <Check className="h-3 w-3 text-primary flex-shrink-0" />
+              {editingLabel === item.item_key ? (
+                <Input
+                  autoFocus
+                  className="h-7 text-sm flex-1"
+                  value={labelValue}
+                  onChange={(e) => setLabelValue(e.target.value)}
+                  onBlur={() => commitLabel(item.item_key)}
+                  onKeyDown={(e) => e.key === 'Enter' && commitLabel(item.item_key)}
+                />
+              ) : (
+                <span
+                  className="text-foreground truncate flex-1 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => { setEditingLabel(item.item_key); setLabelValue(item.label); }}
+                >
+                  {item.label}
+                </span>
+              )}
+              {editingLabel !== item.item_key && (
+                <Edit2
+                  className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0"
+                  onClick={() => { setEditingLabel(item.item_key); setLabelValue(item.label); }}
+                />
+              )}
+              {editingUrl !== item.item_key && (
+                <ExternalLink
+                  className="h-3 w-3 text-muted-foreground flex-shrink-0 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => { setEditingUrl(item.item_key); setUrlValue(item.url); }}
+                />
+              )}
+            </div>
+            {editingUrl === item.item_key && (
+              <Input
+                autoFocus
+                className="h-7 text-xs ml-5"
+                value={urlValue}
+                onChange={(e) => setUrlValue(e.target.value)}
+                onBlur={() => commitUrl(item.item_key)}
+                onKeyDown={(e) => e.key === 'Enter' && commitUrl(item.item_key)}
+                placeholder="https://..."
+              />
+            )}
           </div>
         ))}
       </div>
