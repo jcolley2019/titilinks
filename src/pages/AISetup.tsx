@@ -473,6 +473,43 @@ export default function AISetup() {
                         </FormItem>
                       )} />
                     </TooltipProvider>
+
+                    {/* AI Suggestions Panel */}
+                    {(suggestionsLoading || aiSuggestions) && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+                          {suggestionsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                        </div>
+                        {aiSuggestions && (
+                          <>
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground font-medium">Suggested CTA buttons:</p>
+                              {aiSuggestions.ctas.map((cta, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm">
+                                  <span className="text-primary font-bold mt-0.5">{i + 1}.</span>
+                                  <div>
+                                    <p className="font-medium text-foreground">{cta.label}</p>
+                                    <p className="text-xs text-muted-foreground">{cta.subtitle}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground font-medium mb-1">Suggested bio:</p>
+                              <p className="text-sm text-foreground italic">"{aiSuggestions.bio}"</p>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">These will be used when generating your page preview.</p>
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+
                     <div className="flex justify-between pt-4">
                       <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
                       <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>
