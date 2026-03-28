@@ -664,20 +664,8 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
     }
   };
 
-  // Get platform icon based on label
-  const getPlatformEmoji = (label: string): string => {
-    const lower = label.toLowerCase();
-    if (lower.includes('tiktok')) return '🎵';
-    if (lower.includes('instagram')) return '📸';
-    if (lower.includes('youtube')) return '▶️';
-    if (lower.includes('facebook')) return '👤';
-    if (lower.includes('snapchat')) return '👻';
-    if (lower.includes('twitch') || lower.includes('kick')) return '🎮';
-    if (lower.includes('discord')) return '💬';
-    if (lower.includes('twitter') || lower === 'x') return '𝕏';
-    if (lower.includes('spotify')) return '🎧';
-    if (lower.includes('apple')) return '🍎';
-    return '🔗';
+  const getPlatformIcon = (label: string, size = 20) => {
+    return <SocialSvgIcon label={label} size={size} />;
   };
 
   return (
@@ -698,7 +686,7 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           {item.image_url ? (
             <ThumbnailImage src={item.image_url} alt={item.label} />
           ) : (
-            <span className="text-lg">{getPlatformEmoji(item.label)}</span>
+            getPlatformIcon(item.label, 20)
           )}
           {item.is_adult && (
             <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
@@ -1213,25 +1201,12 @@ function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps)
     }
   };
 
-  // Get icon based on label
-  const getIcon = (label: string): string => {
-    const lower = label.toLowerCase();
-    if (lower.includes('tiktok')) return '🎵';
-    if (lower.includes('instagram')) return '📸';
-    if (lower.includes('youtube')) return '▶️';
-    if (lower.includes('facebook')) return '👤';
-    if (lower.includes('snapchat')) return '👻';
-    if (lower.includes('twitch') || lower.includes('kick')) return '🎮';
-    if (lower.includes('discord')) return '💬';
-    if (lower.includes('twitter') || lower === 'x') return '𝕏';
-    if (lower.includes('spotify')) return '🎧';
-    if (lower.includes('apple')) return '🍎';
-    if (lower.includes('linkedin')) return '💼';
-    if (lower.includes('pinterest')) return '📌';
-    if (lower.includes('threads')) return '🧵';
-    if (lower.includes('whatsapp')) return '💬';
-    if (lower.includes('telegram')) return '✈️';
-    return '🔗';
+  const getIconSize = () => {
+    switch (config.icon_size) {
+      case 'sm': return 18;
+      case 'md': return 22;
+      case 'lg': return 26;
+    }
   };
 
   const getSize = () => {
