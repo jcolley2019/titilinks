@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Sparkles, PenLine, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PenSquare, Sparkles, Loader2, Rocket } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,12 +11,10 @@ export default function Setup() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [hasPage, setHasPage] = useState(false);
 
   useEffect(() => {
     async function checkUserPage() {
       if (!user) return;
-
       const { data, error } = await supabase
         .from('pages')
         .select('id')
@@ -25,14 +22,11 @@ export default function Setup() {
         .maybeSingle();
 
       if (!error && data) {
-        setHasPage(true);
         navigate('/dashboard/editor', { replace: true });
       } else {
-        setHasPage(false);
         setLoading(false);
       }
     }
-
     checkUserPage();
   }, [user, navigate]);
 
@@ -46,59 +40,90 @@ export default function Setup() {
     );
   }
 
+  const aiFeatures = ['AI-generated bios', 'Pre-built link blocks', 'Ready in 2 minutes'];
+  const manualFeatures = ['Full creative control', 'AI copywriting hints', 'Build at your own pace'];
+
   return (
     <DashboardLayout>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
+        transition={{ duration: 0.5 }}
+        className="flex flex-col items-center justify-center min-h-[60vh] px-4 py-10"
       >
-        <div className="rounded-full bg-primary/10 p-6 mb-6">
-          <Rocket className="h-12 w-12 text-primary" />
-        </div>
-        
-        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-3">
-          Welcome to <span className="gradient-text">TitiLINKS</span>
+        <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-10 text-center">
+          How would you like to set up your page?
         </h1>
-        <p className="text-muted-foreground text-lg max-w-md mb-10">
-          Let's create your personalized link page. How would you like to get started?
-        </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
-          <Card 
-            className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer group"
-            onClick={() => navigate('/dashboard/editor')}
-          >
-            <CardHeader className="pb-2">
-              <div className="rounded-full bg-secondary p-3 w-fit mx-auto mb-2 group-hover:bg-primary/10 transition-colors">
-                <PenSquare className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <CardTitle className="text-lg text-foreground">Set up manually</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-center">
-                Build your page step by step with full control over every detail
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer group"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+          {/* AI Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            whileHover={{ scale: 1.03 }}
+            className="glass-card relative border border-primary/60 rounded-xl p-6 flex flex-col cursor-pointer group"
             onClick={() => navigate('/dashboard/ai-setup')}
           >
-            <CardHeader className="pb-2">
-              <div className="rounded-full bg-secondary p-3 w-fit mx-auto mb-2 group-hover:bg-primary/10 transition-colors">
-                <Sparkles className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <CardTitle className="text-lg text-foreground">Build with AI</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-center">
-                Let AI create your page in seconds based on your preferences
-              </CardDescription>
-            </CardContent>
-          </Card>
+            {/* Recommended badge */}
+            <span className="absolute top-3 right-3 bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full">
+              Recommended
+            </span>
+
+            <div className="rounded-full bg-primary/15 p-3 w-fit mb-4">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+
+            <h2 className="text-xl font-bold text-foreground mb-1">Quick Start with AI</h2>
+            <p className="text-muted-foreground text-sm mb-5">
+              Answer a few questions and we'll build your page automatically — links, bios, and all.
+            </p>
+
+            <ul className="space-y-2 mb-6 flex-1">
+              {aiFeatures.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-foreground">
+                  <Check className="h-4 w-4 text-primary shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <Button className="w-full gradient-gold text-primary-foreground font-semibold rounded-lg">
+              Start with AI →
+            </Button>
+          </motion.div>
+
+          {/* Manual Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            whileHover={{ scale: 1.03 }}
+            className="glass-card border border-border rounded-xl p-6 flex flex-col cursor-pointer group"
+            onClick={() => navigate('/dashboard/setup')}
+          >
+            <div className="rounded-full bg-secondary p-3 w-fit mb-4">
+              <PenLine className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+
+            <h2 className="text-xl font-bold text-foreground mb-1">Build it Myself</h2>
+            <p className="text-muted-foreground text-sm mb-5">
+              Set up your profile and add your own links step by step. AI suggestions available too.
+            </p>
+
+            <ul className="space-y-2 mb-6 flex-1">
+              {manualFeatures.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-foreground">
+                  <Check className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <Button variant="outline" className="w-full rounded-lg font-semibold">
+              Manual Setup →
+            </Button>
+          </motion.div>
         </div>
       </motion.div>
     </DashboardLayout>
