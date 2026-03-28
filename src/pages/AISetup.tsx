@@ -43,7 +43,9 @@ import {
   RefreshCw,
   Settings,
   Users,
+  Info,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { buildDraftPlan, enhancePlanWithAIBios, type DraftPlan, type IntakeData } from '@/lib/draft-plan-builder';
@@ -78,9 +80,9 @@ const formSchema = z.object({
     .max(50, 'Display name must be 50 characters or less'),
   creator_type: z.enum(['streaming_tiktok', 'gamer', 'fitness', 'musician', 'affiliate_marketer', 'adult_creator']),
   tone: z.enum(['professional', 'friendly', 'bold', 'minimal', 'funny']),
-  personal_website_url: z.string().url({ message: 'Please enter a valid URL' }),
-  primary_offer_url: z.string().url({ message: 'Please enter a valid URL' }),
-  creator_program_url: z.string().url({ message: 'Please enter a valid URL' }),
+  personal_website_url: urlSchema.optional(),
+  primary_offer_url: urlSchema.optional(),
+  creator_program_url: urlSchema.optional(),
   social_tiktok: urlSchema.optional(),
   social_instagram: urlSchema.optional(),
   social_youtube: urlSchema.optional(),
@@ -162,9 +164,9 @@ export default function AISetup() {
     display_name: data.display_name,
     creator_type: data.creator_type,
     tone: data.tone,
-    personal_website_url: data.personal_website_url,
-    primary_offer_url: data.primary_offer_url,
-    creator_program_url: data.creator_program_url,
+    personal_website_url: data.personal_website_url || '',
+    primary_offer_url: data.primary_offer_url || '',
+    creator_program_url: data.creator_program_url || '',
     social_tiktok: data.social_tiktok || undefined,
     social_instagram: data.social_instagram || undefined,
     social_youtube: data.social_youtube || undefined,
@@ -383,29 +385,51 @@ export default function AISetup() {
               {step === 2 && (
                 <StepCard key="step2" icon={<Link2 className="h-5 w-5 text-primary" />} title="Core Links" description="Your most important links">
                   <div className="space-y-4">
-                    <FormField control={form.control} name="personal_website_url" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Personal Website URL *</FormLabel>
-                        <FormControl><Input type="url" placeholder="https://yoursite.com" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="primary_offer_url" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Primary Offer URL *</FormLabel>
-                        <FormControl><Input type="url" placeholder="https://shop.yoursite.com" {...field} /></FormControl>
-                        <FormDescription>Your main product or service</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="creator_program_url" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Creator Program URL *</FormLabel>
-                        <FormControl><Input type="url" placeholder="https://join.yoursite.com" {...field} /></FormControl>
-                        <FormDescription>Where people can join your team</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <div className="flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
+                      <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>You can skip fields you don't have yet — your page will still be created and you can add links later in the editor.</span>
+                    </div>
+                    <TooltipProvider>
+                      <FormField control={form.control} name="personal_website_url" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-1.5">
+                            Personal Website URL
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent><p>Your main site, blog, or landing page</p></TooltipContent>
+                            </Tooltip>
+                          </FormLabel>
+                          <FormControl><Input type="url" placeholder="https://yoursite.com" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="primary_offer_url" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-1.5">
+                            Primary Offer URL
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent><p>Your product, service, course, or affiliate link — the #1 thing you want people to click</p></TooltipContent>
+                            </Tooltip>
+                          </FormLabel>
+                          <FormControl><Input type="url" placeholder="https://shop.yoursite.com" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="creator_program_url" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-1.5">
+                            Creator Program URL
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent><p>Where people sign up to join your team, affiliate program, or referral system. Leave blank if you don't have one yet.</p></TooltipContent>
+                            </Tooltip>
+                          </FormLabel>
+                          <FormControl><Input type="url" placeholder="https://join.yoursite.com" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </TooltipProvider>
                     <div className="flex justify-between pt-4">
                       <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
                       <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>

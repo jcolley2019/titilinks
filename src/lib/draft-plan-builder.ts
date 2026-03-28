@@ -261,20 +261,8 @@ export function buildDraftPlan(intake: IntakeData): BuildResult {
   const shopMode = processMode('shop', template.shop_mode);
   const recruitMode = processMode('recruit', template.recruit_mode);
 
-  // Step 6: Ensure required keys exist
-  if (!hasShopPrimaryOffer) {
-    return {
-      success: false,
-      error: 'Missing required shop_primary_offer item. Please provide a primary offer URL.',
-    };
-  }
-
-  if (!hasRecruitPrimaryApply) {
-    return {
-      success: false,
-      error: 'Missing required recruit_primary_apply item. Please provide a creator program URL.',
-    };
-  }
+  // Step 6: If required keys are missing, ensure placeholder blocks exist (disabled)
+  // This allows pages to be created even without all URLs filled in
 
   // Build the complete draft plan with fallback bios
   // AI bios can be added later via enhancePlanWithAIBios()
@@ -369,17 +357,7 @@ export function validateIntakeData(intake: Partial<IntakeData>): string[] {
     errors.push('Tone is required');
   }
 
-  if (!intake.personal_website_url || intake.personal_website_url.trim() === '') {
-    errors.push('Personal website URL is required');
-  }
-
-  if (!intake.primary_offer_url || intake.primary_offer_url.trim() === '') {
-    errors.push('Primary offer URL is required');
-  }
-
-  if (!intake.creator_program_url || intake.creator_program_url.trim() === '') {
-    errors.push('Creator program URL is required');
-  }
+  // personal_website_url, primary_offer_url, creator_program_url are now optional
 
   return errors;
 }
