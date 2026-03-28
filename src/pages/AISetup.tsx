@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -44,6 +44,7 @@ import {
   Settings,
   Users,
   Info,
+  Edit2,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
@@ -130,6 +131,8 @@ export default function AISetup() {
   const [useAICopy, setUseAICopy] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [regeneratingBio, setRegeneratingBio] = useState(false);
+  const [changingTone, setChangingTone] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -599,7 +602,7 @@ export default function AISetup() {
 
               {/* Step 5: Preview */}
               {step === 5 && draftPlan && (
-                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review your page before creating">
+                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review and edit your page before creating">
                   <div className="space-y-6">
                     {/* Profile & Bios */}
                     <div className="p-4 bg-secondary/30 rounded-lg space-y-3">
@@ -622,6 +625,28 @@ export default function AISetup() {
                           <p className="text-foreground text-sm">{draftPlan.bio_long}</p>
                         </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={regeneratingBio}
+                        onClick={async () => {
+                          setRegeneratingBio(true);
+                          try {
+                            const updated = await enhancePlanWithAIBios(draftPlan);
+                            setDraftPlan(updated);
+                            toast.success('Bio regenerated!');
+                          } catch {
+                            toast.error('Failed to regenerate bio');
+                          } finally {
+                            setRegeneratingBio(false);
+                          }
+                        }}
+                        className="gap-2"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${regeneratingBio ? 'animate-spin' : ''}`} />
+                        {regeneratingBio ? 'Regenerating...' : 'Regenerate Bio Only'}
+                      </Button>
                       <div className="flex gap-2 flex-wrap text-xs">
                         <span className="px-2 py-1 bg-primary/10 text-primary rounded">
                           {creatorTypes.find(t => t.value === draftPlan.creator_type)?.label || draftPlan.creator_type}
@@ -632,6 +657,46 @@ export default function AISetup() {
                       </div>
                     </div>
 
+                    {/* Tone Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Choose a different tone</Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={draftPlan.tone}
+                          onValueChange={async (newTone) => {
+                            setChangingTone(true);
+                            try {
+                              const data = form.getValues();
+                              const intake = formDataToIntake({ ...data, tone: newTone as FormData['tone'] });
+                              const result = buildDraftPlan(intake);
+                              if (result.success) {
+                                let plan = result.plan;
+                                if (useAICopy) {
+                                  plan = await enhancePlanWithAIBios(plan);
+                                }
+                                setDraftPlan(plan);
+                                toast.success('Plan regenerated with new tone');
+                              }
+                            } catch {
+                              toast.error('Failed to change tone');
+                            } finally {
+                              setChangingTone(false);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {toneOptions.map((tone) => (
+                              <SelectItem key={tone.value} value={tone.value}>{tone.label} — {tone.description}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {changingTone && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                      </div>
+                    </div>
+
                     {/* Shop Mode Blocks */}
                     <div className="space-y-3">
                       <h3 className="font-medium text-foreground flex items-center gap-2">
@@ -639,7 +704,20 @@ export default function AISetup() {
                         Shop Mode ({draftPlan.shop_mode.blocks.filter(b => b.is_enabled).length} blocks)
                       </h3>
                       {draftPlan.shop_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
-                        <BlockPreview key={`shop-${i}`} block={block} />
+                        <BlockPreview
+                          key={`shop-${i}`}
+                          block={block}
+                          onUpdateItem={(itemKey, field, value) => {
+                            setDraftPlan(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev, shop_mode: { ...prev.shop_mode, blocks: prev.shop_mode.blocks.map(b => ({
+                                ...b,
+                                items: b.items.map(item => item.item_key === itemKey ? { ...item, [field]: value } : item),
+                              })) } };
+                              return updated;
+                            });
+                          }}
+                        />
                       ))}
                     </div>
 
@@ -650,7 +728,20 @@ export default function AISetup() {
                         Recruit Mode ({draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).length} blocks)
                       </h3>
                       {draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
-                        <BlockPreview key={`recruit-${i}`} block={block} />
+                        <BlockPreview
+                          key={`recruit-${i}`}
+                          block={block}
+                          onUpdateItem={(itemKey, field, value) => {
+                            setDraftPlan(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev, recruit_mode: { ...prev.recruit_mode, blocks: prev.recruit_mode.blocks.map(b => ({
+                                ...b,
+                                items: b.items.map(item => item.item_key === itemKey ? { ...item, [field]: value } : item),
+                              })) } };
+                              return updated;
+                            });
+                          }}
+                        />
                       ))}
                     </div>
 
@@ -681,19 +772,76 @@ export default function AISetup() {
   );
 }
 
-function BlockPreview({ block }: { block: { type: string; title: string; items: { item_key: string; label: string; url: string }[] } }) {
+function BlockPreview({ block, onUpdateItem }: { 
+  block: { type: string; title: string; items: { item_key: string; label: string; url: string }[] };
+  onUpdateItem?: (itemKey: string, field: 'label' | 'url', value: string) => void;
+}) {
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState<string | null>(null);
+  const [labelValue, setLabelValue] = useState('');
+  const [urlValue, setUrlValue] = useState('');
+
+  const commitLabel = (itemKey: string) => {
+    if (onUpdateItem && labelValue.trim()) onUpdateItem(itemKey, 'label', labelValue.trim());
+    setEditingLabel(null);
+  };
+  const commitUrl = (itemKey: string) => {
+    if (onUpdateItem && urlValue.trim()) onUpdateItem(itemKey, 'url', urlValue.trim());
+    setEditingUrl(null);
+  };
+
   return (
     <div className="p-3 border border-border rounded-lg">
       <div className="flex items-center justify-between mb-2">
         <span className="font-medium text-sm text-foreground">{block.title}</span>
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">{block.type}</span>
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {block.items.map((item) => (
-          <div key={item.item_key} className="flex items-center gap-2 text-sm">
-            <Check className="h-3 w-3 text-green-500" />
-            <span className="text-foreground truncate flex-1">{item.label}</span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          <div key={item.item_key} className="space-y-1">
+            <div className="flex items-center gap-2 text-sm group">
+              <Check className="h-3 w-3 text-primary flex-shrink-0" />
+              {editingLabel === item.item_key ? (
+                <Input
+                  autoFocus
+                  className="h-7 text-sm flex-1"
+                  value={labelValue}
+                  onChange={(e) => setLabelValue(e.target.value)}
+                  onBlur={() => commitLabel(item.item_key)}
+                  onKeyDown={(e) => e.key === 'Enter' && commitLabel(item.item_key)}
+                />
+              ) : (
+                <span
+                  className="text-foreground truncate flex-1 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => { setEditingLabel(item.item_key); setLabelValue(item.label); }}
+                >
+                  {item.label}
+                </span>
+              )}
+              {editingLabel !== item.item_key && (
+                <Edit2
+                  className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0"
+                  onClick={() => { setEditingLabel(item.item_key); setLabelValue(item.label); }}
+                />
+              )}
+              {editingUrl !== item.item_key && (
+                <ExternalLink
+                  className="h-3 w-3 text-muted-foreground flex-shrink-0 cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => { setEditingUrl(item.item_key); setUrlValue(item.url); }}
+                />
+              )}
+            </div>
+            {editingUrl === item.item_key && (
+              <Input
+                autoFocus
+                className="h-7 text-xs ml-5"
+                value={urlValue}
+                onChange={(e) => setUrlValue(e.target.value)}
+                onBlur={() => commitUrl(item.item_key)}
+                onKeyDown={(e) => e.key === 'Enter' && commitUrl(item.item_key)}
+                placeholder="https://..."
+              />
+            )}
           </div>
         ))}
       </div>
