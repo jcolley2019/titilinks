@@ -17,7 +17,16 @@ import { Footer } from '@/components/landing/Footer';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground">
+      {/* Animated gold shimmer background */}
+      <div className="landing-shimmer-bg">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+      </div>
+      {/* Noise texture overlay */}
+      <div className="fixed inset-0 z-[1] pointer-events-none noise-overlay" />
+      <div className="relative z-[2]">
       <Navbar />
       <HeroSection />
       <ProblemSection />
@@ -34,6 +43,7 @@ const Index = () => {
       <FAQSection />
       <CTASection />
       <Footer />
+      </div>
     </div>
   );
 };
