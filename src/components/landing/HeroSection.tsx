@@ -30,9 +30,9 @@ function PhoneMockup() {
       </motion.div>
 
       {/* Phone frame — light warm style */}
-      <div className="relative mx-auto w-72 h-[540px] rounded-[3rem] border-2 border-foreground/80 shadow-2xl overflow-hidden glow-gold glass-card">
+      <div className="relative mx-auto w-72 h-[540px] rounded-[3rem] border-2 border-[#2a2a2a] shadow-2xl overflow-hidden glow-gold bg-[#1a1a1a]">
         {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-foreground rounded-b-2xl z-20" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
 
         {/* Screen content */}
         <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden">
