@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Users, Zap, Instagram, Youtube, Globe } from 'lucide-react';
+import { Sparkles, Users, Zap, Instagram, Youtube, Globe, ShieldCheck, CreditCard } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
 
@@ -183,12 +183,12 @@ export function HeroSection() {
               className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
             >
               <span className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                {t('hero.stat1')}
+                <CreditCard className="h-4 w-4 text-primary" />
+                No credit card required
               </span>
               <span className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" />
-                {t('hero.stat2')}
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Free forever to start
               </span>
             </motion.div>
           </div>
