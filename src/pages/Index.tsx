@@ -43,6 +43,7 @@ const Index = () => {
       <FAQSection />
       <CTASection />
       <Footer />
+      </div>
     </div>
   );
 };
