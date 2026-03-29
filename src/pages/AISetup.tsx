@@ -133,6 +133,8 @@ export default function AISetup() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [regeneratingBio, setRegeneratingBio] = useState(false);
   const [changingTone, setChangingTone] = useState(false);
+  const [bioVariations, setBioVariations] = useState<Array<{ bio_short: string; bio_long: string; tone: string }>>([]);
+  const [selectedBioIndex, setSelectedBioIndex] = useState(0);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
