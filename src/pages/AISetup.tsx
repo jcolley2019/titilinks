@@ -277,6 +277,8 @@ export default function AISetup() {
       }
 
       setDraftPlan(plan);
+      setBioVariations([{ bio_short: plan.bio_short, bio_long: plan.bio_long, tone: plan.tone }]);
+      setSelectedBioIndex(0);
       setStep(5);
     } catch (error) {
       console.error('Error generating preview:', error);
