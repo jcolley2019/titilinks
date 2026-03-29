@@ -98,12 +98,7 @@ export function PricingSection() {
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium shadow-lg">
-                  {t('pricing.popular')}
-                </div>
-              )}
-              {plan.comingSoon && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full glass text-muted-foreground text-sm font-medium">
-                  {t('pricing.comingSoon')}
+                  Most Popular
                 </div>
               )}
 
