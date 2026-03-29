@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,7 +12,10 @@ import {
   Image as ImageIcon,
   Share2,
   ShieldAlert,
+  ArrowUp,
+  Check,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
@@ -84,6 +87,14 @@ export default function PublicProfile() {
   const [blocks, setBlocks] = useState<BlockWithItems[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [stickyCtaEnabled, setStickyCtaEnabled] = useState(false);
+
+  // Scroll-to-top visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Adult content interstitial state
   const [pendingAdultLink, setPendingAdultLink] = useState<{
@@ -491,16 +502,44 @@ export default function PublicProfile() {
     );
   };
 
+  // Share handler
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = page.display_name || `@${page.handle}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl });
+      } catch {
+        // User cancelled share — no-op
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link copied!');
+    }
+  };
+
   return (
     <PageBackground theme={theme}>
       {/* Content Layer */}
       <div
-        className="max-w-[640px] mx-auto px-4 py-8 pb-20"
+        className="relative max-w-[640px] mx-auto px-4 py-8 pb-20"
         style={{
           fontFamily: getFontFamily(),
           color: theme.typography.text_color,
         }}
       >
+        {/* Share button — top-right of profile */}
+        <button
+          onClick={handleShare}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full backdrop-blur-md transition-transform active:scale-90"
+          style={{
+            backgroundColor: `${theme.buttons.fill_color}20`,
+            color: theme.typography.text_color,
+          }}
+          aria-label="Share this page"
+        >
+          <Share2 size={18} />
+        </button>
         {/* Header */}
         {renderHeader()}
 
@@ -560,6 +599,27 @@ export default function PublicProfile() {
         onConfirm={handleAdultConfirm}
         onCancel={handleAdultCancel}
       />
+
+      {/* Scroll-to-top button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-20 right-4 z-40 flex items-center gap-1 rounded-full px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md transition-transform active:scale-90"
+            style={{
+              backgroundColor: theme.buttons.fill_color,
+              color: theme.buttons.text_color,
+            }}
+            aria-label="Scroll to top"
+          >
+            <ArrowUp size={14} />
+            Top
+          </motion.button>
+        )}
+      </AnimatePresence>
     </PageBackground>
   );
 }
