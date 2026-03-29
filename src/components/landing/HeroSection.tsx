@@ -13,7 +13,7 @@ function PhoneMockup() {
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1.2, duration: 0.4 }}
-        className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl glass-card shadow-lg"
+        className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
       >
         <span className="text-sm font-medium text-primary">+127 clicks today</span>
       </motion.div>
