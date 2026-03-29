@@ -494,16 +494,52 @@ export default function PublicProfile() {
     );
   };
 
+  // Share handler
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = page.display_name || `@${page.handle}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl });
+      } catch {
+        // User cancelled share — no-op
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link copied!');
+    }
+  };
+
+  // Scroll-to-top visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
     <PageBackground theme={theme}>
       {/* Content Layer */}
       <div
-        className="max-w-[640px] mx-auto px-4 py-8 pb-20"
+        className="relative max-w-[640px] mx-auto px-4 py-8 pb-20"
         style={{
           fontFamily: getFontFamily(),
           color: theme.typography.text_color,
         }}
       >
+        {/* Share button — top-right of profile */}
+        <button
+          onClick={handleShare}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full backdrop-blur-md transition-transform active:scale-90"
+          style={{
+            backgroundColor: `${theme.buttons.fill_color}20`,
+            color: theme.typography.text_color,
+          }}
+          aria-label="Share this page"
+        >
+          <Share2 size={18} />
+        </button>
         {/* Header */}
         {renderHeader()}
 
