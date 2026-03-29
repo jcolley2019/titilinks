@@ -74,7 +74,7 @@ export function PricingSection() {
               <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-background transition-transform ${isAnnual ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
             <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-              {t('pricing.annual')}
+              Annual
             </span>
             {isAnnual && (
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full gradient-gold text-primary-foreground">
