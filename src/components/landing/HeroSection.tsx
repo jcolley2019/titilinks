@@ -13,7 +13,7 @@ function PhoneMockup() {
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1.2, duration: 0.4 }}
-        className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl glass-card shadow-lg"
+        className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
       >
         <span className="text-sm font-medium text-primary">+127 clicks today</span>
       </motion.div>
@@ -23,7 +23,7 @@ function PhoneMockup() {
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1.4, duration: 0.4 }}
-        className="absolute -bottom-3 -left-8 z-30 px-3 py-1.5 rounded-full bg-white shadow-lg shadow-black/10 flex items-center gap-1.5"
+        className="absolute -bottom-3 -left-8 z-30 px-3 py-1.5 rounded-full bg-white shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50 flex items-center gap-1.5"
       >
         <span className="text-xs">⚡</span>
         <span className="text-[10px] font-bold text-primary">Setup in 2 min</span>
@@ -35,8 +35,8 @@ function PhoneMockup() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
 
         {/* Screen content */}
-        <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden">
-          <div className="w-full h-56 relative overflow-hidden flex-shrink-0">
+        <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden bg-amber-200">
+          <div className="w-full h-56 relative overflow-hidden flex-shrink-0 -mb-px">
             <img
               src={mockupCreatorPhoto}
               alt="Creator profile"
@@ -44,7 +44,7 @@ function PhoneMockup() {
             />
           </div>
 
-          <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col">
+          <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col -mt-px">
             <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-amber-200" />
 
             <div className="flex flex-col items-center pt-2 pb-1">
