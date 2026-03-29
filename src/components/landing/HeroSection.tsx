@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Users, Zap, ShoppingBag, ExternalLink } from 'lucide-react';
+import { Sparkles, Users, Zap, Instagram, Youtube, Globe } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
 
 function SocialIcon({ platform }: { platform: string }) {
   const s = { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg' } as const;
