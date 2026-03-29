@@ -180,7 +180,7 @@ export function HeroSection() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex items-center justify-center lg:justify-start gap-6 text-sm text-muted-foreground"
+              className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
             >
               <span className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
