@@ -518,14 +518,6 @@ export default function PublicProfile() {
     }
   };
 
-  // Scroll-to-top visibility
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 300);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
   return (
     <PageBackground theme={theme}>
       {/* Content Layer */}
