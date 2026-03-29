@@ -18,6 +18,16 @@ function PhoneMockup() {
         <span className="text-sm font-medium text-primary">+127 clicks today</span>
       </motion.div>
 
+      {/* Floating badge: setup time */}
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 1.5, duration: 0.4 }}
+        className="absolute -bottom-4 -left-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
+      >
+        <span className="text-sm font-medium text-primary">⚡ Setup in 2 min</span>
+      </motion.div>
+
       {/* Phone frame — dark iPhone style */}
       <div className="relative mx-auto w-72 h-[540px] rounded-[2.5rem] border-2 border-[#2a2a2a] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)] overflow-hidden bg-[#1a1a1a]">
         {/* Notch */}
