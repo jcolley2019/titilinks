@@ -95,7 +95,7 @@ export function HeroSection() {
       <div className="container relative z-10 max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
           {/* Left — Copy */}
-          <div className="flex-1 text-center lg:text-left">
+          <div className="flex-1 text-center lg:text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -121,7 +121,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg sm:text-xl italic text-foreground/70 font-medium max-w-2xl mx-auto lg:mx-0 mb-4"
+              className="text-lg sm:text-xl italic text-foreground/70 font-medium max-w-2xl mx-auto mb-4"
             >
               {t('hero.subtitle')}
             </motion.p>
@@ -130,7 +130,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              className="text-base text-foreground/60 font-medium max-w-xl mx-auto lg:mx-0 mb-10"
+              className="text-base text-foreground/60 font-medium max-w-xl mx-auto mb-10"
             >
               {t('hero.description')}
             </motion.p>
@@ -139,7 +139,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col gap-3 justify-center items-center lg:items-center mb-8 max-w-md mx-auto px-2 lg:px-0"
+              className="flex flex-col gap-3 justify-center items-center lg:items-center mb-8 max-w-lg mx-auto lg:mx-auto px-2 lg:px-0 w-full"
             >
               {/* Desktop: inline pill */}
               <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
@@ -180,7 +180,7 @@ export function HeroSection() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex items-center justify-center lg:justify-start gap-6 text-sm text-muted-foreground"
+              className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
             >
               <span className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary" />
