@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText, Sparkles } from 'lucide-react';
 import { LivePreviewPanel } from '@/components/LivePreviewPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import { BlockList } from '@/components/BlockList';
 import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { DesignEditor } from '@/components/editors/DesignEditor';
+import { SuggestLinksDialog } from '@/components/editors/SuggestLinksDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -45,6 +46,7 @@ export default function Editor() {
   const [page1Label, setPage1Label] = useState('');
   const [page2Label, setPage2Label] = useState('');
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+  const [suggestLinksOpen, setSuggestLinksOpen] = useState(false);
 
   const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
@@ -319,11 +321,22 @@ export default function Editor() {
 
           {/* Blocks */}
           <Card className="bg-card border-border">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
                 {selectedMode === 'shop' ? displayPage1Label : displayPage2Label} Blocks
               </CardTitle>
+              {currentMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-primary"
+                  onClick={() => setSuggestLinksOpen(true)}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Suggest Links
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {currentMode ? (
@@ -455,6 +468,16 @@ export default function Editor() {
         onOpenChange={handleEditorClose}
         onSave={refreshPreview}
       />
+
+      {/* Suggest Links Dialog */}
+      {currentMode && (
+        <SuggestLinksDialog
+          open={suggestLinksOpen}
+          onOpenChange={setSuggestLinksOpen}
+          modeId={currentMode.id}
+          onLinksAdded={refreshPreview}
+        />
+      )}
     </DashboardLayout>
   );
 }
