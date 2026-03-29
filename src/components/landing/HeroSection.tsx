@@ -6,6 +6,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
 
 function PhoneMockup() {
+  const { t } = useLanguage();
   return (
     <div className="relative">
       {/* Floating badge: clicks */}
