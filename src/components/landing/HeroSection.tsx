@@ -139,7 +139,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col gap-3 justify-center lg:justify-start items-center lg:items-start mb-8 w-full lg:max-w-none px-2 lg:px-0"
+              className="flex flex-col gap-3 justify-center lg:justify-start items-center lg:items-start mb-8 max-w-2xl mx-auto lg:mx-0 px-2 lg:px-0"
             >
               {/* Desktop: inline pill */}
               <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
