@@ -23,7 +23,7 @@ function PhoneMockup() {
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1.4, duration: 0.4 }}
-        className="absolute -bottom-3 -left-8 z-30 px-3 py-1.5 rounded-full bg-white shadow-lg shadow-black/10 flex items-center gap-1.5"
+        className="absolute -bottom-3 -left-8 z-30 px-3 py-1.5 rounded-full bg-white shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50 flex items-center gap-1.5"
       >
         <span className="text-xs">⚡</span>
         <span className="text-[10px] font-bold text-primary">Setup in 2 min</span>
