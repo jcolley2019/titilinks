@@ -56,10 +56,10 @@ export function PricingSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            {t('pricing.title')} <span className="italic gradient-text">{t('pricing.title2')}</span> {t('pricing.title3')}
+            Simple, <span className="italic gradient-text">transparent</span> pricing
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-            {t('pricing.subtitle')}
+            Start free, upgrade when you're ready. No hidden fees, cancel anytime.
           </p>
 
           {/* Billing Toggle */}
