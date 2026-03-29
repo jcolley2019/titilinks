@@ -18,72 +18,49 @@ function PhoneMockup() {
         <span className="text-sm font-medium text-primary">+127 clicks today</span>
       </motion.div>
 
-      {/* Floating badge: setup time */}
-      <motion.div
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1.4, duration: 0.4 }}
-        className="absolute -bottom-3 -left-8 z-30 px-3 py-1.5 rounded-full bg-white shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50 flex items-center gap-1.5"
-      >
-        <span className="text-xs">⚡</span>
-        <span className="text-[10px] font-bold text-primary">Setup in 2 min</span>
-      </motion.div>
-
-      {/* Phone frame — light warm style */}
-      <div className="relative mx-auto w-72 h-[540px] rounded-[3rem] border-2 border-[#2a2a2a] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)] overflow-hidden bg-[#1a1a1a]">
+      {/* Phone frame — dark iPhone style */}
+      <div className="relative mx-auto w-72 h-[540px] rounded-[2.5rem] border-2 border-[#2a2a2a] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)] overflow-hidden bg-[#1a1a1a]">
         {/* Notch */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
 
-        {/* Screen content */}
-        <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden bg-amber-200">
-          <div className="w-full h-56 relative overflow-hidden flex-shrink-0 -mb-px">
+        {/* Screen content — dark theme */}
+        <div className="absolute inset-3 top-7 rounded-[2rem] flex flex-col overflow-hidden bg-[#0f0f0f]">
+          <div className="w-full h-48 relative overflow-hidden flex-shrink-0 -mb-px">
             <img
               src={mockupCreatorPhoto}
               alt="Creator profile"
               className="w-full h-full object-cover object-top"
             />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0f0f0f]" />
           </div>
 
-          <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col -mt-px">
-            <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-amber-200" />
-
-            <div className="flex flex-col items-center pt-2 pb-1">
-              <h3 className="font-bold text-gray-800 text-sm">TheCreator 🌺</h3>
-              <p className="text-[10px] text-gray-600 text-center">Welcome to my world ✨</p>
+          <div className="relative flex-1 flex flex-col -mt-px px-3 pb-2">
+            <div className="flex flex-col items-center pt-1 pb-2">
+              <h3 className="font-bold text-white text-sm">TheCreator 🌺</h3>
+              <p className="text-[10px] text-white/50 text-center">Content Creator & Entrepreneur ✨</p>
             </div>
 
-            <div className="flex-1 flex flex-col justify-end px-2 pb-1 space-y-1.5">
-              <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                  </svg>
+            <div className="flex-1 flex flex-col justify-end space-y-1.5">
+              {['Shop My Favorites', 'Join My Team', 'Free Starter Guide'].map((label) => (
+                <div
+                  key={label}
+                  className="w-full h-9 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: '#C9A55C' }}
+                >
+                  <span className="text-[#0f0f0f] text-xs font-semibold">{label}</span>
                 </div>
-                <span className="text-gray-700 text-xs font-medium flex-1 text-center">TikTok</span>
-              </div>
-              <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
-                  <Instagram className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-gray-700 text-xs font-medium flex-1 text-center">Instagram</span>
-              </div>
-              <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
-                  <Youtube className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-gray-700 text-xs font-medium flex-1 text-center">YouTube</span>
-              </div>
-              <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                  <Globe className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-gray-700 text-xs font-medium flex-1 text-center">Green World</span>
+              ))}
+
+              <div className="flex items-center justify-center gap-3 pt-1.5">
+                <Instagram className="w-3.5 h-3.5 text-white/40" />
+                <Youtube className="w-3.5 h-3.5 text-white/40" />
+                <Globe className="w-3.5 h-3.5 text-white/40" />
               </div>
 
-              <div className="text-center py-1">
-                <p className="text-[9px] text-gray-600">
-                  <span className="text-gray-700">Titi</span>
-                  <span className="italic text-amber-700">Links</span>
+              <div className="text-center pt-0.5 pb-1">
+                <p className="text-[9px] text-white/30">
+                  <span className="text-white/50">Titi</span>
+                  <span className="italic" style={{ color: '#C9A55C' }}>Links</span>
                 </p>
               </div>
             </div>
@@ -98,7 +75,7 @@ export function HeroSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 px-4 mesh-gradient-hero noise-overlay">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-10 px-4 mesh-gradient-hero noise-overlay">
       {/* Ambient glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary/8 rounded-full blur-[120px]" />
       <div className="absolute top-2/3 left-1/4 w-[400px] h-[300px] bg-accent/6 rounded-full blur-[100px]" />
