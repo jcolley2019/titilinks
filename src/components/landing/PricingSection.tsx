@@ -65,7 +65,7 @@ export function PricingSection() {
           {/* Billing Toggle */}
           <div className="flex items-center justify-center gap-4">
             <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-              {t('pricing.monthly')}
+              Monthly
             </span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
