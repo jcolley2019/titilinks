@@ -126,9 +126,8 @@ export function HeroSection() {
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 text-foreground"
             >
               {t('hero.title1')}{' '}
-              <span className="italic gradient-text">{t('hero.title2')}</span>
               <br />
-              <span className="italic gradient-text">{t('hero.title3')}</span>
+              <span className="italic gradient-text">{t('hero.title2')} {t('hero.title3')}</span>
             </motion.h1>
 
             <motion.p
