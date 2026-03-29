@@ -620,7 +620,6 @@ export default function PublicProfile() {
           </motion.button>
         )}
       </AnimatePresence>
-      />
     </PageBackground>
   );
 }
