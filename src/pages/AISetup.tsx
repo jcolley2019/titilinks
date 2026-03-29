@@ -748,45 +748,8 @@ export default function AISetup() {
                       </div>
                     </div>
 
-                    {/* Tone Selector */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Choose a different tone</Label>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={draftPlan.tone}
-                          onValueChange={async (newTone) => {
-                            setChangingTone(true);
-                            try {
-                              const data = form.getValues();
-                              const intake = formDataToIntake({ ...data, tone: newTone as FormData['tone'] });
-                              const result = buildDraftPlan(intake);
-                              if (result.success) {
-                                let plan = result.plan;
-                                if (useAICopy) {
-                                  plan = await enhancePlanWithAIBios(plan);
-                                }
-                                setDraftPlan(plan);
-                                toast.success('Plan regenerated with new tone');
-                              }
-                            } catch {
-                              toast.error('Failed to change tone');
-                            } finally {
-                              setChangingTone(false);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {toneOptions.map((tone) => (
-                              <SelectItem key={tone.value} value={tone.value}>{tone.label} — {tone.description}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {changingTone && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                      </div>
-                    </div>
+
+
 
                     {/* Shop Mode Blocks */}
                     <div className="space-y-3">
