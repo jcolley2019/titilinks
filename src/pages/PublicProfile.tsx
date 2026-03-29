@@ -88,6 +88,14 @@ export default function PublicProfile() {
   const [notFound, setNotFound] = useState(false);
   const [stickyCtaEnabled, setStickyCtaEnabled] = useState(false);
 
+  // Scroll-to-top visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // Adult content interstitial state
   const [pendingAdultLink, setPendingAdultLink] = useState<{
     url: string;
