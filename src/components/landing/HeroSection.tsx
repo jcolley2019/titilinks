@@ -28,55 +28,90 @@ function PhoneMockup() {
         <span className="text-sm font-medium text-primary">⚡ Setup in 2 min</span>
       </motion.div>
 
-      {/* Phone frame — dark iPhone style */}
-      <div className="relative mx-auto w-72 h-[540px] rounded-[2.5rem] border-2 border-[#2a2a2a] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)] overflow-hidden bg-[#1a1a1a]">
-        {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
+      {/* iPhone 17 Pro Max Frame */}
+      <div 
+        className="relative mx-auto bg-[#1a1a1a] rounded-[3rem] p-[3px] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)]"
+        style={{
+          width: '290px',
+          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(255,255,255,0.08), 0 0 40px -8px hsl(43 65% 55% / 0.4), 0 0 80px -15px hsl(43 65% 55% / 0.2)',
+        }}
+      >
+        {/* Side Buttons — Left (Silent, Volume) */}
+        <div className="absolute left-[-2.5px] top-[100px] w-[2.5px] h-[24px] bg-[#2a2a2a] rounded-l-sm" />
+        <div className="absolute left-[-2.5px] top-[135px] w-[2.5px] h-[42px] bg-[#2a2a2a] rounded-l-sm" />
+        <div className="absolute left-[-2.5px] top-[185px] w-[2.5px] h-[42px] bg-[#2a2a2a] rounded-l-sm" />
+        {/* Side Button — Right (Power) */}
+        <div className="absolute right-[-2.5px] top-[155px] w-[2.5px] h-[65px] bg-[#2a2a2a] rounded-r-sm" />
 
-        {/* Screen content — dark theme */}
-        <div className="absolute inset-3 top-7 rounded-[2rem] flex flex-col overflow-hidden bg-[#0f0f0f]">
-          <div className="w-full h-48 relative overflow-hidden flex-shrink-0 -mb-px">
-            <img
-              src={mockupCreatorPhoto}
-              alt="Creator profile"
-              className="w-full h-full object-cover object-top"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0f0f0f]" />
+        {/* Inner Screen */}
+        <div 
+          className="relative bg-black rounded-[2.75rem] overflow-hidden"
+          style={{ height: '580px' }}
+        >
+          {/* Dynamic Island */}
+          <div className="absolute top-[10px] left-1/2 -translate-x-1/2 z-20">
+            <div 
+              className="bg-black rounded-full flex items-center justify-center"
+              style={{ width: '110px', height: '32px' }}
+            >
+              <div className="w-[10px] h-[10px] rounded-full bg-[#1a1a2e] ml-7 ring-1 ring-[#2a2a3a]" />
+            </div>
           </div>
 
-          <div className="relative flex-1 flex flex-col -mt-px px-3 pb-2">
-            <div className="flex flex-col items-center pt-1 pb-2">
-              <h3 className="font-bold text-white text-sm">TheCreator 🌺</h3>
-              <p className="text-[10px] text-white/50 text-center">Content Creator & Entrepreneur ✨</p>
+          {/* Screen Content */}
+          <div className="h-full w-full overflow-hidden pt-[44px]">
+            <div className="w-full h-44 relative overflow-hidden flex-shrink-0">
+              <img
+                src={mockupCreatorPhoto}
+                alt="Creator profile"
+                className="w-full h-full object-cover object-top"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0f0f0f]" />
             </div>
 
-            <div className="flex-1 flex flex-col justify-end space-y-1.5">
-              {['Shop My Favorites', 'Join My Team', 'Free Starter Guide'].map((label) => (
-                <div
-                  key={label}
-                  className="w-full h-9 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: '#C9A55C' }}
-                >
-                  <span className="text-[#0f0f0f] text-xs font-semibold">{label}</span>
+            <div className="relative flex-1 flex flex-col px-3 pb-2">
+              <div className="flex flex-col items-center pt-1 pb-2">
+                <h3 className="font-bold text-white text-sm">TheCreator 🌺</h3>
+                <p className="text-[10px] text-white/50 text-center">Content Creator & Entrepreneur ✨</p>
+              </div>
+
+              <div className="flex-1 flex flex-col justify-end space-y-1.5">
+                {['Shop My Favorites', 'Join My Team', 'Free Starter Guide'].map((label) => (
+                  <div
+                    key={label}
+                    className="w-full h-9 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: '#C9A55C' }}
+                  >
+                    <span className="text-[#0f0f0f] text-xs font-semibold">{label}</span>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-center gap-3 pt-1.5">
+                  <Instagram className="w-3.5 h-3.5 text-white/40" />
+                  <Youtube className="w-3.5 h-3.5 text-white/40" />
+                  <Globe className="w-3.5 h-3.5 text-white/40" />
                 </div>
-              ))}
 
-              <div className="flex items-center justify-center gap-3 pt-1.5">
-                <Instagram className="w-3.5 h-3.5 text-white/40" />
-                <Youtube className="w-3.5 h-3.5 text-white/40" />
-                <Globe className="w-3.5 h-3.5 text-white/40" />
-              </div>
-
-              <div className="text-center pt-0.5 pb-1">
-                <p className="text-[9px] text-white/30">
-                  <span className="text-white/50">Titi</span>
-                  <span className="italic" style={{ color: '#C9A55C' }}>Links</span>
-                </p>
+                <div className="text-center pt-0.5 pb-1">
+                  <p className="text-[9px] text-white/30">
+                    <span className="text-white/50">Titi</span>
+                    <span className="italic" style={{ color: '#C9A55C' }}>Links</span>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Home Indicator */}
+          <div className="absolute bottom-[6px] left-1/2 -translate-x-1/2 w-[100px] h-[4px] bg-white/25 rounded-full z-20" />
         </div>
       </div>
+
+      {/* Reflection overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-[3rem]"
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%)' }}
+      />
     </div>
   );
 }
