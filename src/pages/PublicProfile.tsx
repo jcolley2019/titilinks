@@ -599,6 +599,28 @@ export default function PublicProfile() {
         onConfirm={handleAdultConfirm}
         onCancel={handleAdultCancel}
       />
+
+      {/* Scroll-to-top button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-20 right-4 z-40 flex items-center gap-1 rounded-full px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md transition-transform active:scale-90"
+            style={{
+              backgroundColor: theme.buttons.fill_color,
+              color: theme.buttons.text_color,
+            }}
+            aria-label="Scroll to top"
+          >
+            <ArrowUp size={14} />
+            Top
+          </motion.button>
+        )}
+      </AnimatePresence>
+      />
     </PageBackground>
   );
 }
