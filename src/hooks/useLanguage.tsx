@@ -35,6 +35,15 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.handlePlaceholder': 'yourname',
     'hero.stat1': 'Setup in 2 min',
     'hero.stat2': 'Built for Creators',
+    'hero.mockup.name': 'TheCreator 🌺',
+    'hero.mockup.bio': 'Content Creator & Entrepreneur ✨',
+    'hero.mockup.btn1': 'Shop My Favorites',
+    'hero.mockup.btn2': 'Join My Team',
+    'hero.mockup.btn3': 'Free Starter Guide',
+    'hero.mockup.clicks': '+127 clicks today',
+    'hero.mockup.setup': '⚡ Setup in 2 min',
+    'hero.noCreditCard': 'No credit card required',
+    'hero.freeForever': 'Free forever to start',
     
     // Problem Section
     'problem.title': 'Sound',
@@ -193,6 +202,15 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.handlePlaceholder': 'tunombre',
     'hero.stat1': 'Configura en 2 min',
     'hero.stat2': 'Hecho para Creadores',
+    'hero.mockup.name': 'LaCreadora 🌺',
+    'hero.mockup.bio': 'Creadora de Contenido & Emprendedora ✨',
+    'hero.mockup.btn1': 'Compra Mis Favoritos',
+    'hero.mockup.btn2': 'Únete a Mi Equipo',
+    'hero.mockup.btn3': 'Guía Gratis para Empezar',
+    'hero.mockup.clicks': '+127 clics hoy',
+    'hero.mockup.setup': '⚡ Configura en 2 min',
+    'hero.noCreditCard': 'Sin tarjeta de crédito',
+    'hero.freeForever': 'Gratis para siempre',
     
     // Problem Section
     'problem.title': '¿Te suena',

@@ -6,6 +6,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
 
 function PhoneMockup() {
+  const { t } = useLanguage();
   return (
     <div className="relative">
       {/* Floating badge: clicks */}
@@ -15,7 +16,7 @@ function PhoneMockup() {
         transition={{ delay: 1.2, duration: 0.4 }}
         className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
       >
-        <span className="text-sm font-medium text-primary">+127 clicks today</span>
+        <span className="text-sm font-medium text-primary">{t('hero.mockup.clicks')}</span>
       </motion.div>
 
       {/* Floating badge: setup time */}
@@ -25,7 +26,7 @@ function PhoneMockup() {
         transition={{ delay: 1.5, duration: 0.4 }}
         className="absolute -bottom-4 -left-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
       >
-        <span className="text-sm font-medium text-primary">⚡ Setup in 2 min</span>
+        <span className="text-sm font-medium text-primary">{t('hero.mockup.setup')}</span>
       </motion.div>
 
       {/* iPhone 17 Pro Max Frame */}
@@ -71,12 +72,12 @@ function PhoneMockup() {
 
             <div className="relative flex-1 flex flex-col px-3 pb-2">
               <div className="flex flex-col items-center pt-1 pb-2">
-                <h3 className="font-bold text-white text-sm">TheCreator 🌺</h3>
-                <p className="text-[10px] text-white/50 text-center">Content Creator & Entrepreneur ✨</p>
+              <h3 className="font-bold text-white text-sm">{t('hero.mockup.name')}</h3>
+              <p className="text-[10px] text-white/50 text-center">{t('hero.mockup.bio')}</p>
               </div>
 
               <div className="flex-1 flex flex-col justify-end space-y-1.5">
-                {['Shop My Favorites', 'Join My Team', 'Free Starter Guide'].map((label) => (
+              {[t('hero.mockup.btn1'), t('hero.mockup.btn2'), t('hero.mockup.btn3')].map((label) => (
                   <div
                     key={label}
                     className="w-full h-9 rounded-full flex items-center justify-center"
@@ -219,11 +220,11 @@ export function HeroSection() {
             >
               <span className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" />
-                No credit card required
+                {t('hero.noCreditCard')}
               </span>
               <span className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Free forever to start
+                {t('hero.freeForever')}
               </span>
             </motion.div>
           </div>
