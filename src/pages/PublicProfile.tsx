@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -518,8 +519,25 @@ export default function PublicProfile() {
     }
   };
 
+  const profileUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const ogTitle = page ? `${page.display_name || page.handle} | TitiLINKS` : 'TitiLINKS';
+  const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLINKS.';
+  const ogImage = page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg';
+
   return (
     <PageBackground theme={theme}>
+      <Helmet>
+        <title>{ogTitle}</title>
+        <meta property="og:title" content={ogTitle} />
+        <meta property="og:description" content={ogDescription} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:url" content={profileUrl} />
+        <meta property="og:type" content="profile" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={ogTitle} />
+        <meta name="twitter:description" content={ogDescription} />
+        <meta name="twitter:image" content={ogImage} />
+      </Helmet>
       {/* Content Layer */}
       <div
         className="relative max-w-[640px] mx-auto px-4 py-8 pb-20"
