@@ -44,7 +44,9 @@ export default function Editor() {
   const [editorTab, setEditorTab] = useState<'content' | 'design'>('content');
   const [page1Label, setPage1Label] = useState('');
   const [page2Label, setPage2Label] = useState('');
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
+  const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
   const mainLink = page ? `${baseUrl}/${page.handle}` : '';
@@ -89,6 +91,7 @@ export default function Editor() {
 
       setPage({ ...page, theme_json: updatedTheme as Json });
       toast.success('Page label updated');
+      refreshPreview();
     } catch (error) {
       console.error('Error updating page label:', error);
       toast.error('Failed to update label');
@@ -302,6 +305,7 @@ export default function Editor() {
                             : m
                         ));
                         toast.success(checked ? 'Sticky CTA enabled' : 'Sticky CTA disabled');
+                        refreshPreview();
                       } catch (error) {
                         console.error('Error updating sticky CTA:', error);
                         toast.error('Failed to update setting');
@@ -429,7 +433,7 @@ export default function Editor() {
               <DesignEditor
                 pageId={page.id}
                 themeJson={page.theme_json}
-                onUpdate={fetchPageData}
+                onUpdate={() => { fetchPageData(); refreshPreview(); }}
                 displayName={page.display_name || undefined}
                 bio={page.bio || undefined}
                 avatarUrl={page.avatar_url || undefined}
@@ -440,7 +444,7 @@ export default function Editor() {
 
         {/* Right: Live Preview (desktop only) */}
         <div className="hidden lg:block sticky top-24 self-start flex-shrink-0">
-          <LivePreviewPanel handle={page.handle} />
+          <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
         </div>
       </div>
 
@@ -449,6 +453,7 @@ export default function Editor() {
         blockId={editingBlockId}
         open={editorOpen}
         onOpenChange={handleEditorClose}
+        onSave={refreshPreview}
       />
     </DashboardLayout>
   );

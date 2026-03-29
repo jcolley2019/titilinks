@@ -6,17 +6,19 @@ import { cn } from '@/lib/utils';
 interface LivePreviewPanelProps {
   handle: string;
   className?: string;
+  externalRefreshKey?: number;
 }
 
-export function LivePreviewPanel({ handle, className }: LivePreviewPanelProps) {
-  const [refreshKey, setRefreshKey] = useState(0);
+export function LivePreviewPanel({ handle, className, externalRefreshKey = 0 }: LivePreviewPanelProps) {
+  const [internalKey, setInternalKey] = useState(0);
+  const refreshKey = internalKey + externalRefreshKey;
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const profileUrl = `${window.location.protocol}//${window.location.host}/${handle}`;
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    setRefreshKey((k) => k + 1);
+    setInternalKey((k) => k + 1);
     setTimeout(() => setIsRefreshing(false), 1000);
   }, []);
 
