@@ -18,7 +18,7 @@ export function LivePreviewPanel({ handle, className, externalRefreshKey = 0 }: 
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    setRefreshKey((k) => k + 1);
+    setInternalKey((k) => k + 1);
     setTimeout(() => setIsRefreshing(false), 1000);
   }, []);
 
