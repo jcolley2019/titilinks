@@ -133,6 +133,8 @@ export default function AISetup() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [regeneratingBio, setRegeneratingBio] = useState(false);
   const [changingTone, setChangingTone] = useState(false);
+  const [bioVariations, setBioVariations] = useState<Array<{ bio_short: string; bio_long: string; tone: string }>>([]);
+  const [selectedBioIndex, setSelectedBioIndex] = useState(0);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -275,6 +277,8 @@ export default function AISetup() {
       }
 
       setDraftPlan(plan);
+      setBioVariations([{ bio_short: plan.bio_short, bio_long: plan.bio_long, tone: plan.tone }]);
+      setSelectedBioIndex(0);
       setStep(5);
     } catch (error) {
       console.error('Error generating preview:', error);
@@ -605,7 +609,7 @@ export default function AISetup() {
                 <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review and edit your page before creating">
                   <div className="space-y-6">
                     {/* Profile & Bios */}
-                    <div className="p-4 bg-secondary/30 rounded-lg space-y-3">
+                    <div className="p-4 bg-secondary/30 rounded-lg space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="h-14 w-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-2xl font-bold">
                           {draftPlan.display_name.charAt(0).toUpperCase()}
@@ -615,87 +619,137 @@ export default function AISetup() {
                           <p className="text-sm text-muted-foreground">@{draftPlan.handle}</p>
                         </div>
                       </div>
+
+                      {/* Tone Preset Buttons */}
                       <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Short Bio ({draftPlan.bio_short.length}/90)</p>
-                          <p className="text-foreground font-medium">{draftPlan.bio_short}</p>
+                        <Label className="text-sm font-medium">Generate with tone</Label>
+                        <div className="flex gap-2">
+                          {([
+                            { value: 'professional', label: 'Professional', icon: '💼' },
+                            { value: 'friendly', label: 'Playful', icon: '🎉' },
+                            { value: 'bold', label: 'Bold', icon: '🔥' },
+                          ] as const).map((preset) => (
+                            <Button
+                              key={preset.value}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={regeneratingBio}
+                              className="gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                              onClick={async () => {
+                                setRegeneratingBio(true);
+                                try {
+                                  const data = form.getValues();
+                                  const intake = formDataToIntake({ ...data, tone: preset.value });
+                                  const result = buildDraftPlan(intake);
+                                  if (result.success) {
+                                    const plan = await enhancePlanWithAIBios(result.plan);
+                                    const newVariation = { bio_short: plan.bio_short, bio_long: plan.bio_long, tone: preset.label };
+                                    setBioVariations(prev => [...prev, newVariation]);
+                                    setSelectedBioIndex(bioVariations.length);
+                                    // Apply the selected bio to the draft plan
+                                    setDraftPlan(prev => prev ? { ...prev, bio_short: newVariation.bio_short, bio_long: newVariation.bio_long } : prev);
+                                    toast.success(`${preset.label} bio generated!`);
+                                  }
+                                } catch {
+                                  toast.error('Failed to generate bio');
+                                } finally {
+                                  setRegeneratingBio(false);
+                                }
+                              }}
+                            >
+                              <span>{preset.icon}</span>
+                              {preset.label}
+                            </Button>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={regeneratingBio}
+                            className="gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+                            onClick={async () => {
+                              setRegeneratingBio(true);
+                              try {
+                                const updated = await enhancePlanWithAIBios(draftPlan);
+                                const newVariation = { bio_short: updated.bio_short, bio_long: updated.bio_long, tone: draftPlan.tone };
+                                setBioVariations(prev => [...prev, newVariation]);
+                                setSelectedBioIndex(bioVariations.length);
+                                setDraftPlan(prev => prev ? { ...prev, bio_short: newVariation.bio_short, bio_long: newVariation.bio_long } : prev);
+                                toast.success('New bio variation generated!');
+                              } catch {
+                                toast.error('Failed to regenerate bio');
+                              } finally {
+                                setRegeneratingBio(false);
+                              }
+                            }}
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${regeneratingBio ? 'animate-spin' : ''}`} />
+                            Regenerate
+                          </Button>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Long Bio ({draftPlan.bio_long.length}/180)</p>
-                          <p className="text-foreground text-sm">{draftPlan.bio_long}</p>
+                        {regeneratingBio && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Generating new bio variation...
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selectable Bio Cards */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Choose your bio ({bioVariations.length} variation{bioVariations.length !== 1 ? 's' : ''})</Label>
+                        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                          {bioVariations.map((variation, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                            >
+                              <button
+                                type="button"
+                                className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                                  selectedBioIndex === index
+                                    ? 'border-primary bg-primary/10 shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)]'
+                                    : 'border-border bg-card hover:border-primary/40'
+                                }`}
+                                onClick={() => {
+                                  setSelectedBioIndex(index);
+                                  setDraftPlan(prev => prev ? { ...prev, bio_short: variation.bio_short, bio_long: variation.bio_long } : prev);
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-sm font-medium text-foreground">{variation.bio_short}</p>
+                                    <p className="text-xs text-muted-foreground">{variation.bio_long}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                      {variation.tone}
+                                    </span>
+                                    <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                      selectedBioIndex === index ? 'border-primary bg-primary' : 'border-muted-foreground/40'
+                                    }`}>
+                                      {selectedBioIndex === index && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            </motion.div>
+                          ))}
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={regeneratingBio}
-                        onClick={async () => {
-                          setRegeneratingBio(true);
-                          try {
-                            const updated = await enhancePlanWithAIBios(draftPlan);
-                            setDraftPlan(updated);
-                            toast.success('Bio regenerated!');
-                          } catch {
-                            toast.error('Failed to regenerate bio');
-                          } finally {
-                            setRegeneratingBio(false);
-                          }
-                        }}
-                        className="gap-2"
-                      >
-                        <RefreshCw className={`h-3.5 w-3.5 ${regeneratingBio ? 'animate-spin' : ''}`} />
-                        {regeneratingBio ? 'Regenerating...' : 'Regenerate Bio Only'}
-                      </Button>
+
                       <div className="flex gap-2 flex-wrap text-xs">
                         <span className="px-2 py-1 bg-primary/10 text-primary rounded">
                           {creatorTypes.find(t => t.value === draftPlan.creator_type)?.label || draftPlan.creator_type}
                         </span>
-                        <span className="px-2 py-1 bg-secondary text-foreground rounded">
-                          {toneOptions.find(t => t.value === draftPlan.tone)?.label || draftPlan.tone} tone
-                        </span>
                       </div>
                     </div>
 
-                    {/* Tone Selector */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Choose a different tone</Label>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={draftPlan.tone}
-                          onValueChange={async (newTone) => {
-                            setChangingTone(true);
-                            try {
-                              const data = form.getValues();
-                              const intake = formDataToIntake({ ...data, tone: newTone as FormData['tone'] });
-                              const result = buildDraftPlan(intake);
-                              if (result.success) {
-                                let plan = result.plan;
-                                if (useAICopy) {
-                                  plan = await enhancePlanWithAIBios(plan);
-                                }
-                                setDraftPlan(plan);
-                                toast.success('Plan regenerated with new tone');
-                              }
-                            } catch {
-                              toast.error('Failed to change tone');
-                            } finally {
-                              setChangingTone(false);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-48">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {toneOptions.map((tone) => (
-                              <SelectItem key={tone.value} value={tone.value}>{tone.label} — {tone.description}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {changingTone && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                      </div>
-                    </div>
+
+
 
                     {/* Shop Mode Blocks */}
                     <div className="space-y-3">
