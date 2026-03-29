@@ -78,7 +78,7 @@ export function PricingSection() {
             </span>
             {isAnnual && (
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full gradient-gold text-primary-foreground">
-                {t('pricing.save')}
+                Save 20%
               </span>
             )}
           </div>
