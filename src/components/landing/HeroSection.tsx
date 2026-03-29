@@ -95,7 +95,7 @@ export function HeroSection() {
       <div className="container relative z-10 max-w-6xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
           {/* Left — Copy */}
-          <div className="flex-1 text-center lg:text-left">
+          <div className="flex-1 text-center lg:text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -121,7 +121,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg sm:text-xl italic text-foreground/70 font-medium max-w-2xl mx-auto lg:mx-0 mb-4"
+              className="text-lg sm:text-xl italic text-foreground/70 font-medium max-w-2xl mx-auto mb-4"
             >
               {t('hero.subtitle')}
             </motion.p>
@@ -130,7 +130,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              className="text-base text-foreground/60 font-medium max-w-xl mx-auto lg:mx-0 mb-10"
+              className="text-base text-foreground/60 font-medium max-w-xl mx-auto mb-10"
             >
               {t('hero.description')}
             </motion.p>
