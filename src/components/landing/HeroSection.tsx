@@ -219,7 +219,7 @@ export function HeroSection() {
               transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
             >
               <div className="relative">
-                <div className="absolute -inset-8 bg-primary/10 rounded-full blur-[60px]" />
+                <div className="absolute -inset-6 bg-primary/30 dark:bg-primary/20 rounded-full blur-[50px]" />
                 <PhoneMockup />
               </div>
             </motion.div>
