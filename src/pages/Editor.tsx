@@ -433,7 +433,7 @@ export default function Editor() {
               <DesignEditor
                 pageId={page.id}
                 themeJson={page.theme_json}
-                onUpdate={fetchPageData}
+                onUpdate={() => { fetchPageData(); refreshPreview(); }}
                 displayName={page.display_name || undefined}
                 bio={page.bio || undefined}
                 avatarUrl={page.avatar_url || undefined}
