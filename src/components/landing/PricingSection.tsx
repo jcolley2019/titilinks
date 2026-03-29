@@ -11,37 +11,37 @@ export function PricingSection() {
 
   const plans = [
     {
-      name: t('pricing.free'),
+      name: 'Free',
       monthlyPrice: '$0',
       annualPrice: '$0',
-      period: t('pricing.free.period'),
-      description: t('pricing.free.desc'),
-      features: ['Unlimited links', '1 custom page', 'Basic analytics', 'Standard themes', 'Mobile optimized'],
-      cta: t('pricing.cta.free'),
+      period: '/forever',
+      description: 'Perfect for getting started with your first biolink page.',
+      features: ['1 page', '5 links', 'Basic themes', 'Mobile optimized', 'TitiLINKS branding'],
+      cta: 'Get Started Free',
       popular: false,
       comingSoon: false
     },
     {
-      name: t('pricing.pro'),
-      monthlyPrice: '$8',
-      annualPrice: '$5',
-      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
-      description: t('pricing.pro.desc'),
-      features: ['Everything in Free', 'Unlimited pages', 'Advanced analytics', 'Custom themes', 'Mode switching', 'Priority support', 'Remove branding'],
-      cta: t('pricing.cta.pro'),
+      name: 'Pro',
+      monthlyPrice: '$9',
+      annualPrice: '$7',
+      period: isAnnual ? '/mo (billed annually)' : '/month',
+      description: 'Everything you need to grow your brand and audience.',
+      features: ['2 pages (Shop + Recruit)', 'Unlimited links', 'All premium themes', 'Full analytics dashboard', 'Custom domain', 'AI bio generator', 'Email subscribe block', 'Remove branding'],
+      cta: 'Start Pro Trial',
       popular: true,
       comingSoon: false
     },
     {
-      name: t('pricing.premium'),
-      monthlyPrice: '$30',
-      annualPrice: '$25',
-      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
-      description: t('pricing.premium.desc'),
-      features: ['Everything in Pro', 'Team collaboration', 'API access', 'Custom domain', 'White-label option', 'Dedicated support', 'SLA guarantee'],
-      cta: t('pricing.cta.premium'),
+      name: 'Business',
+      monthlyPrice: '$19',
+      annualPrice: '$15',
+      period: isAnnual ? '/mo (billed annually)' : '/month',
+      description: 'For teams and agencies managing multiple creators.',
+      features: ['Everything in Pro', 'Team collaboration', 'Priority support', 'White-label option', 'API access', 'Dedicated account manager', 'SLA guarantee'],
+      cta: 'Contact Sales',
       popular: false,
-      comingSoon: true
+      comingSoon: false
     }
   ];
 
@@ -56,16 +56,16 @@ export function PricingSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            {t('pricing.title')} <span className="italic gradient-text">{t('pricing.title2')}</span> {t('pricing.title3')}
+            Simple, <span className="italic gradient-text">transparent</span> pricing
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-            {t('pricing.subtitle')}
+            Start free, upgrade when you're ready. No hidden fees, cancel anytime.
           </p>
 
           {/* Billing Toggle */}
           <div className="flex items-center justify-center gap-4">
             <span className={`text-sm font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-              {t('pricing.monthly')}
+              Monthly
             </span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
@@ -74,11 +74,11 @@ export function PricingSection() {
               <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-background transition-transform ${isAnnual ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
             <span className={`text-sm font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-              {t('pricing.annual')}
+              Annual
             </span>
             {isAnnual && (
               <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full gradient-gold text-primary-foreground">
-                {t('pricing.save')}
+                Save 20%
               </span>
             )}
           </div>
@@ -98,12 +98,7 @@ export function PricingSection() {
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-gold text-primary-foreground text-sm font-medium shadow-lg">
-                  {t('pricing.popular')}
-                </div>
-              )}
-              {plan.comingSoon && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full glass text-muted-foreground text-sm font-medium">
-                  {t('pricing.comingSoon')}
+                  Most Popular
                 </div>
               )}
 
