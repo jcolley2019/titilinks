@@ -220,11 +220,11 @@ export function HeroSection() {
             >
               <span className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" />
-                No credit card required
+                {t('hero.noCreditCard')}
               </span>
               <span className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Free forever to start
+                {t('hero.freeForever')}
               </span>
             </motion.div>
           </div>
