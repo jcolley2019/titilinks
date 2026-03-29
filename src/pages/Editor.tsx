@@ -468,6 +468,16 @@ export default function Editor() {
         onOpenChange={handleEditorClose}
         onSave={refreshPreview}
       />
+
+      {/* Suggest Links Dialog */}
+      {currentMode && (
+        <SuggestLinksDialog
+          open={suggestLinksOpen}
+          onOpenChange={setSuggestLinksOpen}
+          modeId={currentMode.id}
+          onLinksAdded={refreshPreview}
+        />
+      )}
     </DashboardLayout>
   );
 }
