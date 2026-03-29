@@ -11,37 +11,37 @@ export function PricingSection() {
 
   const plans = [
     {
-      name: t('pricing.free'),
+      name: 'Free',
       monthlyPrice: '$0',
       annualPrice: '$0',
-      period: t('pricing.free.period'),
-      description: t('pricing.free.desc'),
-      features: ['Unlimited links', '1 custom page', 'Basic analytics', 'Standard themes', 'Mobile optimized'],
-      cta: t('pricing.cta.free'),
+      period: '/forever',
+      description: 'Perfect for getting started with your first biolink page.',
+      features: ['1 page', '5 links', 'Basic themes', 'Mobile optimized', 'TitiLINKS branding'],
+      cta: 'Get Started Free',
       popular: false,
       comingSoon: false
     },
     {
-      name: t('pricing.pro'),
-      monthlyPrice: '$8',
-      annualPrice: '$5',
-      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
-      description: t('pricing.pro.desc'),
-      features: ['Everything in Free', 'Unlimited pages', 'Advanced analytics', 'Custom themes', 'Mode switching', 'Priority support', 'Remove branding'],
-      cta: t('pricing.cta.pro'),
+      name: 'Pro',
+      monthlyPrice: '$9',
+      annualPrice: '$7',
+      period: isAnnual ? '/mo (billed annually)' : '/month',
+      description: 'Everything you need to grow your brand and audience.',
+      features: ['2 pages (Shop + Recruit)', 'Unlimited links', 'All premium themes', 'Full analytics dashboard', 'Custom domain', 'AI bio generator', 'Email subscribe block', 'Remove branding'],
+      cta: 'Start Pro Trial',
       popular: true,
       comingSoon: false
     },
     {
-      name: t('pricing.premium'),
-      monthlyPrice: '$30',
-      annualPrice: '$25',
-      period: isAnnual ? t('pricing.period.annual') : t('pricing.period.monthly'),
-      description: t('pricing.premium.desc'),
-      features: ['Everything in Pro', 'Team collaboration', 'API access', 'Custom domain', 'White-label option', 'Dedicated support', 'SLA guarantee'],
-      cta: t('pricing.cta.premium'),
+      name: 'Business',
+      monthlyPrice: '$19',
+      annualPrice: '$15',
+      period: isAnnual ? '/mo (billed annually)' : '/month',
+      description: 'For teams and agencies managing multiple creators.',
+      features: ['Everything in Pro', 'Team collaboration', 'Priority support', 'White-label option', 'API access', 'Dedicated account manager', 'SLA guarantee'],
+      cta: 'Contact Sales',
       popular: false,
-      comingSoon: true
+      comingSoon: false
     }
   ];
 
