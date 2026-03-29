@@ -1,123 +1,64 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Instagram, Youtube, Globe } from 'lucide-react';
-import mockupCreatorPhoto from '@/assets/mockup-creator-photo.jpg';
+import { Sparkles, BarChart3, Repeat2 } from 'lucide-react';
+
+const benefits = [
+  {
+    icon: Sparkles,
+    title: 'AI-Powered Setup',
+    description: 'Build your entire page in minutes with AI-generated copy and smart link suggestions.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Real Analytics',
+    description: 'See exactly which links convert and where your audience comes from.',
+  },
+  {
+    icon: Repeat2,
+    title: 'Dual Page System',
+    description: 'One link that shows different content to shoppers vs. team recruits automatically.',
+  },
+];
 
 export function SolutionSection() {
   const { t } = useLanguage();
 
-  const features = [
-    t('solution.feature1'),
-    t('solution.feature2'),
-    t('solution.feature3'),
-    t('solution.feature4')
-  ];
-
   return (
     <section className="py-24 px-4 relative mesh-gradient-soft">
       <div className="container max-w-6xl mx-auto relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-              {t('solution.title')}{' '}
-              <span className="italic gradient-text">{t('solution.title2')}</span>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-6">
-              {t('solution.description')}
-            </p>
-            <ul className="space-y-4">
-              {features.map((item, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            {t('solution.title')}{' '}
+            <span className="italic gradient-text">{t('solution.title2')}</span>
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            {t('solution.description')}
+          </p>
+        </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative"
-          >
-            {/* Phone mockup */}
-            <div className="relative mx-auto w-72 h-[580px] rounded-[3rem] border-2 border-primary/20 shadow-2xl overflow-hidden glow-gold glass-card">
-              {/* Notch */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-background rounded-b-2xl z-20" />
-              
-              {/* Screen content */}
-              <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden">
-                <div className="w-full h-64 relative overflow-hidden flex-shrink-0">
-                  <img 
-                    src={mockupCreatorPhoto} 
-                    alt="Creator profile" 
-                    className="w-full h-full object-cover object-top"
-                  />
-                </div>
-                
-                <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col">
-                  <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-amber-200" />
-                  
-                  <div className="flex flex-col items-center pt-2 pb-1">
-                    <h3 className="font-bold text-gray-800 text-sm">{t('solution.mockup.name')}</h3>
-                    <p className="text-[10px] text-gray-600 text-center">{t('solution.mockup.bio')}</p>
-                  </div>
-                  
-                  <div className="flex-1 flex flex-col justify-end px-2 pb-1 space-y-1.5">
-                    <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                      <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                        </svg>
-                      </div>
-                      <span className="text-gray-700 text-xs font-medium flex-1 text-center">TikTok</span>
-                    </div>
-                    <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center flex-shrink-0">
-                        <Instagram className="w-3.5 h-3.5 text-white" />
-                      </div>
-                      <span className="text-gray-700 text-xs font-medium flex-1 text-center">Instagram</span>
-                    </div>
-                    <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                      <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
-                        <Youtube className="w-3.5 h-3.5 text-white" />
-                      </div>
-                      <span className="text-gray-700 text-xs font-medium flex-1 text-center">YouTube</span>
-                    </div>
-                    <div className="w-full h-9 bg-white rounded-full flex items-center pl-0.5 pr-2 shadow-sm">
-                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                        <Globe className="w-3.5 h-3.5 text-white" />
-                      </div>
-                      <span className="text-gray-700 text-xs font-medium flex-1 text-center">Green World</span>
-                    </div>
-                    
-                    <div className="text-center py-1">
-                      <p className="text-[9px] text-gray-600">
-                        <span className="text-gray-700">Titi</span>
-                        <span className="italic text-amber-700">Links</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Floating element */}
+        <div className="grid md:grid-cols-3 gap-8">
+          {benefits.map((benefit, index) => (
             <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -top-4 -right-4 p-4 rounded-xl glass-card shadow-lg"
+              key={benefit.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="p-8 rounded-2xl glass-card text-center hover:shadow-lg hover:shadow-primary/5 transition-all"
             >
-              <p className="text-sm font-medium text-primary">{t('solution.clicks')}</p>
+              <div className="w-14 h-14 rounded-xl gradient-gold flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/20">
+                <benefit.icon className="h-7 w-7 text-primary-foreground" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 text-foreground">{benefit.title}</h3>
+              <p className="text-muted-foreground leading-relaxed">{benefit.description}</p>
             </motion.div>
-          </motion.div>
+          ))}
         </div>
       </div>
       <div className="absolute bottom-0 left-0 right-0 section-glow-line" />
