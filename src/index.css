@@ -231,6 +231,81 @@
     }
   }
 
+  /* Animated gold shimmer background for landing page */
+  @keyframes shimmer-orb-1 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(20px, 10px); }
+  }
+  @keyframes shimmer-orb-2 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-15px, 12px); }
+  }
+  @keyframes shimmer-orb-3 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(10px, -25px); }
+  }
+
+  .landing-shimmer-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .landing-shimmer-bg .orb {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+  }
+
+  .landing-shimmer-bg .orb-1 {
+    width: 60vw;
+    height: 60vw;
+    max-width: 800px;
+    max-height: 800px;
+    top: -10%;
+    left: -10%;
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.08) 0%, transparent 70%);
+    animation: shimmer-orb-1 8s ease-in-out infinite alternate;
+  }
+
+  .dark .landing-shimmer-bg .orb-1 {
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.06) 0%, transparent 70%);
+  }
+
+  .landing-shimmer-bg .orb-2 {
+    width: 50vw;
+    height: 50vw;
+    max-width: 700px;
+    max-height: 700px;
+    top: -5%;
+    right: -8%;
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.06) 0%, transparent 70%);
+    animation: shimmer-orb-2 8s ease-in-out infinite alternate;
+    animation-delay: -3s;
+  }
+
+  .dark .landing-shimmer-bg .orb-2 {
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.04) 0%, transparent 70%);
+  }
+
+  .landing-shimmer-bg .orb-3 {
+    width: 55vw;
+    height: 55vw;
+    max-width: 750px;
+    max-height: 750px;
+    bottom: -15%;
+    left: 20%;
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.07) 0%, transparent 70%);
+    animation: shimmer-orb-3 8s ease-in-out infinite alternate;
+    animation-delay: -5s;
+  }
+
+  .dark .landing-shimmer-bg .orb-3 {
+    background: radial-gradient(circle, hsl(43 65% 55% / 0.05) 0%, transparent 70%);
+  }
+
   /* Hide scrollbar utility (always hidden) */
   .scrollbar-hide {
     -ms-overflow-style: none;
