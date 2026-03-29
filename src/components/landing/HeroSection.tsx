@@ -121,7 +121,7 @@ export function HeroSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-10 px-4 mesh-gradient-hero noise-overlay">
+    <section className="relative flex items-center justify-center pt-32 pb-20 px-4 noise-overlay" style={{ backgroundColor: 'hsl(30, 15%, 6%)' }}>
       {/* Ambient glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary/8 rounded-full blur-[120px]" />
       <div className="absolute top-2/3 left-1/4 w-[400px] h-[300px] bg-accent/6 rounded-full blur-[100px]" />
@@ -136,17 +136,18 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground border border-foreground mb-8"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-8"
+              style={{ backgroundColor: 'hsl(30, 12%, 10%)', borderColor: 'hsl(43 65% 55% / 0.3)' }}
             >
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold text-background">{t('hero.badge')}</span>
+              <Sparkles className="h-4 w-4 text-[hsl(43,65%,55%)]" />
+              <span className="section-label">{t('hero.badge')}</span>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 text-foreground"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-8 text-white leading-[1.05]"
             >
               {t('hero.title1')}{' '}
               <br />
@@ -157,7 +158,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg sm:text-xl italic text-foreground/70 font-medium max-w-2xl mx-auto mb-4"
+              className="text-lg sm:text-xl italic text-white/60 font-medium max-w-2xl mx-auto mb-4 font-body"
             >
               {t('hero.subtitle')}
             </motion.p>
@@ -166,7 +167,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              className="text-base text-foreground/60 font-medium max-w-xl mx-auto mb-10"
+              className="text-base text-white/50 font-normal max-w-xl mx-auto mb-12 font-body"
             >
               {t('hero.description')}
             </motion.p>
@@ -178,14 +179,14 @@ export function HeroSection() {
               className="flex flex-col gap-3 justify-center items-center lg:items-center mb-8 max-w-lg mx-auto lg:mx-auto px-2 lg:px-0 w-full"
             >
               {/* Desktop: inline pill */}
-              <div className="hidden sm:flex items-center w-full rounded-xl glass-card overflow-hidden p-1.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
-                <div className="flex items-center pl-4 pr-1 text-muted-foreground text-base whitespace-nowrap">
+              <div className="hidden sm:flex items-center w-full rounded-xl overflow-hidden p-1.5 border-2 border-[hsl(43,65%,55%)] shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]" style={{ backgroundColor: 'hsl(30, 12%, 10%)' }}>
+                <div className="flex items-center pl-4 pr-1 text-white/50 text-base whitespace-nowrap">
                   titilinks.com/
                 </div>
                 <input
                   type="text"
                   placeholder={t('hero.handlePlaceholder')}
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-base py-3 pr-2"
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-white text-base py-3 pr-2 placeholder:text-white/30"
                 />
                 <Link to="/login" className="shrink-0">
                   <Button size="lg" className="gradient-gold text-primary-foreground text-base px-6 py-3 rounded-lg font-semibold shadow-lg shadow-primary/20">
@@ -196,12 +197,12 @@ export function HeroSection() {
 
               {/* Mobile: stacked */}
               <div className="flex sm:hidden flex-col w-full gap-3">
-                <div className="flex items-center w-full rounded-2xl glass-card px-4 py-3.5 border-2 border-primary shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]">
-                  <span className="text-muted-foreground text-[15px] mr-1">titilinks.com/</span>
+                <div className="flex items-center w-full rounded-2xl px-4 py-3.5 border-2 border-[hsl(43,65%,55%)] shadow-[0_0_15px_-3px_hsl(43_65%_55%/0.4)]" style={{ backgroundColor: 'hsl(30, 12%, 10%)' }}>
+                  <span className="text-white/50 text-[15px] mr-1">titilinks.com/</span>
                   <input
                     type="text"
                     placeholder={t('hero.handlePlaceholder')}
-                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground text-[15px]"
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-white text-[15px] placeholder:text-white/30"
                   />
                 </div>
                 <Button asChild size="lg" className="gradient-gold text-primary-foreground text-[15px] w-full h-14 rounded-xl font-semibold shadow-lg shadow-primary/20">
@@ -216,7 +217,7 @@ export function HeroSection() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex items-center justify-center gap-6 text-sm text-muted-foreground"
+              className="flex items-center justify-center gap-6 text-sm text-white/60"
             >
               <span className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" />

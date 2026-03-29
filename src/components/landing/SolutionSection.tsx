@@ -24,7 +24,7 @@ export function SolutionSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 px-4 relative mesh-gradient-soft">
+    <section className="py-28 px-4 relative" style={{ backgroundColor: 'hsl(30, 12%, 10%)' }}>
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -33,11 +33,11 @@ export function SolutionSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-5 text-white tracking-tight">
             {t('solution.title')}{' '}
             <span className="italic gradient-text">{t('solution.title2')}</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg text-white/55 max-w-2xl mx-auto font-body">
             {t('solution.description')}
           </p>
         </motion.div>
@@ -50,13 +50,14 @@ export function SolutionSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="p-8 rounded-2xl glass-card text-center hover:shadow-lg hover:shadow-primary/5 transition-all"
+              className="p-8 rounded-2xl border text-center hover:shadow-lg hover:shadow-primary/5 transition-all"
+              style={{ backgroundColor: 'hsl(30, 15%, 6%)', borderColor: 'hsl(43 65% 55% / 0.2)' }}
             >
               <div className="w-14 h-14 rounded-xl gradient-gold flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/20">
                 <benefit.icon className="h-7 w-7 text-primary-foreground" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-foreground">{benefit.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{benefit.description}</p>
+              <h3 className="text-xl font-bold mb-3 text-white">{benefit.title}</h3>
+              <p className="text-white/55 leading-relaxed font-body">{benefit.description}</p>
             </motion.div>
           ))}
         </div>

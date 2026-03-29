@@ -13,15 +13,16 @@ const features = [
   { feature: 'Free tier', titilinks: true, linktree: true, others: 'limited' },
 ];
 
-function CellValue({ value }: { value: boolean | string }) {
-  if (value === true) return <Check className="h-5 w-5 text-green-500 mx-auto" />;
-  if (value === false) return <X className="h-5 w-5 text-muted-foreground/50 mx-auto" />;
-  return <span className="text-sm text-muted-foreground">{value}</span>;
+function CellValue({ value, column }: { value: boolean | string; column?: 'titilinks' | 'linktree' | 'others' }) {
+  if (value === true && column === 'titilinks') return <Check className="h-5 w-5 mx-auto" style={{ color: 'hsl(43, 65%, 55%)' }} />;
+  if (value === true) return <Check className="h-5 w-5 mx-auto text-white/70" />;
+  if (value === false) return <X className="h-5 w-5 text-red-400 mx-auto" />;
+  return <span className="text-sm text-white/60">{value}</span>;
 }
 
 export function ComparisonSection() {
   return (
-    <section className="py-24 px-4 relative mesh-gradient-soft noise-overlay">
+    <section className="py-28 px-4 relative noise-overlay" style={{ backgroundColor: 'hsl(30, 15%, 6%)' }}>
       <div className="container max-w-4xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -30,9 +31,9 @@ export function ComparisonSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">How we compare</h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            See why creators are switching to <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">How we compare</h2>
+          <p className="text-white/55 text-lg max-w-2xl mx-auto font-body">
+            See why creators are switching to <span className="text-white">Titi</span><span className="italic text-primary">Links</span>
           </p>
         </motion.div>
 
@@ -41,28 +42,29 @@ export function ComparisonSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="overflow-x-auto rounded-2xl glass-card p-1"
+          className="overflow-x-auto rounded-2xl border p-1"
+          style={{ backgroundColor: 'hsl(30, 12%, 10%)', borderColor: 'hsl(43 65% 55% / 0.2)' }}
         >
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border/50">
-                <th className="text-left py-4 px-4 font-semibold">Feature</th>
+              <tr style={{ borderBottom: '1px solid hsl(43 65% 55% / 0.2)' }}>
+                <th className="text-left py-4 px-4 font-semibold text-white font-body">Feature</th>
                 <th className="text-center py-4 px-4">
-                  <span className="font-bold"><span className="text-foreground">Titi</span><span className="italic text-primary">Links</span></span>
+                  <span className="font-bold"><span className="text-white">Titi</span><span className="italic text-primary">Links</span></span>
                 </th>
-                <th className="text-center py-4 px-4 text-muted-foreground">Linktree</th>
-                <th className="text-center py-4 px-4 text-muted-foreground">Others</th>
+                <th className="text-center py-4 px-4 text-white/80">Linktree</th>
+                <th className="text-center py-4 px-4 text-white/80">Others</th>
               </tr>
             </thead>
             <tbody>
               {features.map((row) => (
-                <tr key={row.feature} className="border-b border-border/30">
-                  <td className="py-4 px-4">{row.feature}</td>
-                  <td className="py-4 px-4 text-center bg-primary/5 rounded-sm">
-                    <CellValue value={row.titilinks} />
+                <tr key={row.feature} style={{ borderBottom: '1px solid hsl(43 65% 55% / 0.1)' }}>
+                  <td className="py-4 px-4 text-white font-body">{row.feature}</td>
+                  <td className="py-4 px-4 text-center rounded-sm" style={{ backgroundColor: 'hsl(43 65% 55% / 0.08)' }}>
+                    <CellValue value={row.titilinks} column="titilinks" />
                   </td>
-                  <td className="py-4 px-4 text-center"><CellValue value={row.linktree} /></td>
-                  <td className="py-4 px-4 text-center"><CellValue value={row.others} /></td>
+                  <td className="py-4 px-4 text-center"><CellValue value={row.linktree} column="linktree" /></td>
+                  <td className="py-4 px-4 text-center"><CellValue value={row.others} column="others" /></td>
                 </tr>
               ))}
             </tbody>

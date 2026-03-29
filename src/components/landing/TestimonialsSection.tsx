@@ -57,7 +57,7 @@ export function TestimonialsSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 px-4 relative mesh-gradient-rich noise-overlay">
+    <section className="py-32 px-4 relative noise-overlay" style={{ backgroundColor: 'hsl(30, 12%, 10%)' }}>
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -66,10 +66,10 @@ export function TestimonialsSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+          <h2 className="text-3xl sm:text-5xl font-bold mb-5 text-white tracking-tight">
             {t('testimonials.title')} <span className="italic gradient-text">{t('testimonials.title2')}</span>
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-white/55 text-lg max-w-2xl mx-auto font-body">
             {t('testimonials.subtitle')}
           </p>
         </motion.div>
@@ -82,14 +82,15 @@ export function TestimonialsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.08 }}
-              className="p-6 rounded-2xl glass-card hover:shadow-lg hover:shadow-primary/5 transition-all"
+              className="p-6 rounded-2xl border hover:shadow-lg hover:shadow-primary/5 transition-all"
+              style={{ backgroundColor: 'hsl(30, 15%, 6%)', borderColor: 'hsl(43 65% 55% / 0.2)' }}
             >
               <div className="flex gap-1 mb-3">
                 {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                  <Star key={i} className="h-4 w-4" style={{ fill: 'hsl(43, 65%, 55%)', color: 'hsl(43, 65%, 55%)' }} />
                 ))}
               </div>
-              <p className="text-foreground mb-5 italic leading-relaxed">&ldquo;{testimonial.content}&rdquo;</p>
+              <p className="text-white/70 mb-5 italic leading-relaxed font-display text-[15px]">&ldquo;{testimonial.content}&rdquo;</p>
               <div className="flex items-center gap-3">
                 <img
                   src={testimonial.avatar}
@@ -97,8 +98,8 @@ export function TestimonialsSection() {
                   className="w-10 h-10 rounded-full border border-primary/30"
                 />
                 <div>
-                  <p className="font-semibold text-sm">{testimonial.name} <span className="text-muted-foreground font-normal">{testimonial.handle}</span></p>
-                  <p className="text-xs text-muted-foreground">{testimonial.platform}</p>
+                  <p className="font-semibold text-sm text-white font-body">{testimonial.name} <span className="font-normal" style={{ color: 'hsl(43, 65%, 55%)' }}>{testimonial.handle}</span></p>
+                  <p className="text-xs font-body" style={{ color: 'hsl(43, 65%, 55%)' }}>{testimonial.platform}</p>
                 </div>
               </div>
             </motion.div>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 
 export function DemoSection() {
   return (
-    <section id="demo" className="py-24 px-4 relative mesh-gradient-soft noise-overlay">
+    <section id="demo" className="py-28 px-4 relative noise-overlay" style={{ backgroundColor: 'hsl(30, 12%, 10%)' }}>
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -13,11 +13,11 @@ export function DemoSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            See <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span> in action
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">
+            See <span className="text-white">Titi</span><span className="italic text-primary">Links</span> in action
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Watch how creators are using <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span> to grow their business
+          <p className="text-white/55 text-lg max-w-2xl mx-auto font-body">
+            Watch how creators are using <span className="text-white">Titi</span><span className="italic text-primary">Links</span> to grow their business
           </p>
         </motion.div>
 
@@ -29,7 +29,7 @@ export function DemoSection() {
           className="relative max-w-4xl mx-auto"
         >
           {/* Video placeholder */}
-          <div className="aspect-video rounded-2xl glass-card overflow-hidden relative group cursor-pointer">
+          <div className="aspect-video rounded-2xl border overflow-hidden relative group cursor-pointer" style={{ backgroundColor: 'hsl(30, 15%, 6%)', borderColor: 'hsl(43 65% 55% / 0.3)' }}>
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10" />
             
             {/* Play button */}
@@ -50,7 +50,7 @@ export function DemoSection() {
           </div>
 
           <div className="flex justify-center mt-8">
-            <Button variant="outline" size="lg" className="rounded-full glass border-primary/20">
+            <Button variant="outline" size="lg" className="rounded-full" style={{ borderColor: 'hsl(43, 65%, 55%)', color: 'hsl(43, 65%, 55%)', backgroundColor: 'transparent' }}>
               <ExternalLink className="mr-2 h-4 w-4" />
               View live example
             </Button>

@@ -40,25 +40,26 @@ export function Footer() {
   ];
 
   return (
-    <footer className="py-16 px-4 border-t border-border/50 relative mesh-gradient-soft">
+    <footer className="py-20 px-4 relative" style={{ background: 'hsl(30 15% 6%)', borderTop: '1px solid hsl(43 65% 55% / 0.2)' }}>
       <div className="container max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                <Link2 className="h-5 w-5 text-primary" />
+              <div className="p-2 rounded-xl border" style={{ background: 'hsl(43 65% 55% / 0.1)', borderColor: 'hsl(43 65% 55% / 0.3)' }}>
+                <Link2 className="h-5 w-5" style={{ color: 'hsl(43 65% 55%)' }} />
               </div>
-              <span className="text-xl font-bold">
-                Titi<span className="italic text-primary">Links</span>
+              <span className="text-xl font-bold gradient-text">
+                TitiLinks
               </span>
             </Link>
-            <p className="text-muted-foreground mb-4">{t('footer.tagline')}</p>
+            <p className="text-white/50 mb-4 font-body">{t('footer.tagline')}</p>
             <div className="flex gap-3">
               {socialLinks.map((social) => (
                 <a
                   key={social.label}
                   href={social.href}
-                  className="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:border-primary/30 transition-colors"
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-colors text-white/60 hover:text-[hsl(43,65%,55%)]"
+                  style={{ background: 'hsl(30 12% 10%)', border: '1px solid hsl(43 65% 55% / 0.15)' }}
                   aria-label={social.label}
                 >
                   <span className="text-lg">{social.emoji}</span>
@@ -69,11 +70,11 @@ export function Footer() {
 
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="font-semibold mb-4 text-primary">{category}</h4>
+              <h4 className="font-semibold mb-4 text-white font-body uppercase tracking-wider text-xs">{category}</h4>
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <a href={link.href} className="text-white/50 hover:text-white transition-colors text-sm font-body">
                       {link.label}
                     </a>
                   </li>
@@ -83,11 +84,11 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-center pt-8 border-t border-border/50 gap-4">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} <span className="text-foreground">Titi</span><span className="italic text-primary">Links</span>. {t('footer.copyright')}
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-8 gap-4" style={{ borderTop: '1px solid hsl(43 65% 55% / 0.15)' }}>
+          <p className="text-sm text-white/40">
+            © {new Date().getFullYear()} <span className="text-white/60">Titi</span><span className="italic" style={{ color: 'hsl(43 65% 55%)' }}>Links</span>. {t('footer.copyright')}
           </p>
-          <p className="text-sm text-muted-foreground">{t('footer.made')}</p>
+          <p className="text-sm text-white/40">{t('footer.made')}</p>
         </div>
       </div>
     </footer>

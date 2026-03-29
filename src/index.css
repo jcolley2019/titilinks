@@ -4,6 +4,9 @@
 
 /* TitiLINKS Design System - Luxurious dark theme with gold accents */
 
+/* Luxury font pairing: Playfair Display (headings) + DM Sans (body) */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400;1,9..40,500&display=swap');
+
 @layer base {
   :root {
     --background: 30 10% 96%;
@@ -100,8 +103,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'DM Sans', system-ui, sans-serif;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Luxury serif headings */
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
   }
 
   /* Hide scrollbar globally on mobile/tablet */
@@ -207,6 +215,22 @@
   .heading-accent {
     font-style: italic;
     color: hsl(43 65% 55%);
+  }
+
+  /* Section label badge — uppercase tracking for luxury feel */
+  .section-label {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: hsl(43 65% 55%);
+  }
+
+  /* Refined serif italic for gradient accent words */
+  .gradient-text {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
   }
 
   /* Hide scrollbar on mobile/tablet, show on desktop */

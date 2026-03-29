@@ -20,7 +20,7 @@ const integrations: Integration[] = [
 
 export function IntegrationsSection() {
   return (
-    <section className="py-24 px-4 relative mesh-gradient-rich">
+    <section className="py-24 px-4 relative" style={{ backgroundColor: 'hsl(30, 15%, 6%)' }}>
       <div className="container max-w-6xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -29,8 +29,8 @@ export function IntegrationsSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Works with your stack</h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Works with your stack</h2>
+          <p className="text-white/55 text-lg max-w-2xl mx-auto font-body">
             Connect to all the platforms you already use
           </p>
         </motion.div>
@@ -49,10 +49,11 @@ export function IntegrationsSection() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="flex items-center justify-center gap-3 px-4 py-4 rounded-xl glass-card hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/5"
+              className="flex items-center justify-center gap-3 px-4 py-4 rounded-xl border transition-all hover:shadow-lg hover:shadow-[hsl(43_65%_55%_/_0.15)]"
+              style={{ backgroundColor: 'hsl(30, 12%, 10%)', borderColor: 'hsl(43 65% 55% / 0.2)' }}
             >
               {integration.icon}
-              <span className="font-medium">{integration.name}</span>
+              <span className="font-medium text-white/70 font-body">{integration.name}</span>
             </motion.div>
           ))}
         </motion.div>
@@ -62,7 +63,7 @@ export function IntegrationsSection() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="text-center text-muted-foreground mt-8"
+          className="text-center text-white/50 mt-8"
         >
           ...and many more coming soon
         </motion.p>

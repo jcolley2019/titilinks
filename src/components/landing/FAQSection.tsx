@@ -17,7 +17,7 @@ const faqs = [
 
 export function FAQSection() {
   return (
-    <section className="py-24 px-4 relative mesh-gradient-rich">
+    <section className="py-28 px-4 relative" style={{ background: 'hsl(30 15% 6%)' }}>
       <div className="container max-w-3xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -26,8 +26,8 @@ export function FAQSection() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Frequently asked questions</h2>
-          <p className="text-muted-foreground text-lg">Everything you need to know about TitiLINKS</p>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Frequently asked questions</h2>
+          <p className="text-white/55 text-lg font-body">Everything you need to know about TitiLINKS</p>
         </motion.div>
 
         <motion.div
@@ -35,15 +35,16 @@ export function FAQSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="rounded-2xl glass-card p-6"
+          className="rounded-2xl p-6"
+          style={{ background: 'hsl(30 12% 10%)', border: '1px solid hsl(43 65% 55% / 0.2)' }}
         >
           <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="border-border/50">
-                <AccordionTrigger className="text-left hover:no-underline">
+              <AccordionItem key={index} value={`item-${index}`} style={{ borderColor: 'hsl(43 65% 55% / 0.2)' }}>
+                <AccordionTrigger className="text-left hover:no-underline text-white font-body font-medium [&>svg]:text-[hsl(43,65%,55%)]">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
+                <AccordionContent className="text-white/55 font-body leading-relaxed">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
