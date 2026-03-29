@@ -30,7 +30,7 @@ function PhoneMockup() {
       </motion.div>
 
       {/* Phone frame — light warm style */}
-      <div className="relative mx-auto w-72 h-[540px] rounded-[3rem] border-2 border-[#2a2a2a] shadow-2xl overflow-hidden glow-gold bg-[#1a1a1a]">
+      <div className="relative mx-auto w-72 h-[540px] rounded-[3rem] border-2 border-[#2a2a2a] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)] overflow-hidden bg-[#1a1a1a]">
         {/* Notch */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
 
@@ -219,7 +219,7 @@ export function HeroSection() {
               transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
             >
               <div className="relative">
-                <div className="absolute -inset-8 bg-primary/10 rounded-full blur-[60px]" />
+                <div className="absolute -inset-6 bg-primary/30 dark:bg-primary/20 rounded-full blur-[50px]" />
                 <PhoneMockup />
               </div>
             </motion.div>
