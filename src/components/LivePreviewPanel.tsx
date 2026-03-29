@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface LivePreviewPanelProps {
   handle: string;
   className?: string;
+  externalRefreshKey?: number;
 }
 
 export function LivePreviewPanel({ handle, className }: LivePreviewPanelProps) {
