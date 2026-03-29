@@ -35,8 +35,8 @@ function PhoneMockup() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-20" />
 
         {/* Screen content */}
-        <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden">
-          <div className="w-full h-56 relative overflow-hidden flex-shrink-0">
+        <div className="absolute inset-4 top-8 rounded-[2rem] flex flex-col overflow-hidden bg-amber-200">
+          <div className="w-full h-56 relative overflow-hidden flex-shrink-0 -mb-px">
             <img
               src={mockupCreatorPhoto}
               alt="Creator profile"
@@ -44,7 +44,7 @@ function PhoneMockup() {
             />
           </div>
 
-          <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col">
+          <div className="relative flex-1 bg-gradient-to-b from-amber-200 to-amber-300 flex flex-col -mt-px">
             <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-amber-200" />
 
             <div className="flex flex-col items-center pt-2 pb-1">
