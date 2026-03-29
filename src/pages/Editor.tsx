@@ -44,7 +44,9 @@ export default function Editor() {
   const [editorTab, setEditorTab] = useState<'content' | 'design'>('content');
   const [page1Label, setPage1Label] = useState('');
   const [page2Label, setPage2Label] = useState('');
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
+  const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
   const domain = window.location.host;
   const mainLink = page ? `${baseUrl}/${page.handle}` : '';
