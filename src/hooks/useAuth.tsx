@@ -21,16 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If the URL contains an access_token hash (OAuth callback), the
-    // Supabase client needs time to parse the tokens. The initial
-    // onAuthStateChange fires immediately with null — we must ignore
-    // that and wait for the real SIGNED_IN event.
-    const hasHashToken = window.location.hash.includes('access_token');
+    // Detect OAuth callback — PKCE uses ?code= in query params,
+    // implicit uses #access_token= in hash
+    const isOAuthCallback =
+      window.location.hash.includes('access_token') ||
+      new URLSearchParams(window.location.search).has('code');
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (hasHashToken && !session && event === 'INITIAL_SESSION') {
-          // Tokens are still being parsed — don't set loading=false yet
+        if (isOAuthCallback && !session && event === 'INITIAL_SESSION') {
+          // OAuth tokens are still being exchanged — keep loading
           return;
         }
         setSession(session);
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    if (!hasHashToken) {
+    if (!isOAuthCallback) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
@@ -47,10 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Fallback: if hash token processing fails, stop loading after 5s
-    // so the user isn't stuck on a spinner forever
+    // Fallback: if OAuth token exchange fails, stop loading after 5s
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    if (hasHashToken) {
+    if (isOAuthCallback) {
       timeout = setTimeout(() => setLoading(false), 5000);
     }
 
