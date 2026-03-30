@@ -61,12 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const redirectTo = window.location.hostname === 'localhost'
       ? 'http://localhost:8080/dashboard'
       : 'https://titilinks.com/dashboard';
-    const { error } = await supabase.auth.signInWithOAuth({
+
+    console.log('OAuth redirectTo:', redirectTo);
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo
-      }
+      options: { redirectTo }
     });
+
+    console.log('OAuth data:', data);
+    console.log('OAuth error:', error);
+
     return { error: error as Error | null };
   };
 
