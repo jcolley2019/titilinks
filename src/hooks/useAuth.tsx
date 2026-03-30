@@ -21,14 +21,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
     // Detect OAuth callback — PKCE uses ?code= in query params,
     // implicit uses #access_token= in hash
     const isOAuthCallback =
-      window.location.hash.includes('access_token') ||
-      new URLSearchParams(window.location.search).has('code');
+      hashParams.has('access_token') ||
+      params.has('code');
+
+    // Detect OAuth error redirect from Supabase
+    const oauthError = params.get('error') || hashParams.get('error');
+    if (oauthError) {
+      console.error('OAuth error:', oauthError, params.get('error_description') || hashParams.get('error_description'));
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[Auth]', event, session ? 'session exists' : 'no session');
         if (isOAuthCallback && !session && event === 'INITIAL_SESSION') {
           // OAuth tokens are still being exchanged — keep loading
           return;
@@ -39,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // For OAuth callbacks, let onAuthStateChange handle everything.
+    // For normal page loads, also call getSession as a fallback.
     if (!isOAuthCallback) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
@@ -47,10 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Fallback: if OAuth token exchange fails, stop loading after 5s
+    // Fallback: if OAuth token exchange fails, stop loading after 8s
+    // and try getSession as a last resort
     let timeout: ReturnType<typeof setTimeout> | undefined;
     if (isOAuthCallback) {
-      timeout = setTimeout(() => setLoading(false), 5000);
+      timeout = setTimeout(() => {
+        console.warn('[Auth] OAuth callback timeout — falling back to getSession');
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        });
+      }, 8000);
     }
 
     return () => {
@@ -76,11 +96,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const redirectTo = window.location.origin + '/dashboard';
+    // Redirect to /login (unprotected) so ProtectedRoute won't interfere
+    // with the PKCE code exchange. Login page auto-redirects to /dashboard
+    // once the session is established.
+    const redirectTo = window.location.origin + '/login';
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo }
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      }
     });
 
     return { error: error as Error | null };
