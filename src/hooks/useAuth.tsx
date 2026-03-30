@@ -23,14 +23,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth event:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-
-        if (event === 'SIGNED_IN' && session) {
-          window.location.href = '/dashboard';
-        }
       }
     );
 
@@ -98,3 +93,9 @@ export function useAuth() {
   return context;
 }
 ```
+
+---
+```
+git add .
+git commit -m "fix: revert useAuth to stable version without redirect loop"
+git push
