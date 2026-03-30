@@ -21,6 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If the URL contains an access_token hash (OAuth callback), let
+    // onAuthStateChange handle it — don't let getSession resolve early
+    // with null and trigger a redirect to /login.
+    const hasHashToken = window.location.hash.includes('access_token');
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -29,11 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    if (!hasHashToken) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      });
+    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -92,10 +99,3 @@ export function useAuth() {
   }
   return context;
 }
-```
-
----
-```
-git add .
-git commit -m "fix: revert useAuth to stable version without redirect loop"
-git push
