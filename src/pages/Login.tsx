@@ -98,6 +98,8 @@ export default function Login() {
       if (error) {
         setError(error.message);
       }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
     } finally {
       setGoogleLoading(false);
     }
