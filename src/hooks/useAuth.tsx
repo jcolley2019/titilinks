@@ -21,16 +21,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth event:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        if (event === 'SIGNED_IN' && session) {
+          window.location.href = '/dashboard';
+        }
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -46,12 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl
+        emailRedirectTo: `${window.location.origin}/`
       }
     });
     return { error: error as Error | null };
@@ -62,15 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? 'http://localhost:8080/dashboard'
       : 'https://titilinks.com/dashboard';
 
-    console.log('OAuth redirectTo:', redirectTo);
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo }
     });
-
-    console.log('OAuth data:', data);
-    console.log('OAuth error:', error);
 
     return { error: error as Error | null };
   };
@@ -100,3 +97,4 @@ export function useAuth() {
   }
   return context;
 }
+```
