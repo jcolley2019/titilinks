@@ -461,6 +461,188 @@ export default function PublicProfile() {
       );
     }
 
+    // Immersive layout: Full-screen background photo, outlined name, transparent buttons
+    if (headerLayout === 'immersive') {
+      const heroImage = (hasHeaderImage && theme.header?.image_url) || page.avatar_url || '';
+      const showOnline = theme.online_indicator === true;
+
+      // Find social icon row blocks for inline rendering
+      const socialBlocks = blocks.filter(
+        (b) => b.type === 'social_icon_row' || b.type === 'social_links'
+      );
+
+      return (
+        <>
+          {/* Fixed full-screen background image */}
+          {heroImage && (
+            <div className="fixed inset-0 z-0">
+              <img
+                src={heroImage}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40" />
+            </div>
+          )}
+
+          <motion.header
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="relative z-10 text-center pt-12 pb-6 px-4 -mx-4 -mt-8"
+          >
+            {/* Large outlined/hollow name */}
+            <h1
+              className="text-5xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight leading-none"
+              style={{
+                WebkitTextStroke: '2px white',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 20px rgba(0,0,0,0.3)',
+              }}
+            >
+              {page.display_name || page.handle}
+            </h1>
+
+            {/* Online indicator */}
+            {showOnline && (
+              <div className="flex items-center justify-center gap-1.5 mt-4">
+                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs uppercase tracking-widest text-white/80 font-medium">Online</span>
+              </div>
+            )}
+
+            {/* Bio in uppercase tracked letters */}
+            {page.bio && (
+              <p className="text-sm uppercase tracking-[0.2em] text-white/80 mt-4 max-w-sm mx-auto leading-relaxed">
+                {page.bio}
+              </p>
+            )}
+
+            {/* Social icons section */}
+            {socialBlocks.length > 0 && (
+              <div className="mt-8">
+                <p className="text-[10px] uppercase tracking-[0.25em] text-white/50 mb-3 font-medium">
+                  Where you can find me:
+                </p>
+                <div className="flex flex-wrap justify-center gap-5">
+                  {socialBlocks.flatMap((block) =>
+                    block.items.map((item) => (
+                      <a
+                        key={item.id}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white/80 hover:text-white transition-colors hover:scale-110 transform"
+                        title={item.label}
+                      >
+                        <SocialSvgIcon label={item.label} size={22} />
+                      </a>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.header>
+        </>
+      );
+    }
+
+    // Cinematic layout: Full hero image covering top of viewport, no avatar circle
+    if (headerLayout === 'cinematic') {
+      const heroImage = (hasHeaderImage && theme.header?.image_url) || page.avatar_url || '';
+      const bgColor = theme.background.solid_color || '#1a1a2e';
+
+      // Find social icon row blocks for inline rendering
+      const socialBlocks = blocks.filter(
+        (b) => b.type === 'social_icon_row' || b.type === 'social_links'
+      );
+
+      return (
+        <>
+          <motion.header
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="relative -mx-4 -mt-8 mb-6"
+          >
+            {/* Hero image — 45vh tall */}
+            <div className="relative w-full overflow-hidden" style={{ height: '45vh', minHeight: '280px', maxHeight: '480px' }}>
+              {heroImage ? (
+                <SmoothImage
+                  src={heroImage}
+                  alt={page.display_name || page.handle}
+                  containerClassName="h-full w-full"
+                  skeletonClassName="bg-muted/30"
+                />
+              ) : (
+                <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
+              )}
+
+              {/* Gradient overlay: transparent at top → page background at bottom */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: `linear-gradient(to bottom, transparent 30%, ${bgColor}cc 70%, ${bgColor} 100%)`,
+                }}
+              />
+
+              {/* Profile info overlaid at bottom of hero */}
+              <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 text-center">
+                <h1
+                  className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg"
+                  style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
+                >
+                  {page.display_name || `@${page.handle}`}
+                </h1>
+                <p className="text-sm text-white/70 mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                  @{page.handle}
+                </p>
+                {page.bio && (
+                  <p
+                    className="text-sm mt-2 max-w-xs mx-auto text-white/80"
+                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
+                  >
+                    {page.bio}
+                  </p>
+                )}
+
+                {/* Inline social icons */}
+                {socialBlocks.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-3 mt-4">
+                    {socialBlocks.flatMap((block) =>
+                      block.items.map((item) => (
+                        <a
+                          key={item.id}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                          style={{ backgroundColor: `${theme.buttons.fill_color}30` }}
+                          title={item.label}
+                        >
+                          {item.image_url ? (
+                            <ThumbnailImage src={item.image_url} alt={item.label} />
+                          ) : (
+                            <SocialSvgIcon label={item.label} size={18} />
+                          )}
+                        </a>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.header>
+
+          {/* Sticky mini header on scroll */}
+          <CinematicStickyHeader
+            avatarUrl={page.avatar_url}
+            displayName={page.display_name || `@${page.handle}`}
+            fillColor={theme.buttons.fill_color}
+            textColor={theme.buttons.text_color}
+          />
+        </>
+      );
+    }
+
     // Default layout (no header image or fallback)
     return (
       <motion.header
@@ -520,8 +702,8 @@ export default function PublicProfile() {
   };
 
   const profileUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const ogTitle = page ? `${page.display_name || page.handle} | TitiLINKS` : 'TitiLINKS';
-  const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLINKS.';
+  const ogTitle = page ? `${page.display_name || page.handle} | TitiLinks` : 'TitiLinks';
+  const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const ogImage = page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg';
 
   return (
@@ -566,27 +748,44 @@ export default function PublicProfile() {
           key={detectedMode}
           className="space-y-6 animate-mode-fade motion-reduce:animate-none"
         >
-          {blocks.length === 0 ? (
-          <EmptyState textColor={theme.typography.text_color} />
-          ) : (
-            blocks.map((block, index) => (
-              <motion.section
-                key={block.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
-              >
-                <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={theme} pageId={page?.id} />
-              </motion.section>
-            ))
-          )}
+          {(() => {
+            // In immersive mode, override button styling to white outline
+            const isImmersive = (theme.header?.layout || 'overlay') === 'immersive';
+            const blockTheme = isImmersive
+              ? {
+                  ...theme,
+                  buttons: {
+                    ...theme.buttons,
+                    fill_color: 'transparent',
+                    text_color: '#ffffff',
+                    border_enabled: true,
+                    border_color: '#ffffff',
+                  },
+                }
+              : theme;
+
+            return blocks.length === 0 ? (
+              <EmptyState textColor={theme.typography.text_color} />
+            ) : (
+              blocks.map((block, index) => (
+                <motion.section
+                  key={block.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
+                >
+                  <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={blockTheme} pageId={page?.id} />
+                </motion.section>
+              ))
+            );
+          })()}
         </div>
 
         {/* Footer - extra padding for sticky CTA */}
         <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
           <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
-            Powered by <span className="font-semibold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
+            Powered by <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
           </p>
         </footer>
       </div>
@@ -1857,6 +2056,54 @@ function NotFoundView({ handle }: { handle?: string }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function CinematicStickyHeader({
+  avatarUrl,
+  displayName,
+  fillColor,
+  textColor,
+}: {
+  avatarUrl: string | null;
+  displayName: string;
+  fillColor: string;
+  textColor: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 100);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ y: -48, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -48, opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="fixed top-0 left-0 right-0 z-50 flex items-center gap-3 px-4 py-2 backdrop-blur-md"
+          style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
+        >
+          <Avatar className="h-8 w-8 ring-1 ring-white/20">
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={displayName} />
+            ) : null}
+            <AvatarFallback
+              className="text-xs"
+              style={{ backgroundColor: fillColor, color: textColor }}
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-semibold text-white truncate">{displayName}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

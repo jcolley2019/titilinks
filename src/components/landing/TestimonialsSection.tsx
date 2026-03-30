@@ -8,7 +8,7 @@ const testimonials = [
     handle: '@jasfit',
     platform: '🎵 TikTok Creator',
     avatar: 'https://ui-avatars.com/api/?name=Jasmine+Torres&background=C9A55C&color=fff',
-    content: 'I went from 200 to 12,000 link clicks in one month. TitiLINKS made my bio actually convert — my merch sales tripled overnight.',
+    content: 'I went from 200 to 12,000 link clicks in one month. TitiLinks made my bio actually convert — my merch sales tripled overnight.',
     rating: 5
   },
   {
@@ -40,7 +40,7 @@ const testimonials = [
     handle: '@vegateam',
     platform: '🤝 Network Marketers',
     avatar: 'https://ui-avatars.com/api/?name=Chris+Vega&background=C9A55C&color=fff',
-    content: 'We replaced three different tools with TitiLINKS. Recruit page for team building, shop page for products. Our downline grew 60% in two months.',
+    content: 'We replaced three different tools with TitiLinks. Recruit page for team building, shop page for products. Our downline grew 60% in two months.',
     rating: 5
   },
   {

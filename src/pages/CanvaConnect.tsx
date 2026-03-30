@@ -12,6 +12,15 @@ function getIsInIframe() {
   }
 }
 
+function ComingSoonBanner() {
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 px-4 py-2.5 flex items-center justify-center gap-2" style={{ background: 'hsl(43 65% 55% / 0.08)', borderBottom: '1px solid hsl(43 65% 55% / 0.2)' }}>
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+      <span className="text-xs text-muted-foreground">Canva integration is under development</span>
+    </div>
+  );
+}
+
 export default function CanvaConnect() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -68,6 +77,7 @@ export default function CanvaConnect() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
+        <ComingSoonBanner />
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Loading...</p>
@@ -79,6 +89,7 @@ export default function CanvaConnect() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
+        <ComingSoonBanner />
         <div className="text-center space-y-4 max-w-md px-4">
           <h1 className="text-xl font-semibold text-destructive">Connection Failed</h1>
           <p className="text-muted-foreground">{error}</p>
@@ -96,6 +107,7 @@ export default function CanvaConnect() {
   if (authUrl) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
+        <ComingSoonBanner />
         <div className="text-center space-y-4 max-w-md px-4">
           <h1 className="text-xl font-semibold">Continue to Canva</h1>
           <p className="text-muted-foreground">
@@ -124,6 +136,7 @@ export default function CanvaConnect() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
+      <ComingSoonBanner />
       <div className="text-center space-y-4">
         <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
         <p className="text-muted-foreground">Connecting to Canva...</p>

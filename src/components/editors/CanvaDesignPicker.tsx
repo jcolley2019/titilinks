@@ -203,7 +203,7 @@ interface ImportState {
 
 const IMPORT_STEPS: { key: ImportStep; label: string }[] = [
   { key: 'exporting', label: 'Exporting from Canva…' },
-  { key: 'uploading', label: 'Uploading to TitiLINKS…' },
+  { key: 'uploading', label: 'Uploading to TitiLinks…' },
   { key: 'applying', label: 'Applying to your page…' },
 ];
 
@@ -691,6 +691,12 @@ export function CanvaDesignPicker({
         "max-w-4xl h-[85vh] max-h-[700px] p-0 gap-0 flex flex-col",
         isImporting && "[&>button]:hidden" // Hide close button during import
       )}>
+        {/* Coming Soon Banner */}
+        <div className="px-6 py-2.5 border-b flex-shrink-0 flex items-center gap-2" style={{ background: 'hsl(43 65% 55% / 0.08)', borderColor: 'hsl(43 65% 55% / 0.2)' }}>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+          <span className="text-xs text-muted-foreground">Canva integration is under development. Stay tuned!</span>
+        </div>
+
         {/* Top Bar */}
         <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between">

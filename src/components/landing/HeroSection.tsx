@@ -10,30 +10,21 @@ function PhoneMockup() {
   return (
     <div className="relative">
       {/* Floating badge: clicks */}
-      <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1.2, duration: 0.4 }}
-        className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
-      >
+      <div className="absolute -top-4 -right-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50">
         <span className="text-sm font-medium text-primary">{t('hero.mockup.clicks')}</span>
-      </motion.div>
+      </div>
 
       {/* Floating badge: setup time */}
-      <motion.div
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1.5, duration: 0.4 }}
-        className="absolute -bottom-4 -left-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50"
-      >
+      <div className="absolute -bottom-4 -left-10 z-30 px-4 py-2 rounded-xl bg-white dark:bg-card/80 dark:backdrop-blur-md shadow-lg shadow-black/15 dark:shadow-black/30 border border-border/50">
         <span className="text-sm font-medium text-primary">{t('hero.mockup.setup')}</span>
-      </motion.div>
+      </div>
 
-      {/* iPhone 17 Pro Max Frame */}
-      <div 
-        className="relative mx-auto bg-[#1a1a1a] rounded-[3rem] p-[3px] shadow-[0_0_40px_-8px_hsl(43_65%_55%/0.4),0_0_80px_-15px_hsl(43_65%_55%/0.2)]"
+      {/* OUTER LAYER: Phone frame/shell only — this is what animates */}
+      <div
+        className="relative mx-auto bg-[#1a1a1a] rounded-[3rem] p-[3px] overflow-hidden"
         style={{
           width: '290px',
+          height: '586px',
           boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(255,255,255,0.08), 0 0 40px -8px hsl(43 65% 55% / 0.4), 0 0 80px -15px hsl(43 65% 55% / 0.2)',
         }}
       >
@@ -44,14 +35,19 @@ function PhoneMockup() {
         {/* Side Button — Right (Power) */}
         <div className="absolute right-[-2.5px] top-[155px] w-[2.5px] h-[65px] bg-[#2a2a2a] rounded-r-sm" />
 
-        {/* Inner Screen */}
-        <div 
-          className="relative bg-black rounded-[2.75rem] overflow-hidden"
-          style={{ height: '580px' }}
+        {/* INNER LAYER: All content — completely static, no animation, no transform */}
+        <div
+          className="absolute inset-[3px] bg-black rounded-[2.75rem] overflow-hidden"
+          style={{
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            WebkitFontSmoothing: 'antialiased',
+            contain: 'layout style paint',
+          }}
         >
           {/* Dynamic Island */}
-          <div className="absolute top-[10px] left-1/2 -translate-x-1/2 z-20">
-            <div 
+          <div className="absolute top-[10px] z-20" style={{ left: '50%', marginLeft: '-55px' }}>
+            <div
               className="bg-black rounded-full flex items-center justify-center"
               style={{ width: '110px', height: '32px' }}
             >
@@ -72,12 +68,12 @@ function PhoneMockup() {
 
             <div className="relative flex-1 flex flex-col px-3 pb-2">
               <div className="flex flex-col items-center pt-1 pb-2">
-              <h3 className="font-bold text-white text-sm">{t('hero.mockup.name')}</h3>
-              <p className="text-[10px] text-white/50 text-center">{t('hero.mockup.bio')}</p>
+                <h3 className="font-bold text-white text-sm">{t('hero.mockup.name')}</h3>
+                <p className="text-[10px] text-white/50 text-center">{t('hero.mockup.bio')}</p>
               </div>
 
               <div className="flex-1 flex flex-col justify-end space-y-1.5">
-              {[t('hero.mockup.btn1'), t('hero.mockup.btn2'), t('hero.mockup.btn3')].map((label) => (
+                {[t('hero.mockup.btn1'), t('hero.mockup.btn2'), t('hero.mockup.btn3')].map((label) => (
                   <div
                     key={label}
                     className="w-full h-9 rounded-full flex items-center justify-center"
@@ -104,12 +100,12 @@ function PhoneMockup() {
           </div>
 
           {/* Home Indicator */}
-          <div className="absolute bottom-[6px] left-1/2 -translate-x-1/2 w-[100px] h-[4px] bg-white/25 rounded-full z-20" />
+          <div className="absolute bottom-[6px] z-20 w-[100px] h-[4px] bg-white/25 rounded-full" style={{ left: '50%', marginLeft: '-50px' }} />
         </div>
       </div>
 
       {/* Reflection overlay */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none rounded-[3rem]"
         style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%)' }}
       />
@@ -238,8 +234,14 @@ export function HeroSection() {
             className="hidden md:block flex-shrink-0"
           >
             <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'translateZ(0)',
+              }}
             >
               <div className="relative">
                 <div className="absolute -inset-6 bg-primary/30 dark:bg-primary/20 rounded-full blur-[50px]" />

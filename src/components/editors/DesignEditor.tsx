@@ -457,14 +457,17 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
               {/* Canva Connect Button */}
               {!canvaConnected && !canvaLoading && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start gap-2 h-auto py-3"
                   onClick={connectToCanva}
                 >
                   <Image className="h-4 w-4 text-primary" />
                   <div className="text-left">
-                    <div className="text-sm font-medium">Canva Studio</div>
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      Canva Studio
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                    </div>
                     <div className="text-xs text-muted-foreground">Connect to import</div>
                   </div>
                 </Button>
@@ -475,7 +478,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3" disabled>
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   <div className="text-left">
-                    <div className="text-sm font-medium">Canva Studio</div>
+                    <div className="text-sm font-medium flex items-center gap-1.5">
+                      Canva Studio
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                    </div>
                     <div className="text-xs text-muted-foreground">Checking...</div>
                   </div>
                 </Button>
@@ -483,8 +489,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
               {/* Canva Connected - Opens Picker */}
               {canvaConnected && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start gap-2 h-auto py-3"
                   onClick={() => setShowCanvaPicker(true)}
                 >
@@ -495,6 +501,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-500/20 text-green-500">
                         <Check className="h-2.5 w-2.5" />
                       </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
                     </div>
                     <div className="text-xs text-muted-foreground">Import designs</div>
                   </div>
@@ -504,14 +511,17 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               {/* Canva Connect Button - Not connected */}
               {!canvaConnected && !canvaLoading && (
                 <div className="flex flex-col">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full justify-start gap-2 h-auto py-3"
                     onClick={connectToCanva}
                   >
                     <Image className="h-4 w-4 text-primary" />
                     <div className="text-left">
-                      <div className="text-sm font-medium">Canva Studio</div>
+                      <div className="text-sm font-medium flex items-center gap-1.5">
+                        Canva Studio
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                      </div>
                       <div className="text-xs text-muted-foreground">Connect to import</div>
                     </div>
                   </Button>
@@ -606,6 +616,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <div className="flex items-center gap-2">
                     <Image className="h-4 w-4 text-primary" />
                     <Label className="text-sm font-medium">Canva Imports</Label>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
                   </div>
                   <Button 
                     variant="ghost" 
@@ -719,6 +730,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                           { value: 'overlay' as const, label: 'Overlay', desc: 'Text on image' },
                           { value: 'card' as const, label: 'Card', desc: 'Image in card' },
                           { value: 'split' as const, label: 'Split', desc: 'Storefront style' },
+                          { value: 'cinematic' as const, label: 'Cinematic', desc: 'Full hero photo' },
+                          { value: 'immersive' as const, label: 'Immersive', desc: 'Full screen photo bg' },
                         ].map((layout) => (
                           <button
                             key={layout.value}
@@ -736,10 +749,36 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                           </button>
                         ))}
                       </div>
+
+                      {/* Online Indicator toggle — only for immersive layout */}
+                      {(theme.header?.layout === 'immersive') && (
+                        <div className="mt-3 flex items-center justify-between">
+                          <Label className="text-xs font-medium">Online Indicator</Label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTheme((prev) => {
+                                const newTheme = { ...prev, online_indicator: !prev.online_indicator };
+                                saveTheme(newTheme);
+                                return newTheme;
+                              });
+                            }}
+                            className={cn(
+                              'relative w-9 h-5 rounded-full transition-colors',
+                              theme.online_indicator ? 'bg-green-500' : 'bg-muted'
+                            )}
+                          >
+                            <span className={cn(
+                              'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+                              theme.online_indicator && 'translate-x-4'
+                            )} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-                
+
                 {/* Last Imported from Canva */}
                 {theme.canva_last_import && (
                   <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">

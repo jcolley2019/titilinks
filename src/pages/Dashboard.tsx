@@ -101,7 +101,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome to your TitiLINKS dashboard</p>
+            <p className="text-muted-foreground mt-1">Welcome to your TitiLinks dashboard</p>
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
             <button

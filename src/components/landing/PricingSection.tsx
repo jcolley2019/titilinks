@@ -16,7 +16,7 @@ export function PricingSection() {
       annualPrice: '$0',
       period: '/forever',
       description: 'Perfect for getting started with your first biolink page.',
-      features: ['1 page', '5 links', 'Basic themes', 'Mobile optimized', 'TitiLINKS branding'],
+      features: ['1 page', '5 links', 'Basic themes', 'Mobile optimized', 'TitiLinks branding'],
       cta: 'Get Started Free',
       popular: false,
       comingSoon: false

@@ -59,7 +59,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Solution Section
     'solution.title': 'Your bio link,',
     'solution.title2': 'elevated',
-    'solution.description': 'TitiLINKS transforms your single bio link into a dynamic, trackable storefront that converts followers into customers—in minutes, not months.',
+    'solution.description': 'TitiLinks transforms your single bio link into a dynamic, trackable storefront that converts followers into customers—in minutes, not months.',
     'solution.feature1': 'Beautiful, mobile-first design',
     'solution.feature2': 'Built-in analytics & tracking',
     'solution.feature3': 'Mode switching for different audiences',
@@ -226,7 +226,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Solution Section
     'solution.title': 'Tu enlace bio,',
     'solution.title2': 'elevado',
-    'solution.description': 'TitiLINKS transforma tu único enlace bio en una tienda dinámica y rastreable que convierte seguidores en clientes—en minutos, no meses.',
+    'solution.description': 'TitiLinks transforma tu único enlace bio en una tienda dinámica y rastreable que convierte seguidores en clientes—en minutos, no meses.',
     'solution.feature1': 'Diseño hermoso, móvil primero',
     'solution.feature2': 'Analíticas y seguimiento integrados',
     'solution.feature3': 'Cambio de modo para diferentes audiencias',

@@ -33,7 +33,7 @@ export function ComparisonSection() {
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">How we compare</h2>
           <p className="text-white/55 text-lg max-w-2xl mx-auto font-body">
-            See why creators are switching to <span className="text-white">Titi</span><span className="italic text-primary">Links</span>
+            See why creators are switching to <span className="text-white font-bold">Titi</span><span className="text-[hsl(43,65%,55%)] italic font-bold">Links</span>
           </p>
         </motion.div>
 
@@ -50,7 +50,7 @@ export function ComparisonSection() {
               <tr style={{ borderBottom: '1px solid hsl(43 65% 55% / 0.2)' }}>
                 <th className="text-left py-4 px-4 font-semibold text-white font-body">Feature</th>
                 <th className="text-center py-4 px-4">
-                  <span className="font-bold"><span className="text-white">Titi</span><span className="italic text-primary">Links</span></span>
+                  <span className="font-bold"><span className="text-white">Titi</span><span className="text-[hsl(43,65%,55%)] italic">Links</span></span>
                 </th>
                 <th className="text-center py-4 px-4 text-white/80">Linktree</th>
                 <th className="text-center py-4 px-4 text-white/80">Others</th>

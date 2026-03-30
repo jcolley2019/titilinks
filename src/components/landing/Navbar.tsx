@@ -43,8 +43,8 @@ export function Navbar() {
             <div className="p-2 rounded-xl bg-white/10 border border-[hsl(43_65%_55%_/_0.3)]">
               <Link2 className="h-5 w-5 text-[hsl(43,65%,55%)]" />
             </div>
-            <span className="text-xl font-bold gradient-text">
-              TitiLinks
+            <span className="text-xl font-bold">
+              <span className="text-white">Titi</span><span className="text-[hsl(43,65%,55%)] italic">Links</span>
             </span>
           </Link>
 

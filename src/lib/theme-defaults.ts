@@ -10,7 +10,7 @@ export interface ThemeBackground {
   source: 'upload' | 'canva' | null;
 }
 
-export type HeaderLayout = 'overlay' | 'card' | 'split';
+export type HeaderLayout = 'overlay' | 'card' | 'split' | 'cinematic' | 'immersive';
 
 export interface CanvaImportMetadata {
   design_id: string;
@@ -72,6 +72,7 @@ export interface ThemeJson {
   motion: ThemeMotion;
   header?: ThemeHeader;
   auto_contrast?: boolean;
+  online_indicator?: boolean;
   canva_last_import?: CanvaImportMetadata;
 }
 

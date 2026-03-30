@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/accordion';
 
 const faqs = [
-  { question: 'Is TitiLINKS really free?', answer: 'Yes! Our free tier includes unlimited links, basic analytics, and beautiful themes. No credit card required. Upgrade to Pro only if you need advanced features like mode switching and custom domains.' },
+  { question: 'Is TitiLinks really free?', answer: 'Yes! Our free tier includes unlimited links, basic analytics, and beautiful themes. No credit card required. Upgrade to Pro only if you need advanced features like mode switching and custom domains.' },
   { question: 'How fast will my page load?', answer: 'We optimize for speed obsessively. Average load times are under 100ms globally. Your visitors see your content before they can blink, which means they stay longer and click more.' },
   { question: 'What is mode switching?', answer: 'Mode switching lets you show different content to different audiences. For example, show your product catalog to shoppers, and your portfolio to potential employers—all from the same link.' },
   { question: 'Can I use my own domain?', answer: 'Yes! Pro and Business plans include custom domain support. Connect your own domain (like links.yourname.com) for a fully branded experience.' },
@@ -27,7 +27,7 @@ export function FAQSection() {
           className="text-center mb-12"
         >
           <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">Frequently asked questions</h2>
-          <p className="text-white/55 text-lg font-body">Everything you need to know about TitiLINKS</p>
+          <p className="text-white/55 text-lg font-body">Everything you need to know about TitiLinks</p>
         </motion.div>
 
         <motion.div

@@ -48,8 +48,8 @@ export function Footer() {
               <div className="p-2 rounded-xl border" style={{ background: 'hsl(43 65% 55% / 0.1)', borderColor: 'hsl(43 65% 55% / 0.3)' }}>
                 <Link2 className="h-5 w-5" style={{ color: 'hsl(43 65% 55%)' }} />
               </div>
-              <span className="text-xl font-bold gradient-text">
-                TitiLinks
+              <span className="text-xl font-bold">
+                <span className="text-white">Titi</span><span className="text-[hsl(43,65%,55%)] italic">Links</span>
               </span>
             </Link>
             <p className="text-white/50 mb-4 font-body">{t('footer.tagline')}</p>
@@ -86,7 +86,7 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center pt-8 gap-4" style={{ borderTop: '1px solid hsl(43 65% 55% / 0.15)' }}>
           <p className="text-sm text-white/40">
-            © {new Date().getFullYear()} <span className="text-white/60">Titi</span><span className="italic" style={{ color: 'hsl(43 65% 55%)' }}>Links</span>. {t('footer.copyright')}
+            © {new Date().getFullYear()} <span className="text-white font-bold">Titi</span><span className="text-[hsl(43,65%,55%)] italic font-bold">Links</span>. {t('footer.copyright')}
           </p>
           <p className="text-sm text-white/40">{t('footer.made')}</p>
         </div>

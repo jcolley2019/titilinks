@@ -140,7 +140,7 @@ export default function Login() {
               {mode === 'forgot'
                 ? 'Enter your email to receive a reset link'
                 : mode === 'signup'
-                  ? 'Sign up to create your TitiLINKS page'
+                  ? 'Sign up to create your TitiLinks page'
                   : 'Sign in to manage your links'}
             </CardDescription>
           </CardHeader>
