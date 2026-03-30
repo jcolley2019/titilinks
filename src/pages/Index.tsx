@@ -17,7 +17,7 @@ import { Footer } from '@/components/landing/Footer';
 
 const Index = () => {
   return (
-    <div className="relative min-h-screen bg-background text-foreground">
+    <div className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Animated gold shimmer background */}
       <div className="landing-shimmer-bg">
         <div className="orb orb-1" />

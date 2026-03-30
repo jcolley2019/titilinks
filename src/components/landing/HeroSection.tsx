@@ -117,7 +117,7 @@ export function HeroSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="relative flex items-center justify-center pt-32 pb-20 px-4 noise-overlay" style={{ backgroundColor: 'hsl(30, 15%, 6%)' }}>
+    <section className="relative flex items-center justify-center pt-32 pb-20 px-4 noise-overlay overflow-hidden" style={{ backgroundColor: 'hsl(30, 15%, 6%)' }}>
       {/* Ambient glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary/8 rounded-full blur-[120px]" />
       <div className="absolute top-2/3 left-1/4 w-[400px] h-[300px] bg-accent/6 rounded-full blur-[100px]" />
