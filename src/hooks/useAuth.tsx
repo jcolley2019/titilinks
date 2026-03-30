@@ -21,13 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If the URL contains an access_token hash (OAuth callback), let
-    // onAuthStateChange handle it — don't let getSession resolve early
-    // with null and trigger a redirect to /login.
+    // If the URL contains an access_token hash (OAuth callback), the
+    // Supabase client needs time to parse the tokens. The initial
+    // onAuthStateChange fires immediately with null — we must ignore
+    // that and wait for the real SIGNED_IN event.
     const hasHashToken = window.location.hash.includes('access_token');
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (hasHashToken && !session && event === 'INITIAL_SESSION') {
+          // Tokens are still being parsed — don't set loading=false yet
+          return;
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -42,7 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    return () => subscription.unsubscribe();
+    // Fallback: if hash token processing fails, stop loading after 5s
+    // so the user isn't stuck on a spinner forever
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    if (hasHashToken) {
+      timeout = setTimeout(() => setLoading(false), 5000);
+    }
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeout) clearTimeout(timeout);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
