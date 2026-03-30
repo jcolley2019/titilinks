@@ -58,10 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    const redirectTo = window.location.hostname === 'localhost'
+      ? 'http://localhost:8080/dashboard'
+      : 'https://titilinks.com/dashboard';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/dashboard'
+        redirectTo
       }
     });
     return { error: error as Error | null };
