@@ -556,11 +556,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [language]);
 
   const setLanguage = (lang: Language) => {
+    console.log('[useLanguage] switching language:', language, '→', lang);
     setLanguageState(lang);
   };
 
   const t = (key: string): string => {
-    return translations[language][key] || key;
+    const value = translations[language][key];
+    if (!value) {
+      console.warn('[useLanguage] missing key:', key, 'for language:', language);
+    }
+    return value || key;
   };
 
   return (
