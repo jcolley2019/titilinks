@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { ThemePreview } from './ThemePreview';
 import { TemplateGallery } from './TemplateGallery';
 import { CanvaDesignPicker } from './CanvaDesignPicker';
@@ -35,7 +36,7 @@ const GRADIENT_PRESETS = [
 ];
 
 // Helper to format relative time
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string, t: (key: string) => string, language: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -43,12 +44,12 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (diffMins < 1) return t('design.timeJustNow');
+  if (diffMins < 60) return `${diffMins}${t('design.timeMinsAgo')}`;
+  if (diffHours < 24) return `${diffHours}${t('design.timeHoursAgo')}`;
+  if (diffDays < 7) return `${diffDays}${t('design.timeDaysAgo')}`;
+
+  return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 interface DesignEditorProps {
@@ -62,6 +63,7 @@ interface DesignEditorProps {
 
 export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl }: DesignEditorProps) {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -119,14 +121,14 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     
     if (canvaStatus === 'connected') {
       setCanvaConnected(true);
-      toast.success('Canva connected successfully!');
+      toast.success(t('design.canvaConnected'));
       // Clear the URL params
       navigate('/dashboard/editor?tab=design', { replace: true });
     } else if (canvaStatus === 'error') {
       if (message?.toLowerCase().includes('mfa')) {
         setCanvaError('mfa');
       } else {
-        toast.error(message || 'Failed to connect Canva');
+        toast.error(message || t('design.canvaConnectFailed'));
       }
       navigate('/dashboard/editor?tab=design', { replace: true });
     }
@@ -169,13 +171,13 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         });
       
       if (error) throw error;
-      toast.success('Preset saved!');
+      toast.success(t('design.presetSaved'));
       setSavePresetOpen(false);
       setNewPresetName('');
       fetchCustomPresets();
     } catch (error) {
       console.error('Error saving preset:', error);
-      toast.error('Failed to save preset');
+      toast.error(t('design.presetSaveFailed'));
     } finally {
       setSavingPreset(false);
     }
@@ -189,11 +191,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .eq('id', presetId);
       
       if (error) throw error;
-      toast.success('Preset deleted');
+      toast.success(t('design.presetDeleted'));
       fetchCustomPresets();
     } catch (error) {
       console.error('Error deleting preset:', error);
-      toast.error('Failed to delete preset');
+      toast.error(t('design.presetDeleteFailed'));
     }
   };
 
@@ -209,11 +211,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .eq('id', pageId);
 
       if (error) throw error;
-      toast.success('Design saved!');
+      toast.success(t('design.designSaved'));
       onUpdate();
     } catch (error) {
       console.error('Error saving theme:', error);
-      toast.error('Failed to save design');
+      toast.error(t('design.designSaveFailed'));
     }
   };
 
@@ -275,14 +277,14 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be 5MB or less');
+      toast.error(t('design.imgSizeError'));
       return;
     }
 
     // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
+      toast.error(t('design.imgTypeError'));
       return;
     }
 
@@ -302,10 +304,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .getPublicUrl(fileName);
 
       updateBackground({ image_url: urlData.publicUrl }, true);
-      toast.success('Background image uploaded!');
+      toast.success(t('design.bgImageUploaded'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload image');
+      toast.error(t('design.bgUploadFailed'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -326,7 +328,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       });
 
       if (error) {
-        toast.error(error.message || "Failed to connect to Canva");
+        toast.error(error.message || t('design.canvaConnectFailed'));
         return;
       }
 
@@ -335,11 +337,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         if (window.top) window.top.location.href = data.authUrl;
         else window.location.href = data.authUrl;
       } else {
-        toast.error("No authorization URL received");
+        toast.error(t('design.canvaNoAuthUrl'));
       }
     } catch (err) {
       console.error('Error initiating Canva connect:', err);
-      toast.error("Failed to initiate Canva connection");
+      toast.error(t('design.canvaConnectInitFailed'));
     }
   };
 
@@ -353,15 +355,15 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .eq('user_id', user.id);
       
       if (error) {
-        toast.error("Failed to disconnect Canva");
+        toast.error(t('design.canvaDisconnectFailed'));
         return;
       }
-      
+
       setCanvaConnected(false);
-      toast.success("Canva disconnected");
+      toast.success(t('design.canvaDisconnected'));
     } catch (err) {
       console.error('Error disconnecting Canva:', err);
-      toast.error("Failed to disconnect Canva");
+      toast.error(t('design.canvaDisconnectFailed'));
     }
   };
 
@@ -380,7 +382,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
       if (error) {
         console.error('Canva create design error:', error);
-        toast.error(error.message || "Failed to create design");
+        toast.error(error.message || t('design.canvaCreateFailed'));
         return;
       }
 
@@ -392,13 +394,13 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       if (data?.edit_url) {
         // Open Canva editor in new tab
         window.open(data.edit_url, '_blank', 'noopener,noreferrer');
-        toast.success("Opening Canva editor...");
+        toast.success(t('design.canvaOpeningEditor'));
       } else {
-        toast.error("Failed to get design URL from Canva");
+        toast.error(t('design.canvaDesignUrlFailed'));
       }
     } catch (err) {
       console.error('Error creating Canva design:', err);
-      toast.error("Failed to create design in Canva");
+      toast.error(t('design.canvaCreateFailed'));
     } finally {
       setCreatingDesign(false);
     }
@@ -411,17 +413,17 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
             <Palette className="h-5 w-5 text-primary" />
-            Design Settings
+            {t('design.title')}
           </CardTitle>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save
+            {t('design.save')}
           </Button>
         </CardHeader>
         <CardContent>
           {/* Design Tools Section */}
           <div className="mb-6 pb-6 border-b border-border">
-            <Label className="text-sm font-medium mb-3 block">Design Tools</Label>
+            <Label className="text-sm font-medium mb-3 block">{t('design.designTools')}</Label>
             <div className="grid grid-cols-2 gap-2">
               {/* Template Gallery Button */}
               <Collapsible>
@@ -429,8 +431,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
                     <LayoutTemplate className="h-4 w-4 text-primary" />
                     <div className="text-left">
-                      <div className="text-sm font-medium">Template Gallery</div>
-                      <div className="text-xs text-muted-foreground">Browse templates</div>
+                      <div className="text-sm font-medium">{t('design.templateGallery')}</div>
+                      <div className="text-xs text-muted-foreground">{t('design.browseTemplates')}</div>
                     </div>
                   </Button>
                 </CollapsibleTrigger>
@@ -455,34 +457,16 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </CollapsibleContent>
               </Collapsible>
 
-              {/* Canva Connect Button */}
-              {!canvaConnected && !canvaLoading && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2 h-auto py-3"
-                  onClick={connectToCanva}
-                >
-                  <Image className="h-4 w-4 text-primary" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium flex items-center gap-1.5">
-                      Canva Studio
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">Connect to import</div>
-                  </div>
-                </Button>
-              )}
-
               {/* Canva Loading */}
               {canvaLoading && (
                 <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3" disabled>
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium flex items-center gap-1.5">
-                      Canva Studio
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                  <div className="text-left min-w-0">
+                    <div className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                      {t('design.canvaStudio')}
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>{t('design.comingSoon')}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">Checking...</div>
+                    <div className="text-xs text-muted-foreground">{t('design.checking')}</div>
                   </div>
                 </Button>
               )}
@@ -495,15 +479,15 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   onClick={() => setShowCanvaPicker(true)}
                 >
                   <Image className="h-4 w-4 text-primary" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium flex items-center gap-1.5">
-                      Canva Studio
+                  <div className="text-left min-w-0">
+                    <div className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                      {t('design.canvaStudio')}
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-500/20 text-green-500">
                         <Check className="h-2.5 w-2.5" />
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>{t('design.comingSoon')}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">Import designs</div>
+                    <div className="text-xs text-muted-foreground">{t('design.importDesigns')}</div>
                   </div>
                 </Button>
               )}
@@ -517,63 +501,63 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                     onClick={connectToCanva}
                   >
                     <Image className="h-4 w-4 text-primary" />
-                    <div className="text-left">
-                      <div className="text-sm font-medium flex items-center gap-1.5">
-                        Canva Studio
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                    <div className="text-left min-w-0">
+                      <div className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                        {t('design.canvaStudio')}
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>{t('design.comingSoon')}</span>
                       </div>
-                      <div className="text-xs text-muted-foreground">Connect to import</div>
+                      <div className="text-xs text-muted-foreground">{t('design.connectToImport')}</div>
                     </div>
                   </Button>
-                  
+
                   {/* Canva Setup Help - Below the button */}
                   <Collapsible className="mt-2">
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent text-xs">
                         <div className="flex items-center gap-1.5">
                           <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground text-[11px]">Canva Setup Help - Click to expand</span>
+                          <span className="text-muted-foreground text-[11px]">{t('design.canvaSetupHelp')}</span>
                         </div>
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-2">
                       <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-xs">
-                        <p className="font-medium text-foreground">Connect Canva to design custom headers and wallpapers:</p>
-                        
+                        <p className="font-medium text-foreground">{t('design.canvaSetupIntro')}</p>
+
                         <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                           <li>
-                            In{' '}
-                            <a 
-                              href="https://www.canva.com/developers/" 
-                              target="_blank" 
+                            {t('design.canvaStep1Prefix')}{' '}
+                            <a
+                              href="https://www.canva.com/developers/"
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline inline-flex items-center gap-0.5"
                             >
-                              Canva Developer Portal
+                              {t('design.canvaDeveloperPortal')}
                               <ExternalLink className="h-2.5 w-2.5" />
                             </a>
-                            , create a <strong className="text-foreground">Canva Connect</strong> integration
+                            , {t('design.canvaStep1Create')} <strong className="text-foreground">{t('design.canvaConnect')}</strong> {t('design.canvaStep1Suffix')}
                           </li>
                           <li>
-                            Add redirect URL:{' '}
+                            {t('design.canvaStep2')}{' '}
                             <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">
                               https://titilinks.lovable.app/api/canva/callback
                             </code>
                           </li>
                           <li>
-                            Enable scopes:{' '}
+                            {t('design.canvaStep3')}{' '}
                             <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:meta:read</code>
-                            {' '}and{' '}
+                            {' '}{t('design.canvaStep3And')}{' '}
                             <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono text-foreground">design:content:read</code>
                           </li>
                           <li>
-                            Copy <strong className="text-foreground">Client ID</strong> and <strong className="text-foreground">Client Secret</strong> into environment variables
+                            {t('design.canvaStep4Copy')} <strong className="text-foreground">{t('design.canvaClientId')}</strong> {t('design.canvaStep3And')} <strong className="text-foreground">{t('design.canvaClientSecret')}</strong> {t('design.canvaStep4Suffix')}
                           </li>
                         </ol>
 
                         <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
                           <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                            <strong>Note:</strong> Use "Your integrations" not "Your apps" in Canva.
+                            <strong>{t('design.noteLabel')}</strong> {t('design.canvaNote')}
                           </p>
                         </div>
                       </div>
@@ -589,9 +573,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-foreground">MFA Required</p>
+                    <p className="text-xs font-medium text-foreground">{t('design.mfaRequired')}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      Enable MFA in Canva Settings → Login, then retry.
+                      {t('design.mfaDesc')}
                     </p>
                   </div>
                 </div>
@@ -602,7 +586,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   className="w-full h-7 text-xs gap-1.5"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Retry
+                  {t('design.retry')}
                 </Button>
               </div>
             )}
@@ -613,10 +597,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             (theme.background.source === 'canva' || theme.header?.source === 'canva' || theme.canva_last_import) && (
               <div className="mb-6 pb-6 border-b border-border">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Image className="h-4 w-4 text-primary" />
-                    <Label className="text-sm font-medium">Canva Imports</Label>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>Coming Soon</span>
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <Image className="h-4 w-4 text-primary flex-shrink-0" />
+                    <Label className="text-sm font-medium">{t('design.canvaImports')}</Label>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap" style={{ background: 'hsl(43 65% 55% / 0.15)', border: '1px solid hsl(43 65% 55% / 0.3)', color: 'hsl(43 65% 55%)' }}>{t('design.comingSoon')}</span>
                   </div>
                   <Button 
                     variant="ghost" 
@@ -624,7 +608,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                     className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
                     onClick={disconnectCanva}
                   >
-                    Disconnect
+                    {t('design.disconnect')}
                   </Button>
                 </div>
 
@@ -633,14 +617,14 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
                     <div className="flex items-center gap-2 mb-2">
                       <Wallpaper className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium">Background</span>
+                      <span className="text-xs font-medium">{t('design.background')}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Canva</span>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-20 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
                         <img 
                           src={theme.background.image_url} 
-                          alt="Background" 
+                          alt={t('design.background')} 
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -652,23 +636,23 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                           onClick={() => setShowCanvaPicker(true)}
                         >
                           <RefreshCw className="h-3 w-3" />
-                          Replace
+                          {t('design.replace')}
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-7 text-xs justify-start gap-1.5 text-muted-foreground hover:text-destructive"
                           onClick={() => {
                             // Revert to solid color, clear image and source
-                            updateBackground({ 
+                            updateBackground({
                               type: 'solid',
-                              image_url: '', 
-                              source: null 
+                              image_url: '',
+                              source: null
                             }, true);
                           }}
                         >
                           <Trash2 className="h-3 w-3" />
-                          Remove
+                          {t('design.remove')}
                         </Button>
                       </div>
                     </div>
@@ -680,7 +664,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
                     <div className="flex items-center gap-2 mb-2">
                       <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium">Header</span>
+                      <span className="text-xs font-medium">{t('design.header')}</span>
                       {theme.header.source === 'canva' && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Canva</span>
                       )}
@@ -689,7 +673,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       <div className="w-20 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
                         <img 
                           src={theme.header.image_url} 
-                          alt="Header" 
+                          alt={t('design.header')} 
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -701,37 +685,37 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                           onClick={() => setShowCanvaPicker(true)}
                         >
                           <RefreshCw className="h-3 w-3" />
-                          Replace
+                          {t('design.replace')}
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-7 text-xs justify-start gap-1.5 text-muted-foreground hover:text-destructive"
                           onClick={() => {
                             // Disable header and clear image/source
-                            updateHeader({ 
+                            updateHeader({
                               enabled: false,
-                              image_url: '', 
-                              source: null 
+                              image_url: '',
+                              source: null
                             }, true);
                           }}
                         >
                           <Trash2 className="h-3 w-3" />
-                          Remove
+                          {t('design.remove')}
                         </Button>
                       </div>
                     </div>
                     
                     {/* Header Layout Selector */}
                     <div className="mt-3 pt-3 border-t border-border">
-                      <Label className="text-xs font-medium mb-2 block">Header Layout</Label>
+                      <Label className="text-xs font-medium mb-2 block">{t('design.headerLayout')}</Label>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { value: 'overlay' as const, label: 'Overlay', desc: 'Text on image' },
-                          { value: 'card' as const, label: 'Card', desc: 'Image in card' },
-                          { value: 'split' as const, label: 'Split', desc: 'Storefront style' },
-                          { value: 'cinematic' as const, label: 'Cinematic', desc: 'Full hero photo' },
-                          { value: 'immersive' as const, label: 'Immersive', desc: 'Full screen photo bg' },
+                          { value: 'overlay' as const, label: t('design.layoutOverlay'), desc: t('design.layoutOverlayDesc') },
+                          { value: 'card' as const, label: t('design.layoutCard'), desc: t('design.layoutCardDesc') },
+                          { value: 'split' as const, label: t('design.layoutSplit'), desc: t('design.layoutSplitDesc') },
+                          { value: 'cinematic' as const, label: t('design.layoutCinematic'), desc: t('design.layoutCinematicDesc') },
+                          { value: 'immersive' as const, label: t('design.layoutImmersive'), desc: t('design.layoutImmersiveDesc') },
                         ].map((layout) => (
                           <button
                             key={layout.value}
@@ -753,7 +737,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       {/* Online Indicator toggle — only for immersive layout */}
                       {(theme.header?.layout === 'immersive') && (
                         <div className="mt-3 flex items-center justify-between">
-                          <Label className="text-xs font-medium">Online Indicator</Label>
+                          <Label className="text-xs font-medium">{t('design.onlineIndicator')}</Label>
                           <button
                             type="button"
                             onClick={() => {
@@ -784,7 +768,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium">Last imported from Canva</span>
+                      <span className="text-xs font-medium">{t('design.lastImportedCanva')}</span>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-16 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-border">
@@ -807,7 +791,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                           <span className="capitalize">{theme.canva_last_import.target}</span>
                           <span>•</span>
-                          <span>{formatRelativeTime(theme.canva_last_import.imported_at)}</span>
+                          <span>{formatRelativeTime(theme.canva_last_import.imported_at, t, language)}</span>
                         </div>
                       </div>
                     </div>
@@ -820,12 +804,12 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   onClick={() => setShowCanvaPicker(true)}
                 >
                   <Image className="h-4 w-4" />
-                  {theme.canva_last_import 
-                    ? 'Import another design'
-                    : (theme.background.source === 'canva' && theme.background.image_url) || 
-                      (theme.header?.enabled && theme.header?.image_url) 
-                      ? 'Add another Canva design' 
-                      : 'Choose a Canva design'}
+                  {theme.canva_last_import
+                    ? t('design.importAnother')
+                    : (theme.background.source === 'canva' && theme.background.image_url) ||
+                      (theme.header?.enabled && theme.header?.image_url)
+                      ? t('design.addAnotherCanva')
+                      : t('design.chooseCanvaDesign')}
                 </Button>
                 
                 <CanvaDesignPicker
@@ -889,44 +873,44 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       <div className="flex-1">
                         {canvaError === 'mfa' ? (
                           <>
-                            <p className="text-sm font-medium text-destructive">MFA Required</p>
+                            <p className="text-sm font-medium text-destructive">{t('design.canvaErrorMfa')}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              Your Canva account requires Multi-Factor Authentication.
+                              {t('design.canvaErrorMfaDesc')}
                             </p>
                           </>
                         ) : canvaError === 'missing_scope' ? (
                           <>
-                            <p className="text-sm font-medium text-destructive">Permission Required</p>
+                            <p className="text-sm font-medium text-destructive">{t('design.canvaErrorPermission')}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              Design creation requires additional permissions.
+                              {t('design.canvaErrorPermissionDesc')}
                             </p>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="mt-2 h-7 text-xs"
                               onClick={() => {
                                 setCanvaError(null);
                                 disconnectCanva();
                               }}
                             >
-                              Reconnect Canva
+                              {t('design.reconnectCanva')}
                             </Button>
                           </>
                         ) : (
                           <>
-                            <p className="text-sm font-medium text-destructive">Error</p>
+                            <p className="text-sm font-medium text-destructive">{t('design.canvaErrorGeneric')}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              Something went wrong. Please try again.
+                              {t('design.canvaErrorGenericDesc')}
                             </p>
                           </>
                         )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="mt-2 h-7 text-xs"
                           onClick={() => setCanvaError(null)}
                         >
-                          Dismiss
+                          {t('design.dismiss')}
                         </Button>
                       </div>
                     </div>
@@ -939,7 +923,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-sm font-medium">Quick Start Presets</Label>
+              <Label className="text-sm font-medium">{t('design.quickStartPresets')}</Label>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {THEME_PRESETS.map((preset) => (
@@ -991,31 +975,31 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             <div className="flex items-center justify-between mb-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Bookmark className="h-4 w-4" />
-                My Saved Presets
+                {t('design.mySavedPresets')}
               </Label>
               <Dialog open={savePresetOpen} onOpenChange={setSavePresetOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1 h-7 text-xs">
                     <Plus className="h-3 w-3" />
-                    Save Current
+                    {t('design.saveCurrent')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[400px]">
                   <DialogHeader>
-                    <DialogTitle>Save Theme Preset</DialogTitle>
+                    <DialogTitle>{t('design.saveThemePreset')}</DialogTitle>
                     <DialogDescription>
-                      Save your current theme settings as a reusable preset.
+                      {t('design.saveThemePresetDesc')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="py-4">
                     <Label htmlFor="preset-name" className="text-sm font-medium">
-                      Preset Name
+                      {t('design.presetName')}
                     </Label>
                     <Input
                       id="preset-name"
                       value={newPresetName}
                       onChange={(e) => setNewPresetName(e.target.value)}
-                      placeholder="e.g., My Brand Theme"
+                      placeholder={t('design.presetPlaceholder')}
                       className="mt-2"
                     />
                   </div>
@@ -1024,7 +1008,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       variant="outline"
                       onClick={() => setSavePresetOpen(false)}
                     >
-                      Cancel
+                      {t('design.cancel')}
                     </Button>
                     <Button
                       onClick={saveCustomPreset}
@@ -1033,7 +1017,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       {savingPreset ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
-                      Save Preset
+                      {t('design.savePreset')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -1046,7 +1030,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               </div>
             ) : customPresets.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No saved presets yet. Customize your theme and save it!
+                {t('design.noPresetsYet')}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -1120,8 +1104,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Microinteractions</Label>
-                  <p className="text-xs text-muted-foreground">Hover lift & press animations</p>
+                  <Label className="text-sm font-medium">{t('design.microinteractions')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('design.microinteractionsDesc')}</p>
                 </div>
               </div>
               <Switch
@@ -1133,7 +1117,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Users with "reduce motion" enabled in their device settings will not see animations regardless of this setting.
+              {t('design.microinteractionsNote')}
             </p>
           </div>
 
@@ -1145,8 +1129,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <Palette className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Match styles to background</Label>
-                  <p className="text-xs text-muted-foreground">Auto-adjust colors for readability</p>
+                  <Label className="text-sm font-medium">{t('design.matchStyles')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('design.matchStylesDesc')}</p>
                 </div>
               </div>
               <Switch
@@ -1158,7 +1142,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              When enabled, automatically adjusts overlay opacity and text color for better readability on image backgrounds.
+              {t('design.matchStylesNote')}
             </p>
           </div>
 
@@ -1166,22 +1150,22 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="background" className="gap-2">
               <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Background</span>
+              <span className="hidden sm:inline">{t('design.tabBackground')}</span>
             </TabsTrigger>
             <TabsTrigger value="buttons" className="gap-2">
               <MousePointer className="h-4 w-4" />
-              <span className="hidden sm:inline">Buttons</span>
+              <span className="hidden sm:inline">{t('design.tabButtons')}</span>
             </TabsTrigger>
             <TabsTrigger value="typography" className="gap-2">
               <Type className="h-4 w-4" />
-              <span className="hidden sm:inline">Typography</span>
+              <span className="hidden sm:inline">{t('design.tabTypography')}</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Background Tab */}
           <TabsContent value="background" className="space-y-4">
             <div className="space-y-2">
-              <Label>Background Type</Label>
+              <Label>{t('design.backgroundType')}</Label>
               <Select
                 value={theme.background.type}
                 onValueChange={(v) => updateBackground({ type: v as 'solid' | 'gradient' | 'image' })}
@@ -1190,16 +1174,16 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="solid">Solid Color</SelectItem>
-                  <SelectItem value="gradient">Gradient</SelectItem>
-                  <SelectItem value="image">Image</SelectItem>
+                  <SelectItem value="solid">{t('design.solidColor')}</SelectItem>
+                  <SelectItem value="gradient">{t('design.gradient')}</SelectItem>
+                  <SelectItem value="image">{t('design.image')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {theme.background.type === 'solid' && (
               <div className="space-y-2">
-                <Label>Solid Color</Label>
+                <Label>{t('design.solidColor')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="color"
@@ -1219,7 +1203,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
             {theme.background.type === 'gradient' && (
               <div className="space-y-3">
-                <Label>Choose a Preset Gradient</Label>
+                <Label>{t('design.choosePresetGradient')}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {GRADIENT_PRESETS.map((preset) => (
                     <button
@@ -1239,7 +1223,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                         </div>
                       )}
                       <span className="absolute bottom-1 left-1 text-xs text-white drop-shadow-md">
-                        {preset.name}
+                        {t(`design.gradient${preset.name}`)}
                       </span>
                     </button>
                   ))}
@@ -1253,7 +1237,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
             {theme.background.type === 'image' && (
               <div className="space-y-3">
-                <Label>Background Image</Label>
+                <Label>{t('design.backgroundImage')}</Label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1288,20 +1272,20 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                     ) : (
                       <Upload className="h-5 w-5" />
                     )}
-                    {uploading ? 'Uploading...' : 'Upload Image'}
+                    {uploading ? t('design.uploading') : t('design.uploadImage')}
                   </Button>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Max 5MB. Supported: JPEG, PNG, GIF, WebP
+                  {t('design.uploadNote')}
                 </p>
               </div>
             )}
 
             {/* Overlay Controls - shown for all background types */}
             <div className="pt-4 border-t border-border space-y-3">
-              <Label className="text-muted-foreground">Overlay Settings</Label>
+              <Label className="text-muted-foreground">{t('design.overlaySettings')}</Label>
               <div className="space-y-2">
-                <Label>Overlay Color</Label>
+                <Label>{t('design.overlayColor')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="color"
@@ -1318,7 +1302,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Overlay Opacity: {Math.round(theme.background.overlay_opacity * 100)}%</Label>
+                <Label>{t('design.overlayOpacity')} {Math.round(theme.background.overlay_opacity * 100)}%</Label>
                 <Slider
                   value={[theme.background.overlay_opacity]}
                   onValueChange={([v]) => updateBackground({ overlay_opacity: v })}
@@ -1330,7 +1314,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
               {/* Background Preview */}
               <div className="pt-2">
-                <Label className="text-muted-foreground mb-2 block">Preview</Label>
+                <Label className="text-muted-foreground mb-2 block">{t('design.preview')}</Label>
                 <div
                   className="relative h-24 rounded-md border border-border overflow-hidden"
                   style={{
@@ -1358,7 +1342,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       className="text-sm font-medium px-3 py-1 rounded"
                       style={{ color: theme.typography.text_color }}
                     >
-                      Your content here
+                      {t('design.yourContentHere')}
                     </span>
                   </div>
                 </div>
@@ -1369,7 +1353,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           {/* Buttons Tab */}
           <TabsContent value="buttons" className="space-y-4">
             <div className="space-y-2">
-              <Label>Button Shape</Label>
+              <Label>{t('design.buttonShape')}</Label>
               <Select
                 value={theme.buttons.shape}
                 onValueChange={(v) => updateButtons({ shape: v as 'pill' | 'rounded' | 'square' })}
@@ -1378,15 +1362,15 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pill">Pill</SelectItem>
-                  <SelectItem value="rounded">Rounded</SelectItem>
-                  <SelectItem value="square">Square</SelectItem>
+                  <SelectItem value="pill">{t('design.pill')}</SelectItem>
+                  <SelectItem value="rounded">{t('design.rounded')}</SelectItem>
+                  <SelectItem value="square">{t('design.square')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Fill Color</Label>
+              <Label>{t('design.fillColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -1403,7 +1387,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </div>
 
             <div className="space-y-2">
-              <Label>Text Color</Label>
+              <Label>{t('design.textColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -1420,7 +1404,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </div>
 
             <div className="flex items-center justify-between">
-              <Label>Enable Border</Label>
+              <Label>{t('design.enableBorder')}</Label>
               <Switch
                 checked={theme.buttons.border_enabled}
                 onCheckedChange={(v) => updateButtons({ border_enabled: v })}
@@ -1429,7 +1413,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
             {theme.buttons.border_enabled && (
               <div className="space-y-2">
-                <Label>Border Color</Label>
+                <Label>{t('design.borderColor')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="color"
@@ -1447,7 +1431,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             )}
 
             <div className="flex items-center justify-between">
-              <Label>Enable Shadow</Label>
+              <Label>{t('design.enableShadow')}</Label>
               <Switch
                 checked={theme.buttons.shadow_enabled}
                 onCheckedChange={(v) => updateButtons({ shadow_enabled: v })}
@@ -1455,7 +1439,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </div>
 
             <div className="space-y-2">
-              <Label>Density</Label>
+              <Label>{t('design.density')}</Label>
               <Select
                 value={theme.buttons.density}
                 onValueChange={(v) => updateButtons({ density: v as 'compact' | 'normal' | 'roomy' })}
@@ -1464,16 +1448,16 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="compact">Compact</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="roomy">Roomy</SelectItem>
+                  <SelectItem value="compact">{t('design.compact')}</SelectItem>
+                  <SelectItem value="normal">{t('design.normal')}</SelectItem>
+                  <SelectItem value="roomy">{t('design.roomy')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Button Preview */}
             <div className="pt-4 border-t border-border">
-              <Label className="text-muted-foreground mb-3 block">Preview</Label>
+              <Label className="text-muted-foreground mb-3 block">{t('design.preview')}</Label>
               <button
                 className="w-full py-3 font-medium transition-all"
                 style={{
@@ -1499,7 +1483,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                       : '0.75rem 1.25rem',
                 }}
               >
-                Sample Button
+                {t('design.sampleButton')}
               </button>
             </div>
           </TabsContent>
@@ -1507,7 +1491,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           {/* Typography Tab */}
           <TabsContent value="typography" className="space-y-4">
             <div className="space-y-2">
-              <Label>Font Family</Label>
+              <Label>{t('design.fontFamily')}</Label>
               <Select
                 value={theme.typography.font}
                 onValueChange={(v) => updateTypography({ font: v as 'inter' | 'system' | 'serif' | 'mono' })}
@@ -1517,15 +1501,15 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="inter">Inter</SelectItem>
-                  <SelectItem value="system">System Default</SelectItem>
-                  <SelectItem value="serif">Serif</SelectItem>
-                  <SelectItem value="mono">Monospace</SelectItem>
+                  <SelectItem value="system">{t('design.systemDefault')}</SelectItem>
+                  <SelectItem value="serif">{t('design.serif')}</SelectItem>
+                  <SelectItem value="mono">{t('design.monospace')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Text Color</Label>
+              <Label>{t('design.textColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -1543,7 +1527,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
             {/* Typography Preview */}
             <div className="pt-4 border-t border-border">
-              <Label className="text-muted-foreground mb-3 block">Preview</Label>
+              <Label className="text-muted-foreground mb-3 block">{t('design.preview')}</Label>
               <div
                 className="p-4 rounded-md border border-border"
                 style={{
@@ -1559,8 +1543,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   backgroundColor: theme.background.type === 'solid' ? theme.background.solid_color : 'transparent',
                 }}
               >
-                <h3 className="text-xl font-bold mb-2">Sample Heading</h3>
-                <p className="text-sm opacity-80">This is how your text will appear on your page.</p>
+                <h3 className="text-xl font-bold mb-2">{t('design.sampleHeading')}</h3>
+                <p className="text-sm opacity-80">{t('design.sampleText')}</p>
               </div>
             </div>
           </TabsContent>
@@ -1572,7 +1556,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       <div className="lg:sticky lg:top-6 lg:self-start">
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium text-foreground">Live Preview</CardTitle>
+            <CardTitle className="text-lg font-medium text-foreground">{t('design.livePreview')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ThemePreview

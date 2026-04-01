@@ -5,11 +5,13 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Sparkles, PenLine, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Setup() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,8 +42,8 @@ export default function Setup() {
     );
   }
 
-  const aiFeatures = ['AI-generated bios', 'Pre-built link blocks', 'Ready in 2 minutes'];
-  const manualFeatures = ['Full creative control', 'AI copywriting hints', 'Build at your own pace'];
+  const aiFeatures = [t('setup.aiFeature1'), t('setup.aiFeature2'), t('setup.aiFeature3')];
+  const manualFeatures = [t('setup.manualFeature1'), t('setup.manualFeature2'), t('setup.manualFeature3')];
 
   return (
     <DashboardLayout>
@@ -52,7 +54,7 @@ export default function Setup() {
         className="flex flex-col items-center justify-center min-h-[60vh] px-4 py-10"
       >
         <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-10 text-center">
-          How would you like to set up your page?
+          {t('setup.heading')}
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
@@ -67,16 +69,16 @@ export default function Setup() {
           >
             {/* Recommended badge */}
             <span className="absolute top-3 right-3 bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full">
-              Recommended
+              {t('setup.recommended')}
             </span>
 
             <div className="rounded-full bg-primary/15 p-3 w-fit mb-4">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-1">Quick Start with AI</h2>
+            <h2 className="text-xl font-bold text-foreground mb-1">{t('setup.aiTitle')}</h2>
             <p className="text-muted-foreground text-sm mb-5">
-              Answer a few questions and we'll build your page automatically — links, bios, and all.
+              {t('setup.aiDesc')}
             </p>
 
             <ul className="space-y-2 mb-6 flex-1">
@@ -89,7 +91,7 @@ export default function Setup() {
             </ul>
 
             <Button className="w-full gradient-gold text-primary-foreground font-semibold rounded-lg">
-              Start with AI →
+              {t('setup.aiButton')} →
             </Button>
           </motion.div>
 
@@ -106,9 +108,9 @@ export default function Setup() {
               <PenLine className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
             </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-1">Build it Myself</h2>
+            <h2 className="text-xl font-bold text-foreground mb-1">{t('setup.manualTitle')}</h2>
             <p className="text-muted-foreground text-sm mb-5">
-              Set up your profile and add your own links step by step. AI suggestions available too.
+              {t('setup.manualDesc')}
             </p>
 
             <ul className="space-y-2 mb-6 flex-1">
@@ -121,7 +123,7 @@ export default function Setup() {
             </ul>
 
             <Button variant="outline" className="w-full rounded-lg font-semibold">
-              Manual Setup →
+              {t('setup.manualButton')} →
             </Button>
           </motion.div>
         </div>

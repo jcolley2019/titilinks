@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Sparkles, Plus, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface SuggestedLink {
   label: string;
@@ -28,6 +29,7 @@ interface SuggestLinksDialogProps {
 }
 
 export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }: SuggestLinksDialogProps) {
+  const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -36,7 +38,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast.error('Please describe what you want to promote');
+      toast.error(t('suggestLinks.describePrompt'));
       return;
     }
 
@@ -56,11 +58,11 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
         // Select all by default
         setSelected(new Set(data.links.map((_: SuggestedLink, i: number) => i)));
       } else {
-        toast.error('Unexpected response format');
+        toast.error(t('suggestLinks.unexpectedFormat'));
       }
     } catch (err: any) {
       console.error('Suggest links error:', err);
-      toast.error(err.message || 'Failed to generate suggestions');
+      toast.error(err.message || t('suggestLinks.failedGenerate'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
   const handleAddSelected = async () => {
     const selectedLinks = suggestions.filter((_, i) => selected.has(i));
     if (selectedLinks.length === 0) {
-      toast.error('Please select at least one link');
+      toast.error(t('suggestLinks.selectAtLeastOne'));
       return;
     }
 
@@ -156,7 +158,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
 
       if (insertError) throw insertError;
 
-      toast.success(`Added ${selectedLinks.length} link${selectedLinks.length > 1 ? 's' : ''}`);
+      toast.success(`${t('suggestLinks.addedLinks')} ${selectedLinks.length} ${selectedLinks.length > 1 ? t('suggestLinks.links') : t('suggestLinks.link')}`);
       onLinksAdded?.();
       onOpenChange(false);
       // Reset state
@@ -165,7 +167,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
       setSelected(new Set());
     } catch (err: any) {
       console.error('Error adding links:', err);
-      toast.error(err.message || 'Failed to add links');
+      toast.error(err.message || t('suggestLinks.failedAdd'));
     } finally {
       setAdding(false);
     }
@@ -177,10 +179,10 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Suggest Links
+            {t('suggestLinks.title')}
           </DialogTitle>
           <DialogDescription>
-            Describe what you want to promote and AI will suggest links for your page.
+            {t('suggestLinks.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -191,7 +193,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
               <Input
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. My new fitness program and supplement line"
+                placeholder={t('suggestLinks.placeholder')}
                 maxLength={500}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && handleGenerate()}
                 className="flex-1"
@@ -206,7 +208,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                {loading ? 'Thinking...' : 'Suggest'}
+                {loading ? t('suggestLinks.thinking') : t('suggestLinks.suggest')}
               </Button>
             </div>
           </div>
@@ -216,7 +218,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-foreground">
-                  {selected.size} of {suggestions.length} selected
+                  {selected.size} / {suggestions.length} {t('suggestLinks.selected')}
                 </p>
                 <Button
                   variant="ghost"
@@ -230,7 +232,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
                     }
                   }}
                 >
-                  {selected.size === suggestions.length ? 'Deselect All' : 'Select All'}
+                  {selected.size === suggestions.length ? t('suggestLinks.deselectAll') : t('suggestLinks.selectAll')}
                 </Button>
               </div>
 
@@ -276,7 +278,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
         {suggestions.length > 0 && (
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('suggestLinks.cancel')}
             </Button>
             <Button
               onClick={handleAddSelected}
@@ -288,7 +290,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Add Selected ({selected.size})
+              {t('suggestLinks.addSelected')} ({selected.size})
             </Button>
           </div>
         )}

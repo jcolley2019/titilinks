@@ -572,7 +572,7 @@ export default function AISetup() {
                       <Label className="text-base font-medium flex items-center gap-2"><ImageIcon className="h-4 w-4" />{t('aiSetup.featuredMedia')}</Label>
                       {[1, 2, 3].map((i) => (
                         <FormField key={`featured_${i}`} control={form.control} name={`featured_media_${i}` as keyof FormData} render={({ field }) => (
-                          <FormItem><FormControl><Input type="url" placeholder={`Featured media URL ${i}`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                          <FormItem><FormControl><Input type="url" placeholder={`${t('aiSetup.featuredMediaUrl')} ${i}`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                         )} />
                       ))}
                     </div>
@@ -581,7 +581,7 @@ export default function AISetup() {
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`product_${i}`} className="flex gap-2">
                           <FormField control={form.control} name={`product_${i}_url` as keyof FormData} render={({ field }) => (
-                            <FormItem className="flex-1"><FormControl><Input type="url" placeholder={`Product ${i} URL`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                            <FormItem className="flex-1"><FormControl><Input type="url" placeholder={`${t('aiSetup.productUrl')} ${i}`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                           )} />
                           <FormField control={form.control} name={`product_${i}_title` as keyof FormData} render={({ field }) => (
                             <FormItem className="flex-1"><FormControl><Input placeholder={t('aiSetup.titleOptional')} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
@@ -609,7 +609,7 @@ export default function AISetup() {
 
               {/* Step 5: Preview */}
               {step === 5 && draftPlan && (
-                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title="Your Draft Plan" description="Review and edit your page before creating">
+                <StepCard key="step5" icon={<Eye className="h-5 w-5 text-primary" />} title={t('aiSetup.yourDraftPlan')} description={t('aiSetup.reviewAndEdit')}>
                   <div className="space-y-6">
                     {/* Profile & Bios */}
                     <div className="p-4 bg-secondary/30 rounded-lg space-y-4">
@@ -628,10 +628,10 @@ export default function AISetup() {
                         <Label className="text-sm font-medium">{t('aiSetup.generateWithTone')}</Label>
                         <div className="flex gap-2">
                           {([
-                            { value: 'professional', label: 'Professional', icon: '💼' },
-                            { value: 'friendly', label: 'Playful', icon: '🎉' },
-                            { value: 'bold', label: 'Bold', icon: '🔥' },
-                          ] as const).map((preset) => (
+                            { value: 'professional', label: t('aiSetup.toneProfessional'), icon: '💼' },
+                            { value: 'friendly', label: t('aiSetup.playful'), icon: '🎉' },
+                            { value: 'bold', label: t('aiSetup.toneBold'), icon: '🔥' },
+                          ]).map((preset) => (
                             <Button
                               key={preset.value}
                               type="button"
@@ -652,10 +652,10 @@ export default function AISetup() {
                                     setSelectedBioIndex(bioVariations.length);
                                     // Apply the selected bio to the draft plan
                                     setDraftPlan(prev => prev ? { ...prev, bio_short: newVariation.bio_short, bio_long: newVariation.bio_long } : prev);
-                                    toast.success(`${preset.label} bio generated!`);
+                                    toast.success(`${preset.label} ${t('aiSetup.bioGenerated')}`);
                                   }
                                 } catch {
-                                  toast.error('Failed to generate bio');
+                                  toast.error(t('aiSetup.bioFailed'));
                                 } finally {
                                   setRegeneratingBio(false);
                                 }
@@ -679,29 +679,29 @@ export default function AISetup() {
                                 setBioVariations(prev => [...prev, newVariation]);
                                 setSelectedBioIndex(bioVariations.length);
                                 setDraftPlan(prev => prev ? { ...prev, bio_short: newVariation.bio_short, bio_long: newVariation.bio_long } : prev);
-                                toast.success('New bio variation generated!');
+                                toast.success(t('aiSetup.newBioGenerated'));
                               } catch {
-                                toast.error('Failed to regenerate bio');
+                                toast.error(t('aiSetup.regenBioFailed'));
                               } finally {
                                 setRegeneratingBio(false);
                               }
                             }}
                           >
                             <RefreshCw className={`h-3.5 w-3.5 ${regeneratingBio ? 'animate-spin' : ''}`} />
-                            Regenerate
+                            {t('aiSetup.regenerate')}
                           </Button>
                         </div>
                         {regeneratingBio && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="h-3 w-3 animate-spin" />
-                            Generating new bio variation...
+                            {t('aiSetup.generatingBio')}
                           </div>
                         )}
                       </div>
 
                       {/* Selectable Bio Cards */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Choose your bio ({bioVariations.length} variation{bioVariations.length !== 1 ? 's' : ''})</Label>
+                        <Label className="text-sm font-medium">{t('aiSetup.chooseBio')} ({bioVariations.length} {bioVariations.length !== 1 ? t('aiSetup.variations') : t('aiSetup.variation')})</Label>
                         <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                           {bioVariations.map((variation, index) => (
                             <motion.div
@@ -758,7 +758,7 @@ export default function AISetup() {
                     <div className="space-y-3">
                       <h3 className="font-medium text-foreground flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-primary" />
-                        Shop Mode ({draftPlan.shop_mode.blocks.filter(b => b.is_enabled).length} blocks)
+                        {t('aiSetup.shopMode')} ({draftPlan.shop_mode.blocks.filter(b => b.is_enabled).length} {t('aiSetup.blocksCount')})
                       </h3>
                       {draftPlan.shop_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
                         <BlockPreview
@@ -782,7 +782,7 @@ export default function AISetup() {
                     <div className="space-y-3">
                       <h3 className="font-medium text-foreground flex items-center gap-2">
                         <Users className="h-4 w-4 text-primary" />
-                        Recruit Mode ({draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).length} blocks)
+                        {t('aiSetup.recruitMode')} ({draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).length} {t('aiSetup.blocksCount')})
                       </h3>
                       {draftPlan.recruit_mode.blocks.filter(b => b.is_enabled).map((block, i) => (
                         <BlockPreview
@@ -810,12 +810,12 @@ export default function AISetup() {
                         </Button>
                         <Button type="button" variant="outline" onClick={handleRegenerate} disabled={generating} className="gap-2">
                           <RefreshCw className={`h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
-                          Regenerate
+                          {t('aiSetup.regenerate')}
                         </Button>
                       </div>
                       <Button type="button" variant="ghost" onClick={handleManualSetup} className="w-full gap-2 text-muted-foreground">
                         <Settings className="h-4 w-4" />
-                        Switch to Manual Setup
+                        {t('aiSetup.switchToManual')}
                       </Button>
                     </div>
                   </div>

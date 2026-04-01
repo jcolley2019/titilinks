@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Edit, ShoppingBag, Users, Link, Share2, Image, MousePointer } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Block = Tables<'blocks'>;
@@ -15,12 +16,12 @@ const BLOCK_TYPE_ICONS: Record<string, React.ReactNode> = {
   links: <Link className="h-4 w-4" />,
 };
 
-const BLOCK_TYPE_LABELS: Record<string, string> = {
-  primary_cta: 'Primary CTA',
-  product_cards: 'Product Cards',
-  featured_media: 'Featured Media',
-  social_links: 'Social Links',
-  links: 'Links',
+const BLOCK_TYPE_LABEL_KEYS: Record<string, string> = {
+  primary_cta: 'blockItem.primaryCta',
+  product_cards: 'blockItem.productCards',
+  featured_media: 'blockItem.featuredMedia',
+  social_links: 'blockItem.socialLinks',
+  links: 'blockItem.links',
 };
 
 interface BlockItemProps {
@@ -30,6 +31,7 @@ interface BlockItemProps {
 }
 
 export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
+  const { t } = useLanguage();
   const {
     attributes,
     listeners,
@@ -80,8 +82,8 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{block.title || BLOCK_TYPE_LABELS[block.type]}</p>
-        <p className="text-sm text-muted-foreground">{BLOCK_TYPE_LABELS[block.type] || block.type}</p>
+        <p className="font-medium text-foreground truncate">{block.title || (BLOCK_TYPE_LABEL_KEYS[block.type] ? t(BLOCK_TYPE_LABEL_KEYS[block.type]) : block.type)}</p>
+        <p className="text-sm text-muted-foreground">{BLOCK_TYPE_LABEL_KEYS[block.type] ? t(BLOCK_TYPE_LABEL_KEYS[block.type]) : block.type}</p>
       </div>
 
       <div className="flex items-center gap-3">

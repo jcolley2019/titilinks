@@ -10,6 +10,7 @@ import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Block = Tables<'blocks'>;
@@ -22,6 +23,7 @@ interface BlockEditorDialogProps {
 }
 
 export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: BlockEditorDialogProps) {
+  const { t } = useLanguage();
   const [block, setBlock] = useState<Block | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -46,7 +48,7 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
       setBlock(data);
     } catch (error) {
       console.error('Error fetching block:', error);
-      toast.error('Failed to load block');
+      toast.error(t('blockEditor.failedToLoad'));
       onOpenChange(false);
     } finally {
       setLoading(false);
@@ -150,7 +152,7 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
       );
 
     default:
-      toast.error('Unknown block type');
+      toast.error(t('blockEditor.unknownType'));
       onOpenChange(false);
       return null;
   }

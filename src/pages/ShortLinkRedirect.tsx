@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export default function ShortLinkRedirect() {
   const { code } = useParams<{ code: string }>();
+  const { t } = useLanguage();
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export default function ShortLinkRedirect() {
 
         if (rpcError) {
           console.error("RPC error:", rpcError);
-          setError("Failed to resolve link");
+          setError(t('shortLink.failedResolve'));
           return;
         }
 
@@ -45,7 +47,7 @@ export default function ShortLinkRedirect() {
         }
       } catch (err) {
         console.error("Unexpected error:", err);
-        setError("Something went wrong");
+        setError(t('shortLink.somethingWrong'));
       }
     };
 
@@ -57,7 +59,7 @@ export default function ShortLinkRedirect() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-foreground">404</h1>
-          <p className="text-muted-foreground">Link not found</p>
+          <p className="text-muted-foreground">{t('shortLink.notFound')}</p>
         </div>
       </div>
     );
@@ -67,7 +69,7 @@ export default function ShortLinkRedirect() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Error</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('shortLink.error')}</h1>
           <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -78,7 +80,7 @@ export default function ShortLinkRedirect() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-        <p className="text-muted-foreground">Redirecting...</p>
+        <p className="text-muted-foreground">{t('shortLink.redirecting')}</p>
       </div>
     </div>
   );

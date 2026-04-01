@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { User, Upload, Palette, Sun, Moon, Loader2, Check } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const ACCENT_COLORS = [
   { name: 'Purple', value: '#8B5CF6' },
@@ -106,6 +107,7 @@ const slideVariants = {
 
 export function OnboardingForm({ onComplete }: OnboardingFormProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -144,11 +146,11 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        toast.error('Avatar must be less than 2MB');
+        toast.error(t('onboarding.avatarTooLarge'));
         return;
       }
       if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-        toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
+        toast.error(t('onboarding.avatarInvalidType'));
         return;
       }
       setAvatarFile(file);
@@ -196,8 +198,8 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
 
       if (checkError) throw checkError;
       if (existingPage) {
-        form.setError('handle', { message: 'This handle is already taken' });
-        toast.error('This handle is already taken. Please choose a different one.');
+        form.setError('handle', { message: t('onboarding.handleTaken') });
+        toast.error(t('onboarding.handleTakenToast'));
         setDirection(-1);
         setStep(1);
         setIsSubmitting(false);
@@ -284,12 +286,12 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
       // Show success animation
       setShowSuccess(true);
       setTimeout(() => {
-        toast.success('Your page has been created!');
+        toast.success(t('onboarding.pageCreated'));
         onComplete();
       }, 1500);
     } catch (error: any) {
       console.error('Error creating page:', error);
-      toast.error(error.message || 'Failed to create page');
+      toast.error(error.message || t('onboarding.failedToCreatePage'));
     } finally {
       setIsSubmitting(false);
     }
@@ -335,7 +337,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
               transition={{ delay: 0.3 }}
               className="text-xl font-bold text-foreground mb-2"
             >
-              Page Created!
+              {t('onboarding.pageCreatedTitle')}
             </motion.h3>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -343,7 +345,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
               transition={{ delay: 0.45 }}
               className="text-muted-foreground text-sm"
             >
-              Redirecting to your editor…
+              {t('onboarding.redirecting')}
             </motion.p>
           </CardContent>
         </Card>
@@ -361,9 +363,9 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
       <Card className="bg-card border-border">
         <CardHeader className="text-center">
           <StepIndicator currentStep={step} totalSteps={TOTAL_STEPS} />
-          <CardTitle className="text-2xl font-bold text-foreground">Create Your Page</CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">{t('onboarding.createYourPage')}</CardTitle>
           <CardDescription>
-            Step {step} of {TOTAL_STEPS}: {step === 1 ? 'Profile Details' : 'Theme & Appearance'}
+            {t('onboarding.stepOf')} {step} {t('onboarding.of')} {TOTAL_STEPS}: {step === 1 ? t('onboarding.profileDetails') : t('onboarding.themeAppearance')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -391,9 +393,9 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                     <Label htmlFor="avatar" className="cursor-pointer">
                       <div className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors">
                         <Upload className="h-4 w-4" />
-                        Upload Avatar
+                        {t('onboarding.uploadAvatar')}
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">Max 2MB, JPEG/PNG/GIF/WebP</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{t('onboarding.avatarSizeLimit')}</p>
                       <Input
                         id="avatar"
                         type="file"
@@ -406,10 +408,10 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
 
                   {/* Display Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="display_name">Display Name</Label>
+                    <Label htmlFor="display_name">{t('onboarding.displayName')}</Label>
                     <Input
                       id="display_name"
-                      placeholder="Your Name"
+                      placeholder={t('onboarding.displayNamePlaceholder')}
                       {...form.register('display_name')}
                     />
                     {form.formState.errors.display_name && (
@@ -419,12 +421,12 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
 
                   {/* Handle */}
                   <div className="space-y-2">
-                    <Label htmlFor="handle">Handle</Label>
+                    <Label htmlFor="handle">{t('onboarding.handle')}</Label>
                     <div className="flex items-center">
                       <span className="text-muted-foreground text-sm mr-1">@</span>
                       <Input
                         id="handle"
-                        placeholder="yourhandle"
+                        placeholder={t('onboarding.handlePlaceholder')}
                         {...form.register('handle', {
                           onChange: () => setHandleTouched(true),
                         })}
@@ -434,15 +436,15 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                     {form.formState.errors.handle && (
                       <p className="text-sm text-destructive">{form.formState.errors.handle.message}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">titilinks.com/{form.watch('handle') || 'yourhandle'}</p>
+                    <p className="text-xs text-muted-foreground">titilinks.com/{form.watch('handle') || t('onboarding.handlePlaceholder')}</p>
                   </div>
 
                   {/* Bio */}
                   <div className="space-y-2">
-                    <Label htmlFor="bio">Bio (optional)</Label>
+                    <Label htmlFor="bio">{t('onboarding.bioOptional')}</Label>
                     <Textarea
                       id="bio"
-                      placeholder="Tell people about yourself..."
+                      placeholder={t('onboarding.bioPlaceholder')}
                       {...form.register('bio')}
                       rows={3}
                     />
@@ -452,7 +454,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                   </div>
 
                   <Button type="button" onClick={nextStep} className="w-full gradient-gold text-primary-foreground">
-                    Continue
+                    {t('onboarding.continue')}
                   </Button>
                 </motion.div>
               )}
@@ -472,7 +474,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                   <div className="space-y-3">
                     <Label className="flex items-center gap-2">
                       <Palette className="h-4 w-4" />
-                      Theme Mode
+                      {t('onboarding.themeMode')}
                     </Label>
                     <RadioGroup
                       value={form.watch('theme_mode')}
@@ -489,7 +491,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                       >
                         <RadioGroupItem value="light" id="light" className="sr-only" />
                         <Sun className="h-5 w-5" />
-                        <span>Light</span>
+                        <span>{t('onboarding.light')}</span>
                       </Label>
                       <Label
                         htmlFor="dark"
@@ -501,14 +503,14 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                       >
                         <RadioGroupItem value="dark" id="dark" className="sr-only" />
                         <Moon className="h-5 w-5" />
-                        <span>Dark</span>
+                        <span>{t('onboarding.dark')}</span>
                       </Label>
                     </RadioGroup>
                   </div>
 
                   {/* Accent Color */}
                   <div className="space-y-3">
-                    <Label>Accent Color</Label>
+                    <Label>{t('onboarding.accentColor')}</Label>
                     <div className="flex flex-wrap gap-3">
                       {ACCENT_COLORS.map((color) => (
                         <button
@@ -529,7 +531,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
 
                   {/* Preview */}
                   <div className="p-4 rounded-lg border border-border bg-secondary/50">
-                    <p className="text-sm text-muted-foreground mb-2">Preview</p>
+                    <p className="text-sm text-muted-foreground mb-2">{t('onboarding.preview')}</p>
                     <div
                       className={`p-4 rounded-lg ${form.watch('theme_mode') === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}
                     >
@@ -539,9 +541,9 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                           style={{ backgroundColor: form.watch('accent_color') }}
                         />
                         <div>
-                          <p className="font-medium">{form.watch('display_name') || 'Your Name'}</p>
+                          <p className="font-medium">{form.watch('display_name') || t('onboarding.displayNamePlaceholder')}</p>
                           <p className={`text-sm ${form.watch('theme_mode') === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                            @{form.watch('handle') || 'handle'}
+                            @{form.watch('handle') || t('onboarding.handlePlaceholder')}
                           </p>
                         </div>
                       </div>
@@ -550,7 +552,7 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
 
                   <div className="flex gap-3">
                     <Button type="button" variant="outline" onClick={prevStep} className="flex-1">
-                      Back
+                      {t('onboarding.back')}
                     </Button>
                     <Button
                       type="submit"
@@ -560,10 +562,10 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Creating...
+                          {t('onboarding.creating')}
                         </>
                       ) : (
-                        'Create Page'
+                        t('onboarding.createPage')
                       )}
                     </Button>
                   </div>
