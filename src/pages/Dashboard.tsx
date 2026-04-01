@@ -7,11 +7,13 @@ import { BarChart3, Eye, MousePointer, TrendingUp } from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 
 type TimeRange = '7d' | 'all';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const analytics = useAnalytics();
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [activeLinksCount, setActiveLinksCount] = useState<number>(0);
@@ -84,10 +86,10 @@ export default function Dashboard() {
   const clickRate = views > 0 ? ((clicks / views) * 100).toFixed(1) + '%' : '0%';
 
   const stats = [
-    { label: 'Total Views', value: String(views), icon: Eye },
-    { label: 'Link Clicks', value: String(clicks), icon: MousePointer },
-    { label: 'Click Rate', value: clickRate, icon: TrendingUp },
-    { label: 'Active Links', value: String(activeLinksCount), icon: BarChart3 },
+    { label: t('dash.totalViews'), value: String(views), icon: Eye },
+    { label: t('dash.linkClicks'), value: String(clicks), icon: MousePointer },
+    { label: t('dash.clickRate'), value: clickRate, icon: TrendingUp },
+    { label: t('dash.activeLinks'), value: String(activeLinksCount), icon: BarChart3 },
   ];
 
   return (
@@ -100,8 +102,8 @@ export default function Dashboard() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome to your TitiLinks dashboard</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('dash.title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('dash.welcome')}</p>
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
             <button
@@ -112,7 +114,7 @@ export default function Dashboard() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Last 7 days
+              {t('dash.last7days')}
             </button>
             <button
               onClick={() => setTimeRange('all')}
@@ -122,7 +124,7 @@ export default function Dashboard() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              All time
+              {t('dash.allTime')}
             </button>
           </div>
         </div>
@@ -152,7 +154,7 @@ export default function Dashboard() {
                     <>
                       <div className="text-2xl font-bold text-foreground">{stat.value}</div>
                       <p className="text-xs text-muted-foreground">
-                        {timeRange === '7d' ? 'last 7 days' : 'last 30 days'}
+                        {timeRange === '7d' ? t('dash.periodLast7') : t('dash.periodLast30')}
                       </p>
                     </>
                   )}
@@ -164,11 +166,11 @@ export default function Dashboard() {
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Quick Start</CardTitle>
+            <CardTitle className="text-foreground">{t('dash.quickStart')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              Get started by setting up your profile in the Setup tab, then add your links in the Editor.
+              {t('dash.quickStartDesc')}
             </p>
           </CardContent>
         </Card>

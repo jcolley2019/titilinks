@@ -154,6 +154,20 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.copyright': 'All rights reserved.',
     'footer.made': 'Made with ✨ for creators everywhere',
     
+    // Dashboard Page
+    'dash.title': 'Dashboard',
+    'dash.welcome': 'Welcome to your TitiLinks dashboard',
+    'dash.last7days': 'Last 7 days',
+    'dash.allTime': 'All time',
+    'dash.totalViews': 'Total Views',
+    'dash.linkClicks': 'Link Clicks',
+    'dash.clickRate': 'Click Rate',
+    'dash.activeLinks': 'Active Links',
+    'dash.periodLast7': 'last 7 days',
+    'dash.periodLast30': 'last 30 days',
+    'dash.quickStart': 'Quick Start',
+    'dash.quickStartDesc': 'Get started by setting up your profile in the Setup tab, then add your links in the Editor.',
+
     // Dashboard Layout
     'dashLayout.dashboard': 'Dashboard',
     'dashLayout.editor': 'Editor',
@@ -382,6 +396,20 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.copyright': 'Todos los derechos reservados.',
     'footer.made': 'Hecho con ✨ para creadores en todo el mundo',
     
+    // Dashboard Page
+    'dash.title': 'Panel',
+    'dash.welcome': 'Bienvenido a tu panel de TitiLinks',
+    'dash.last7days': 'Últimos 7 días',
+    'dash.allTime': 'Todo el tiempo',
+    'dash.totalViews': 'Vistas totales',
+    'dash.linkClicks': 'Clics en enlaces',
+    'dash.clickRate': 'Tasa de clics',
+    'dash.activeLinks': 'Enlaces activos',
+    'dash.periodLast7': 'últimos 7 días',
+    'dash.periodLast30': 'últimos 30 días',
+    'dash.quickStart': 'Inicio rápido',
+    'dash.quickStartDesc': 'Comienza configurando tu perfil en la pestaña de Configuración, luego agrega tus enlaces en el Editor.',
+
     // Dashboard Layout
     'dashLayout.dashboard': 'Panel',
     'dashLayout.editor': 'Editor',
