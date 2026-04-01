@@ -23,13 +23,16 @@ const placeholders: Record<string, string> = {
 
 export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Props) {
   useEffect(() => {
-    if (state.links.length === 0 && state.selectedSocialPlatforms.length > 0) {
-      updateField(
-        'links',
-        state.selectedSocialPlatforms.map((p) => ({ platform: p, url: '' }))
-      );
+    if (state.selectedSocialPlatforms.length > 0) {
+      // Re-initialize links whenever selected platforms change or on first mount
+      const existingUrls = new Map(state.links.map((l) => [l.platform, l.url]));
+      const newLinks = state.selectedSocialPlatforms.map((p) => ({
+        platform: p,
+        url: existingUrls.get(p) || '',
+      }));
+      updateField('links', newLinks);
     }
-  }, []);
+  }, [state.selectedSocialPlatforms.length]);
 
   const updateLinkUrl = (index: number, url: string) => {
     const newLinks = state.links.map((link, i) => (i === index ? { ...link, url } : link));

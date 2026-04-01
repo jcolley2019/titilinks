@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,7 @@ export default function OnboardingFlow() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { state, dispatch, goNext, goPrev, updateField, setSubStep } = useOnboardingWizard();
+  const resumeChecked = useRef(false);
 
   const stepLabels = [
     t('onboardingFlow.stepStyle'),
@@ -35,9 +36,10 @@ export default function OnboardingFlow() {
     t('onboardingFlow.stepLive'),
   ];
 
-  // Resume: check if user already has partial data
+  // Resume: check if user already has partial data (runs once)
   useEffect(() => {
-    if (!user) return;
+    if (!user || resumeChecked.current) return;
+    resumeChecked.current = true;
     const checkExisting = async () => {
       const { data: profile } = await supabase
         .from('profiles')
@@ -259,8 +261,9 @@ export default function OnboardingFlow() {
     if (!user) return;
     try {
       await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
-      queryClient.invalidateQueries({ queryKey: ['onboarding-status', user.id] });
-      navigate('/dashboard/editor');
+      // Immediately update the cache so ProtectedRoute won't redirect back
+      queryClient.setQueryData(['onboarding-status', user.id], { onboarding_complete: true });
+      navigate('/dashboard/editor', { replace: true });
     } catch {
       toast.error(t('onboardingFlow.saveFailed'));
     }
