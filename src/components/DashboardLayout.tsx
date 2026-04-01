@@ -1,10 +1,10 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  PenSquare, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  PenSquare,
+  BarChart3,
   Sparkles,
   LogOut,
   Menu,
@@ -18,6 +18,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,7 @@ interface DashboardLayoutProps {
 
 interface ProfileCompletion {
   percentage: number;
-  items: { label: string; completed: boolean }[];
+  items: { labelKey: string; completed: boolean }[];
 }
 
 type UserPlan = 'Free' | 'Pro' | 'Premium';
@@ -41,24 +42,20 @@ const planBadgeStyles: Record<UserPlan, string> = {
   Premium: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
 };
 
-const planFeatures = {
-  Pro: ['Unlimited links', 'Custom themes', 'Advanced analytics', 'Priority support'],
-  Premium: ['Everything in Pro', 'Custom domain', 'Remove branding', 'API access'],
-};
-
-// Base nav items (Setup is conditionally added)
+// Nav item definitions with translation keys
 const baseNavItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/dashboard/editor', label: 'Editor', icon: PenSquare },
-  { path: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/dashboard/ai-setup', label: 'AI Setup', icon: Sparkles },
-  { path: '/dashboard/settings', label: 'Settings', icon: Cog },
+  { path: '/dashboard', labelKey: 'dashLayout.dashboard', icon: LayoutDashboard },
+  { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
+  { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
+  { path: '/dashboard/ai-setup', labelKey: 'dashLayout.aiSetup', icon: Sparkles },
+  { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasPage, setHasPage] = useState<boolean | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
@@ -67,6 +64,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // TODO: Fetch actual plan from subscription data when Stripe is enabled
   // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
+
+  const planFeatures = {
+    Pro: [
+      t('dashLayout.unlimitedLinks'),
+      t('dashLayout.customThemes'),
+      t('dashLayout.advancedAnalytics'),
+      t('dashLayout.prioritySupport'),
+    ],
+    Premium: [
+      t('dashLayout.everythingInPro'),
+      t('dashLayout.customDomain'),
+      t('dashLayout.removeBranding'),
+      t('dashLayout.apiAccess'),
+    ],
+  };
 
   // Scroll to top on route change and check scroll position for indicator
   useEffect(() => {
@@ -80,7 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       const scrollTop = window.scrollY;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
-      
+
       // Hide indicator when near bottom (within 100px)
       const isNearBottom = scrollTop + windowHeight >= documentHeight - 100;
       setShowScrollIndicator(!isNearBottom && documentHeight > windowHeight + 50);
@@ -88,7 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll(); // Check initial state
-    
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
 
@@ -124,7 +136,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           .eq('page_id', page.id);
 
         const modeIds = modes?.map(m => m.id) || [];
-        
+
         let hasBlocks = false;
         if (modeIds.length > 0) {
           const { count } = await supabase
@@ -136,11 +148,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         // Calculate completion
         const items = [
-          { label: 'Display name', completed: !!page.display_name },
-          { label: 'Bio', completed: !!page.bio },
-          { label: 'Profile photo', completed: !!page.avatar_url },
-          { label: 'Custom handle', completed: !!page.handle && page.handle.length > 3 },
-          { label: 'Add content blocks', completed: hasBlocks },
+          { labelKey: 'dashLayout.displayName', completed: !!page.display_name },
+          { labelKey: 'dashLayout.bio', completed: !!page.bio },
+          { labelKey: 'dashLayout.profilePhoto', completed: !!page.avatar_url },
+          { labelKey: 'dashLayout.customHandle', completed: !!page.handle && page.handle.length > 3 },
+          { labelKey: 'dashLayout.addContentBlocks', completed: hasBlocks },
         ];
 
         const completedCount = items.filter(i => i.completed).length;
@@ -156,7 +168,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navItems = hasPage === false
     ? [
         ...baseNavItems.slice(0, 3), // Dashboard, Editor, Analytics
-        { path: '/dashboard/setup', label: 'Profile Setup', icon: UserCircle },
+        { path: '/dashboard/setup', labelKey: 'dashLayout.profileSetup', icon: UserCircle },
         ...baseNavItems.slice(3), // AI Setup, Settings
       ]
     : baseNavItems;
@@ -173,27 +185,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
       <div className="mx-4 mb-4 p-3 rounded-lg bg-secondary/50 border border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-foreground">Profile Completion</span>
+          <span className="text-xs font-medium text-foreground">{t('dashLayout.profileCompletion')}</span>
           <span className="text-xs font-bold text-primary">{profileCompletion.percentage}%</span>
         </div>
         <Progress value={profileCompletion.percentage} className="h-2 mb-3" />
         <div className="space-y-1.5">
           {profileCompletion.items.map((item, idx) => (
             <div key={idx} className="flex items-center gap-2 text-[11px]">
-              <CheckCircle2 
-                className={`h-3 w-3 ${item.completed ? 'text-green-500' : 'text-muted-foreground/40'}`} 
+              <CheckCircle2
+                className={`h-3 w-3 ${item.completed ? 'text-green-500' : 'text-muted-foreground/40'}`}
               />
               <span className={item.completed ? 'text-muted-foreground line-through' : 'text-foreground'}>
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </div>
           ))}
         </div>
-        <Link 
+        <Link
           to="/dashboard/editor"
           className="mt-3 block text-center text-xs text-primary hover:underline"
         >
-          Complete your profile →
+          {t('dashLayout.completeProfile')}
         </Link>
       </div>
     );
@@ -211,8 +223,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {userPlan === 'Free' ? (
             <Popover>
               <PopoverTrigger asChild>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
                 >
                   {userPlan}
@@ -222,10 +234,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-primary" />
-                    <span className="font-semibold text-sm">Upgrade your plan</span>
+                    <span className="font-semibold text-sm">{t('dashLayout.upgradePlan')}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Unlock more features and grow your audience faster.
+                    {t('dashLayout.unlockFeatures')}
                   </p>
                   <div className="space-y-1.5">
                     {planFeatures.Pro.slice(0, 3).map((feature, idx) => (
@@ -237,15 +249,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                   <Link to="/#pricing">
                     <Button size="sm" className="w-full mt-2 gap-1">
-                      View Plans <ArrowRight className="h-3 w-3" />
+                      {t('dashLayout.viewPlans')} <ArrowRight className="h-3 w-3" />
                     </Button>
                   </Link>
                 </div>
               </PopoverContent>
             </Popover>
           ) : (
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
             >
               {userPlan === 'Premium' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
@@ -267,15 +279,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 }`}
               >
                 <item.icon className="h-5 w-5" />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium">{t(item.labelKey)}</span>
               </Link>
             );
           })}
         </nav>
-        
+
         {/* Profile Completion Indicator */}
         <ProfileCompletionIndicator />
-        
+
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
           <Button
             variant="ghost"
@@ -283,7 +295,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onClick={handleSignOut}
           >
             <LogOut className="h-5 w-5" />
-            Sign Out
+            {t('dashLayout.signOut')}
           </Button>
         </div>
       </aside>
@@ -298,8 +310,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {userPlan === 'Free' ? (
             <Popover>
               <PopoverTrigger asChild>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
                 >
                   {userPlan}
@@ -309,22 +321,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Zap className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-semibold text-xs">Upgrade your plan</span>
+                    <span className="font-semibold text-xs">{t('dashLayout.upgradePlan')}</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Unlock more features and grow faster.
+                    {t('dashLayout.unlockFeaturesMobile')}
                   </p>
                   <Link to="/#pricing">
                     <Button size="sm" className="w-full text-xs h-7 gap-1">
-                      View Plans <ArrowRight className="h-3 w-3" />
+                      {t('dashLayout.viewPlans')} <ArrowRight className="h-3 w-3" />
                     </Button>
                   </Link>
                 </div>
               </PopoverContent>
             </Popover>
           ) : (
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
             >
               {userPlan === 'Premium' && <Crown className="h-2 w-2 mr-0.5" />}
@@ -376,7 +388,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium">{t(item.labelKey)}</span>
                 </Link>
               );
             })}
@@ -386,7 +398,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5" />
-              Sign Out
+              {t('dashLayout.signOut')}
             </Button>
           </nav>
         </motion.aside>
@@ -406,7 +418,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 }`}
               >
                 <item.icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{item.label.split(' ')[0]}</span>
+                <span className="text-xs font-medium">{t(item.labelKey).split(' ')[0]}</span>
               </Link>
             );
           })}
@@ -414,14 +426,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* Main Content */}
-      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen scrollbar-hide-mobile">
-        <div className="p-4 lg:p-8">
+      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen scrollbar-hide-mobile overflow-x-hidden">
+        <div className="p-4 lg:p-8 overflow-x-hidden">
           {children}
         </div>
       </main>
 
       {/* Mobile scroll indicator shadow with animated chevron */}
-      <div 
+      <div
         className={`lg:hidden fixed bottom-16 left-0 right-0 h-16 pointer-events-none transition-opacity duration-300 flex flex-col items-center justify-end pb-1 ${
           showScrollIndicator ? 'opacity-100' : 'opacity-0'
         }`}
