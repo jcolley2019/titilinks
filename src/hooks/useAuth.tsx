@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; confirmationRequired: boolean }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -85,14 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`
+        emailRedirectTo: `${window.location.origin}/login`
       }
     });
-    return { error: error as Error | null };
+    // When email confirmations are enabled in Supabase, signUp returns
+    // a user but no session. The user must click the email link first.
+    const confirmationRequired = !error && !!data.user && !data.session;
+    return { error: error as Error | null, confirmationRequired };
   };
 
   const signInWithGoogle = async () => {

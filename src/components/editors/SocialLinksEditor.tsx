@@ -92,6 +92,13 @@ interface SortableItemProps {
 
 function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Auto-expand when there's an error for this item
+  useEffect(() => {
+    if (errors[item.id]) {
+      setExpanded(true);
+    }
+  }, [errors[item.id]]);
   const {
     attributes,
     listeners,
@@ -372,7 +379,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix the errors before saving');
+      toast.error('Please fix the errors before saving. Expand items to see details.');
       return;
     }
 
@@ -432,7 +439,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5 text-primary" />
