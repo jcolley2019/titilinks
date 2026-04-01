@@ -49,6 +49,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { buildDraftPlan, enhancePlanWithAIBios, type DraftPlan, type IntakeData } from '@/lib/draft-plan-builder';
 import { persistDraftPlan, checkHandleAvailable } from '@/lib/plan-persistence';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,23 +58,6 @@ interface AISuggestion {
   ctas: { label: string; subtitle: string }[];
   bio: string;
 }
-
-const creatorTypes = [
-  { value: 'streaming_tiktok', label: 'Streaming / TikTok Creator' },
-  { value: 'gamer', label: 'Gamer' },
-  { value: 'fitness', label: 'Fitness Creator' },
-  { value: 'musician', label: 'Musician' },
-  { value: 'affiliate_marketer', label: 'Affiliate Marketer' },
-  { value: 'adult_creator', label: 'Adult Creator' },
-] as const;
-
-const toneOptions = [
-  { value: 'professional', label: 'Professional', description: 'Clean and business-focused' },
-  { value: 'friendly', label: 'Friendly', description: 'Warm and approachable' },
-  { value: 'bold', label: 'Bold', description: 'Eye-catching and confident' },
-  { value: 'minimal', label: 'Minimal', description: 'Simple and elegant' },
-  { value: 'funny', label: 'Funny', description: 'Playful and humorous' },
-] as const;
 
 const urlSchema = z.string().url({ message: 'Please enter a valid URL' }).or(z.literal(''));
 
@@ -124,6 +108,25 @@ type FormData = z.infer<typeof formSchema>;
 export default function AISetup() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
+
+  const creatorTypes = [
+    { value: 'streaming_tiktok', label: t('aiSetup.creatorStreaming') },
+    { value: 'gamer', label: t('aiSetup.creatorGamer') },
+    { value: 'fitness', label: t('aiSetup.creatorFitness') },
+    { value: 'musician', label: t('aiSetup.creatorMusician') },
+    { value: 'affiliate_marketer', label: t('aiSetup.creatorAffiliate') },
+    { value: 'adult_creator', label: t('aiSetup.creatorAdult') },
+  ];
+
+  const toneOptions = [
+    { value: 'professional', label: t('aiSetup.toneProfessional'), description: t('aiSetup.toneProfessionalDesc') },
+    { value: 'friendly', label: t('aiSetup.toneFriendly'), description: t('aiSetup.toneFriendlyDesc') },
+    { value: 'bold', label: t('aiSetup.toneBold'), description: t('aiSetup.toneBoldDesc') },
+    { value: 'minimal', label: t('aiSetup.toneMinimal'), description: t('aiSetup.toneMinimalDesc') },
+    { value: 'funny', label: t('aiSetup.toneFunny'), description: t('aiSetup.toneFunnyDesc') },
+  ];
+
   const [step, setStep] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -256,7 +259,7 @@ export default function AISetup() {
       // Check handle availability
       const handleAvailable = await checkHandleAvailable(intake.handle);
       if (!handleAvailable) {
-        toast.error('This handle is already taken');
+        toast.error(t('aiSetup.handleTaken'));
         setGenerating(false);
         return;
       }
@@ -264,7 +267,7 @@ export default function AISetup() {
       // Build the draft plan
       const result = buildDraftPlan(intake);
       if (!result.success) {
-        toast.error('error' in result ? result.error : 'Failed to build plan');
+        toast.error('error' in result ? result.error : t('aiSetup.buildFailed'));
         setGenerating(false);
         return;
       }
@@ -282,7 +285,7 @@ export default function AISetup() {
       setStep(5);
     } catch (error) {
       console.error('Error generating preview:', error);
-      toast.error('Failed to generate preview');
+      toast.error(t('aiSetup.previewFailed'));
     } finally {
       setGenerating(false);
     }
@@ -294,7 +297,7 @@ export default function AISetup() {
 
   const handleApply = async () => {
     if (!draftPlan || !user) {
-      toast.error('Unable to create page');
+      toast.error(t('aiSetup.createFailed'));
       return;
     }
 
@@ -302,15 +305,15 @@ export default function AISetup() {
     try {
       const result = await persistDraftPlan(draftPlan, user.id);
       if (!result.success) {
-        toast.error(result.error || 'Failed to create page');
+        toast.error(result.error || t('aiSetup.pageFailed'));
         return;
       }
 
-      toast.success('Page created successfully!');
+      toast.success(t('aiSetup.pageCreated'));
       navigate('/dashboard/editor');
     } catch (error) {
       console.error('Error applying plan:', error);
-      toast.error('Failed to create page');
+      toast.error(t('aiSetup.pageFailed'));
     } finally {
       setApplying(false);
     }
@@ -320,7 +323,7 @@ export default function AISetup() {
     navigate('/dashboard/setup');
   };
 
-  const stepTitles = ['Profile', 'Core Links', 'Socials', 'Content', 'Preview'];
+  const stepTitles = [t('aiSetup.stepProfile'), t('aiSetup.stepCoreLinks'), t('aiSetup.stepSocials'), t('aiSetup.stepContent'), t('aiSetup.stepPreview')];
 
   return (
     <DashboardLayout>
@@ -333,10 +336,10 @@ export default function AISetup() {
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
             <Sparkles className="h-7 w-7 text-primary" />
-            AI Setup Assistant
+            {t('aiSetup.title')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Tell us about yourself and we'll create your perfect page
+            {t('aiSetup.subtitle')}
           </p>
         </div>
 
@@ -366,34 +369,34 @@ export default function AISetup() {
             <AnimatePresence mode="wait">
               {/* Step 1: Profile */}
               {step === 1 && (
-                <StepCard key="step1" icon={<User className="h-5 w-5 text-primary" />} title="Your Profile" description="Let's start with the basics">
+                <StepCard key="step1" icon={<User className="h-5 w-5 text-primary" />} title={t('aiSetup.yourProfile')} description={t('aiSetup.basics')}>
                   <div className="space-y-4">
                     <FormField control={form.control} name="handle" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Handle *</FormLabel>
+                        <FormLabel>{t('aiSetup.handle')} *</FormLabel>
                         <FormControl>
                           <div className="flex items-center">
                             <span className="text-muted-foreground mr-1">@</span>
-                            <Input placeholder="yourhandle" {...field} />
+                            <Input placeholder={t('aiSetup.handlePlaceholder')} {...field} />
                           </div>
                         </FormControl>
-                        <FormDescription>This will be your unique URL</FormDescription>
+                        <FormDescription>{t('aiSetup.handleDesc')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="display_name" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Display Name *</FormLabel>
-                        <FormControl><Input placeholder="Your Name" {...field} /></FormControl>
+                        <FormLabel>{t('aiSetup.displayName')} *</FormLabel>
+                        <FormControl><Input placeholder={t('aiSetup.displayNamePlaceholder')} {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="creator_type" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Creator Type *</FormLabel>
+                        <FormLabel>{t('aiSetup.creatorType')} *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select your creator type" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder={t('aiSetup.selectCreatorType')} /></SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {creatorTypes.map((type) => (
@@ -406,7 +409,7 @@ export default function AISetup() {
                     )} />
                     <FormField control={form.control} name="tone" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Page Tone *</FormLabel>
+                        <FormLabel>{t('aiSetup.pageTone')} *</FormLabel>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {toneOptions.map((tone) => (
                             <Button
@@ -425,7 +428,7 @@ export default function AISetup() {
                       </FormItem>
                     )} />
                     <div className="flex justify-end pt-4">
-                      <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>
+                      <Button type="button" onClick={handleNext} className="gap-2">{t('aiSetup.continue')}<ArrowRight className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </StepCard>
@@ -433,20 +436,20 @@ export default function AISetup() {
 
               {/* Step 2: Core Links */}
               {step === 2 && (
-                <StepCard key="step2" icon={<Link2 className="h-5 w-5 text-primary" />} title="Core Links" description="Your most important links">
+                <StepCard key="step2" icon={<Link2 className="h-5 w-5 text-primary" />} title={t('aiSetup.coreLinks')} description={t('aiSetup.coreLinksDesc')}>
                   <div className="space-y-4">
                     <div className="flex items-start gap-2 rounded-lg bg-primary/10 p-3 text-sm text-primary">
                       <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>You can skip fields you don't have yet — your page will still be created and you can add links later in the editor.</span>
+                      <span>{t('aiSetup.skipFieldsInfo')}</span>
                     </div>
                     <TooltipProvider>
                       <FormField control={form.control} name="personal_website_url" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center gap-1.5">
-                            Personal Website URL
+                            {t('aiSetup.personalWebsite')}
                             <Tooltip>
                               <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                              <TooltipContent><p>Your main site, blog, or landing page</p></TooltipContent>
+                              <TooltipContent><p>{t('aiSetup.personalWebsiteTooltip')}</p></TooltipContent>
                             </Tooltip>
                           </FormLabel>
                           <FormControl><Input type="url" placeholder="https://yoursite.com" {...field} /></FormControl>
@@ -456,10 +459,10 @@ export default function AISetup() {
                       <FormField control={form.control} name="primary_offer_url" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center gap-1.5">
-                            Primary Offer URL
+                            {t('aiSetup.primaryOffer')}
                             <Tooltip>
                               <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                              <TooltipContent><p>Your product, service, course, or affiliate link — the #1 thing you want people to click</p></TooltipContent>
+                              <TooltipContent><p>{t('aiSetup.primaryOfferTooltip')}</p></TooltipContent>
                             </Tooltip>
                           </FormLabel>
                           <FormControl><Input type="url" placeholder="https://shop.yoursite.com" {...field} /></FormControl>
@@ -469,10 +472,10 @@ export default function AISetup() {
                       <FormField control={form.control} name="creator_program_url" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center gap-1.5">
-                            Creator Program URL
+                            {t('aiSetup.creatorProgram')}
                             <Tooltip>
                               <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                              <TooltipContent><p>Where people sign up to join your team, affiliate program, or referral system. Leave blank if you don't have one yet.</p></TooltipContent>
+                              <TooltipContent><p>{t('aiSetup.creatorProgramTooltip')}</p></TooltipContent>
                             </Tooltip>
                           </FormLabel>
                           <FormControl><Input type="url" placeholder="https://join.yoursite.com" {...field} /></FormControl>
@@ -490,13 +493,13 @@ export default function AISetup() {
                       >
                         <div className="flex items-center gap-2">
                           <Sparkles className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-medium text-foreground">AI Suggestions</span>
+                          <span className="text-sm font-medium text-foreground">{t('aiSetup.aiSuggestions')}</span>
                           {suggestionsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                         </div>
                         {aiSuggestions && (
                           <>
                             <div className="space-y-2">
-                              <p className="text-xs text-muted-foreground font-medium">Suggested CTA buttons:</p>
+                              <p className="text-xs text-muted-foreground font-medium">{t('aiSetup.suggestedCtas')}</p>
                               {aiSuggestions.ctas.map((cta, i) => (
                                 <div key={i} className="flex items-start gap-2 text-sm">
                                   <span className="text-primary font-bold mt-0.5">{i + 1}.</span>
@@ -508,18 +511,18 @@ export default function AISetup() {
                               ))}
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground font-medium mb-1">Suggested bio:</p>
+                              <p className="text-xs text-muted-foreground font-medium mb-1">{t('aiSetup.suggestedBio')}</p>
                               <p className="text-sm text-foreground italic">"{aiSuggestions.bio}"</p>
                             </div>
-                            <p className="text-[11px] text-muted-foreground">These will be used when generating your page preview.</p>
+                            <p className="text-[11px] text-muted-foreground">{t('aiSetup.suggestionsNote')}</p>
                           </>
                         )}
                       </motion.div>
                     )}
 
                     <div className="flex justify-between pt-4">
-                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
-                      <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>
+                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />{t('aiSetup.back')}</Button>
+                      <Button type="button" onClick={handleNext} className="gap-2">{t('aiSetup.continue')}<ArrowRight className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </StepCard>
@@ -527,7 +530,7 @@ export default function AISetup() {
 
               {/* Step 3: Social Links */}
               {step === 3 && (
-                <StepCard key="step3" icon={<Share2 className="h-5 w-5 text-primary" />} title="Social Links" description="Add your social media profiles (optional)">
+                <StepCard key="step3" icon={<Share2 className="h-5 w-5 text-primary" />} title={t('aiSetup.socialLinks')} description={t('aiSetup.socialLinksDesc')}>
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
@@ -535,7 +538,7 @@ export default function AISetup() {
                         { name: 'social_instagram', label: 'Instagram', placeholder: 'https://instagram.com/you' },
                         { name: 'social_youtube', label: 'YouTube', placeholder: 'https://youtube.com/@you' },
                         { name: 'social_facebook', label: 'Facebook', placeholder: 'https://facebook.com/you' },
-                        { name: 'social_facebook_group', label: 'Facebook Group', placeholder: 'https://facebook.com/groups/...' },
+                        { name: 'social_facebook_group', label: t('aiSetup.facebookGroup'), placeholder: 'https://facebook.com/groups/...' },
                         { name: 'social_snapchat', label: 'Snapchat', placeholder: 'https://snapchat.com/add/you' },
                         { name: 'social_kick', label: 'Kick', placeholder: 'https://kick.com/you' },
                         { name: 'social_twitch', label: 'Twitch', placeholder: 'https://twitch.tv/you' },
@@ -554,8 +557,8 @@ export default function AISetup() {
                       ))}
                     </div>
                     <div className="flex justify-between pt-4">
-                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
-                      <Button type="button" onClick={handleNext} className="gap-2">Continue<ArrowRight className="h-4 w-4" /></Button>
+                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />{t('aiSetup.back')}</Button>
+                      <Button type="button" onClick={handleNext} className="gap-2">{t('aiSetup.continue')}<ArrowRight className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </StepCard>
@@ -563,10 +566,10 @@ export default function AISetup() {
 
               {/* Step 4: Content & Products */}
               {step === 4 && (
-                <StepCard key="step4" icon={<ImageIcon className="h-5 w-5 text-primary" />} title="Content & Products" description="Add featured content and products (optional)">
+                <StepCard key="step4" icon={<ImageIcon className="h-5 w-5 text-primary" />} title={t('aiSetup.contentProducts')} description={t('aiSetup.contentProductsDesc')}>
                   <div className="space-y-6">
                     <div className="space-y-3">
-                      <Label className="text-base font-medium flex items-center gap-2"><ImageIcon className="h-4 w-4" />Featured Media (up to 3)</Label>
+                      <Label className="text-base font-medium flex items-center gap-2"><ImageIcon className="h-4 w-4" />{t('aiSetup.featuredMedia')}</Label>
                       {[1, 2, 3].map((i) => (
                         <FormField key={`featured_${i}`} control={form.control} name={`featured_media_${i}` as keyof FormData} render={({ field }) => (
                           <FormItem><FormControl><Input type="url" placeholder={`Featured media URL ${i}`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
@@ -574,14 +577,14 @@ export default function AISetup() {
                       ))}
                     </div>
                     <div className="space-y-3">
-                      <Label className="text-base font-medium flex items-center gap-2"><ShoppingBag className="h-4 w-4" />Products (up to 6)</Label>
+                      <Label className="text-base font-medium flex items-center gap-2"><ShoppingBag className="h-4 w-4" />{t('aiSetup.products')}</Label>
                       {[1, 2, 3, 4, 5, 6].map((i) => (
                         <div key={`product_${i}`} className="flex gap-2">
                           <FormField control={form.control} name={`product_${i}_url` as keyof FormData} render={({ field }) => (
                             <FormItem className="flex-1"><FormControl><Input type="url" placeholder={`Product ${i} URL`} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                           )} />
                           <FormField control={form.control} name={`product_${i}_title` as keyof FormData} render={({ field }) => (
-                            <FormItem className="flex-1"><FormControl><Input placeholder="Title (optional)" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                            <FormItem className="flex-1"><FormControl><Input placeholder={t('aiSetup.titleOptional')} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                           )} />
                         </div>
                       ))}
@@ -589,15 +592,15 @@ export default function AISetup() {
                     {/* AI Copy Toggle */}
                     <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
                       <div>
-                        <p className="font-medium text-foreground text-sm">Use AI for bio copy</p>
-                        <p className="text-xs text-muted-foreground">Generate creative bios based on your profile</p>
+                        <p className="font-medium text-foreground text-sm">{t('aiSetup.useAiCopy')}</p>
+                        <p className="text-xs text-muted-foreground">{t('aiSetup.useAiCopyDesc')}</p>
                       </div>
                       <Switch checked={useAICopy} onCheckedChange={setUseAICopy} />
                     </div>
                     <div className="flex justify-between pt-4">
-                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+                      <Button type="button" variant="outline" onClick={handleBack} className="gap-2"><ArrowLeft className="h-4 w-4" />{t('aiSetup.back')}</Button>
                       <Button type="button" onClick={handleGeneratePreview} disabled={generating} className="gap-2">
-                        {generating ? (<><Loader2 className="h-4 w-4 animate-spin" />Generating...</>) : (<><Wand2 className="h-4 w-4" />Generate Preview</>)}
+                        {generating ? (<><Loader2 className="h-4 w-4 animate-spin" />{t('aiSetup.generating')}</>) : (<><Wand2 className="h-4 w-4" />{t('aiSetup.generatePreview')}</>)}
                       </Button>
                     </div>
                   </div>
@@ -622,7 +625,7 @@ export default function AISetup() {
 
                       {/* Tone Preset Buttons */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Generate with tone</Label>
+                        <Label className="text-sm font-medium">{t('aiSetup.generateWithTone')}</Label>
                         <div className="flex gap-2">
                           {([
                             { value: 'professional', label: 'Professional', icon: '💼' },
@@ -803,7 +806,7 @@ export default function AISetup() {
                     <div className="space-y-3 pt-4 border-t border-border">
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Button type="button" onClick={handleApply} disabled={applying} className="flex-1 gap-2">
-                          {applying ? (<><Loader2 className="h-4 w-4 animate-spin" />Creating...</>) : (<><Sparkles className="h-4 w-4" />Apply & Continue</>)}
+                          {applying ? (<><Loader2 className="h-4 w-4 animate-spin" />{t('aiSetup.creating')}</>) : (<><Sparkles className="h-4 w-4" />{t('aiSetup.applyAndContinue')}</>)}
                         </Button>
                         <Button type="button" variant="outline" onClick={handleRegenerate} disabled={generating} className="gap-2">
                           <RefreshCw className={`h-4 w-4 ${generating ? 'animate-spin' : ''}`} />

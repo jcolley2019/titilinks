@@ -8,6 +8,7 @@ import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, 
 import { LivePreviewPanel } from '@/components/LivePreviewPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockList } from '@/components/BlockList';
 import { GoalsPanel } from '@/components/GoalsPanel';
@@ -35,6 +36,7 @@ interface ThemeJson {
 
 export default function Editor() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
@@ -56,8 +58,8 @@ export default function Editor() {
 
   // Parse theme_json for page labels
   const themeJson = (page?.theme_json as ThemeJson) || {};
-  const displayPage1Label = page1Label || themeJson.pages?.page1?.label || 'Page 1';
-  const displayPage2Label = page2Label || themeJson.pages?.page2?.label || 'Page 2';
+  const displayPage1Label = page1Label || themeJson.pages?.page1?.label || t('editor.page1');
+  const displayPage2Label = page2Label || themeJson.pages?.page2?.label || t('editor.page2');
 
   // Initialize labels from theme_json when page loads
   useEffect(() => {
@@ -92,11 +94,11 @@ export default function Editor() {
       if (error) throw error;
 
       setPage({ ...page, theme_json: updatedTheme as Json });
-      toast.success('Page label updated');
+      toast.success(t('editor.labelUpdated'));
       refreshPreview();
     } catch (error) {
       console.error('Error updating page label:', error);
-      toast.error('Failed to update label');
+      toast.error(t('editor.labelFailed'));
     }
   };
 
@@ -104,10 +106,10 @@ export default function Editor() {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedLink(linkType);
-      toast.success('Copied to clipboard!');
+      toast.success(t('editor.copied'));
       setTimeout(() => setCopiedLink(null), 2000);
     } catch {
-      toast.error('Failed to copy');
+      toast.error(t('editor.copyFailed'));
     }
   };
 
@@ -138,7 +140,7 @@ export default function Editor() {
       }
     } catch (error) {
       console.error('Error fetching page data:', error);
-      toast.error('Failed to load page data');
+      toast.error(t('editor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -197,9 +199,9 @@ export default function Editor() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Link Editor</h1>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('editor.title')}</h1>
               <p className="text-muted-foreground mt-1">
-                Editing <span className="text-primary">@{page.handle}</span>
+                {t('editor.editing')} <span className="text-primary">@{page.handle}</span>
               </p>
             </div>
             <Button
@@ -208,7 +210,7 @@ export default function Editor() {
               onClick={() => window.open(`/${page.handle}`, '_blank')}
             >
               <ExternalLink className="h-4 w-4" />
-              View Page
+              {t('editor.viewPage')}
             </Button>
           </div>
 
@@ -217,11 +219,11 @@ export default function Editor() {
             <TabsList className="grid w-full grid-cols-2 max-w-xs">
               <TabsTrigger value="content" className="gap-2">
                 <Link2 className="h-4 w-4" />
-                Content
+                {t('editor.content')}
               </TabsTrigger>
               <TabsTrigger value="design" className="gap-2">
                 <Palette className="h-4 w-4" />
-                Design
+                {t('editor.design')}
               </TabsTrigger>
             </TabsList>
 
@@ -231,28 +233,28 @@ export default function Editor() {
           {/* Mode Selector */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium text-foreground">Pages</CardTitle>
+              <CardTitle className="text-lg font-medium text-foreground">{t('editor.pages')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Page Label Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Page 1 Label</label>
+                  <label className="text-sm font-medium text-foreground">{t('editor.page1Label')}</label>
                   <Input
                     value={page1Label}
                     onChange={(e) => setPage1Label(e.target.value)}
                     onBlur={() => updatePageLabel('page1', page1Label)}
-                    placeholder="Page 1"
+                    placeholder={t('editor.page1')}
                     className="bg-secondary/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Page 2 Label</label>
+                  <label className="text-sm font-medium text-foreground">{t('editor.page2Label')}</label>
                   <Input
                     value={page2Label}
                     onChange={(e) => setPage2Label(e.target.value)}
                     onBlur={() => updatePageLabel('page2', page2Label)}
-                    placeholder="Page 2"
+                    placeholder={t('editor.page2')}
                     className="bg-secondary/50"
                   />
                 </div>
@@ -276,8 +278,8 @@ export default function Editor() {
               </Tabs>
               <p className="text-sm text-muted-foreground">
                 {selectedMode === 'shop'
-                  ? 'Configure content for your first page.'
-                  : 'Configure content for your second page.'}
+                  ? t('editor.configureFirst')
+                  : t('editor.configureSecond')}
               </p>
               
               {/* Sticky CTA Toggle */}
@@ -286,8 +288,8 @@ export default function Editor() {
                   <div className="flex items-center gap-2">
                     <Pin className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <p className="text-sm font-medium">Sticky CTA</p>
-                      <p className="text-xs text-muted-foreground">Show floating CTA after scroll</p>
+                      <p className="text-sm font-medium">{t('editor.stickyCta')}</p>
+                      <p className="text-xs text-muted-foreground">{t('editor.stickyCtaDesc')}</p>
                     </div>
                   </div>
                   <Switch
@@ -306,11 +308,11 @@ export default function Editor() {
                             ? { ...m, sticky_cta_enabled: checked } 
                             : m
                         ));
-                        toast.success(checked ? 'Sticky CTA enabled' : 'Sticky CTA disabled');
+                        toast.success(checked ? t('editor.stickyEnabled') : t('editor.stickyDisabled'));
                         refreshPreview();
                       } catch (error) {
                         console.error('Error updating sticky CTA:', error);
-                        toast.error('Failed to update setting');
+                        toast.error(t('editor.settingFailed'));
                       }
                     }}
                   />
@@ -324,7 +326,7 @@ export default function Editor() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                {selectedMode === 'shop' ? displayPage1Label : displayPage2Label} Blocks
+                {`${selectedMode === 'shop' ? displayPage1Label : displayPage2Label} ${t('editor.blocks')}`}
               </CardTitle>
               {currentMode && (
                 <Button
@@ -334,7 +336,7 @@ export default function Editor() {
                   onClick={() => setSuggestLinksOpen(true)}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  Suggest Links
+                  {t('editor.suggestLinks')}
                 </Button>
               )}
             </CardHeader>
@@ -343,7 +345,7 @@ export default function Editor() {
                 <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  No mode found. Please refresh the page.
+                  {t('editor.noMode')}
                 </div>
               )}
             </CardContent>
@@ -354,12 +356,12 @@ export default function Editor() {
             <CardHeader>
               <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
                 <Link2 className="h-5 w-5 text-primary" />
-                Share Links
+                {t('editor.shareLinks')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Default Link</label>
+                <label className="text-sm font-medium text-foreground">{t('editor.defaultLink')}</label>
                 <div className="flex gap-2">
                   <Input
                     value={mainLink}
@@ -380,11 +382,11 @@ export default function Editor() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Default link that can auto-detect which page to show.
+                  {t('editor.defaultLinkDesc')}
                 </p>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{displayPage2Label} Link</label>
+                <label className="text-sm font-medium text-foreground">{displayPage2Label} {t('editor.link')}</label>
                 <div className="flex gap-2">
                   <Input
                     value={page2Link}
@@ -405,7 +407,7 @@ export default function Editor() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Forces Page 2 regardless of referrer.
+                  {t('editor.forcePage2')}
                 </p>
               </div>
 
@@ -413,25 +415,27 @@ export default function Editor() {
               <div className="pt-4 border-t border-border space-y-4">
                 <div className="flex items-center gap-2">
                   <QrCode className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Link Tools</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Default Link</label>
-                  <LinkTools
-                    baseUrl={baseUrl}
-                    pageId={page.id}
-                    destinationUrl={mainLink}
-                  />
+                  <span className="text-sm font-medium text-foreground">{t('editor.linkTools')}</span>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">{displayPage2Label} Link</label>
-                  <LinkTools
-                    baseUrl={baseUrl}
-                    pageId={page.id}
-                    destinationUrl={page2Link}
-                  />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm text-muted-foreground flex-shrink-0">{t('editor.defaultLink')}</label>
+                    <LinkTools
+                      baseUrl={baseUrl}
+                      pageId={page.id}
+                      destinationUrl={mainLink}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm text-muted-foreground flex-shrink-0">{displayPage2Label} {t('editor.link')}</label>
+                    <LinkTools
+                      baseUrl={baseUrl}
+                      pageId={page.id}
+                      destinationUrl={page2Link}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>

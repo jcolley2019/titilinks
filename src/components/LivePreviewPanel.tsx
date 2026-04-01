@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface LivePreviewPanelProps {
   handle: string;
@@ -10,6 +11,7 @@ interface LivePreviewPanelProps {
 }
 
 export function LivePreviewPanel({ handle, className, externalRefreshKey = 0 }: LivePreviewPanelProps) {
+  const { t } = useLanguage();
   const [internalKey, setInternalKey] = useState(0);
   const refreshKey = internalKey + externalRefreshKey;
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -32,7 +34,7 @@ export function LivePreviewPanel({ handle, className, externalRefreshKey = 0 }: 
         className="gap-2 self-center"
       >
         <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
-        Refresh Preview
+        {t('editor.refreshPreview')}
       </Button>
 
       {/* iPhone-style frame */}

@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Eye, 
-  MousePointerClick, 
-  Target, 
-  Globe, 
+import {
+  Eye,
+  MousePointerClick,
+  Target,
+  Globe,
   TrendingUp,
   ShoppingBag,
   Users,
@@ -26,10 +26,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useLanguage } from '@/hooks/useLanguage';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function Analytics() {
   const analytics = useAnalytics();
+  const { t } = useLanguage();
 
   if (analytics.loading) {
     return (
@@ -74,35 +76,35 @@ export default function Analytics() {
         className="space-y-6"
       >
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground mt-1">Track your page performance</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('analytics.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('analytics.subtitle')}</p>
         </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
-            label="Views (7d)"
+            label={t('analytics.views7d')}
             value={analytics.pageViews7Days}
-            subValue={`${analytics.pageViews30Days} last 30d`}
+            subValue={`${analytics.pageViews30Days} ${t('analytics.last30d')}`}
           />
           <MetricCard
             icon={<MousePointerClick className="h-5 w-5" />}
-            label="Clicks (7d)"
+            label={t('analytics.clicks7d')}
             value={analytics.clicks7Days}
-            subValue={`${analytics.clicks30Days} last 30d`}
+            subValue={`${analytics.clicks30Days} ${t('analytics.last30d')}`}
           />
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
             label={analytics.pageLabels.page1}
             value={analytics.viewsByMode.shop}
-            subValue={`${analytics.clicksByMode.shop} clicks`}
+            subValue={`${analytics.clicksByMode.shop} ${t('analytics.clicks')}`}
           />
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
             label={analytics.pageLabels.page2}
             value={analytics.viewsByMode.recruit}
-            subValue={`${analytics.clicksByMode.recruit} clicks`}
+            subValue={`${analytics.clicksByMode.recruit} ${t('analytics.clicks')}`}
           />
         </div>
 
@@ -112,19 +114,19 @@ export default function Analytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 <Target className="h-5 w-5 text-primary" />
-                Goal Performance
+                {t('analytics.goalPerformance')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {analytics.goals.primaryOfferId || analytics.goals.recruitId ? (
                 <div className="space-y-4">
                   <GoalMetric
-                    label="Primary Offer Goal"
+                    label={t('analytics.primaryOfferGoal')}
                     clicks={analytics.goalClicks.primaryOffer}
                     isSet={!!analytics.goals.primaryOfferId}
                   />
                   <GoalMetric
-                    label={`${analytics.pageLabels.page2} Goal`}
+                    label={`${analytics.pageLabels.page2} ${t('analytics.goal')}`}
                     clicks={analytics.goalClicks.recruit}
                     isSet={!!analytics.goals.recruitId}
                   />
@@ -133,10 +135,10 @@ export default function Analytics() {
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Target className="h-10 w-10 text-muted-foreground mb-3" />
                   <p className="text-muted-foreground mb-4">
-                    Set goals to track conversion performance
+                    {t('analytics.setGoalsDesc')}
                   </p>
                   <Button asChild size="sm">
-                    <Link to="/dashboard/editor">Set Goals</Link>
+                    <Link to="/dashboard/editor">{t('analytics.setGoals')}</Link>
                   </Button>
                 </div>
               )}
@@ -148,7 +150,7 @@ export default function Analytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 <ExternalLink className="h-5 w-5 text-primary" />
-                Top Destinations
+                {t('analytics.topDestinations')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -165,7 +167,7 @@ export default function Analytics() {
                   ))}
                 </div>
               ) : (
-                <EmptyState message="No outbound clicks recorded yet" />
+                <EmptyState message={t('analytics.noClicks')} />
               )}
             </CardContent>
           </Card>
@@ -175,7 +177,7 @@ export default function Analytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 <Globe className="h-5 w-5 text-primary" />
-                Traffic Sources
+                {t('analytics.trafficSources')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -196,14 +198,14 @@ export default function Analytics() {
                     color="bg-purple-500"
                   />
                   <ReferrerBar
-                    label="Other / Direct"
+                    label={t('analytics.otherDirect')}
                     count={analytics.referrerBreakdown.other}
                     total={analytics.pageViews30Days}
                     color="bg-muted-foreground"
                   />
                 </div>
               ) : (
-                <EmptyState message="No traffic data yet" />
+                <EmptyState message={t('analytics.noTraffic')} />
               )}
             </CardContent>
           </Card>
@@ -213,7 +215,7 @@ export default function Analytics() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Mode Distribution
+                {t('analytics.modeDistribution')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -235,7 +237,7 @@ export default function Analytics() {
                   />
                 </div>
               ) : (
-                <EmptyState message="No page views recorded yet" />
+                <EmptyState message={t('analytics.noViews')} />
               )}
             </CardContent>
           </Card>
@@ -247,10 +249,10 @@ export default function Analytics() {
             <CardTitle className="flex items-center justify-between text-foreground">
               <div className="flex items-center gap-2">
                 <Link2 className="h-5 w-5 text-primary" />
-                Short Links
+                {t('analytics.shortLinks')}
               </div>
               <div className="text-sm font-normal text-muted-foreground">
-                Total clicks: <span className="text-primary font-semibold">{analytics.totalShortLinkClicks}</span>
+                {t('analytics.totalClicks')} <span className="text-primary font-semibold">{analytics.totalShortLinkClicks}</span>
               </div>
             </CardTitle>
           </CardHeader>
@@ -260,10 +262,10 @@ export default function Analytics() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-24">Code</TableHead>
-                      <TableHead>Destination</TableHead>
-                      <TableHead className="w-24 text-right">Clicks</TableHead>
-                      <TableHead className="w-32 text-right">Last Click</TableHead>
+                      <TableHead className="w-24">{t('analytics.code')}</TableHead>
+                      <TableHead>{t('analytics.destination')}</TableHead>
+                      <TableHead className="w-24 text-right">{t('analytics.clicks')}</TableHead>
+                      <TableHead className="w-32 text-right">{t('analytics.lastClick')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -287,7 +289,7 @@ export default function Analytics() {
                 </Table>
               </div>
             ) : (
-              <EmptyState message="No short links created yet" />
+              <EmptyState message={t('analytics.noShortLinks')} />
             )}
           </CardContent>
         </Card>
@@ -330,11 +332,13 @@ function GoalMetric({
   clicks: number | null;
   isSet: boolean;
 }) {
+  const { t } = useLanguage();
+
   if (!isSet) {
     return (
       <div className="flex items-center justify-between py-2 text-muted-foreground">
         <span className="text-sm">{label}</span>
-        <span className="text-xs">Not set</span>
+        <span className="text-xs">{t('analytics.notSet')}</span>
       </div>
     );
   }
@@ -344,7 +348,7 @@ function GoalMetric({
       <span className="text-sm text-foreground">{label}</span>
       <div className="flex items-center gap-2">
         <span className="text-lg font-semibold text-primary">{clicks}</span>
-        <span className="text-xs text-muted-foreground">clicks</span>
+        <span className="text-xs text-muted-foreground">{t('analytics.clicks')}</span>
       </div>
     </div>
   );
@@ -422,6 +426,7 @@ function ModeBar({
   totalViews: number;
   icon: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   const percentage = totalViews > 0 ? Math.round((views / totalViews) * 100) : 0;
   const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : '0.0';
 
@@ -432,12 +437,12 @@ function ModeBar({
           {icon}
           <span className="text-sm font-medium">{label}</span>
         </div>
-        <span className="text-xs text-muted-foreground">{percentage}% of traffic</span>
+        <span className="text-xs text-muted-foreground">{percentage}% {t('analytics.ofTraffic')}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{views} views</span>
-        <span className="text-muted-foreground">{clicks} clicks</span>
-        <span className="text-primary font-medium">{ctr}% CTR</span>
+        <span className="text-muted-foreground">{views} {t('analytics.views')}</span>
+        <span className="text-muted-foreground">{clicks} {t('analytics.clicks')}</span>
+        <span className="text-primary font-medium">{ctr}% {t('analytics.ctr')}</span>
       </div>
     </div>
   );
