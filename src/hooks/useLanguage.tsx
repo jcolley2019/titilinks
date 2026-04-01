@@ -290,7 +290,7 @@ const translations: Record<Language, Record<string, string>> = {
     'hero.badge': 'Hecho para Creadores, por Creadores',
     'hero.title1': 'Toda tu marca.',
     'hero.title2': 'Un',
-    'hero.title3': 'enlace poderoso.',
+    'hero.title3': 'link poderoso.',
     'hero.subtitle': 'Creando impacto a través de presencia, rendimiento y propósito.',
     'hero.description': 'Da vida a tu marca con impresionantes páginas de enlace en bio. Cada conexión es un viaje, cada clic una nueva oportunidad.',
     'hero.cta': 'Comienza Gratis',
