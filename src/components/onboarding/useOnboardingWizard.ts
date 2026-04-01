@@ -10,6 +10,7 @@ export interface OnboardingState {
   buttonStyle: string;
   fontChoice: string;
   selectedSocialPlatforms: string[];
+  socialIconStyle: 'color' | 'white' | 'dark';
   links: Array<{ platform: string; url: string }>;
   currentStep: number;
   currentSubStep: number;
@@ -35,6 +36,7 @@ const initialState: OnboardingState = {
   buttonStyle: 'solid_rounded',
   fontChoice: 'modern',
   selectedSocialPlatforms: [],
+  socialIconStyle: 'color',
   links: [],
   currentStep: 1,
   currentSubStep: 0,
