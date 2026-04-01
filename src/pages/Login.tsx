@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,18 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Mail, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 
-const authSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-const emailSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-});
-
 export default function Login() {
   const navigate = useNavigate();
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { t } = useLanguage();
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +21,16 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+
+  const authSchema = z.object({
+    email: z.string().email(t('login.validationEmail')),
+    password: z.string().min(6, t('login.validationPassword')),
+  });
+
+  const emailSchema = z.object({
+    email: z.string().email(t('login.validationEmail')),
+  });
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -47,20 +50,26 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const { error } = mode === 'signup'
-        ? await signUp(email, password)
-        : await signIn(email, password);
-
-      if (error) {
-        if (error.message.includes('already registered')) {
-          setError('This email is already registered. Try signing in instead.');
-        } else if (error.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password. Please try again.');
-        } else {
-          setError(error.message);
+      if (mode === 'signup') {
+        const { error, confirmationRequired } = await signUp(email, password);
+        if (error) {
+          if (error.message.includes('already registered')) {
+            setError(t('login.errorAlreadyRegistered'));
+          } else {
+            setError(error.message);
+          }
+        } else if (confirmationRequired) {
+          setConfirmationSent(true);
         }
-      } else if (mode === 'signup') {
-        navigate('/dashboard/setup');
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            setError(t('login.errorInvalidCredentials'));
+          } else {
+            setError(error.message);
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -99,7 +108,7 @@ export default function Login() {
         setError(error.message);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to sign in with Google');
+      setError(err?.message || t('login.errorGoogleFailed'));
     } finally {
       setGoogleLoading(false);
     }
@@ -126,28 +135,70 @@ export default function Login() {
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to home
+          {t('login.backToHome')}
         </Link>
 
         <Card className="border-border bg-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold gradient-text">
-              {mode === 'forgot' 
-                ? 'Reset Password' 
-                : mode === 'signup' 
-                  ? 'Create Account' 
-                  : 'Welcome Back'}
+              {mode === 'forgot'
+                ? t('login.resetPassword')
+                : mode === 'signup'
+                  ? t('login.createAccount')
+                  : t('login.welcomeBack')}
             </CardTitle>
             <CardDescription>
               {mode === 'forgot'
-                ? 'Enter your email to receive a reset link'
+                ? t('login.resetSubtitle')
                 : mode === 'signup'
-                  ? 'Sign up to create your TitiLinks page'
-                  : 'Sign in to manage your links'}
+                  ? t('login.signUpSubtitle')
+                  : t('login.signInSubtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {mode === 'forgot' ? (
+            {confirmationSent ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-4"
+              >
+                <Mail className="h-12 w-12 text-primary mx-auto mb-4" />
+                <p className="text-foreground font-medium mb-2">{t('login.checkYourEmail')}</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {t('login.confirmationSent')} <span className="font-medium">{email}</span>.
+                  {' '}{t('login.clickToActivate')}
+                </p>
+                <p className="text-xs text-muted-foreground mb-6">
+                  {t('login.didntReceive')}
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      setLoading(true);
+                      const { error } = await signUp(email, password);
+                      setLoading(false);
+                      if (error) {
+                        setError(error.message);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('login.resendConfirmation')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmationSent(false);
+                      setMode('signin');
+                      setError(null);
+                    }}
+                  >
+                    {t('login.backToSignIn')}
+                  </Button>
+                </div>
+              </motion.div>
+            ) : mode === 'forgot' ? (
               resetSent ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -155,9 +206,9 @@ export default function Login() {
                   className="text-center py-4"
                 >
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <p className="text-foreground font-medium mb-2">Check your email</p>
+                  <p className="text-foreground font-medium mb-2">{t('login.checkYourEmail')}</p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    We've sent a password reset link to <span className="font-medium">{email}</span>
+                    {t('login.resetSent')} <span className="font-medium">{email}</span>
                   </p>
                   <Button
                     variant="outline"
@@ -167,19 +218,19 @@ export default function Login() {
                       setEmail('');
                     }}
                   >
-                    Back to sign in
+                    {t('login.backToSignIn')}
                   </Button>
                 </motion.div>
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('login.emailLabel')}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t('login.emailPlaceholder')}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
@@ -206,7 +257,7 @@ export default function Login() {
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      'Send Reset Link'
+                      t('login.sendResetLink')
                     )}
                   </Button>
 
@@ -219,7 +270,7 @@ export default function Login() {
                       }}
                       className="text-sm text-primary hover:underline font-medium"
                     >
-                      Back to sign in
+                      {t('login.backToSignIn')}
                     </button>
                   </div>
                 </form>
@@ -228,13 +279,13 @@ export default function Login() {
               <>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('login.emailLabel')}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t('login.emailPlaceholder')}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
@@ -244,7 +295,7 @@ export default function Login() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">{t('login.passwordLabel')}</Label>
                       {mode === 'signin' && (
                         <button
                           type="button"
@@ -254,7 +305,7 @@ export default function Login() {
                           }}
                           className="text-xs text-primary hover:underline"
                         >
-                          Forgot password?
+                          {t('login.forgotPassword')}
                         </button>
                       )}
                     </div>
@@ -263,7 +314,7 @@ export default function Login() {
                       <Input
                         id="password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder={t('login.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="pl-10"
@@ -290,9 +341,9 @@ export default function Login() {
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : mode === 'signup' ? (
-                      'Create Account'
+                      t('login.createAccount')
                     ) : (
-                      'Sign In'
+                      t('login.signIn')
                     )}
                   </Button>
                 </form>
@@ -302,7 +353,7 @@ export default function Login() {
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                    <span className="bg-card px-2 text-muted-foreground">{t('login.orContinueWith')}</span>
                   </div>
                 </div>
 
@@ -335,7 +386,7 @@ export default function Login() {
                           fill="#EA4335"
                         />
                       </svg>
-                      Continue with Google
+                      {t('login.continueWithGoogle')}
                     </>
                   )}
                 </Button>
@@ -343,24 +394,24 @@ export default function Login() {
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   {mode === 'signup' ? (
                     <>
-                      Already have an account?{' '}
+                      {t('login.alreadyHaveAccount')}{' '}
                       <button
                         type="button"
                         onClick={() => setMode('signin')}
                         className="text-primary hover:underline font-medium"
                       >
-                        Sign in
+                        {t('login.signIn')}
                       </button>
                     </>
                   ) : (
                     <>
-                      Don't have an account?{' '}
+                      {t('login.dontHaveAccount')}{' '}
                       <button
                         type="button"
                         onClick={() => setMode('signup')}
                         className="text-primary hover:underline font-medium"
                       >
-                        Sign up
+                        {t('login.signUp')}
                       </button>
                     </>
                   )}
