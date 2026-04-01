@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { BlockItem } from './BlockItem';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Block = Tables<'blocks'>;
@@ -27,6 +28,7 @@ interface BlockListProps {
 }
 
 export function BlockList({ modeId, onEditBlock }: BlockListProps) {
+  const { t } = useLanguage();
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +55,7 @@ export function BlockList({ modeId, onEditBlock }: BlockListProps) {
       setBlocks(data || []);
     } catch (error) {
       console.error('Error fetching blocks:', error);
-      toast.error('Failed to load blocks');
+      toast.error(t('blocks.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -93,10 +95,10 @@ export function BlockList({ modeId, onEditBlock }: BlockListProps) {
           if (error) throw error;
         }
 
-        toast.success('Block order updated');
+        toast.success(t('blocks.orderUpdated'));
       } catch (error) {
         console.error('Error updating block order:', error);
-        toast.error('Failed to update block order');
+        toast.error(t('blocks.orderFailed'));
         fetchBlocks(); // Revert to original order
       }
     }
@@ -117,10 +119,10 @@ export function BlockList({ modeId, onEditBlock }: BlockListProps) {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success(enabled ? 'Block enabled' : 'Block disabled');
+      toast.success(enabled ? t('blocks.enabled') : t('blocks.disabled'));
     } catch (error) {
       console.error('Error toggling block:', error);
-      toast.error('Failed to update block');
+      toast.error(t('blocks.toggleFailed'));
       fetchBlocks(); // Revert
     }
   };

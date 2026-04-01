@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Link, Copy, Download, QrCode, Check, Loader2 } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface LinkToolsProps {
   baseUrl: string;
@@ -12,6 +13,7 @@ interface LinkToolsProps {
 }
 
 export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: LinkToolsProps) {
+  const { t } = useLanguage();
   const [code, setCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,8 +37,8 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
 
       if (!token) {
         toast({
-          title: "Error",
-          description: "You must be logged in to create short links",
+          title: t('linkTools.error'),
+          description: t('linkTools.loginRequired'),
           variant: "destructive",
         });
         return;
@@ -58,13 +60,13 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
 
       setCode(result.code);
       toast({
-        title: "Short link created",
-        description: `Your short link is ready`,
+        title: t('linkTools.shortLinkCreated'),
+        description: t('linkTools.shortLinkReady'),
       });
     } catch (error) {
       console.error("Error creating short link:", error);
       toast({
-        title: "Error",
+        title: t('linkTools.error'),
         description: error instanceof Error ? error.message : "Failed to create short link",
         variant: "destructive",
       });
@@ -79,14 +81,14 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
       await navigator.clipboard.writeText(shortUrl);
       setCopied(true);
       toast({
-        title: "Copied",
-        description: "Short URL copied to clipboard",
+        title: t('linkTools.copied'),
+        description: t('linkTools.copiedDesc'),
       });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to copy to clipboard",
+        title: t('linkTools.error'),
+        description: t('linkTools.copyFailed'),
         variant: "destructive",
       });
     }
@@ -111,14 +113,14 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
       URL.revokeObjectURL(downloadUrl);
 
       toast({
-        title: "Downloaded",
+        title: t('linkTools.downloaded'),
         description: `QR code saved as ${format.toUpperCase()}`,
       });
     } catch (error) {
       console.error("Download error:", error);
       toast({
-        title: "Error",
-        description: "Failed to download QR code",
+        title: t('linkTools.error'),
+        description: t('linkTools.downloadFailed'),
         variant: "destructive",
       });
     }
@@ -138,7 +140,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
         ) : (
           <Link className="h-4 w-4" />
         )}
-        Create Short Link
+        {t('linkTools.createShortLink')}
       </Button>
     );
   }
@@ -184,7 +186,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
             className="gap-2 justify-start"
           >
             <Download className="h-4 w-4" />
-            Download PNG
+            {t('linkTools.downloadPng')}
           </Button>
           <Button
             variant="outline"
@@ -193,7 +195,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
             className="gap-2 justify-start"
           >
             <QrCode className="h-4 w-4" />
-            Download SVG
+            {t('linkTools.downloadSvg')}
           </Button>
         </div>
       </div>

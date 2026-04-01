@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Target, Loader2, Save } from 'lucide-react';
 import { LinkTools } from '@/components/LinkTools';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 
 type BlockItem = Tables<'block_items'>;
@@ -24,6 +25,7 @@ interface GoalsPanelProps {
 }
 
 export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<BlockItem[]>([]);
@@ -54,7 +56,6 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
   const fetchItems = async () => {
     setLoading(true);
     try {
-      // Fetch all block_items for this page's modes
       const { data: modes, error: modesError } = await supabase
         .from('modes')
         .select('id')
@@ -70,7 +71,6 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
       const modeIds = modes.map((m) => m.id);
 
-      // Get blocks for these modes
       const { data: blocks, error: blocksError } = await supabase
         .from('blocks')
         .select('id')
@@ -86,7 +86,6 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
       const blockIds = blocks.map((b) => b.id);
 
-      // Get all items for these blocks
       const { data: itemsData, error: itemsError } = await supabase
         .from('block_items')
         .select('*')
@@ -98,7 +97,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
       setItems(itemsData || []);
     } catch (error) {
       console.error('Error fetching items:', error);
-      toast.error('Failed to load items');
+      toast.error(t('goals.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -117,11 +116,11 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
       if (error) throw error;
 
-      toast.success('Goals saved');
+      toast.success(t('goals.saved'));
       onUpdate();
     } catch (error: any) {
       console.error('Error saving goals:', error);
-      toast.error(error.message || 'Failed to save goals');
+      toast.error(error.message || t('goals.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -136,7 +135,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
       <CardHeader>
         <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
           <Target className="h-5 w-5 text-primary" />
-          Goals
+          {t('goals.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -148,17 +147,17 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
           <>
             <div className="space-y-2">
               <Label htmlFor="primary-offer" className="text-sm font-medium">
-                Primary Offer Goal
+                {t('goals.primaryOffer')}
               </Label>
               <Select
                 value={primaryOfferId || 'none'}
                 onValueChange={(v) => setPrimaryOfferId(v === 'none' ? null : v)}
               >
                 <SelectTrigger id="primary-offer" className="w-full">
-                  <SelectValue placeholder="Select a link item" />
+                  <SelectValue placeholder={t('goals.selectItem')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No goal set</SelectItem>
+                  <SelectItem value="none">{t('goals.noGoalSet')}</SelectItem>
                   {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.label}
@@ -167,7 +166,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Track clicks to your primary sales offer.
+                {t('goals.trackPrimary')}
               </p>
               {primaryOfferItem && (
                 <div className="mt-2">
@@ -183,17 +182,17 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
             <div className="space-y-2">
               <Label htmlFor="recruit-goal" className="text-sm font-medium">
-                Page 2 Goal
+                {t('goals.page2Goal')}
               </Label>
               <Select
                 value={recruitId || 'none'}
                 onValueChange={(v) => setRecruitId(v === 'none' ? null : v)}
               >
                 <SelectTrigger id="recruit-goal" className="w-full">
-                  <SelectValue placeholder="Select a link item" />
+                  <SelectValue placeholder={t('goals.selectItem')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No goal set</SelectItem>
+                  <SelectItem value="none">{t('goals.noGoalSet')}</SelectItem>
                   {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.label}
@@ -202,7 +201,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Track clicks to your Page 2 primary link.
+                {t('goals.trackPage2')}
               </p>
               {recruitItem && (
                 <div className="mt-2">
@@ -218,7 +217,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
             {items.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-2">
-                Add some link items first to set goals.
+                {t('goals.addItemsFirst')}
               </p>
             )}
 
@@ -234,7 +233,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Save Goals
+                {t('goals.save')}
               </Button>
             </div>
           </>
