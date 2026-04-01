@@ -8,7 +8,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useTheme } from 'next-themes';
 
 export default function Settings() {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
 
   return (
@@ -20,30 +20,30 @@ export default function Settings() {
         className="space-y-6"
       >
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground mt-1">Manage your account preferences</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('settings.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('settings.subtitle')}</p>
         </div>
 
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-primary" />
-              Language / Idioma
+              {t('settings.languageTitle')}
             </CardTitle>
             <CardDescription>
-              Choose your preferred language for the app interface
+              {t('settings.languageDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-base font-medium">
-                  {language === 'en' ? 'English' : 'Español'}
+                  {language === 'en' ? t('settings.languageEn') : t('settings.languageEs')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'en' 
-                    ? 'Switch to Spanish / Cambiar a Español' 
-                    : 'Cambiar a Inglés / Switch to English'}
+                  {language === 'en'
+                    ? t('settings.switchToEs')
+                    : t('settings.switchToEn')}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -66,20 +66,20 @@ export default function Settings() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sun className="h-5 w-5 text-primary" />
-              Appearance
+              {t('settings.appearanceTitle')}
             </CardTitle>
             <CardDescription>
-              Choose between light and dark mode
+              {t('settings.appearanceDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-base font-medium">
-                  {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+                  {theme === 'dark' ? t('settings.darkMode') : t('settings.lightMode')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Toggle between light and dark appearance
+                  {t('settings.themeToggleDesc')}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -98,24 +98,24 @@ export default function Settings() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary" />
-              Notifications
+              {t('settings.notificationsTitle')}
             </CardTitle>
             <CardDescription>
-              Manage how you receive updates and alerts
+              {t('settings.notificationsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-medium">Email notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive updates about your page performance</p>
+                <Label className="text-base font-medium">{t('settings.emailNotifications')}</Label>
+                <p className="text-sm text-muted-foreground">{t('settings.emailNotificationsDesc')}</p>
               </div>
               <Switch defaultChecked />
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-medium">Weekly digest</Label>
-                <p className="text-sm text-muted-foreground">Get a summary of your analytics every week</p>
+                <Label className="text-base font-medium">{t('settings.weeklyDigest')}</Label>
+                <p className="text-sm text-muted-foreground">{t('settings.weeklyDigestDesc')}</p>
               </div>
               <Switch />
             </div>
