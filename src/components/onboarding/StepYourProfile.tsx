@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -11,8 +11,46 @@ interface Props {
   t: (key: string) => string;
 }
 
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const maxSize = 800;
+      let { width, height } = img;
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = Math.round((height / width) * maxSize);
+          width = maxSize;
+        } else {
+          width = Math.round((width / height) * maxSize);
+          height = maxSize;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('Canvas not supported')); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Compression failed')); return; }
+          resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        0.8
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.src = url;
+  });
+}
+
 export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [compressing, setCompressing] = useState(false);
 
   useEffect(() => {
     if (!state.displayName && user?.user_metadata?.full_name) {
@@ -24,14 +62,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     }
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Image must be under 2MB');
-      return;
-    }
 
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
@@ -39,10 +72,22 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       return;
     }
 
-    updateField('avatarFile', file);
+    let processedFile = file;
+    if (file.size > 1 * 1024 * 1024) {
+      setCompressing(true);
+      try {
+        processedFile = await compressImage(file);
+      } catch {
+        // If compression fails, use original
+      } finally {
+        setCompressing(false);
+      }
+    }
+
+    updateField('avatarFile', processedFile);
     const reader = new FileReader();
     reader.onloadend = () => updateField('avatarPreview', reader.result as string);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(processedFile);
   };
 
   const avatarSrc = state.avatarPreview || user?.user_metadata?.avatar_url || null;
@@ -79,13 +124,20 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           onChange={handleFileChange}
           className="hidden"
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="text-sm text-[#C9A55C] hover:underline font-body"
-        >
-          {t('onboardingFlow.uploadPhoto')}
-        </button>
+        {compressing ? (
+          <span className="flex items-center gap-1.5 text-sm text-[#C9A55C] font-body">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Optimizing...
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-sm text-[#C9A55C] hover:underline font-body"
+          >
+            {t('onboardingFlow.uploadPhoto')}
+          </button>
+        )}
       </div>
 
       {/* Display Name */}

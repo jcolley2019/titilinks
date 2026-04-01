@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Check } from 'lucide-react';
 import type { OnboardingState } from './useOnboardingWizard';
@@ -11,13 +12,40 @@ interface Props {
   t: (key: string) => string;
 }
 
-const backgrounds = [
-  { value: '#0e0c09', label: 'Dark' },
-  { value: '#f5f0eb', label: 'Light' },
-  { value: '#2a1f14', label: 'Warm' },
-  { value: '#0f1923', label: 'Cool' },
-  { value: 'linear-gradient(135deg, #1a1a2e, #0f3460)', label: 'Gradient Dark' },
-  { value: 'linear-gradient(135deg, #2a1f14, #3d2914)', label: 'Gradient Warm' },
+const backgroundRows = [
+  {
+    label: 'Dark & Moody',
+    items: [
+      { value: '#000000', label: 'Pitch Black' },
+      { value: '#0e0c09', label: 'Dark Charcoal' },
+      { value: '#0d1b2a', label: 'Deep Navy' },
+      { value: '#1a1a2e', label: 'Forest Dark' },
+      { value: '#2d1b33', label: 'Deep Plum' },
+      { value: '#2c1810', label: 'Dark Espresso' },
+    ],
+  },
+  {
+    label: 'Feminine & Warm',
+    items: [
+      { value: '#f4e4e4', label: 'Soft Rose' },
+      { value: '#f8d7da', label: 'Blush Pink' },
+      { value: '#e8d5f0', label: 'Lavender Mist' },
+      { value: '#f7e9d4', label: 'Champagne' },
+      { value: '#fdf6ec', label: 'Warm Cream' },
+      { value: '#d4a5a5', label: 'Dusty Mauve' },
+    ],
+  },
+  {
+    label: 'Vibrant & Bold',
+    items: [
+      { value: 'linear-gradient(135deg, #b76e79, #e8a4b0)', label: 'Rose Gold' },
+      { value: 'linear-gradient(135deg, #667eea, #764ba2)', label: 'Purple Dream' },
+      { value: 'linear-gradient(135deg, #f093fb, #f5576c)', label: 'Sunset' },
+      { value: 'linear-gradient(135deg, #4facfe, #00f2fe)', label: 'Ocean' },
+      { value: 'linear-gradient(135deg, #f7971e, #ffd200)', label: 'Golden Hour' },
+      { value: 'linear-gradient(135deg, #43e97b, #38f9d7)', label: 'Mint Fresh' },
+    ],
+  },
 ];
 
 const buttonStyles = [
@@ -27,9 +55,14 @@ const buttonStyles = [
 ];
 
 const fonts = [
-  { value: 'modern', label: 'Modern', family: "'DM Sans', sans-serif", weight: 400 },
-  { value: 'elegant', label: 'Elegant', family: "'Playfair Display', serif", weight: 400 },
-  { value: 'display', label: 'Bold', family: "'DM Sans', sans-serif", weight: 700 },
+  { value: 'DM Sans', label: 'Clean & Modern', family: "'DM Sans', sans-serif", weight: 400 },
+  { value: 'Playfair Display', label: 'Classic Elegant', family: "'Playfair Display', serif", weight: 400 },
+  { value: 'Cormorant Garamond', label: 'Luxury Refined', family: "'Cormorant Garamond', serif", weight: 400 },
+  { value: 'Lora', label: 'Warm Romantic', family: "'Lora', serif", weight: 400 },
+  { value: 'Quicksand', label: 'Soft & Playful', family: "'Quicksand', sans-serif", weight: 400 },
+  { value: 'Montserrat', label: 'Strong & Bold', family: "'Montserrat', sans-serif", weight: 800 },
+  { value: 'Orbitron', label: 'Futuristic Tech', family: "'Orbitron', sans-serif", weight: 400 },
+  { value: 'Dancing Script', label: 'Feminine Script', family: "'Dancing Script', cursive", weight: 400 },
 ];
 
 const socialPlatforms = [
@@ -92,6 +125,15 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
   const sub = state.currentSubStep;
   const direction = state.direction;
 
+  // Load additional Google Fonts for the font picker
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Lora:wght@400;600&family=Quicksand:wght@400;600&family=Montserrat:wght@800&family=Orbitron:wght@400;700&family=Dancing+Script:wght@400;700&display=swap';
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, []);
+
   const handleBack = () => {
     if (sub === 0) {
       onPrev();
@@ -134,26 +176,31 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
         {sub === 0 && (
           <motion.div key="bg" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.2 }}>
             <p className="text-sm font-medium text-white/80 mb-4 font-body">{t('onboardingFlow.background')}</p>
-            <div className="grid grid-cols-3 gap-3">
-              {backgrounds.map((bg) => (
-                <button
-                  key={bg.value}
-                  type="button"
-                  onClick={() => updateField('backgroundColor', bg.value)}
-                  className={`aspect-square rounded-xl border-2 transition-all ${
-                    state.backgroundColor === bg.value
-                      ? 'border-[#C9A55C] shadow-[0_0_12px_rgba(201,165,92,0.3)]'
-                      : 'border-white/10 hover:border-white/20'
-                  }`}
-                  style={{ background: bg.value }}
-                >
-                  <span className="sr-only">{bg.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-center mt-2">
-              {backgrounds.map((bg) => (
-                <span key={bg.value} className="text-[10px] text-white/40 flex-1 text-center">{bg.label}</span>
+            <div className="space-y-5">
+              {backgroundRows.map((row) => (
+                <div key={row.label}>
+                  <p className="text-[10px] uppercase tracking-wider text-white/30 mb-2 font-body">{row.label}</p>
+                  <div className="grid grid-cols-6 gap-2">
+                    {row.items.map((bg) => (
+                      <button
+                        key={bg.value}
+                        type="button"
+                        onClick={() => updateField('backgroundColor', bg.value)}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <div
+                          className={`w-14 h-14 rounded-lg border-2 transition-all ${
+                            state.backgroundColor === bg.value
+                              ? 'border-[#C9A55C] shadow-[0_0_12px_rgba(201,165,92,0.3)] scale-110'
+                              : 'border-white/10 hover:border-white/20'
+                          }`}
+                          style={{ background: bg.value }}
+                        />
+                        <span className="text-[9px] text-white/40 text-center leading-tight">{bg.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </motion.div>
@@ -190,24 +237,24 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
         {/* Sub-step 2: Font */}
         {sub === 2 && (
           <motion.div key="font" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.2 }}>
-            <p className="text-sm font-medium text-white/80 mb-4 font-body">{t('onboardingFlow.fontChoice')}</p>
-            <div className="space-y-3">
+            <p className="text-sm font-medium text-white/80 mb-3 font-body">{t('onboardingFlow.fontChoice')}</p>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
               {fonts.map((f) => (
                 <button
                   key={f.value}
                   type="button"
                   onClick={() => updateField('fontChoice', f.value)}
-                  className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
+                  className={`w-full px-4 py-3 rounded-xl border-2 text-left transition-all h-[80px] flex flex-col justify-center ${
                     state.fontChoice === f.value
                       ? 'border-[#C9A55C] bg-white/5'
                       : 'border-white/10 hover:border-white/20'
                   }`}
                 >
-                  <p className="text-xs text-white/40 mb-1 font-body">{f.label}</p>
-                  <p className="text-xl text-white" style={{ fontFamily: f.family, fontWeight: f.weight }}>
+                  <p className="text-[10px] text-white/40 font-body">{f.label}</p>
+                  <p className="text-lg text-white leading-tight" style={{ fontFamily: f.family, fontWeight: f.weight }}>
                     Your Name
                   </p>
-                  <p className="text-sm text-white/50 mt-0.5" style={{ fontFamily: f.family, fontWeight: f.weight }}>
+                  <p className="text-xs text-white/50" style={{ fontFamily: f.family, fontWeight: f.weight }}>
                     Subtitle text here
                   </p>
                 </button>
