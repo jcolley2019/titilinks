@@ -21,6 +21,7 @@ import Templates from "./pages/Templates";
 import TemplateCategory from "./pages/TemplateCategory";
 import CanvaConnect from "./pages/CanvaConnect";
 import CanvaCallback from "./pages/CanvaCallback";
+import OnboardingFlow from "./pages/OnboardingFlow";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <OnboardingFlow />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={
