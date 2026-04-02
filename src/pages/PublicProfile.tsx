@@ -562,11 +562,6 @@ export default function PublicProfile() {
       const heroImage = (hasHeaderImage && theme.header?.image_url) || page.avatar_url || '';
       const bgColor = theme.background.solid_color || '#1a1a2e';
 
-      // Find social icon row blocks for inline rendering
-      const socialBlocks = blocks.filter(
-        (b) => b.type === 'social_icon_row' || b.type === 'social_links'
-      );
-
       return (
         <>
           <motion.header
@@ -575,7 +570,7 @@ export default function PublicProfile() {
             className="relative -mx-4 -mt-8 mb-6"
           >
             {/* Hero image — 45vh tall */}
-            <div className="relative w-full overflow-hidden" style={{ height: '45vh', minHeight: '280px', maxHeight: '480px' }}>
+            <div className="relative w-full overflow-hidden" style={{ height: '55vh', minHeight: '320px', maxHeight: '560px' }}>
               {heroImage ? (
                 <SmoothImage
                   src={heroImage}
@@ -591,15 +586,15 @@ export default function PublicProfile() {
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: `linear-gradient(to bottom, transparent 30%, ${bgColor}cc 70%, ${bgColor} 100%)`,
+                  background: `linear-gradient(to bottom, transparent 20%, ${bgColor}80 55%, ${bgColor}dd 78%, ${bgColor} 100%)`,
                 }}
               />
 
               {/* Profile info overlaid at bottom of hero */}
-              <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 text-center">
+              <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 text-center">
                 <h1
-                  className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg"
-                  style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
+                  className="text-3xl sm:text-4xl font-bold text-white"
+                  style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
                 >
                   {page.display_name || `@${page.handle}`}
                 </h1>
@@ -615,30 +610,6 @@ export default function PublicProfile() {
                   </p>
                 )}
 
-                {/* Inline social icons */}
-                {socialBlocks.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-3 mt-4">
-                    {socialBlocks.flatMap((block) =>
-                      block.items.map((item) => (
-                        <a
-                          key={item.id}
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-10 w-10 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                          style={{ backgroundColor: `${theme.buttons.fill_color}30` }}
-                          title={item.label}
-                        >
-                          {item.image_url ? (
-                            <ThumbnailImage src={item.image_url} alt={item.label} />
-                          ) : (
-                            <SocialSvgIcon label={item.label} size={18} />
-                          )}
-                        </a>
-                      ))
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </motion.header>
