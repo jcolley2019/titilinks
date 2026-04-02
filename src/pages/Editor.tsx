@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { LinkTools } from '@/components/LinkTools';
+import { WelcomeCoach } from '@/components/WelcomeCoach';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Json } from '@/integrations/supabase/types';
@@ -113,6 +114,46 @@ export default function Editor() {
     }
   };
 
+  const autoPopulatePlaceholders = async (pageData: Page, modesData: Mode[]) => {
+    const theme = pageData.theme_json as ThemeJson & { linkLayout?: string; linkCount?: number };
+    if (!theme?.linkLayout || !theme?.linkCount) return;
+
+    const shopMode = modesData.find((m) => m.type === 'shop');
+    if (!shopMode) return;
+
+    // Determine the target block type based on layout
+    const targetBlockType = theme.linkLayout === 'gallery' ? 'product_cards' : 'links';
+
+    const { data: targetBlock } = await supabase
+      .from('blocks')
+      .select('id')
+      .eq('mode_id', shopMode.id)
+      .eq('type', targetBlockType)
+      .maybeSingle();
+
+    if (!targetBlock) return;
+
+    // Check if block already has items (not a fresh page)
+    const { data: existingItems } = await supabase
+      .from('block_items')
+      .select('id')
+      .eq('block_id', targetBlock.id)
+      .limit(1);
+
+    if (existingItems && existingItems.length > 0) return;
+
+    // Create placeholder items
+    const count = theme.linkLayout === 'featured' ? theme.linkCount - 1 : theme.linkCount;
+    const placeholderItems = Array.from({ length: count }, (_, i) => ({
+      block_id: targetBlock.id,
+      label: theme.linkLayout === 'gallery' ? `Product ${i + 1}` : `My Link`,
+      url: '',
+      order_index: i,
+    }));
+
+    await supabase.from('block_items').insert(placeholderItems);
+  };
+
   const fetchPageData = async () => {
     if (!user) return;
 
@@ -137,6 +178,9 @@ export default function Editor() {
 
         if (modesError) throw modesError;
         setModes(modesData || []);
+
+        // Auto-populate placeholder blocks for newly onboarded users
+        await autoPopulatePlaceholders(pageData, modesData || []);
       }
     } catch (error) {
       console.error('Error fetching page data:', error);
@@ -216,7 +260,7 @@ export default function Editor() {
 
           {/* Main Editor Tabs: Content vs Design */}
           <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as 'content' | 'design')}>
-            <TabsList className="grid w-full grid-cols-2 max-w-xs">
+            <TabsList data-coach="tabs" className="grid w-full grid-cols-2 max-w-xs">
               <TabsTrigger value="content" className="gap-2">
                 <Link2 className="h-4 w-4" />
                 {t('editor.content')}
@@ -342,7 +386,9 @@ export default function Editor() {
             </CardHeader>
             <CardContent>
               {currentMode ? (
+                <div data-coach="blocks">
                 <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   {t('editor.noMode')}
@@ -460,7 +506,7 @@ export default function Editor() {
         </motion.div>
 
         {/* Right: Live Preview (desktop only) */}
-        <div className="hidden lg:block sticky top-24 self-start flex-shrink-0">
+        <div data-coach="preview" className="hidden lg:block sticky top-24 self-start flex-shrink-0">
           <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
         </div>
       </div>
@@ -482,6 +528,8 @@ export default function Editor() {
           onLinksAdded={refreshPreview}
         />
       )}
+
+      <WelcomeCoach username={page?.handle || ''} />
     </DashboardLayout>
   );
 }

@@ -50,19 +50,32 @@ const backgroundRows = [
 
 const buttonStyles = [
   { value: 'solid_rounded', label: 'Solid Rounded', className: 'rounded-lg bg-[#C9A55C] text-black' },
-  { value: 'outline', label: 'Outline', className: 'rounded-lg border-2 border-[#C9A55C] text-[#C9A55C] bg-transparent' },
   { value: 'pill', label: 'Pill', className: 'rounded-full bg-[#C9A55C] text-black' },
+  { value: 'outline', label: 'Outline', className: 'rounded-lg border-2 border-[#C9A55C] text-[#C9A55C] bg-transparent' },
+  { value: 'soft_shadow', label: 'Soft Shadow', className: 'rounded-lg bg-[#C9A55C] text-black shadow-[0_4px_0_#C9A55C]' },
+  { value: 'glass', label: 'Glass', className: 'rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white' },
+  { value: 'sharp', label: 'Sharp', className: 'rounded-none bg-[#C9A55C] text-black font-bold' },
 ];
 
-const fonts = [
-  { value: 'DM Sans', label: 'Clean & Modern', family: "'DM Sans', sans-serif", weight: 400 },
-  { value: 'Playfair Display', label: 'Classic Elegant', family: "'Playfair Display', serif", weight: 400 },
-  { value: 'Cormorant Garamond', label: 'Luxury Refined', family: "'Cormorant Garamond', serif", weight: 400 },
-  { value: 'Lora', label: 'Warm Romantic', family: "'Lora', serif", weight: 400 },
-  { value: 'Quicksand', label: 'Soft & Playful', family: "'Quicksand', sans-serif", weight: 400 },
-  { value: 'Montserrat', label: 'Strong & Bold', family: "'Montserrat', sans-serif", weight: 800 },
-  { value: 'Orbitron', label: 'Futuristic Tech', family: "'Orbitron', sans-serif", weight: 400 },
-  { value: 'Dancing Script', label: 'Feminine Script', family: "'Dancing Script', cursive", weight: 400 },
+const fontGroups = [
+  {
+    label: 'ELEGANT & FEMININE',
+    fonts: [
+      { value: 'Cormorant Garamond', label: 'Luxury Refined', family: "'Cormorant Garamond', serif", weight: 300 },
+      { value: 'Dancing Script', label: 'Feminine Script', family: "'Dancing Script', cursive", weight: 700 },
+      { value: 'Lora', label: 'Warm Romantic', family: "'Lora', serif", weight: 400, italic: true },
+      { value: 'Quicksand', label: 'Soft & Playful', family: "'Quicksand', sans-serif", weight: 500 },
+    ],
+  },
+  {
+    label: 'MODERN & BOLD',
+    fonts: [
+      { value: 'DM Sans', label: 'Clean Modern', family: "'DM Sans', sans-serif", weight: 400 },
+      { value: 'Montserrat', label: 'Strong Bold', family: "'Montserrat', sans-serif", weight: 800 },
+      { value: 'Orbitron', label: 'Futuristic Tech', family: "'Orbitron', sans-serif", weight: 700 },
+      { value: 'Playfair Display', label: 'Classic Editorial', family: "'Playfair Display', serif", weight: 700 },
+    ],
+  },
 ];
 
 const socialPlatforms = [
@@ -149,7 +162,7 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
   useEffect(() => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Lora:wght@400;600&family=Quicksand:wght@400;600&family=Montserrat:wght@800&family=Orbitron:wght@400;700&family=Dancing+Script:wght@400;700&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Lora:ital,wght@0,400;1,400&family=Quicksand:wght@400;500;600&family=Montserrat:wght@800&family=Orbitron:wght@400;700&family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&family=DM+Sans:wght@400;500&display=swap';
     document.head.appendChild(link);
     return () => { document.head.removeChild(link); };
   }, []);
@@ -158,7 +171,7 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
     if (sub === 0) {
       onPrev();
     } else {
-      dispatch({ type: 'SET_SUB_STEP', subStep: sub - 1 });
+      dispatch({ type: 'SET_SUB_STEP', subStep: sub - 1, direction: -1 });
     }
   };
 
@@ -166,7 +179,7 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
     if (sub === 3) {
       onNext();
     } else {
-      dispatch({ type: 'SET_SUB_STEP', subStep: sub + 1 });
+      dispatch({ type: 'SET_SUB_STEP', subStep: sub + 1, direction: 1 });
     }
   };
 
@@ -258,26 +271,33 @@ export function StepPickYourVibe({ state, updateField, dispatch, onNext, onPrev,
         {sub === 2 && (
           <motion.div key="font" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.2 }}>
             <p className="text-sm font-medium text-white/80 mb-3 font-body">{t('onboardingFlow.fontChoice')}</p>
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {fonts.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  onClick={() => updateField('fontChoice', f.value)}
-                  className={`w-full px-4 py-3 rounded-xl border-2 text-left transition-all h-[80px] flex flex-col justify-center ${
-                    state.fontChoice === f.value
-                      ? 'border-[#C9A55C] bg-white/5'
-                      : 'border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <p className="text-[10px] text-white/40 font-body">{f.label}</p>
-                  <p className="text-lg text-white leading-tight" style={{ fontFamily: f.family, fontWeight: f.weight }}>
-                    Your Name
-                  </p>
-                  <p className="text-xs text-white/50" style={{ fontFamily: f.family, fontWeight: f.weight }}>
-                    Subtitle text here
-                  </p>
-                </button>
+            <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              {fontGroups.map((group) => (
+                <div key={group.label}>
+                  <p className="text-[10px] uppercase tracking-wider text-white/30 mb-2 font-body">{group.label}</p>
+                  <div className="space-y-2">
+                    {group.fonts.map((f) => (
+                      <button
+                        key={f.value}
+                        type="button"
+                        onClick={() => updateField('fontChoice', f.value)}
+                        className={`w-full px-4 py-3 rounded-xl border-2 text-left transition-all h-[90px] flex flex-col justify-center ${
+                          state.fontChoice === f.value
+                            ? 'border-[#C9A55C] bg-white/5'
+                            : 'border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <p className="text-[10px] text-white/40 font-body">{f.label}</p>
+                        <p className="text-lg text-white leading-tight" style={{ fontFamily: f.family, fontWeight: f.weight, fontStyle: ('italic' in f && f.italic) ? 'italic' : 'normal' }}>
+                          Your Name
+                        </p>
+                        <p className="text-xs text-white/50" style={{ fontFamily: f.family, fontWeight: f.weight, fontStyle: ('italic' in f && f.italic) ? 'italic' : 'normal' }}>
+                          Link in bio
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </motion.div>

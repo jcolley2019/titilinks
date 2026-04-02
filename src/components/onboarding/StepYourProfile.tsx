@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -51,6 +52,8 @@ function compressImage(file: File): Promise<File> {
 export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [compressing, setCompressing] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!state.displayName && user?.user_metadata?.full_name) {
@@ -61,6 +64,31 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       updateField('username', prefix.slice(0, 30));
     }
   }, []);
+
+  // Debounced username availability check
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (state.username.trim().length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
+          supabase.from('profiles').select('id').eq('username', state.username).neq('id', user?.id ?? '').maybeSingle(),
+          supabase.from('pages').select('id').eq('handle', state.username).maybeSingle(),
+        ]);
+        setUsernameStatus(profileMatch || pageMatch ? 'taken' : 'available');
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, 500);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [state.username, user?.id]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,7 +123,15 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     ? state.displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const isValid = state.displayName.trim().length > 0 && state.username.trim().length >= 3;
+  const isValid = state.displayName.trim().length > 0 && state.username.trim().length >= 3 && usernameStatus !== 'taken' && usernameStatus !== 'checking';
+
+  const avatarShape = (() => {
+    switch (state.pageStyle) {
+      case 'hero': return { className: 'w-full max-w-xs aspect-video rounded-xl', label: 'Hero Photo' };
+      case 'full_bleed': return { className: 'w-36 aspect-[9/16] rounded-xl', label: 'Background Photo' };
+      default: return { className: 'w-28 h-28 rounded-full', label: null };
+    }
+  })();
 
   return (
     <div className="space-y-8 max-w-md mx-auto">
@@ -110,7 +146,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
       {/* Avatar */}
       <div className="flex flex-col items-center gap-3">
-        <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/10 bg-white/5 flex items-center justify-center">
+        <div className={`${avatarShape.className} overflow-hidden border-2 border-white/10 bg-white/5 flex items-center justify-center`}>
           {avatarSrc ? (
             <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -137,6 +173,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           >
             {t('onboardingFlow.uploadPhoto')}
           </button>
+        )}
+        {avatarShape.label && (
+          <span className="text-xs text-white/40 font-body">{avatarShape.label}</span>
         )}
       </div>
 
@@ -169,13 +208,35 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
               updateField('username', val);
             }}
             placeholder={t('onboardingFlow.usernamePlaceholder')}
-            className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 font-body"
+            className={`flex-1 px-4 py-3 rounded-lg bg-white/5 border text-white placeholder:text-white/30 focus:outline-none font-body ${
+              usernameStatus === 'taken' ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#C9A55C]/50'
+            }`}
           />
         </div>
         {state.username.length >= 3 && (
-          <p className="text-xs text-[#C9A55C]/70 font-body">
-            titilinks.com/{state.username}
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-[#C9A55C]/70 font-body">
+              titilinks.com/{state.username}
+            </p>
+            {usernameStatus === 'checking' && (
+              <p className="flex items-center gap-1.5 text-xs text-white/40 font-body">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Checking availability...
+              </p>
+            )}
+            {usernameStatus === 'available' && (
+              <p className="flex items-center gap-1.5 text-xs text-green-400 font-body">
+                <Check className="w-3 h-3" />
+                Available
+              </p>
+            )}
+            {usernameStatus === 'taken' && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400 font-body">
+                <X className="w-3 h-3" />
+                Username taken
+              </p>
+            )}
+          </div>
         )}
       </div>
 

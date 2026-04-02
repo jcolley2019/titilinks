@@ -11,6 +11,8 @@ export interface OnboardingState {
   fontChoice: string;
   selectedSocialPlatforms: string[];
   socialIconStyle: 'color' | 'white' | 'dark';
+  linkLayout: 'gallery' | 'standard' | 'featured' | null;
+  linkCount: number;
   links: Array<{ platform: string; url: string }>;
   currentStep: number;
   currentSubStep: number;
@@ -24,7 +26,7 @@ type Action =
   | { type: 'GO_NEXT' }
   | { type: 'GO_PREV' }
   | { type: 'GO_TO_STEP'; step: number }
-  | { type: 'SET_SUB_STEP'; subStep: number };
+  | { type: 'SET_SUB_STEP'; subStep: number; direction?: number };
 
 const initialState: OnboardingState = {
   pageStyle: null,
@@ -37,6 +39,8 @@ const initialState: OnboardingState = {
   fontChoice: 'modern',
   selectedSocialPlatforms: [],
   socialIconStyle: 'color',
+  linkLayout: null,
+  linkCount: 3,
   links: [],
   currentStep: 1,
   currentSubStep: 0,
@@ -56,7 +60,7 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
     case 'GO_TO_STEP':
       return { ...state, currentStep: action.step, currentSubStep: 0, direction: action.step > state.currentStep ? 1 : -1 };
     case 'SET_SUB_STEP':
-      return { ...state, currentSubStep: action.subStep };
+      return { ...state, currentSubStep: action.subStep, direction: action.direction ?? (action.subStep > state.currentSubStep ? 1 : -1) };
     default:
       return state;
   }

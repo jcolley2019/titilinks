@@ -146,6 +146,8 @@ export default function OnboardingFlow() {
             buttonStyle: state.buttonStyle,
             font: state.fontChoice,
             pageStyle: state.pageStyle,
+            linkLayout: state.linkLayout,
+            linkCount: state.linkCount,
           },
         }).eq('id', existingPage.id);
 
@@ -166,6 +168,8 @@ export default function OnboardingFlow() {
           buttonStyle: state.buttonStyle,
           font: state.fontChoice,
           pageStyle: state.pageStyle,
+          linkLayout: state.linkLayout,
+          linkCount: state.linkCount,
         },
       }).select().single();
 
