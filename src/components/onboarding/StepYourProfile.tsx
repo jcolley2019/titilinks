@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import Cropper from 'react-easy-crop';
+import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -54,6 +56,13 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
   const [compressing, setCompressing] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [modalStep, setModalStep] = useState<'none' | 'preview' | 'crop'>('none');
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [rawFile, setRawFile] = useState<File | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [aspectRatio, setAspectRatio] = useState<number>(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   useEffect(() => {
     if (!state.displayName && user?.user_metadata?.full_name) {
@@ -90,33 +99,113 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [state.username, user?.id]);
 
+  const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((resolve) => { image.onload = resolve; });
+    const canvas = document.createElement('canvas');
+    const maxSize = 800;
+    const scaleX = image.naturalWidth / image.width || 1;
+    const scaleY = image.naturalHeight / image.height || 1;
+    let cropWidth = pixelCrop.width;
+    let cropHeight = pixelCrop.height;
+    if (cropWidth > maxSize || cropHeight > maxSize) {
+      const ratio = Math.min(maxSize / cropWidth, maxSize / cropHeight);
+      cropWidth = Math.round(cropWidth * ratio);
+      cropHeight = Math.round(cropHeight * ratio);
+    }
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(
+      image,
+      pixelCrop.x * scaleX,
+      pixelCrop.y * scaleY,
+      pixelCrop.width * scaleX,
+      pixelCrop.height * scaleY,
+      0, 0,
+      cropWidth,
+      cropHeight
+    );
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Crop failed')); return; }
+          resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        0.8
+      );
+    });
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       alert('Only JPEG, PNG, GIF, and WebP images are allowed');
       return;
     }
-
-    let processedFile = file;
-    if (file.size > 1 * 1024 * 1024) {
-      setCompressing(true);
-      try {
-        processedFile = await compressImage(file);
-      } catch {
-        // If compression fails, use original
-      } finally {
-        setCompressing(false);
-      }
-    }
-
-    updateField('avatarFile', processedFile);
     const reader = new FileReader();
-    reader.onloadend = () => updateField('avatarPreview', reader.result as string);
-    reader.readAsDataURL(processedFile);
+    reader.onloadend = () => {
+      setRawImageSrc(reader.result as string);
+      setRawFile(file);
+      setModalStep('preview');
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setAspectRatio(1);
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const handleUseOriginal = async () => {
+    if (!rawFile) return;
+    setCompressing(true);
+    setModalStep('none');
+    try {
+      let processedFile = rawFile;
+      if (rawFile.size > 1 * 1024 * 1024) {
+        processedFile = await compressImage(rawFile);
+      }
+      updateField('avatarFile', processedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+      reader.readAsDataURL(processedFile);
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleApplyCrop = async () => {
+    if (!rawImageSrc || !croppedAreaPixels) return;
+    setCompressing(true);
+    setModalStep('none');
+    try {
+      const croppedFile = await getCroppedImage(rawImageSrc, croppedAreaPixels);
+      updateField('avatarFile', croppedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+      reader.readAsDataURL(croppedFile);
+    } catch {
+      if (rawFile) {
+        updateField('avatarFile', rawFile);
+        const reader = new FileReader();
+        reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+        reader.readAsDataURL(rawFile);
+      }
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const aspectRatioOptions = [
+    { label: 'Square', value: 1 },
+    { label: 'Free', value: 0 },
+    { label: '4:3', value: 4 / 3 },
+    { label: '3:2', value: 3 / 2 },
+  ];
 
   const avatarSrc = state.avatarPreview || user?.user_metadata?.avatar_url || null;
   const initials = state.displayName
@@ -257,6 +346,111 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           {t('onboardingFlow.continue')}
         </button>
       </div>
+
+      {/* Use Image Modal */}
+      {modalStep === 'preview' && rawImageSrc && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <span className="font-display text-lg font-semibold text-white">Use Image</span>
+              <button onClick={() => setModalStep('none')} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="rounded-xl overflow-hidden bg-white/5 mb-4" style={{ maxHeight: '300px' }}>
+                <img src={rawImageSrc} alt="Preview" className="w-full h-full object-contain" style={{ maxHeight: '300px' }} />
+              </div>
+              <button
+                onClick={() => setModalStep('crop')}
+                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body mb-2 hover:bg-white/10 transition-colors"
+              >
+                Crop Image
+              </button>
+              <button
+                onClick={handleUseOriginal}
+                className="w-full py-3 rounded-xl bg-white text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
+              >
+                Use Original
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Modal */}
+      {modalStep === 'crop' && rawImageSrc && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 px-4 pb-4 sm:pb-0">
+          <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <span className="font-display text-lg font-semibold text-white">Crop Image</span>
+              <button onClick={() => setModalStep('none')} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Aspect ratio */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/50 font-body">Aspect Ratio</p>
+                <div className="flex gap-2 flex-wrap">
+                  {aspectRatioOptions.map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setAspectRatio(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-body border transition-all ${
+                        aspectRatio === opt.value
+                          ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                          : 'border-white/10 text-white/60 hover:border-white/20'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Zoom */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/50 font-body">Zoom: {zoom.toFixed(1)}x</p>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full accent-[#C9A55C]"
+                />
+              </div>
+              {/* Crop area */}
+              <div className="relative bg-black rounded-xl overflow-hidden" style={{ height: '240px' }}>
+                <Cropper
+                  image={rawImageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={aspectRatio === 0 ? undefined : aspectRatio}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, areaPixels) => setCroppedAreaPixels(areaPixels)}
+                />
+              </div>
+              {/* Buttons */}
+              <button
+                onClick={() => setModalStep('preview')}
+                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body hover:bg-white/10 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleApplyCrop}
+                className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
+              >
+                Apply Crop
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
