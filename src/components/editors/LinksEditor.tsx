@@ -349,6 +349,51 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleSetCount = (targetCount: number) => {
+    if (targetCount > MAX_ITEMS) return;
+    const currentCount = items.length;
+
+    if (targetCount > currentCount) {
+      const toAdd = targetCount - currentCount;
+      const newItems: LinkItem[] = Array.from({ length: toAdd }, (_, i) => ({
+        id: `new-${Date.now()}-${i}-${Math.random()}`,
+        label: 'My Link',
+        url: '',
+        subtitle: '',
+        badge: '',
+        is_adult: false,
+        image_url: null,
+      }));
+      setItems([...items, ...newItems]);
+      toast.success(`Added ${toAdd} link${toAdd > 1 ? 's' : ''}`);
+    } else if (targetCount < currentCount) {
+      const sorted = [...items].reverse();
+      let toRemove = currentCount - targetCount;
+      const idsToRemove = new Set<string>();
+
+      // First pass: remove empty items from end
+      for (const item of sorted) {
+        if (toRemove <= 0) break;
+        if (!item.url.trim() && !item.label.trim()) {
+          idsToRemove.add(item.id);
+          toRemove--;
+        }
+      }
+      // Second pass: remove remaining from end if still needed
+      for (const item of sorted) {
+        if (toRemove <= 0) break;
+        if (!idsToRemove.has(item.id)) {
+          idsToRemove.add(item.id);
+          toRemove--;
+        }
+      }
+
+      const removed = currentCount - targetCount;
+      setItems(items.filter((item) => !idsToRemove.has(item.id)));
+      toast.success(`Removed ${removed} link${removed > 1 ? 's' : ''}`);
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     let valid = true;
@@ -573,6 +618,27 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave }: LinksEditor
                 </div>
               </CollapsibleContent>
             </Collapsible>
+
+            {/* Quick Link Count */}
+            <div className="mb-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Quick set link count</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => handleSetCount(n)}
+                    className={`w-9 h-9 rounded-lg border-2 text-sm font-bold transition-all ${
+                      items.length === n
+                        ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                        : 'border-border text-muted-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Add Link Button */}
             <div className="mb-4">

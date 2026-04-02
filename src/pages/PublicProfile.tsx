@@ -278,9 +278,20 @@ export default function PublicProfile() {
     }
   };
 
+  const getHeaderLayoutFromPageStyle = (pageStyle: string | null | undefined) => {
+    switch (pageStyle) {
+      case 'hero': return 'cinematic' as const;
+      case 'full_bleed': return 'immersive' as const;
+      case 'classic':
+      default: return null;
+    }
+  };
+
   // Render header based on layout
   const renderHeader = () => {
-    const headerLayout = theme.header?.layout || 'overlay';
+    const savedPageStyle = (page.theme_json as any)?.pageStyle;
+    const pageStyleLayout = getHeaderLayoutFromPageStyle(savedPageStyle);
+    const headerLayout = pageStyleLayout || theme.header?.layout || 'overlay';
     const hasHeaderImage = theme.header?.enabled && theme.header?.image_url;
 
     // Overlay layout: Full-width header image with content overlaid
@@ -1010,16 +1021,13 @@ function SocialLinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
           target="_blank"
           rel="noopener noreferrer"
           className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full transition-colors relative overflow-hidden"
-          style={{
-            backgroundColor: `${theme.buttons.fill_color}20`,
-          }}
           title={item.label}
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
             <ThumbnailImage src={item.image_url} alt={item.label} />
           ) : (
-            getPlatformIcon(item.label, 20)
+            getPlatformIcon(item.label, 26)
           )}
           {item.is_adult && (
             <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center">
