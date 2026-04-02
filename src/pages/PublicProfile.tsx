@@ -567,31 +567,35 @@ export default function PublicProfile() {
           <motion.header
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="relative -mx-4 -mt-8 mb-6"
+            className="relative -mx-4 -mt-8 mb-0"
           >
-            {/* Hero image — 45vh tall */}
-            <div className="relative w-full overflow-hidden" style={{ height: '55vh', minHeight: '320px', maxHeight: '560px' }}>
-              {heroImage ? (
-                <SmoothImage
-                  src={heroImage}
-                  alt={page.display_name || page.handle}
-                  containerClassName="h-full w-full"
-                  skeletonClassName="bg-muted/30"
-                />
-              ) : (
-                <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
-              )}
+            {/* Hero image container */}
+            <div className="relative w-full" style={{ height: '60vh', minHeight: '340px', maxHeight: '600px' }}>
+              {/* Photo */}
+              <div className="absolute inset-0 overflow-hidden">
+                {heroImage ? (
+                  <SmoothImage
+                    src={heroImage}
+                    alt={page.display_name || page.handle}
+                    containerClassName="h-full w-full"
+                    skeletonClassName="bg-muted/30"
+                  />
+                ) : (
+                  <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
+                )}
+              </div>
 
-              {/* Gradient overlay: transparent at top → page background at bottom */}
+              {/* Gradient fade — only bottom portion, extends below the image */}
               <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute left-0 right-0 bottom-0 pointer-events-none"
                 style={{
-                  background: `linear-gradient(to bottom, transparent 55%, ${bgColor}99 75%, ${bgColor}ee 88%, ${bgColor} 100%)`,
+                  height: '50%',
+                  background: `linear-gradient(to bottom, transparent 0%, ${bgColor}40 30%, ${bgColor}aa 55%, ${bgColor}dd 72%, ${bgColor} 92%)`,
                 }}
               />
 
               {/* Profile info overlaid at bottom of hero */}
-              <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 text-center">
+              <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 text-center z-10">
                 <h1
                   className="text-3xl sm:text-4xl font-bold text-white"
                   style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
@@ -609,9 +613,14 @@ export default function PublicProfile() {
                     {page.bio}
                   </p>
                 )}
-
               </div>
             </div>
+
+            {/* Color bridge — eliminates any seam between hero and content */}
+            <div
+              className="h-8 -mt-1"
+              style={{ backgroundColor: bgColor }}
+            />
           </motion.header>
 
           {/* Sticky mini header on scroll */}
