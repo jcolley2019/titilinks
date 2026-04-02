@@ -586,7 +586,7 @@ export default function PublicProfile() {
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: `linear-gradient(to bottom, transparent 20%, ${bgColor}80 55%, ${bgColor}dd 78%, ${bgColor} 100%)`,
+                  background: `linear-gradient(to bottom, transparent 55%, ${bgColor}99 75%, ${bgColor}ee 88%, ${bgColor} 100%)`,
                 }}
               />
 
