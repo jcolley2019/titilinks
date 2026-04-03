@@ -101,10 +101,12 @@ export function WelcomeCoach({ username }: Props) {
   const tooltipStyle: React.CSSProperties = {};
   if (targetRect && !isCentered) {
     const padding = 12;
-    const tooltipWidth = 320;
-    // Position tooltip below the target, centered horizontally
+    const tooltipWidth = Math.min(320, window.innerWidth - 32);
+    const spaceBelow = window.innerHeight - targetRect.bottom - padding;
+    const spaceAbove = targetRect.top - padding;
+
     tooltipStyle.position = 'fixed';
-    tooltipStyle.top = targetRect.bottom + padding + 8;
+    tooltipStyle.width = tooltipWidth;
     tooltipStyle.left = Math.max(
       16,
       Math.min(
@@ -112,12 +114,13 @@ export function WelcomeCoach({ username }: Props) {
         window.innerWidth - tooltipWidth - 16
       )
     );
-    tooltipStyle.width = tooltipWidth;
 
-    // If tooltip would go off bottom of screen, position above instead
-    if (targetRect.bottom + padding + 200 > window.innerHeight) {
-      tooltipStyle.top = targetRect.top - padding - 8;
-      tooltipStyle.transform = 'translateY(-100%)';
+    if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+      tooltipStyle.top = targetRect.bottom + padding + 8;
+      tooltipStyle.maxHeight = spaceBelow - 16;
+    } else {
+      tooltipStyle.bottom = window.innerHeight - targetRect.top + padding + 8;
+      tooltipStyle.maxHeight = spaceAbove - 16;
     }
   }
 
@@ -151,7 +154,7 @@ export function WelcomeCoach({ username }: Props) {
       {!isLastStep && (
         <button
           onClick={handleComplete}
-          className="fixed top-6 right-6 z-[102] text-sm text-white/40 hover:text-white/70 transition-colors font-body"
+          className="fixed top-4 right-4 z-[102] text-sm text-white/40 hover:text-white/70 transition-colors font-body px-3 py-2 rounded-lg bg-black/40 backdrop-blur-sm"
         >
           Skip
         </button>
@@ -167,12 +170,12 @@ export function WelcomeCoach({ username }: Props) {
           transition={{ duration: 0.25 }}
           className={`z-[102] ${
             isCentered
-              ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px]'
+              ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(360px,calc(100vw-32px))]'
               : ''
           }`}
           style={isCentered ? {} : { ...tooltipStyle, position: 'fixed', zIndex: 102 }}
         >
-          <div className="bg-[#1a1816] border-2 border-[#C9A55C] rounded-2xl p-6 shadow-2xl">
+          <div className="bg-[#1a1816] border-2 border-[#C9A55C] rounded-2xl p-5 shadow-2xl overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
             <h3
               className="text-lg font-bold text-white mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
