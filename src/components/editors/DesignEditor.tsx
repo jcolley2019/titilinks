@@ -25,7 +25,7 @@ import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
-import { ThemePreview } from './ThemePreview';
+
 import { TemplateGallery } from './TemplateGallery';
 import { CanvaDesignPicker } from './CanvaDesignPicker';
 
@@ -430,7 +430,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div>
       {/* Controls Panel */}
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1654,22 +1654,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         </CardContent>
       </Card>
 
-      {/* Live Preview Panel */}
-      <div className="lg:sticky lg:top-6 lg:self-start">
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium text-foreground">{t('design.livePreview')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ThemePreview
-              theme={theme}
-              displayName={displayName}
-              bio={bio}
-              avatarUrl={avatarUrl}
-            />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
