@@ -232,13 +232,13 @@ export default function Editor() {
 
   return (
     <DashboardLayout>
-      <div className="flex gap-8">
+      <div className="flex flex-col xl:flex-row gap-6">
         {/* Left: Editor content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="space-y-6 flex-1 min-w-0 lg:max-w-[600px]"
+          className="space-y-6 flex-1 min-w-0 xl:max-w-[600px]"
         >
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -506,7 +506,7 @@ export default function Editor() {
         </motion.div>
 
         {/* Right: Live Preview (desktop only) */}
-        <div data-coach="preview" className="hidden lg:block sticky top-24 self-start flex-shrink-0">
+        <div data-coach="preview" className="hidden xl:block sticky top-24 self-start flex-shrink-0">
           <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
         </div>
       </div>

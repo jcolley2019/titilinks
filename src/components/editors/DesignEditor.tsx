@@ -65,6 +65,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
+  const currentPageStyle = (theme as any).pageStyle || 'classic';
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('background');
@@ -215,6 +216,28 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       onUpdate();
     } catch (error) {
       console.error('Error saving theme:', error);
+      toast.error(t('design.designSaveFailed'));
+    }
+  };
+
+  const savePageStyle = async (newStyle: string) => {
+    try {
+      const updatedTheme = {
+        ...theme,
+        pageStyle: newStyle,
+      };
+      const { error } = await supabase
+        .from('pages')
+        .update({
+          theme_json: JSON.parse(JSON.stringify(updatedTheme))
+        })
+        .eq('id', pageId);
+      if (error) throw error;
+      setTheme(updatedTheme as ThemeJson);
+      toast.success(t('design.designSaved'));
+      onUpdate();
+    } catch (error) {
+      console.error('Error saving page style:', error);
       toast.error(t('design.designSaveFailed'));
     }
   };
@@ -407,7 +430,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       {/* Controls Panel */}
       <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -421,6 +444,85 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Page Style Picker */}
+          <div className="mb-6 pb-6 border-b border-border">
+            <Label className="text-sm font-medium mb-3 block flex items-center gap-2">
+              <LayoutTemplate className="h-4 w-4 text-primary" />
+              {t('design.pageStyle') || 'Page Style'}
+            </Label>
+            <p className="text-xs text-muted-foreground mb-3">
+              {t('design.pageStyleDesc') || 'Choose how your profile page looks to visitors'}
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                {
+                  value: 'classic',
+                  label: t('design.styleClassic') || 'Classic',
+                  desc: t('design.styleClassicDesc') || 'Circle avatar, centered layout',
+                  preview: (
+                    <div className="flex flex-col items-center gap-1 p-2">
+                      <div className="w-8 h-8 rounded-full bg-white/20" />
+                      <div className="w-12 h-1.5 rounded bg-white/20" />
+                      <div className="w-10 h-1 rounded bg-white/10" />
+                    </div>
+                  )
+                },
+                {
+                  value: 'hero',
+                  label: t('design.styleHero') || 'Hero',
+                  desc: t('design.styleHeroDesc') || 'Full-width photo with name overlay',
+                  preview: (
+                    <div className="relative h-12 w-full rounded overflow-hidden bg-white/10">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-1 left-0 right-0 flex flex-col items-center">
+                        <div className="w-10 h-1.5 rounded bg-white/60" />
+                      </div>
+                    </div>
+                  )
+                },
+                {
+                  value: 'full_bleed',
+                  label: t('design.styleFullBleed') || 'Full Bleed',
+                  desc: t('design.styleFullBleedDesc') || 'Immersive full-screen photo',
+                  preview: (
+                    <div className="relative h-12 w-full rounded overflow-hidden bg-white/10">
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80" />
+                      <div className="absolute bottom-1 left-0 right-0 flex flex-col items-center gap-0.5">
+                        <div className="w-12 h-1.5 rounded bg-white/80" />
+                        <div className="w-8 h-1 rounded bg-white/40" />
+                      </div>
+                    </div>
+                  )
+                },
+              ].map((style) => (
+                <button
+                  key={style.value}
+                  type="button"
+                  onClick={() => savePageStyle(style.value)}
+                  className={cn(
+                    'flex flex-col rounded-xl border-2 overflow-hidden transition-all text-left',
+                    currentPageStyle === style.value
+                      ? 'border-[#C9A55C] bg-[#C9A55C]/5'
+                      : 'border-border hover:border-primary/50'
+                  )}
+                >
+                  {style.preview}
+                  <div className="p-2">
+                    <div className={cn(
+                      'text-xs font-semibold',
+                      currentPageStyle === style.value ? 'text-[#C9A55C]' : 'text-foreground'
+                    )}>
+                      {style.label}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                      {style.desc}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Design Tools Section */}
           <div className="mb-6 pb-6 border-b border-border">
             <Label className="text-sm font-medium mb-3 block">{t('design.designTools')}</Label>
