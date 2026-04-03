@@ -580,7 +580,7 @@ export default function PublicProfile() {
               <SmoothImage
                 src={heroImage}
                 alt={page.display_name || page.handle}
-                className="object-cover object-top"
+                className="object-cover object-top brightness-110"
                 containerClassName="h-full w-full"
                 skeletonClassName="bg-neutral-900"
               />
@@ -588,93 +588,6 @@ export default function PublicProfile() {
               <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
             )}
 
-            {/* Name, handle, social icons overlaid on photo */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '1.5rem',
-                left: 0,
-                right: 0,
-                textAlign: 'center',
-                zIndex: 20,
-                paddingLeft: '1.5rem',
-                paddingRight: '1.5rem',
-              }}
-            >
-              <h1
-                className="text-2xl sm:text-3xl font-bold text-white"
-                style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
-              >
-                {page.display_name || `@${page.handle}`}
-              </h1>
-              <p className="text-sm text-white/70 mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
-                @{page.handle}
-              </p>
-              {page.bio && (
-                <p
-                  className="text-sm mt-2 max-w-xs mx-auto text-white/80"
-                  style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
-                >
-                  {page.bio}
-                </p>
-              )}
-              {(() => {
-                const cinematicSocialBlocks = blocks.filter(
-                  (b) => b.type === 'social_icon_row' || b.type === 'social_links'
-                );
-                if (cinematicSocialBlocks.length === 0) return null;
-                const iconStyle = (page.theme_json as any)?.socialIconStyle || 'color';
-                const getPlatformColor = (label: string): string => {
-                  const l = label.toLowerCase();
-                  if (l.includes('instagram')) return 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)';
-                  if (l.includes('tiktok')) return '#000000';
-                  if (l.includes('youtube')) return '#FF0000';
-                  if (l.includes('facebook')) return '#1877F2';
-                  if (l.includes('twitter') || l === 'x') return '#000000';
-                  if (l.includes('snapchat')) return '#FFFC00';
-                  if (l.includes('linkedin')) return '#0A66C2';
-                  if (l.includes('pinterest')) return '#E60023';
-                  if (l.includes('twitch')) return '#9146FF';
-                  if (l.includes('telegram')) return '#2AABEE';
-                  if (l.includes('onlyfans')) return '#00AFF0';
-                  if (l.includes('threads')) return '#000000';
-                  return '#555555';
-                };
-                return (
-                  <div className="flex flex-wrap justify-center gap-3 mt-3">
-                    {cinematicSocialBlocks.flatMap((block) =>
-                      block.items.map((item) => {
-                        const bgStyle = iconStyle === 'color'
-                          ? { background: getPlatformColor(item.label) }
-                          : {};
-                        const iconColor = iconStyle === 'white' ? '#ffffff'
-                          : iconStyle === 'dark' ? '#000000'
-                          : '#ffffff';
-                        return (
-                          <a
-                            key={item.id}
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center justify-center transition-transform hover:scale-110 active:scale-95 ${
-                              iconStyle === 'color' ? 'h-10 w-10 rounded-full' : ''
-                            }`}
-                            style={bgStyle}
-                            title={item.label}
-                          >
-                            <SocialSvgIcon
-                              label={item.label}
-                              size={iconStyle === 'color' ? 18 : 26}
-                              color={iconColor}
-                            />
-                          </a>
-                        );
-                      })
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
 
           {/* Spacer so content starts at the right scroll position */}
@@ -813,15 +726,102 @@ export default function PublicProfile() {
             <div
               style={{
                 position: 'absolute',
-                top: '-80px',
+                top: '-150px',
                 left: 0,
                 right: 0,
-                height: '80px',
-                background: 'linear-gradient(to bottom, transparent, #000000)',
+                height: '150px',
+                background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
                 pointerEvents: 'none',
                 zIndex: 1,
               }}
             />
+
+            {/* Name, handle, social icons — inside Layer 2, above gradient in z-axis */}
+            <div
+              style={{
+                position: 'relative',
+                zIndex: 2,
+                textAlign: 'center',
+                paddingLeft: '1.5rem',
+                paddingRight: '1.5rem',
+                marginTop: '-6rem',
+                paddingBottom: '1rem',
+              }}
+            >
+              <h1
+                className="text-2xl sm:text-3xl font-bold text-white"
+                style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
+              >
+                {page.display_name || `@${page.handle}`}
+              </h1>
+              <p className="text-sm text-white/70 mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                @{page.handle}
+              </p>
+              {page.bio && (
+                <p
+                  className="text-sm mt-2 max-w-xs mx-auto text-white/80"
+                  style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
+                >
+                  {page.bio}
+                </p>
+              )}
+              {(() => {
+                const cinematicSocialBlocks = blocks.filter(
+                  (b) => b.type === 'social_icon_row' || b.type === 'social_links'
+                );
+                if (cinematicSocialBlocks.length === 0) return null;
+                const iconStyle = (page.theme_json as any)?.socialIconStyle || 'color';
+                const getPlatformColor = (label: string): string => {
+                  const l = label.toLowerCase();
+                  if (l.includes('instagram')) return 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)';
+                  if (l.includes('tiktok')) return '#000000';
+                  if (l.includes('youtube')) return '#FF0000';
+                  if (l.includes('facebook')) return '#1877F2';
+                  if (l.includes('twitter') || l === 'x') return '#000000';
+                  if (l.includes('snapchat')) return '#FFFC00';
+                  if (l.includes('linkedin')) return '#0A66C2';
+                  if (l.includes('pinterest')) return '#E60023';
+                  if (l.includes('twitch')) return '#9146FF';
+                  if (l.includes('telegram')) return '#2AABEE';
+                  if (l.includes('onlyfans')) return '#00AFF0';
+                  if (l.includes('threads')) return '#000000';
+                  return '#555555';
+                };
+                return (
+                  <div className="flex flex-wrap justify-center gap-3 mt-2">
+                    {cinematicSocialBlocks.flatMap((block) =>
+                      block.items.map((item) => {
+                        const bgStyle = iconStyle === 'color'
+                          ? { background: getPlatformColor(item.label) }
+                          : {};
+                        const iconColor = iconStyle === 'white' ? '#ffffff'
+                          : iconStyle === 'dark' ? '#000000'
+                          : '#ffffff';
+                        return (
+                          <a
+                            key={item.id}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center justify-center transition-transform hover:scale-110 active:scale-95 ${
+                              iconStyle === 'color' ? 'h-10 w-10 rounded-full' : ''
+                            }`}
+                            style={bgStyle}
+                            title={item.label}
+                          >
+                            <SocialSvgIcon
+                              label={item.label}
+                              size={iconStyle === 'color' ? 18 : 26}
+                              color={iconColor}
+                            />
+                          </a>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             {/* Blocks - keyed by mode for crossfade on mode change */}
             <div
