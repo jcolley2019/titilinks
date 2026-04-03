@@ -560,68 +560,125 @@ export default function PublicProfile() {
     // Cinematic layout: Full hero image covering top of viewport, no avatar circle
     if (headerLayout === 'cinematic') {
       const heroImage = (hasHeaderImage && theme.header?.image_url) || page.avatar_url || '';
-      const bgColor = theme.background.solid_color || '#1a1a2e';
+      const bgColor = theme.background.solid_color || '#0e0c09';
 
       return (
         <>
-          <motion.header
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="relative -mx-4 -mt-8 mb-0"
+          {/* Fixed hero — sits behind content, never scrolls */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '50vh',
+              zIndex: 0,
+              overflow: 'hidden',
+            }}
           >
-            {/* Hero image container */}
-            <div className="relative w-full" style={{ height: '60vh', minHeight: '340px', maxHeight: '600px' }}>
-              {/* Photo */}
-              <div className="absolute inset-0 overflow-hidden">
-                {heroImage ? (
-                  <SmoothImage
-                    src={heroImage}
-                    alt={page.display_name || page.handle}
-                    containerClassName="h-full w-full"
-                    skeletonClassName="bg-muted/30"
-                  />
-                ) : (
-                  <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
-                )}
-              </div>
-
-              {/* Gradient fade — only bottom portion, extends below the image */}
-              <div
-                className="absolute left-0 right-0 bottom-0 pointer-events-none"
-                style={{
-                  height: '50%',
-                  background: `linear-gradient(to bottom, transparent 0%, ${bgColor}40 30%, ${bgColor}aa 55%, ${bgColor}dd 72%, ${bgColor} 92%)`,
-                }}
+            {heroImage ? (
+              <SmoothImage
+                src={heroImage}
+                alt={page.display_name || page.handle}
+                className="object-cover object-top"
+                containerClassName="h-full w-full"
+                skeletonClassName="bg-neutral-900"
               />
+            ) : (
+              <div className="h-full w-full" style={{ backgroundColor: bgColor }} />
+            )}
 
-              {/* Profile info overlaid at bottom of hero */}
-              <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 text-center z-10">
-                <h1
-                  className="text-3xl sm:text-4xl font-bold text-white"
-                  style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
-                >
-                  {page.display_name || `@${page.handle}`}
-                </h1>
-                <p className="text-sm text-white/70 mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
-                  @{page.handle}
-                </p>
-                {page.bio && (
-                  <p
-                    className="text-sm mt-2 max-w-xs mx-auto text-white/80"
-                    style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
-                  >
-                    {page.bio}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Color bridge — eliminates any seam between hero and content */}
+            {/* Name, handle, social icons overlaid on photo */}
             <div
-              className="h-8 -mt-1"
-              style={{ backgroundColor: bgColor }}
-            />
-          </motion.header>
+              style={{
+                position: 'absolute',
+                bottom: '1.5rem',
+                left: 0,
+                right: 0,
+                textAlign: 'center',
+                zIndex: 20,
+                paddingLeft: '1.5rem',
+                paddingRight: '1.5rem',
+              }}
+            >
+              <h1
+                className="text-2xl sm:text-3xl font-bold text-white"
+                style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
+              >
+                {page.display_name || `@${page.handle}`}
+              </h1>
+              <p className="text-sm text-white/70 mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                @{page.handle}
+              </p>
+              {page.bio && (
+                <p
+                  className="text-sm mt-2 max-w-xs mx-auto text-white/80"
+                  style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}
+                >
+                  {page.bio}
+                </p>
+              )}
+              {(() => {
+                const cinematicSocialBlocks = blocks.filter(
+                  (b) => b.type === 'social_icon_row' || b.type === 'social_links'
+                );
+                if (cinematicSocialBlocks.length === 0) return null;
+                const iconStyle = (page.theme_json as any)?.socialIconStyle || 'color';
+                const getPlatformColor = (label: string): string => {
+                  const l = label.toLowerCase();
+                  if (l.includes('instagram')) return 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)';
+                  if (l.includes('tiktok')) return '#000000';
+                  if (l.includes('youtube')) return '#FF0000';
+                  if (l.includes('facebook')) return '#1877F2';
+                  if (l.includes('twitter') || l === 'x') return '#000000';
+                  if (l.includes('snapchat')) return '#FFFC00';
+                  if (l.includes('linkedin')) return '#0A66C2';
+                  if (l.includes('pinterest')) return '#E60023';
+                  if (l.includes('twitch')) return '#9146FF';
+                  if (l.includes('telegram')) return '#2AABEE';
+                  if (l.includes('onlyfans')) return '#00AFF0';
+                  if (l.includes('threads')) return '#000000';
+                  return '#555555';
+                };
+                return (
+                  <div className="flex flex-wrap justify-center gap-3 mt-3">
+                    {cinematicSocialBlocks.flatMap((block) =>
+                      block.items.map((item) => {
+                        const bgStyle = iconStyle === 'color'
+                          ? { background: getPlatformColor(item.label) }
+                          : {};
+                        const iconColor = iconStyle === 'white' ? '#ffffff'
+                          : iconStyle === 'dark' ? '#000000'
+                          : '#ffffff';
+                        return (
+                          <a
+                            key={item.id}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center justify-center transition-transform hover:scale-110 active:scale-95 ${
+                              iconStyle === 'color' ? 'h-10 w-10 rounded-full' : ''
+                            }`}
+                            style={bgStyle}
+                            title={item.label}
+                          >
+                            <SocialSvgIcon
+                              label={item.label}
+                              size={iconStyle === 'color' ? 18 : 26}
+                              color={iconColor}
+                            />
+                          </a>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Spacer so content starts at the right scroll position */}
+          <div style={{ height: '45vh', flexShrink: 0 }} />
 
           {/* Sticky mini header on scroll */}
           <CinematicStickyHeader
@@ -697,6 +754,9 @@ export default function PublicProfile() {
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const ogImage = page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg';
 
+  const savedPageStyleOuter = (page.theme_json as any)?.pageStyle;
+  const isCinematicOuter = getHeaderLayoutFromPageStyle(savedPageStyleOuter) === 'cinematic' || (!savedPageStyleOuter && theme.header?.layout === 'cinematic');
+
   return (
     <PageBackground theme={theme}>
       <Helmet>
@@ -713,7 +773,7 @@ export default function PublicProfile() {
       </Helmet>
       {/* Content Layer */}
       <div
-        className="relative max-w-[640px] mx-auto px-4 py-8 pb-20"
+        className="relative max-w-[640px] mx-auto px-4 py-8 pb-20 overflow-x-hidden"
         style={{
           fontFamily: getFontFamily(),
           color: theme.typography.text_color,
@@ -734,51 +794,149 @@ export default function PublicProfile() {
         {/* Header */}
         {renderHeader()}
 
-        {/* Blocks - keyed by mode for crossfade on mode change */}
-        <div 
-          key={detectedMode}
-          className="space-y-6 animate-mode-fade motion-reduce:animate-none"
-        >
-          {(() => {
-            // In immersive mode, override button styling to white outline
-            const isImmersive = (theme.header?.layout || 'overlay') === 'immersive';
-            const blockTheme = isImmersive
-              ? {
-                  ...theme,
-                  buttons: {
-                    ...theme.buttons,
-                    fill_color: 'transparent',
-                    text_color: '#ffffff',
-                    border_enabled: true,
-                    border_color: '#ffffff',
-                  },
-                }
-              : theme;
+        {/* Content panel — for cinematic: scrolls over fixed hero */}
+        {isCinematicOuter && (
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              backgroundColor: '#000000',
+              minHeight: '60vh',
+              paddingTop: '1rem',
+              marginLeft: 'calc(-50vw + 50%)',
+              marginRight: 'calc(-50vw + 50%)',
+              paddingLeft: 'calc(50vw - 50% + 1rem)',
+              paddingRight: 'calc(50vw - 50% + 1rem)',
+            }}
+          >
+            {/* Gradient fade at top of content panel — seamless photo-to-content transition */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '-80px',
+                left: 0,
+                right: 0,
+                height: '80px',
+                background: 'linear-gradient(to bottom, transparent, #000000)',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            />
 
-            return blocks.length === 0 ? (
-              <EmptyState textColor={theme.typography.text_color} />
-            ) : (
-              blocks.map((block, index) => (
-                <motion.section
-                  key={block.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
-                >
-                  <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={blockTheme} pageId={page?.id} />
-                </motion.section>
-              ))
-            );
-          })()}
-        </div>
+            {/* Blocks - keyed by mode for crossfade on mode change */}
+            <div
+              key={detectedMode}
+              className="space-y-6 animate-mode-fade motion-reduce:animate-none"
+            >
+              {(() => {
+                const savedPageStyle = (page.theme_json as any)?.pageStyle;
+                const pageStyleLayout = getHeaderLayoutFromPageStyle(savedPageStyle);
+                const headerLayout = pageStyleLayout || theme.header?.layout || 'overlay';
+                const isImmersive = headerLayout === 'immersive';
+                const isCinematic = headerLayout === 'cinematic';
+                const blockTheme = isImmersive
+                  ? {
+                      ...theme,
+                      buttons: {
+                        ...theme.buttons,
+                        fill_color: 'transparent',
+                        text_color: '#ffffff',
+                        border_enabled: true,
+                        border_color: '#ffffff',
+                      },
+                    }
+                  : theme;
 
-        {/* Footer - extra padding for sticky CTA */}
-        <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
-          <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
-            Powered by <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
-          </p>
-        </footer>
+                return blocks.length === 0 ? (
+                  <EmptyState textColor={theme.typography.text_color} />
+                ) : (
+                  blocks.map((block, index) => {
+                    if (isCinematic && (block.type === 'social_links' || block.type === 'social_icon_row')) {
+                      return null;
+                    }
+                    return (
+                      <motion.section
+                        key={block.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
+                      >
+                        <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={blockTheme} pageId={page?.id} />
+                      </motion.section>
+                    );
+                  })
+                );
+              })()}
+            </div>
+
+            {/* Footer - extra padding for sticky CTA */}
+            <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
+              <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
+                Powered by <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
+              </p>
+            </footer>
+          </div>
+        )}
+
+        {/* Non-cinematic: blocks + footer render normally */}
+        {!isCinematicOuter && (
+          <>
+            {/* Blocks - keyed by mode for crossfade on mode change */}
+            <div
+              key={detectedMode}
+              className="space-y-6 animate-mode-fade motion-reduce:animate-none"
+            >
+              {(() => {
+                const savedPageStyle = (page.theme_json as any)?.pageStyle;
+                const pageStyleLayout = getHeaderLayoutFromPageStyle(savedPageStyle);
+                const headerLayout = pageStyleLayout || theme.header?.layout || 'overlay';
+                const isImmersive = headerLayout === 'immersive';
+                const isCinematic = headerLayout === 'cinematic';
+                const blockTheme = isImmersive
+                  ? {
+                      ...theme,
+                      buttons: {
+                        ...theme.buttons,
+                        fill_color: 'transparent',
+                        text_color: '#ffffff',
+                        border_enabled: true,
+                        border_color: '#ffffff',
+                      },
+                    }
+                  : theme;
+
+                return blocks.length === 0 ? (
+                  <EmptyState textColor={theme.typography.text_color} />
+                ) : (
+                  blocks.map((block, index) => {
+                    if (isCinematic && (block.type === 'social_links' || block.type === 'social_icon_row')) {
+                      return null;
+                    }
+                    return (
+                      <motion.section
+                        key={block.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="motion-reduce:!opacity-100 motion-reduce:!transform-none"
+                      >
+                        <BlockRenderer block={block} onOutboundClick={handleOutboundClick} theme={blockTheme} pageId={page?.id} />
+                      </motion.section>
+                    );
+                  })
+                );
+              })()}
+            </div>
+
+            {/* Footer - extra padding for sticky CTA */}
+            <footer className={`mt-12 text-center ${stickyCtaEnabled ? 'pb-16' : ''}`}>
+              <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
+                Powered by <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
+              </p>
+            </footer>
+          </>
+        )}
       </div>
 
       {/* Sticky CTA Bar */}
@@ -923,9 +1081,9 @@ function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
 }
 
 // Inline SVG brand icons for social platforms
-function SocialSvgIcon({ label, size = 20 }: { label: string; size?: number }) {
+function SocialSvgIcon({ label, size = 20, color = 'currentColor' }: { label: string; size?: number; color?: string }) {
   const lower = label.toLowerCase();
-  const props = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor', xmlns: 'http://www.w3.org/2000/svg' } as const;
+  const props = { width: size, height: size, viewBox: '0 0 24 24', fill: color, xmlns: 'http://www.w3.org/2000/svg' } as const;
 
   if (lower.includes('tiktok')) return (
     <svg {...props}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.4a8.16 8.16 0 004.76 1.52V7.47a4.85 4.85 0 01-1-.78z"/></svg>
@@ -974,7 +1132,7 @@ function SocialSvgIcon({ label, size = 20 }: { label: string; size?: number }) {
   );
   // Default link icon
   return (
-    <svg {...props} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+    <svg {...props} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
   );
 }
 
