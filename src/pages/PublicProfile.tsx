@@ -273,6 +273,26 @@ export default function PublicProfile() {
         return 'Georgia, serif';
       case 'mono':
         return 'monospace';
+      case 'playfair':
+        return "'Playfair Display', serif";
+      case 'bebas':
+        return "'Bebas Neue', cursive";
+      case 'abril':
+        return "'Abril Fatface', cursive";
+      case 'pacifico':
+        return "'Pacifico', cursive";
+      case 'orbitron':
+        return "'Orbitron', sans-serif";
+      case 'caveat':
+        return "'Caveat', cursive";
+      case 'archivo':
+        return "'Archivo Black', sans-serif";
+      case 'lora':
+        return "'Lora', serif";
+      case 'patrick':
+        return "'Patrick Hand', cursive";
+      case 'space':
+        return "'Space Grotesk', sans-serif";
       default:
         return "'Inter', sans-serif";
     }
@@ -683,6 +703,9 @@ export default function PublicProfile() {
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDescription} />
         <meta name="twitter:image" content={ogImage} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
       </Helmet>
       {/* Content Layer */}
       <div

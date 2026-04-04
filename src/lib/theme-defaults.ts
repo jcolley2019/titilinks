@@ -38,7 +38,10 @@ export interface ThemeButtons {
 }
 
 export interface ThemeTypography {
-  font: 'inter' | 'system' | 'serif' | 'mono';
+  font: 'inter' | 'system' | 'serif' | 'mono' |
+        'playfair' | 'bebas' | 'abril' | 'pacifico' |
+        'orbitron' | 'caveat' | 'archivo' | 'lora' |
+        'patrick' | 'space';
   text_color: string;
 }
 

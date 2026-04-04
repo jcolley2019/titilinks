@@ -21,7 +21,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography } from '@/lib/theme-defaults';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -86,6 +86,35 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [showCanvaPicker, setShowCanvaPicker] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Load Google Fonts in editor
+  useEffect(() => {
+    const id = 'google-fonts-design-editor';
+    if (!document.getElementById(id)) {
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap';
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  const FONT_OPTIONS = [
+    { value: 'inter', label: 'Inter', fontFamily: "'Inter', sans-serif" },
+    { value: 'system', label: 'System Default', fontFamily: 'system-ui, sans-serif' },
+    { value: 'playfair', label: 'Playfair Display', fontFamily: "'Playfair Display', serif" },
+    { value: 'bebas', label: 'Bebas Neue', fontFamily: "'Bebas Neue', cursive" },
+    { value: 'abril', label: 'Abril Fatface', fontFamily: "'Abril Fatface', cursive" },
+    { value: 'pacifico', label: 'Pacifico', fontFamily: "'Pacifico', cursive" },
+    { value: 'orbitron', label: 'Orbitron', fontFamily: "'Orbitron', sans-serif" },
+    { value: 'caveat', label: 'Caveat', fontFamily: "'Caveat', cursive" },
+    { value: 'archivo', label: 'Archivo Black', fontFamily: "'Archivo Black', sans-serif" },
+    { value: 'lora', label: 'Lora', fontFamily: "'Lora', serif" },
+    { value: 'patrick', label: 'Patrick Hand', fontFamily: "'Patrick Hand', cursive" },
+    { value: 'space', label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
+    { value: 'serif', label: 'Georgia (Serif)', fontFamily: 'Georgia, serif' },
+    { value: 'mono', label: 'Monospace', fontFamily: 'monospace' },
+  ];
 
   // Check Canva connection status on mount and handle callback params
   useEffect(() => {
@@ -1594,20 +1623,35 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           <TabsContent value="typography" className="space-y-4">
             <div className="space-y-2">
               <Label>{t('design.fontFamily')}</Label>
-              <Select
-                value={theme.typography.font}
-                onValueChange={(v) => updateTypography({ font: v as 'inter' | 'system' | 'serif' | 'mono' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="inter">Inter</SelectItem>
-                  <SelectItem value="system">{t('design.systemDefault')}</SelectItem>
-                  <SelectItem value="serif">{t('design.serif')}</SelectItem>
-                  <SelectItem value="mono">{t('design.monospace')}</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1 max-h-72 overflow-y-auto rounded-lg border border-border pr-1">
+                {FONT_OPTIONS.map((font) => (
+                  <button
+                    key={font.value}
+                    type="button"
+                    onClick={() => updateTypography({ font: font.value as ThemeTypography['font'] })}
+                    className={cn(
+                      'w-full text-left px-3 py-2.5 rounded-md',
+                      'transition-colors hover:bg-muted/50',
+                      theme.typography.font === font.value
+                        ? 'bg-[#C9A55C]/10 border border-[#C9A55C]/40'
+                        : 'border border-transparent'
+                    )}
+                  >
+                    <p
+                      className="text-sm font-medium"
+                      style={{ fontFamily: font.fontFamily }}
+                    >
+                      {font.label}
+                    </p>
+                    <p
+                      className="text-xs text-muted-foreground mt-0.5"
+                      style={{ fontFamily: font.fontFamily }}
+                    >
+                      The quick brown fox jumps over the lazy dog
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1634,14 +1678,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 className="p-4 rounded-md border border-border"
                 style={{
                   color: theme.typography.text_color,
-                  fontFamily:
-                    theme.typography.font === 'inter'
-                      ? "'Inter', sans-serif"
-                      : theme.typography.font === 'system'
-                      ? 'system-ui, sans-serif'
-                      : theme.typography.font === 'serif'
-                      ? 'Georgia, serif'
-                      : 'monospace',
+                  fontFamily: FONT_OPTIONS.find(f => f.value === theme.typography.font)?.fontFamily ?? "'Inter', sans-serif",
                   backgroundColor: theme.background.type === 'solid' ? theme.background.solid_color : 'transparent',
                 }}
               >

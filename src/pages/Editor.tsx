@@ -13,6 +13,7 @@ import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockList } from '@/components/BlockList';
 import { GoalsPanel } from '@/components/GoalsPanel';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
+import { MobileDashboard } from '@/components/MobileDashboard';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { SuggestLinksDialog } from '@/components/editors/SuggestLinksDialog';
 import { toast } from 'sonner';
@@ -530,6 +531,12 @@ export default function Editor() {
       )}
 
       <WelcomeCoach username={page?.handle || ''} />
+
+      <MobileDashboard
+        pageId={page.id}
+        modeId={currentMode?.id || null}
+        onSave={refreshPreview}
+      />
     </DashboardLayout>
   );
 }
