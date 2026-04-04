@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -414,92 +413,6 @@ export default function Editor() {
             <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
           </div>
         </div>
-      </div>
-
-      {/* ── MOBILE: single-panel, existing layout kept ── */}
-      <div className="lg:hidden">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="space-y-6"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{t('editor.title')}</h1>
-              <p className="text-muted-foreground mt-1">
-                {t('editor.editing')} <span className="text-primary">@{page.handle}</span>
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => window.open(`/${page.handle}`, '_blank')}
-            >
-              <ExternalLink className="h-4 w-4" />
-              {t('editor.viewPage')}
-            </Button>
-          </div>
-
-          <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as 'content' | 'design')}>
-            <TabsList className="grid w-full grid-cols-2 max-w-xs">
-              <TabsTrigger value="content" className="gap-2">
-                <Link2 className="h-4 w-4" />
-                {t('editor.content')}
-              </TabsTrigger>
-              <TabsTrigger value="design" className="gap-2">
-                <Palette className="h-4 w-4" />
-                {t('editor.design')}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="content" className="space-y-6 mt-6">
-              <Tabs
-                value={selectedMode}
-                onValueChange={(v) => {
-                  triggerHaptic('medium');
-                  setSelectedMode(v as 'shop' | 'recruit');
-                }}
-              >
-                <TabsList className="grid w-full grid-cols-2 max-w-md">
-                  <TabsTrigger value="shop" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    {displayPage1Label}
-                  </TabsTrigger>
-                  <TabsTrigger value="recruit" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    {displayPage2Label}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {currentMode ? (
-                <div data-coach="blocks">
-                  <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  {t('editor.noMode')}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="design" className="mt-6">
-              <DesignEditor
-                pageId={page.id}
-                themeJson={page.theme_json}
-                onUpdate={() => {
-                  fetchPageData();
-                  refreshPreview();
-                }}
-                displayName={page.display_name || undefined}
-                bio={page.bio || undefined}
-                avatarUrl={page.avatar_url || undefined}
-              />
-            </TabsContent>
-          </Tabs>
-        </motion.div>
       </div>
 
       {/* ── DIALOGS — unchanged ── */}
