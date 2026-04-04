@@ -202,19 +202,6 @@ export default function Editor() {
     fetchPageData();
   }, [user]);
 
-  useEffect(() => {
-    if (!currentMode) return;
-    const fetchMobileBlocks = async () => {
-      const { data } = await supabase
-        .from('blocks')
-        .select('id, type, title, is_enabled, order_index')
-        .eq('mode_id', currentMode.id)
-        .order('order_index', { ascending: true });
-      if (data) setMobileBlocks(data);
-    };
-    fetchMobileBlocks();
-  }, [currentMode?.id, previewRefreshKey]);
-
   const handleOnboardingComplete = () => {
     fetchPageData();
   };
@@ -243,6 +230,19 @@ export default function Editor() {
   };
 
   const currentMode = modes.find((m) => m.type === selectedMode);
+
+  useEffect(() => {
+    if (!currentMode) return;
+    const fetchMobileBlocks = async () => {
+      const { data } = await supabase
+        .from('blocks')
+        .select('id, type, title, is_enabled, order_index')
+        .eq('mode_id', currentMode.id)
+        .order('order_index', { ascending: true });
+      if (data) setMobileBlocks(data);
+    };
+    fetchMobileBlocks();
+  }, [currentMode?.id, previewRefreshKey]);
 
   if (loading) {
     return (
