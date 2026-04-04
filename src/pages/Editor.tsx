@@ -233,107 +233,106 @@ export default function Editor() {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col xl:flex-row gap-6">
-        {/* Left: Editor content */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="space-y-6 flex-1 min-w-0 xl:max-w-[600px]"
-        >
+
+      {/* ── DESKTOP: Link.me-style two-panel split ── */}
+      <div className="hidden lg:flex h-[calc(100vh-4rem)] overflow-hidden -mx-4 xl:-mx-8 -mt-6">
+
+        {/* LEFT PANEL — 400px fixed, scrollable */}
+        <div className="w-[400px] flex-shrink-0 flex flex-col h-full border-r border-border bg-background">
+
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('editor.title')}</h1>
-              <p className="text-muted-foreground mt-1">
-                {t('editor.editing')} <span className="text-primary">@{page.handle}</span>
-              </p>
+              <h1 className="text-sm font-semibold text-foreground">{t('editor.title')}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">@{page.handle}</p>
             </div>
             <Button
-              variant="outline"
-              className="gap-2 lg:hidden"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
               onClick={() => window.open(`/${page.handle}`, '_blank')}
             >
-              <ExternalLink className="h-4 w-4" />
-              {t('editor.viewPage')}
+              <ExternalLink className="h-3.5 w-3.5" />
+              View
             </Button>
           </div>
 
-          {/* Main Editor Tabs: Content vs Design */}
-          <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as 'content' | 'design')}>
-            <TabsList data-coach="tabs" className="grid w-full grid-cols-2 max-w-xs">
-              <TabsTrigger value="content" className="gap-2">
-                <Link2 className="h-4 w-4" />
-                {t('editor.content')}
-              </TabsTrigger>
-              <TabsTrigger value="design" className="gap-2">
-                <Palette className="h-4 w-4" />
-                {t('editor.design')}
-              </TabsTrigger>
-            </TabsList>
+          {/* Content / Design tabs */}
+          <Tabs
+            value={editorTab}
+            onValueChange={(v) => setEditorTab(v as 'content' | 'design')}
+            className="flex flex-col flex-1 overflow-hidden"
+          >
+            <div className="px-5 pt-3 pb-2 flex-shrink-0">
+              <TabsList className="grid w-full grid-cols-2 h-9">
+                <TabsTrigger value="content" className="gap-1.5 text-xs">
+                  <Link2 className="h-3.5 w-3.5" />
+                  {t('editor.content')}
+                </TabsTrigger>
+                <TabsTrigger value="design" className="gap-1.5 text-xs">
+                  <Palette className="h-3.5 w-3.5" />
+                  {t('editor.design')}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            {/* Content Tab */}
-            <TabsContent value="content" className="space-y-6 mt-6">
+            {/* CONTENT TAB */}
+            <TabsContent value="content" className="flex-1 overflow-y-auto px-5 pb-6 mt-0 space-y-4">
 
-          {/* Mode Selector */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium text-foreground">{t('editor.pages')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Page Label Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('editor.page1Label')}</label>
-                  <Input
-                    value={page1Label}
-                    onChange={(e) => setPage1Label(e.target.value)}
-                    onBlur={() => updatePageLabel('page1', page1Label)}
-                    placeholder={t('editor.page1')}
-                    className="bg-secondary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t('editor.page2Label')}</label>
-                  <Input
-                    value={page2Label}
-                    onChange={(e) => setPage2Label(e.target.value)}
-                    onBlur={() => updatePageLabel('page2', page2Label)}
-                    placeholder={t('editor.page2')}
-                    className="bg-secondary/50"
-                  />
-                </div>
-              </div>
-
-              {/* Mode Tabs */}
-              <Tabs value={selectedMode} onValueChange={(v) => {
-                triggerHaptic('medium');
-                setSelectedMode(v as 'shop' | 'recruit');
-              }}>
-                <TabsList className="grid w-full grid-cols-2 max-w-md">
-                  <TabsTrigger value="shop" className="gap-2">
-                    <FileText className="h-4 w-4" />
+              {/* Page switcher */}
+              <Tabs
+                value={selectedMode}
+                onValueChange={(v) => {
+                  triggerHaptic('medium');
+                  setSelectedMode(v as 'shop' | 'recruit');
+                }}
+              >
+                <TabsList className="grid w-full grid-cols-2 h-9">
+                  <TabsTrigger value="shop" className="text-xs gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
                     {displayPage1Label}
                   </TabsTrigger>
-                  <TabsTrigger value="recruit" className="gap-2">
-                    <FileText className="h-4 w-4" />
+                  <TabsTrigger value="recruit" className="text-xs gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
                     {displayPage2Label}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <p className="text-sm text-muted-foreground">
-                {selectedMode === 'shop'
-                  ? t('editor.configureFirst')
-                  : t('editor.configureSecond')}
-              </p>
-              
-              {/* Sticky CTA Toggle */}
+
+              {/* Blocks header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Blocks</span>
+                {currentMode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-xs h-7 px-2 text-primary hover:bg-primary/10"
+                    onClick={() => setSuggestLinksOpen(true)}
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {t('editor.suggestLinks')}
+                  </Button>
+                )}
+              </div>
+
+              {/* Block list */}
+              {currentMode ? (
+                <div data-coach="blocks">
+                  <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  {t('editor.noMode')}
+                </div>
+              )}
+
+              {/* Sticky CTA toggle */}
               {currentMode && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                <div className="flex items-center justify-between pt-3 border-t border-border">
                   <div className="flex items-center gap-2">
                     <Pin className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <p className="text-sm font-medium">{t('editor.stickyCta')}</p>
+                      <p className="text-xs font-medium">{t('editor.stickyCta')}</p>
                       <p className="text-xs text-muted-foreground">{t('editor.stickyCtaDesc')}</p>
                     </div>
                   </div>
@@ -345,14 +344,12 @@ export default function Editor() {
                           .from('modes')
                           .update({ sticky_cta_enabled: checked })
                           .eq('id', currentMode.id);
-                        
                         if (error) throw error;
-                        
-                        setModes(prev => prev.map(m => 
-                          m.id === currentMode.id 
-                            ? { ...m, sticky_cta_enabled: checked } 
-                            : m
-                        ));
+                        setModes((prev) =>
+                          prev.map((m) =>
+                            m.id === currentMode.id ? { ...m, sticky_cta_enabled: checked } : m
+                          )
+                        );
                         toast.success(checked ? t('editor.stickyEnabled') : t('editor.stickyDisabled'));
                         refreshPreview();
                       } catch (error) {
@@ -363,141 +360,139 @@ export default function Editor() {
                   />
                 </div>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Blocks */}
-          <Card className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                {`${selectedMode === 'shop' ? displayPage1Label : displayPage2Label} ${t('editor.blocks')}`}
-              </CardTitle>
-              {currentMode && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 text-primary"
-                  onClick={() => setSuggestLinksOpen(true)}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {t('editor.suggestLinks')}
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
+              {/* Share link — compact */}
+              <div className="pt-3 border-t border-border space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {t('editor.shareLinks')}
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={mainLink}
+                    readOnly
+                    className="bg-secondary/50 font-mono text-xs h-8"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0"
+                    onClick={() => copyToClipboard(mainLink, 'main')}
+                  >
+                    {copiedLink === 'main' ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Goals */}
+              <GoalsPanel page={page} onUpdate={fetchPageData} />
+            </TabsContent>
+
+            {/* DESIGN TAB */}
+            <TabsContent value="design" className="flex-1 overflow-y-auto px-5 pb-6 mt-0">
+              <DesignEditor
+                pageId={page.id}
+                themeJson={page.theme_json}
+                onUpdate={() => {
+                  fetchPageData();
+                  refreshPreview();
+                }}
+                displayName={page.display_name || undefined}
+                bio={page.bio || undefined}
+                avatarUrl={page.avatar_url || undefined}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* RIGHT PANEL — live preview centered */}
+        <div className="flex-1 bg-muted/20 flex items-center justify-center overflow-auto py-8">
+          <div data-coach="preview">
+            <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── MOBILE: single-panel, existing layout kept ── */}
+      <div className="lg:hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{t('editor.title')}</h1>
+              <p className="text-muted-foreground mt-1">
+                {t('editor.editing')} <span className="text-primary">@{page.handle}</span>
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => window.open(`/${page.handle}`, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {t('editor.viewPage')}
+            </Button>
+          </div>
+
+          <Tabs value={editorTab} onValueChange={(v) => setEditorTab(v as 'content' | 'design')}>
+            <TabsList className="grid w-full grid-cols-2 max-w-xs">
+              <TabsTrigger value="content" className="gap-2">
+                <Link2 className="h-4 w-4" />
+                {t('editor.content')}
+              </TabsTrigger>
+              <TabsTrigger value="design" className="gap-2">
+                <Palette className="h-4 w-4" />
+                {t('editor.design')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="content" className="space-y-6 mt-6">
+              <Tabs
+                value={selectedMode}
+                onValueChange={(v) => {
+                  triggerHaptic('medium');
+                  setSelectedMode(v as 'shop' | 'recruit');
+                }}
+              >
+                <TabsList className="grid w-full grid-cols-2 max-w-md">
+                  <TabsTrigger value="shop" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    {displayPage1Label}
+                  </TabsTrigger>
+                  <TabsTrigger value="recruit" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    {displayPage2Label}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               {currentMode ? (
                 <div data-coach="blocks">
-                <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
+                  <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   {t('editor.noMode')}
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Share Links */}
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-primary" />
-                {t('editor.shareLinks')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t('editor.defaultLink')}</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={mainLink}
-                    readOnly
-                    className="bg-secondary/50 font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToClipboard(mainLink, 'main')}
-                    className="flex-shrink-0"
-                  >
-                    {copiedLink === 'main' ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('editor.defaultLinkDesc')}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{displayPage2Label} {t('editor.link')}</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={page2Link}
-                    readOnly
-                    className="bg-secondary/50 font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToClipboard(page2Link, 'page2')}
-                    className="flex-shrink-0"
-                  >
-                    {copiedLink === 'page2' ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('editor.forcePage2')}
-                </p>
-              </div>
-
-              {/* Link Tools Section */}
-              <div className="pt-4 border-t border-border space-y-4">
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">{t('editor.linkTools')}</span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm text-muted-foreground flex-shrink-0">{t('editor.defaultLink')}</label>
-                    <LinkTools
-                      baseUrl={baseUrl}
-                      pageId={page.id}
-                      destinationUrl={mainLink}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm text-muted-foreground flex-shrink-0">{displayPage2Label} {t('editor.link')}</label>
-                    <LinkTools
-                      baseUrl={baseUrl}
-                      pageId={page.id}
-                      destinationUrl={page2Link}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-              {/* Goals Panel */}
-              <GoalsPanel page={page} onUpdate={fetchPageData} />
             </TabsContent>
 
-            {/* Design Tab */}
             <TabsContent value="design" className="mt-6">
               <DesignEditor
                 pageId={page.id}
                 themeJson={page.theme_json}
-                onUpdate={() => { fetchPageData(); refreshPreview(); }}
+                onUpdate={() => {
+                  fetchPageData();
+                  refreshPreview();
+                }}
                 displayName={page.display_name || undefined}
                 bio={page.bio || undefined}
                 avatarUrl={page.avatar_url || undefined}
@@ -505,14 +500,9 @@ export default function Editor() {
             </TabsContent>
           </Tabs>
         </motion.div>
-
-        {/* Right: Live Preview (desktop only) */}
-        <div data-coach="preview" className="hidden xl:block sticky top-24 self-start flex-shrink-0">
-          <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
-        </div>
       </div>
 
-      {/* Block Editor Dialog */}
+      {/* ── DIALOGS — unchanged ── */}
       <BlockEditorDialog
         blockId={editingBlockId}
         open={editorOpen}
@@ -520,7 +510,6 @@ export default function Editor() {
         onSave={refreshPreview}
       />
 
-      {/* Suggest Links Dialog */}
       {currentMode && (
         <SuggestLinksDialog
           open={suggestLinksOpen}
