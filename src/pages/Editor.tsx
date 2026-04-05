@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { LinkTools } from '@/components/LinkTools';
 import { WelcomeCoach } from '@/components/WelcomeCoach';
-import { MobileInlineEditor } from '@/components/MobileInlineEditor';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Json } from '@/integrations/supabase/types';
@@ -51,13 +50,6 @@ export default function Editor() {
   const [page2Label, setPage2Label] = useState('');
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [suggestLinksOpen, setSuggestLinksOpen] = useState(false);
-  const [mobileBlocks, setMobileBlocks] = useState<Array<{
-    id: string;
-    type: string;
-    title: string | null;
-    is_enabled: boolean;
-    order_index: number;
-  }>>([]);
 
   const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
@@ -218,31 +210,7 @@ export default function Editor() {
     }
   };
 
-  const handleMobileToggle = async (blockId: string, enabled: boolean) => {
-    setMobileBlocks((prev) =>
-      prev.map((b) => (b.id === blockId ? { ...b, is_enabled: enabled } : b))
-    );
-    await supabase
-      .from('blocks')
-      .update({ is_enabled: enabled })
-      .eq('id', blockId);
-    refreshPreview();
-  };
-
   const currentMode = modes.find((m) => m.type === selectedMode);
-
-  useEffect(() => {
-    if (!currentMode) return;
-    const fetchMobileBlocks = async () => {
-      const { data } = await supabase
-        .from('blocks')
-        .select('id, type, title, is_enabled, order_index')
-        .eq('mode_id', currentMode.id)
-        .order('order_index', { ascending: true });
-      if (data) setMobileBlocks(data);
-    };
-    fetchMobileBlocks();
-  }, [currentMode?.id, previewRefreshKey]);
 
   if (loading) {
     return (
@@ -447,20 +415,9 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* ── MOBILE: Inline editor ── */}
-      <div className="lg:hidden">
-        {currentMode ? (
-          <MobileInlineEditor
-            page={page}
-            blocks={mobileBlocks}
-            onEditBlock={handleEditBlock}
-            onToggleBlock={handleMobileToggle}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-64 text-[#666] bg-[#0e0c09]">
-            <p className="text-sm">Loading...</p>
-          </div>
-        )}
+      {/* ── MOBILE: Live profile preview ── */}
+      <div className="lg:hidden flex items-center justify-center min-h-screen bg-muted/20 py-8">
+        <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
       </div>
 
       {/* ── DIALOGS — unchanged ── */}
