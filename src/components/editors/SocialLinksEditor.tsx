@@ -33,15 +33,14 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { 
-  Loader2, 
-  Share2, 
-  Plus, 
-  GripVertical, 
-  Trash2, 
+  Loader2,
+  Share2,
+  Plus,
+  GripVertical,
+  Trash2,
   ChevronDown,
   ChevronUp,
-  Music,
-  Globe,
+  Search,
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
@@ -51,20 +50,67 @@ const MAX_ITEMS = ITEM_CAPS.social_links;
 
 type BlockItem = Tables<'block_items'>;
 
-const SOCIAL_PRESETS = [
-  { label: 'TikTok', icon: '🎵' },
-  { label: 'Instagram', icon: '📸' },
-  { label: 'YouTube', icon: '▶️' },
-  { label: 'Facebook', icon: '👤' },
-  { label: 'Facebook Group', icon: '👥' },
-  { label: 'Snapchat', icon: '👻' },
-  { label: 'Kick', icon: '🎮' },
-  { label: 'Twitch', icon: '🎮' },
-  { label: 'Discord', icon: '💬' },
-  { label: 'X', icon: '𝕏' },
-  { label: 'Spotify', icon: '🎧' },
-  { label: 'Apple Music', icon: '🍎' },
-  { label: 'Website', icon: '🌐' },
+const PLATFORM_CATEGORIES = [
+  {
+    label: 'SOCIAL',
+    platforms: [
+      { label: 'TikTok', icon: '🎵', placeholder: 'TikTok username' },
+      { label: 'Instagram', icon: '📸', placeholder: 'Instagram username' },
+      { label: 'YouTube', icon: '▶️', placeholder: 'YouTube channel URL' },
+      { label: 'Facebook', icon: '👤', placeholder: 'Facebook profile URL' },
+      { label: 'X (Twitter)', icon: '𝕏', placeholder: 'X username' },
+      { label: 'Snapchat', icon: '👻', placeholder: 'Snapchat username' },
+      { label: 'Threads', icon: '🧵', placeholder: 'Threads username' },
+      { label: 'Pinterest', icon: '📌', placeholder: 'Pinterest username' },
+    ],
+  },
+  {
+    label: 'BUSINESS',
+    platforms: [
+      { label: 'LinkedIn', icon: '💼', placeholder: 'LinkedIn profile URL' },
+      { label: 'GitHub', icon: '🐙', placeholder: 'GitHub username' },
+      { label: 'Telegram', icon: '✈️', placeholder: 'Telegram username' },
+      { label: 'WhatsApp', icon: '💬', placeholder: 'WhatsApp number' },
+      { label: 'Calendly', icon: '📅', placeholder: 'Calendly username' },
+      { label: 'Discord', icon: '🎮', placeholder: 'Discord invite URL' },
+    ],
+  },
+  {
+    label: 'MUSIC',
+    platforms: [
+      { label: 'Spotify', icon: '🎧', placeholder: 'Spotify profile URL' },
+      { label: 'Apple Music', icon: '🍎', placeholder: 'Apple Music URL' },
+      { label: 'SoundCloud', icon: '☁️', placeholder: 'SoundCloud username' },
+      { label: 'YouTube Music', icon: '🎵', placeholder: 'YouTube Music URL' },
+    ],
+  },
+  {
+    label: 'PAYMENT',
+    platforms: [
+      { label: 'PayPal', icon: '🅿️', placeholder: 'PayPal.me link' },
+      { label: 'Venmo', icon: '💸', placeholder: 'Venmo username' },
+      { label: 'Cash App', icon: '💵', placeholder: 'Cash App $cashtag' },
+      { label: 'Zelle', icon: '⚡', placeholder: 'Zelle email or phone' },
+    ],
+  },
+  {
+    label: 'ENTERTAINMENT',
+    platforms: [
+      { label: 'Twitch', icon: '🎮', placeholder: 'Twitch username' },
+      { label: 'Kick', icon: '🎯', placeholder: 'Kick username' },
+      { label: 'Netflix', icon: '🎬', placeholder: 'Netflix profile URL' },
+      { label: 'Steam', icon: '🕹️', placeholder: 'Steam profile URL' },
+    ],
+  },
+  {
+    label: 'LIFESTYLE',
+    platforms: [
+      { label: 'Depop', icon: '👗', placeholder: 'Depop username' },
+      { label: 'Etsy', icon: '🛍️', placeholder: 'Etsy shop URL' },
+      { label: 'Yelp', icon: '⭐', placeholder: 'Yelp business URL' },
+      { label: 'Airbnb', icon: '🏠', placeholder: 'Airbnb profile URL' },
+    ],
+  },
 ];
 
 const itemSchema = z.object({
@@ -114,7 +160,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
     transition,
   };
 
-  const preset = SOCIAL_PRESETS.find(p => p.label === item.label);
+  const preset = PLATFORM_CATEGORIES.flatMap(c => c.platforms).find(p => p.label === item.label);
 
   return (
     <div
@@ -244,7 +290,9 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
   const [items, setItems] = useState<SocialItem[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPresets, setShowPresets] = useState(false);
+  const [search, setSearch] = useState('');
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -296,21 +344,20 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
     }
   };
 
-  const addPreset = (preset: typeof SOCIAL_PRESETS[0]) => {
+  const addPreset = (platform: { label: string; icon: string; placeholder?: string }) => {
     if (items.length >= MAX_ITEMS) {
       toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
       return;
     }
     const newItem: SocialItem = {
       id: `new-${Date.now()}-${Math.random()}`,
-      label: preset.label,
+      label: platform.label,
       url: '',
       subtitle: '',
       badge: '',
       image_url: null,
     };
     setItems([...items, newItem]);
-    setShowPresets(false);
   };
 
   const addCustom = () => {
@@ -456,52 +503,159 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
-            {/* Quick Add */}
+            {/* Platform Picker Toggle */}
             <div className="mb-4">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPresets(!showPresets)}
-                  className="gap-2"
-                >
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPlatformPicker(!showPlatformPicker)}
+                className="gap-2 w-full justify-between"
+              >
+                <span className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
-                  Quick Add
-                  <ChevronDown className={`h-3 w-3 transition-transform ${showPresets ? 'rotate-180' : ''}`} />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={addCustom}
-                  className="gap-2"
-                >
-                  <Globe className="h-4 w-4" />
-                  Custom
-                </Button>
-              </div>
-
-              {showPresets && (
-                <div className="mt-2 p-3 border border-border rounded-lg bg-secondary/30">
-                  <div className="flex flex-wrap gap-2">
-                    {SOCIAL_PRESETS.map((preset) => (
-                      <Button
-                        key={preset.label}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addPreset(preset)}
-                        className="gap-1 h-8 text-xs"
-                      >
-                        <span>{preset.icon}</span>
-                        {preset.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                  Add Platform
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showPlatformPicker ? 'rotate-180' : ''}`} />
+              </Button>
             </div>
+
+            {showPlatformPicker && (
+              <div className="mb-4 border border-border rounded-xl overflow-hidden bg-card">
+                {/* Search */}
+                <div className="p-3 border-b border-border">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search platforms..."
+                      className="pl-9 h-9 text-sm"
+                    />
+                  </div>
+                  {search && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                        p.label.toLowerCase().includes(search.toLowerCase())
+                      ).length} platforms found
+                    </p>
+                  )}
+                </div>
+
+                {/* Categories or Search Results */}
+                <div className="max-h-72 overflow-y-auto">
+                  {search ? (
+                    /* Search results - flat list */
+                    <div>
+                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms)
+                        .filter(p => p.label.toLowerCase().includes(search.toLowerCase()))
+                        .map((platform) => (
+                          <button
+                            key={platform.label}
+                            type="button"
+                            onClick={() => {
+                              addPreset(platform);
+                              setSearch('');
+                              setShowPlatformPicker(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
+                          >
+                            <span className="text-xl w-8 text-center">{platform.icon}</span>
+                            <div>
+                              <p className="text-sm font-medium">{platform.label}</p>
+                              <p className="text-xs text-muted-foreground">{platform.placeholder}</p>
+                            </div>
+                          </button>
+                        ))}
+                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                        p.label.toLowerCase().includes(search.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                          No platforms found for &quot;{search}&quot;
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Categorized view */
+                    PLATFORM_CATEGORIES.map((category) => (
+                      <div key={category.label} className="border-b border-border last:border-0">
+                        {/* Category header */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCategory(
+                            expandedCategory === category.label ? null : category.label
+                          )}
+                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-1">
+                              {category.platforms.slice(0, 4).map((p) => (
+                                <span key={p.label} className="text-base">{p.icon}</span>
+                              ))}
+                            </div>
+                            <div className="text-left">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-[#C9A55C]">
+                                {category.label}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {category.platforms.length} platforms
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            expandedCategory === category.label ? 'rotate-180' : ''
+                          }`} />
+                        </button>
+
+                        {/* Expanded platform list */}
+                        {expandedCategory === category.label && (
+                          <div className="bg-muted/20">
+                            {category.platforms.map((platform) => (
+                              <button
+                                key={platform.label}
+                                type="button"
+                                onClick={() => {
+                                  addPreset(platform);
+                                  setShowPlatformPicker(false);
+                                  setExpandedCategory(null);
+                                }}
+                                className="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/50 transition-colors border-t border-border text-left"
+                              >
+                                <span className="text-xl w-8 text-center">{platform.icon}</span>
+                                <div>
+                                  <p className="text-sm font-medium">{platform.label}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    + {platform.placeholder}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Custom link option at bottom */}
+                <div className="border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addCustom();
+                      setShowPlatformPicker(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <span className="text-xl w-8 text-center">🔗</span>
+                    <div>
+                      <p className="text-sm font-medium">Custom Link</p>
+                      <p className="text-xs text-muted-foreground">Add any URL</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Items List */}
             <ScrollArea className="flex-1 -mx-6 px-6">
