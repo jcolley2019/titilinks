@@ -65,7 +65,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
-  const currentPageStyle = (theme as any).pageStyle || 'classic';
+  const currentPageStyle = (theme as any).pageStyle || 'hero';
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('background');
@@ -482,20 +482,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             <p className="text-xs text-muted-foreground mb-3">
               {t('design.pageStyleDesc') || 'Choose how your profile page looks to visitors'}
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                {
-                  value: 'classic',
-                  label: t('design.styleClassic') || 'Classic',
-                  desc: t('design.styleClassicDesc') || 'Circle avatar, centered layout',
-                  preview: (
-                    <div className="flex flex-col items-center gap-1 p-2">
-                      <div className="w-8 h-8 rounded-full bg-white/20" />
-                      <div className="w-12 h-1.5 rounded bg-white/20" />
-                      <div className="w-10 h-1 rounded bg-white/10" />
-                    </div>
-                  )
-                },
                 {
                   value: 'hero',
                   label: t('design.styleHero') || 'Hero',
