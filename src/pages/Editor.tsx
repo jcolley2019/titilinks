@@ -354,17 +354,56 @@ export default function Editor() {
               {/* Blocks header */}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Blocks</span>
-                {currentMode && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-xs h-7 px-2 text-primary hover:bg-primary/10"
-                    onClick={() => setSuggestLinksOpen(true)}
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {t('editor.suggestLinks')}
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {currentMode && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={async () => {
+                        if (!currentMode) return;
+                        const confirmed = window.confirm(
+                          'Clear all block content? This removes all your links, products, and media. Your block structure stays but content will be empty.'
+                        );
+                        if (!confirmed) return;
+                        try {
+                          // Get all block IDs for this mode
+                          const { data: blocks } = await supabase
+                            .from('blocks')
+                            .select('id')
+                            .eq('mode_id', currentMode.id);
+
+                          if (blocks && blocks.length > 0) {
+                            const blockIds = blocks.map(b => b.id);
+                            await supabase
+                              .from('block_items')
+                              .delete()
+                              .in('block_id', blockIds);
+                          }
+                          toast.success('All block content cleared');
+                          refreshPreview();
+                        } catch (error) {
+                          console.error('Error clearing blocks:', error);
+                          toast.error('Failed to clear blocks');
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                      Clear All
+                    </Button>
+                  )}
+                  {currentMode && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-xs h-7 px-2 text-primary hover:bg-primary/10"
+                      onClick={() => setSuggestLinksOpen(true)}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {t('editor.suggestLinks')}
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Block list */}

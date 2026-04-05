@@ -127,6 +127,177 @@ export default function OnboardingFlow() {
     }
   };
 
+  const prefillBlockContent = async (shopModeId: string, recruitModeId: string) => {
+    try {
+      // Fetch all blocks for both modes
+      const { data: allBlocks } = await supabase
+        .from('blocks')
+        .select('id, type, mode_id')
+        .in('mode_id', [shopModeId, recruitModeId]);
+
+      if (!allBlocks) return;
+
+      const shopBlocks = allBlocks.filter(b => b.mode_id === shopModeId);
+      const recruitBlocks = allBlocks.filter(b => b.mode_id === recruitModeId);
+
+      const getBlock = (blocks: typeof allBlocks, type: string) =>
+        blocks.find(b => b.type === type);
+
+      const itemsToInsert: Array<{
+        block_id: string;
+        label: string;
+        url: string;
+        subtitle?: string;
+        badge?: string;
+        order_index: number;
+      }> = [];
+
+      // === SHOP MODE (Page 1) ===
+
+      // primary_cta
+      const shopCta = getBlock(shopBlocks, 'primary_cta');
+      if (shopCta) {
+        itemsToInsert.push({
+          block_id: shopCta.id,
+          label: 'Shop My Collection',
+          url: 'https://example.com/shop',
+          subtitle: 'New arrivals every week',
+          badge: 'NEW',
+          order_index: 0,
+        });
+      }
+
+      // social_links
+      const shopSocial = getBlock(shopBlocks, 'social_links');
+      if (shopSocial) {
+        itemsToInsert.push(
+          { block_id: shopSocial.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', subtitle: 'Follow me on TikTok', order_index: 0 },
+          { block_id: shopSocial.id, label: 'Instagram', url: 'https://instagram.com/yourhandle', subtitle: 'Follow me on Instagram', order_index: 1 },
+          { block_id: shopSocial.id, label: 'YouTube', url: 'https://youtube.com/@yourhandle', subtitle: 'Subscribe to my channel', order_index: 2 },
+        );
+      }
+
+      // links
+      const shopLinks = getBlock(shopBlocks, 'links');
+      if (shopLinks) {
+        itemsToInsert.push(
+          { block_id: shopLinks.id, label: 'My Website', url: 'https://example.com', subtitle: 'Check out my website', order_index: 0 },
+          { block_id: shopLinks.id, label: 'Latest Blog Post', url: 'https://example.com/blog', subtitle: 'Read my latest content', order_index: 1 },
+          { block_id: shopLinks.id, label: 'Work With Me', url: 'https://example.com/contact', subtitle: 'Collaborations & partnerships', badge: 'OPEN', order_index: 2 },
+        );
+      }
+
+      // product_cards
+      const shopProducts = getBlock(shopBlocks, 'product_cards');
+      if (shopProducts) {
+        itemsToInsert.push(
+          { block_id: shopProducts.id, label: 'Product One', url: 'https://example.com/product-1', subtitle: 'Your best seller', badge: 'SALE', order_index: 0 },
+          { block_id: shopProducts.id, label: 'Product Two', url: 'https://example.com/product-2', subtitle: 'New arrival', order_index: 1 },
+          { block_id: shopProducts.id, label: 'Product Three', url: 'https://example.com/product-3', subtitle: 'Fan favorite', order_index: 2 },
+        );
+      }
+
+      // === RECRUIT MODE (Page 2) ===
+
+      // primary_cta
+      const recruitCta = getBlock(recruitBlocks, 'primary_cta');
+      if (recruitCta) {
+        itemsToInsert.push({
+          block_id: recruitCta.id,
+          label: 'Book a Consultation',
+          url: 'https://example.com/book',
+          subtitle: 'Let\'s work together',
+          badge: 'AVAILABLE',
+          order_index: 0,
+        });
+      }
+
+      // social_links
+      const recruitSocial = getBlock(recruitBlocks, 'social_links');
+      if (recruitSocial) {
+        itemsToInsert.push(
+          { block_id: recruitSocial.id, label: 'LinkedIn', url: 'https://linkedin.com/in/yourhandle', subtitle: 'Connect professionally', order_index: 0 },
+          { block_id: recruitSocial.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', subtitle: 'Follow my content', order_index: 1 },
+        );
+      }
+
+      // featured_media
+      const recruitMedia = getBlock(recruitBlocks, 'featured_media');
+      if (recruitMedia) {
+        itemsToInsert.push(
+          { block_id: recruitMedia.id, label: 'My Showreel', url: 'https://youtube.com/watch?v=example', subtitle: 'Watch my latest work', order_index: 0 },
+          { block_id: recruitMedia.id, label: 'Portfolio', url: 'https://example.com/portfolio', subtitle: 'View my full portfolio', order_index: 1 },
+        );
+      }
+
+      // links
+      const recruitLinks = getBlock(recruitBlocks, 'links');
+      if (recruitLinks) {
+        itemsToInsert.push(
+          { block_id: recruitLinks.id, label: 'My Resume', url: 'https://example.com/resume', subtitle: 'Download my CV', order_index: 0 },
+          { block_id: recruitLinks.id, label: 'Press Kit', url: 'https://example.com/press', subtitle: 'Media resources', order_index: 1 },
+          { block_id: recruitLinks.id, label: 'Testimonials', url: 'https://example.com/testimonials', subtitle: 'What clients say', order_index: 2 },
+        );
+      }
+
+      // Insert all items in one batch
+      if (itemsToInsert.length > 0) {
+        await supabase.from('block_items').insert(itemsToInsert);
+      }
+
+      // Also create missing block types for shop mode
+      const missingShopTypes = ['email_subscribe', 'social_icon_row'].filter(
+        type => !shopBlocks.find(b => b.type === type)
+      );
+
+      for (let i = 0; i < missingShopTypes.length; i++) {
+        const type = missingShopTypes[i];
+        const { data: newBlock } = await supabase
+          .from('blocks')
+          .insert({
+            mode_id: shopModeId,
+            type: type as 'email_subscribe' | 'social_icon_row',
+            title: type === 'email_subscribe' ? 'Email Subscribe' : 'Social Icons',
+            is_enabled: true,
+            order_index: shopBlocks.length + i,
+          })
+          .select('id')
+          .single();
+
+        if (newBlock && type === 'email_subscribe') {
+          await supabase.from('block_items').insert({
+            block_id: newBlock.id,
+            label: 'Stay up to date',
+            url: '#',
+            subtitle: 'Thanks for subscribing!',
+            badge: JSON.stringify({
+              title: 'Stay up to date',
+              placeholder: 'your@email.com',
+              button_label: 'Subscribe',
+              success_message: 'Thanks for subscribing!',
+              redirect_url: '',
+              collect_name: false,
+              name_placeholder: 'Your name',
+            }),
+            order_index: 0,
+          });
+        }
+
+        if (newBlock && type === 'social_icon_row') {
+          await supabase.from('block_items').insert([
+            { block_id: newBlock.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', order_index: 0 },
+            { block_id: newBlock.id, label: 'Instagram', url: 'https://instagram.com/yourhandle', order_index: 1 },
+            { block_id: newBlock.id, label: 'YouTube', url: 'https://youtube.com/@yourhandle', order_index: 2 },
+          ]);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error prefilling block content:', error);
+      // Non-fatal — user can still proceed
+    }
+  };
+
   // Step 3 save: create page + modes + blocks
   const handleStep3Next = async () => {
     if (!user) return;
@@ -202,6 +373,11 @@ export default function OnboardingFlow() {
           { mode_id: recruitMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 2 },
           { mode_id: recruitMode.id, type: 'links', title: 'Links', is_enabled: true, order_index: 3 },
         ]);
+      }
+
+      // Pre-populate all blocks with placeholder content
+      if (shopMode && recruitMode) {
+        await prefillBlockContent(shopMode.id, recruitMode.id);
       }
 
       updateField('createdPageId', page.id);
