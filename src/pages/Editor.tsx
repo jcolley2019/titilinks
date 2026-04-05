@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText, Sparkles } from 'lucide-react';
+import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText, Sparkles, Camera, Upload, X } from 'lucide-react';
 import { LivePreviewPanel } from '@/components/LivePreviewPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,6 +50,8 @@ export default function Editor() {
   const [page2Label, setPage2Label] = useState('');
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [suggestLinksOpen, setSuggestLinksOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
@@ -207,6 +209,57 @@ export default function Editor() {
     setEditorOpen(open);
     if (!open) {
       setEditingBlockId(null);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be 5MB or less');
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('page-assets')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('page-assets')
+        .getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('pages')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', page!.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Profile photo updated');
+      await fetchPageData();
+      refreshPreview();
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast.error('Failed to upload photo');
+    } finally {
+      setAvatarUploading(false);
+      if (avatarFileInputRef.current) {
+        avatarFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -392,6 +445,83 @@ export default function Editor() {
 
             {/* DESIGN TAB */}
             <TabsContent value="design" className="flex-1 overflow-y-auto px-5 pb-6 mt-0">
+              <div className="mb-4 pb-4 border-b border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                  Profile Photo
+                </p>
+                <div className="flex items-center gap-4">
+                  {/* Current avatar preview */}
+                  <div className="relative flex-shrink-0">
+                    {page.avatar_url ? (
+                      <img
+                        src={page.avatar_url}
+                        alt="Profile"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-[#C9A55C]"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-[#1a1a1a] border-2 border-[#C9A55C] flex items-center justify-center">
+                        <Camera className="h-6 w-6 text-[#C9A55C]" />
+                      </div>
+                    )}
+                    {avatarUploading && (
+                      <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload controls */}
+                  <div className="flex flex-col gap-2 flex-1">
+                    <input
+                      ref={avatarFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      className="gap-2 h-8 text-xs"
+                    >
+                      {avatarUploading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      {page.avatar_url ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    {page.avatar_url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2 h-8 text-xs text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          try {
+                            await supabase
+                              .from('pages')
+                              .update({ avatar_url: null })
+                              .eq('id', page!.id);
+                            toast.success('Profile photo removed');
+                            await fetchPageData();
+                            refreshPreview();
+                          } catch {
+                            toast.error('Failed to remove photo');
+                          }
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Remove Photo
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Max 5MB — JPEG, PNG, GIF, WebP
+                    </p>
+                  </div>
+                </div>
+              </div>
               <DesignEditor
                 pageId={page.id}
                 themeJson={page.theme_json}
