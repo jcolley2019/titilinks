@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
+import { toast } from 'sonner';
 
 interface MobileDashboardProps {
   pageId: string;
@@ -144,17 +145,48 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
     fetchBlocks();
   }, [modeId]);
 
-  const handleRowTap = (row: DashboardRow) => {
+  const handleRowTap = async (row: DashboardRow) => {
     if (row.action === 'navigate' && row.navigateTo) {
       setOpen(false);
       navigate(row.navigateTo);
       return;
     }
 
-    // Block action
-    const blockId = blockMap[row.type];
-    if (!blockId) return;
+    if (!modeId) {
+      toast.error('No active mode found');
+      return;
+    }
 
+    let blockId = blockMap[row.type];
+
+    if (!blockId) {
+      const { data, error } = await supabase
+        .from('blocks')
+        .insert({
+          mode_id: modeId,
+          type: row.type as 'primary_cta' | 'links' | 'social_links' | 'product_cards' | 'featured_media' | 'email_subscribe' | 'hero_card' | 'social_icon_row' | 'content_section',
+          title: row.title,
+          is_enabled: true,
+          order_index: Object.keys(blockMap).length,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Block insert failed:', error.message, 'type:', row.type);
+        toast.error('Failed to open editor. Please try again.');
+        return;
+      }
+      if (!data) {
+        toast.error('Failed to create block');
+        return;
+      }
+
+      blockId = data.id;
+      setBlockMap((prev) => ({ ...prev, [row.type]: blockId! }));
+    }
+
+    setOpen(false);
     setEditingBlockId(blockId);
     setEditorOpen(true);
   };
@@ -199,6 +231,7 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={(e) => e.stopPropagation()}
               className="lg:hidden fixed inset-0 z-[60] bg-[#0e0c09] overflow-hidden flex flex-col"
             >
               {/* Header */}
@@ -226,20 +259,12 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
 
                     {/* Rows */}
                     <div>
-                      {category.rows.map((row) => {
-                        const isBlockRow = row.action === 'block';
-                        const hasBlock = !isBlockRow || !!blockMap[row.type];
-                        const disabled = isBlockRow && !hasBlock;
-
-                        return (
+                      {category.rows.map((row) => (
                           <button
                             key={row.type}
                             type="button"
-                            onClick={() => !disabled && handleRowTap(row)}
-                            disabled={disabled}
-                            className={`w-full flex items-center gap-3 py-3 border-b border-[#1a1a1a] text-left transition-colors ${
-                              disabled ? 'opacity-50' : 'active:bg-[#1a1a1a]'
-                            }`}
+                            onClick={() => handleRowTap(row)}
+                            className="w-full flex items-center gap-3 py-3 border-b border-[#1a1a1a] text-left transition-colors active:bg-[#1a1a1a]"
                           >
                             {/* Icon */}
                             <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center">
@@ -250,15 +275,14 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white">{row.title}</p>
                               <p className="text-xs text-[#666666]">
-                                {disabled ? 'Not set up yet' : row.subtitle}
+                                {row.subtitle}
                               </p>
                             </div>
 
                             {/* Chevron */}
                             <ChevronRight className="h-4 w-4 text-[#444444] flex-shrink-0" />
                           </button>
-                        );
-                      })}
+                      ))}
                     </div>
                   </div>
                 ))}
