@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { ArrowLeft, Loader2, Check, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
@@ -214,14 +214,6 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
   const isValid = state.displayName.trim().length > 0 && state.username.trim().length >= 3 && usernameStatus !== 'taken' && usernameStatus !== 'checking';
 
-  const avatarShape = (() => {
-    switch (state.pageStyle) {
-      case 'hero': return { className: 'w-full max-w-xs aspect-video rounded-xl', label: 'Hero Photo' };
-      case 'full_bleed': return { className: 'w-36 aspect-[9/16] rounded-xl', label: 'Background Photo' };
-      default: return { className: 'w-28 h-28 rounded-full', label: null };
-    }
-  })();
-
   return (
     <div className="space-y-8 max-w-md mx-auto">
       <div className="text-center">
@@ -233,15 +225,35 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         </p>
       </div>
 
-      {/* Avatar */}
-      <div className="flex flex-col items-center gap-3">
-        <div className={`${avatarShape.className} overflow-hidden border-2 border-white/10 bg-white/5 flex items-center justify-center`}>
+      {/* Hero Photo Upload */}
+      <div className="w-full">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/10 bg-[#0e0c09] group"
+        >
           {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
+            <>
+              <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
+              <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-xs font-semibold text-[#C9A55C] font-body opacity-0 group-hover:opacity-100 transition-opacity">
+                Change Photo
+              </div>
+            </>
           ) : (
-            <span className="text-2xl font-bold text-white/40">{initials}</span>
+            <div className="flex flex-col items-center justify-center h-full gap-2">
+              <Camera className="w-8 h-8 text-[#C9A55C]" />
+              <span className="text-sm text-[#C9A55C] font-body">
+                {t('onboardingFlow.uploadPhoto')}
+              </span>
+              <span className="text-xs text-white/40 font-body">Hero Photo</span>
+            </div>
           )}
-        </div>
+          {compressing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <Loader2 className="w-6 h-6 animate-spin text-[#C9A55C]" />
+            </div>
+          )}
+        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -249,23 +261,6 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           onChange={handleFileChange}
           className="hidden"
         />
-        {compressing ? (
-          <span className="flex items-center gap-1.5 text-sm text-[#C9A55C] font-body">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Optimizing...
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-sm text-[#C9A55C] hover:underline font-body"
-          >
-            {t('onboardingFlow.uploadPhoto')}
-          </button>
-        )}
-        {avatarShape.label && (
-          <span className="text-xs text-white/40 font-body">{avatarShape.label}</span>
-        )}
       </div>
 
       {/* Display Name */}
