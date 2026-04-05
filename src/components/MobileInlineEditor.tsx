@@ -110,40 +110,50 @@ export function MobileInlineEditor({
         ) : (
           <div>
             {sorted.map((block) => (
-              <button
+              <div
                 key={block.id}
-                type="button"
-                onClick={() => onEditBlock(block.id)}
                 className={[
                   'w-full flex items-center gap-3 px-4 py-4',
-                  'border-b border-[#1a1a1a] text-left',
+                  'border-b border-[#1a1a1a]',
                   'transition-colors active:bg-[#1a1a1a]',
                   !block.is_enabled ? 'opacity-40' : '',
                 ].join(' ')}
               >
+                {/* Icon */}
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center text-lg">
                   {BLOCK_ICONS[block.type] || '🔗'}
                 </div>
 
-                <div className="flex-1 min-w-0">
+                {/* Text — tapping this area opens editor */}
+                <button
+                  type="button"
+                  onClick={() => onEditBlock(block.id)}
+                  className="flex-1 min-w-0 text-left"
+                >
                   <p className="text-sm font-medium text-white truncate">
                     {BLOCK_LABELS[block.type] || block.type}
                   </p>
                   <p className="text-xs text-[#666] truncate">
                     Tap to edit
                   </p>
-                </div>
+                </button>
 
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Switch
-                    checked={block.is_enabled}
-                    onCheckedChange={(checked) => onToggleBlock(block.id, checked)}
-                    className="data-[state=checked]:bg-[#C9A55C]"
-                  />
-                </div>
+                {/* Toggle */}
+                <Switch
+                  checked={block.is_enabled}
+                  onCheckedChange={(checked) => onToggleBlock(block.id, checked)}
+                  className="data-[state=checked]:bg-[#C9A55C]"
+                />
 
-                <ChevronRight className="h-4 w-4 text-[#444] flex-shrink-0" />
-              </button>
+                {/* Chevron — tapping opens editor */}
+                <button
+                  type="button"
+                  onClick={() => onEditBlock(block.id)}
+                  className="p-1"
+                >
+                  <ChevronRight className="h-4 w-4 text-[#444]" />
+                </button>
+              </div>
             ))}
           </div>
         )}
