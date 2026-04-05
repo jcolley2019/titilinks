@@ -9,25 +9,9 @@ interface Props {
 }
 
 const styles = [
-  { value: 'classic' as const, key: 'classic' },
   { value: 'hero' as const, key: 'hero' },
   { value: 'full_bleed' as const, key: 'fullBleed' },
 ];
-
-function ClassicMockup() {
-  return (
-    <div className="flex flex-col items-center gap-2 py-6 px-4">
-      <div className="w-14 h-14 rounded-full bg-gray-500/40" />
-      <div className="w-20 h-2.5 rounded bg-white/30" />
-      <div className="w-16 h-1.5 rounded bg-white/15 mt-0.5" />
-      <div className="w-full space-y-2 mt-3">
-        <div className="h-8 rounded-lg bg-[#C9A55C]/30 border border-[#C9A55C]/20" />
-        <div className="h-8 rounded-lg bg-[#C9A55C]/30 border border-[#C9A55C]/20" />
-        <div className="h-8 rounded-lg bg-[#C9A55C]/30 border border-[#C9A55C]/20" />
-      </div>
-    </div>
-  );
-}
 
 function HeroMockup() {
   return (
@@ -64,7 +48,6 @@ function FullBleedMockup() {
 }
 
 const mockups: Record<string, React.FC> = {
-  classic: ClassicMockup,
   hero: HeroMockup,
   full_bleed: FullBleedMockup,
 };
@@ -81,7 +64,7 @@ export function StepChooseStyle({ state, updateField, onNext, t }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {styles.map((style, i) => {
           const isSelected = state.pageStyle === style.value;
           const Mockup = mockups[style.value];
