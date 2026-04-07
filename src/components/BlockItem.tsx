@@ -17,6 +17,7 @@ const BLOCK_TYPE_ICONS: Record<string, React.ReactNode> = {
   social_icon_row: <Share2 className="h-4 w-4" />,
   hero_card: <User className="h-4 w-4" />,
   content_section: <FileText className="h-4 w-4" />,
+  gallery: <Image className="h-4 w-4" />,
 };
 
 interface BlockItemProps {

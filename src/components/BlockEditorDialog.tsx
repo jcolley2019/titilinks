@@ -9,6 +9,7 @@ import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
+import { GalleryEditor } from '@/components/editors/GalleryEditor';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
@@ -144,6 +145,16 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
     case 'content_section':
       return (
         <ContentSectionEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
+
+    case 'gallery':
+      return (
+        <GalleryEditor
           blockId={blockId}
           open={open}
           onOpenChange={onOpenChange}

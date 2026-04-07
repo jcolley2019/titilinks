@@ -15,6 +15,7 @@ import {
   FileText,
   BarChart2,
   LayoutGrid,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -107,6 +108,12 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.newMerch',
         subtitleKey: 'dashboard.newMerchDesc',
         blockType: 'product_cards',
+      },
+      {
+        icon: <ImageIcon className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.gallery.title',
+        subtitleKey: 'blocks.gallery.subtitle',
+        blockType: 'gallery',
       },
     ],
   },

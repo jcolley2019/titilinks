@@ -363,6 +363,7 @@ export default function OnboardingFlow() {
           { mode_id: shopMode.id, type: 'product_cards', title: 'Products', is_enabled: true, order_index: 1 },
           { mode_id: shopMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 2 },
           { mode_id: shopMode.id, type: 'links', title: 'Links', is_enabled: true, order_index: 3 },
+          { mode_id: shopMode.id, type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 4 },
         ]);
       }
 
@@ -372,6 +373,7 @@ export default function OnboardingFlow() {
           { mode_id: recruitMode.id, type: 'featured_media', title: 'Featured Media', is_enabled: true, order_index: 1 },
           { mode_id: recruitMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 2 },
           { mode_id: recruitMode.id, type: 'links', title: 'Links', is_enabled: true, order_index: 3 },
+          { mode_id: recruitMode.id, type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 4 },
         ]);
       }
 

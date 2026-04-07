@@ -169,6 +169,8 @@ function BlockRenderer({ block, onOutboundClick, theme }: ThemedBlockProps) {
       return <EmailSubscribeBlock block={block} theme={theme} />;
     case 'content_section':
       return <ContentSectionBlock {...blockProps} />;
+    case 'gallery':
+      return <GalleryBlock block={block} theme={theme} />;
     default:
       return null;
   }
@@ -986,6 +988,34 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function GalleryBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
+  if (block.items.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {block.items.map((item) => (
+        <div
+          key={item.id}
+          className="aspect-square rounded-xl overflow-hidden"
+          style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+        >
+          {item.image_url ? (
+            <ThumbnailImage
+              src={item.image_url}
+              alt={item.label || 'Gallery photo'}
+              className="hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
