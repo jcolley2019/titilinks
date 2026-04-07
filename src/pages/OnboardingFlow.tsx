@@ -397,36 +397,46 @@ export default function OnboardingFlow() {
     }
 
     try {
-      const filledLinks = state.links.filter((l) => l.url.trim() !== '');
-      if (filledLinks.length === 0) {
-        goNext();
-        return;
-      }
-
-      // Find the social_links block for shop mode
+      // Find shop mode's social_links block
       const { data: modes } = await supabase
         .from('modes')
         .select('id')
         .eq('page_id', state.createdPageId)
         .eq('type', 'shop');
 
-      if (modes && modes.length > 0) {
-        const { data: blocks } = await supabase
-          .from('blocks')
-          .select('id')
-          .eq('mode_id', modes[0].id)
-          .eq('type', 'social_links');
+      if (!modes || modes.length === 0) {
+        goNext();
+        return;
+      }
 
-        if (blocks && blocks.length > 0) {
-          const items = filledLinks.map((link, i) => ({
-            block_id: blocks[0].id,
-            label: link.platform,
-            url: link.url,
-            order_index: i,
-          }));
+      const { data: blocks } = await supabase
+        .from('blocks')
+        .select('id')
+        .eq('mode_id', modes[0].id)
+        .eq('type', 'social_links');
 
-          await supabase.from('block_items').insert(items);
-        }
+      if (!blocks || blocks.length === 0) {
+        goNext();
+        return;
+      }
+
+      const blockId = blocks[0].id;
+
+      // Always delete existing items first to prevent duplicates
+      await supabase
+        .from('block_items')
+        .delete()
+        .eq('block_id', blockId);
+
+      // Insert selected platforms if any
+      if (state.selectedSocialPlatforms.length > 0) {
+        const items = state.selectedSocialPlatforms.map((platform, i) => ({
+          block_id: blockId,
+          label: platform,
+          url: '',
+          order_index: i,
+        }));
+        await supabase.from('block_items').insert(items);
       }
 
       goNext();
