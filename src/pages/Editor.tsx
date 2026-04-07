@@ -1,37 +1,32 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, ShoppingBag, Users, ExternalLink, Link2, Copy, Check, QrCode, Palette, Pin, FileText, Sparkles, Camera, Upload, X } from 'lucide-react';
-import { LivePreviewPanel } from '@/components/LivePreviewPanel';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { OnboardingForm } from '@/components/OnboardingForm';
-import { BlockList } from '@/components/BlockList';
-import { GoalsPanel } from '@/components/GoalsPanel';
-import { BlockEditorDialog } from '@/components/BlockEditorDialog';
-import { MobileDashboard } from '@/components/MobileDashboard';
-import { DesignEditor } from '@/components/editors/DesignEditor';
-import { SuggestLinksDialog } from '@/components/editors/SuggestLinksDialog';
+import { BlockEditorContent } from '@/components/BlockEditorContent';
+import { EditableProfileView } from '@/components/EditableProfileView';
 import { toast } from 'sonner';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { LinkTools } from '@/components/LinkTools';
-import { WelcomeCoach } from '@/components/WelcomeCoach';
-import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Json } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'> & { sticky_cta_enabled?: boolean };
+type Block = Tables<'blocks'>;
+type BlockItem = Tables<'block_items'>;
+
+interface BlockWithItems extends Block {
+  items: BlockItem[];
+}
 
 interface ThemeJson {
   pages?: {
     page1?: { label?: string };
     page2?: { label?: string };
   };
+  linkLayout?: string;
+  linkCount?: number;
   [key: string]: unknown;
 }
 
@@ -44,86 +39,17 @@ export default function Editor() {
   const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
-  const [editorTab, setEditorTab] = useState<'content' | 'design'>('content');
-  const [page1Label, setPage1Label] = useState('');
-  const [page2Label, setPage2Label] = useState('');
-  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
-  const [suggestLinksOpen, setSuggestLinksOpen] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
 
-  const refreshPreview = () => setPreviewRefreshKey((k) => k + 1);
-  const baseUrl = `${window.location.protocol}//${window.location.host}`;
-  const domain = window.location.host;
-  const mainLink = page ? `${baseUrl}/${page.handle}` : '';
-  const page2Link = page ? `${mainLink}?page=2` : '';
-
-  // Parse theme_json for page labels
-  const themeJson = (page?.theme_json as ThemeJson) || {};
-  const displayPage1Label = page1Label || themeJson.pages?.page1?.label || t('editor.page1');
-  const displayPage2Label = page2Label || themeJson.pages?.page2?.label || t('editor.page2');
-
-  // Initialize labels from theme_json when page loads
-  useEffect(() => {
-    if (page?.theme_json) {
-      const theme = page.theme_json as ThemeJson;
-      setPage1Label(theme.pages?.page1?.label || '');
-      setPage2Label(theme.pages?.page2?.label || '');
-    }
-  }, [page?.id]);
-
-  const updatePageLabel = async (pageKey: 'page1' | 'page2', label: string) => {
-    if (!page) return;
-    
-    try {
-      const currentTheme = (page.theme_json as ThemeJson) || {};
-      const updatedTheme: ThemeJson = {
-        ...currentTheme,
-        pages: {
-          ...currentTheme.pages,
-          [pageKey]: {
-            ...currentTheme.pages?.[pageKey],
-            label: label || undefined, // Remove if empty
-          },
-        },
-      };
-
-      const { error } = await supabase
-        .from('pages')
-        .update({ theme_json: updatedTheme as Json })
-        .eq('id', page.id);
-
-      if (error) throw error;
-
-      setPage({ ...page, theme_json: updatedTheme as Json });
-      toast.success(t('editor.labelUpdated'));
-      refreshPreview();
-    } catch (error) {
-      console.error('Error updating page label:', error);
-      toast.error(t('editor.labelFailed'));
-    }
-  };
-
-  const copyToClipboard = async (text: string, linkType: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedLink(linkType);
-      toast.success(t('editor.copied'));
-      setTimeout(() => setCopiedLink(null), 2000);
-    } catch {
-      toast.error(t('editor.copyFailed'));
-    }
-  };
+  // ── Data Fetching ──
 
   const autoPopulatePlaceholders = async (pageData: Page, modesData: Mode[]) => {
-    const theme = pageData.theme_json as ThemeJson & { linkLayout?: string; linkCount?: number };
+    const theme = pageData.theme_json as ThemeJson;
     if (!theme?.linkLayout || !theme?.linkCount) return;
 
     const shopMode = modesData.find((m) => m.type === 'shop');
     if (!shopMode) return;
 
-    // Determine the target block type based on layout
     const targetBlockType = theme.linkLayout === 'gallery' ? 'product_cards' : 'links';
 
     const { data: targetBlock } = await supabase
@@ -135,7 +61,6 @@ export default function Editor() {
 
     if (!targetBlock) return;
 
-    // Check if block already has items (not a fresh page)
     const { data: existingItems } = await supabase
       .from('block_items')
       .select('id')
@@ -144,7 +69,6 @@ export default function Editor() {
 
     if (existingItems && existingItems.length > 0) return;
 
-    // Create placeholder items
     const count = theme.linkLayout === 'featured' ? theme.linkCount - 1 : theme.linkCount;
     const placeholderItems = Array.from({ length: count }, (_, i) => ({
       block_id: targetBlock.id,
@@ -160,7 +84,6 @@ export default function Editor() {
     if (!user) return;
 
     try {
-      // Fetch user's page
       const { data: pageData, error: pageError } = await supabase
         .from('pages')
         .select('*')
@@ -172,7 +95,6 @@ export default function Editor() {
       if (pageData) {
         setPage(pageData);
 
-        // Fetch modes for the page
         const { data: modesData, error: modesError } = await supabase
           .from('modes')
           .select('*')
@@ -181,7 +103,6 @@ export default function Editor() {
         if (modesError) throw modesError;
         setModes(modesData || []);
 
-        // Auto-populate placeholder blocks for newly onboarded users
         await autoPopulatePlaceholders(pageData, modesData || []);
       }
     } catch (error) {
@@ -192,13 +113,60 @@ export default function Editor() {
     }
   };
 
+  const fetchBlocks = async () => {
+    const mode = modes.find((m) => m.type === selectedMode);
+    if (!mode) {
+      setAllBlocks([]);
+      return;
+    }
+
+    try {
+      const { data: blocksData, error: blocksError } = await supabase
+        .from('blocks')
+        .select('*')
+        .eq('mode_id', mode.id)
+        .order('order_index', { ascending: true });
+
+      if (blocksError) throw blocksError;
+
+      const blocks = blocksData || [];
+      if (blocks.length === 0) {
+        setAllBlocks([]);
+        return;
+      }
+
+      const blockIds = blocks.map((b) => b.id);
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('block_items')
+        .select('*')
+        .in('block_id', blockIds)
+        .order('order_index', { ascending: true });
+
+      if (itemsError) throw itemsError;
+
+      const items = itemsData || [];
+      const blocksWithItems: BlockWithItems[] = blocks.map((b) => ({
+        ...b,
+        items: items.filter((i) => i.block_id === b.id),
+      }));
+
+      setAllBlocks(blocksWithItems);
+    } catch (error) {
+      console.error('Error fetching blocks:', error);
+    }
+  };
+
   useEffect(() => {
     fetchPageData();
   }, [user]);
 
-  const handleOnboardingComplete = () => {
-    fetchPageData();
-  };
+  useEffect(() => {
+    if (modes.length > 0) {
+      fetchBlocks();
+    }
+  }, [modes, selectedMode]);
+
+  // ── Block Actions ──
 
   const handleEditBlock = (blockId: string) => {
     setEditingBlockId(blockId);
@@ -209,61 +177,55 @@ export default function Editor() {
     setEditorOpen(open);
     if (!open) {
       setEditingBlockId(null);
+      fetchBlocks();
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be 5MB or less');
-      return;
-    }
-
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
-      return;
-    }
-
-    setAvatarUploading(true);
+  const handleBlockToggle = async (blockId: string, enabled: boolean) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+      const { error } = await supabase
+        .from('blocks')
+        .update({ is_enabled: enabled })
+        .eq('id', blockId);
 
-      const { error: uploadError } = await supabase.storage
-        .from('page-assets')
-        .upload(fileName, file, { upsert: true });
+      if (error) throw error;
 
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('page-assets')
-        .getPublicUrl(fileName);
-
-      const { error: updateError } = await supabase
-        .from('pages')
-        .update({ avatar_url: urlData.publicUrl })
-        .eq('id', page!.id);
-
-      if (updateError) throw updateError;
-
-      toast.success('Profile photo updated');
-      await fetchPageData();
-      refreshPreview();
+      setAllBlocks((prev) =>
+        prev.map((b) => (b.id === blockId ? { ...b, is_enabled: enabled } : b))
+      );
     } catch (error) {
-      console.error('Avatar upload error:', error);
-      toast.error('Failed to upload photo');
-    } finally {
-      setAvatarUploading(false);
-      if (avatarFileInputRef.current) {
-        avatarFileInputRef.current.value = '';
-      }
+      console.error('Error toggling block:', error);
+      toast.error('Failed to update block');
     }
   };
 
-  const currentMode = modes.find((m) => m.type === selectedMode);
+  const handleBlockReorder = async (blockIds: string[]) => {
+    // Optimistic update
+    const reordered = blockIds
+      .map((id) => allBlocks.find((b) => b.id === id))
+      .filter(Boolean) as BlockWithItems[];
+    setAllBlocks(reordered);
+
+    // Persist to DB
+    try {
+      for (let i = 0; i < blockIds.length; i++) {
+        await supabase
+          .from('blocks')
+          .update({ order_index: i })
+          .eq('id', blockIds[i]);
+      }
+    } catch (error) {
+      console.error('Error reordering blocks:', error);
+      toast.error('Failed to reorder blocks');
+      fetchBlocks();
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    fetchPageData();
+  };
+
+  // ── Render ──
 
   if (loading) {
     return (
@@ -285,333 +247,47 @@ export default function Editor() {
 
   return (
     <DashboardLayout>
-
-      {/* ── DESKTOP: Link.me-style two-panel split ── */}
-      <div className="hidden lg:flex h-[calc(100vh-4rem)] overflow-hidden -mx-4 xl:-mx-8 -mt-6">
-
-        {/* LEFT PANEL — 400px fixed, scrollable */}
-        <div className="w-[400px] flex-shrink-0 flex flex-col h-full border-r border-border bg-background">
-
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-            <div>
-              <h1 className="text-sm font-semibold text-foreground">{t('editor.title')}</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">@{page.handle}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
+      <div className="fixed inset-0 top-16 bg-[#0e0c09] overflow-hidden flex flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur-md flex-shrink-0 z-30 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-white">
+              Titi<span className="italic text-[#C9A55C]">Links</span>
+            </span>
+            <span className="text-xs text-white/50">@{page.handle}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
               onClick={() => window.open(`/${page.handle}`, '_blank')}
+              className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              View
-            </Button>
+              View Live ↗
+            </button>
           </div>
-
-          {/* Content / Design tabs */}
-          <Tabs
-            value={editorTab}
-            onValueChange={(v) => setEditorTab(v as 'content' | 'design')}
-            className="flex flex-col flex-1 overflow-hidden"
-          >
-            <div className="px-5 pt-3 pb-2 flex-shrink-0">
-              <TabsList className="grid w-full grid-cols-2 h-9">
-                <TabsTrigger value="content" className="gap-1.5 text-xs">
-                  <Link2 className="h-3.5 w-3.5" />
-                  {t('editor.content')}
-                </TabsTrigger>
-                <TabsTrigger value="design" className="gap-1.5 text-xs">
-                  <Palette className="h-3.5 w-3.5" />
-                  {t('editor.design')}
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* CONTENT TAB */}
-            <TabsContent value="content" className="flex-1 overflow-y-auto px-5 pb-6 mt-0 space-y-4">
-
-              {/* Page switcher */}
-              <Tabs
-                value={selectedMode}
-                onValueChange={(v) => {
-                  triggerHaptic('medium');
-                  setSelectedMode(v as 'shop' | 'recruit');
-                }}
-              >
-                <TabsList className="grid w-full grid-cols-2 h-9">
-                  <TabsTrigger value="shop" className="text-xs gap-1.5">
-                    <FileText className="h-3.5 w-3.5" />
-                    {displayPage1Label}
-                  </TabsTrigger>
-                  <TabsTrigger value="recruit" className="text-xs gap-1.5">
-                    <FileText className="h-3.5 w-3.5" />
-                    {displayPage2Label}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {/* Blocks header */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Blocks</span>
-                <div className="flex items-center gap-1">
-                  {currentMode && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={async () => {
-                        if (!currentMode) return;
-                        const confirmed = window.confirm(
-                          'Clear all block content? This removes all your links, products, and media. Your block structure stays but content will be empty.'
-                        );
-                        if (!confirmed) return;
-                        try {
-                          // Get all block IDs for this mode
-                          const { data: blocks } = await supabase
-                            .from('blocks')
-                            .select('id')
-                            .eq('mode_id', currentMode.id);
-
-                          if (blocks && blocks.length > 0) {
-                            const blockIds = blocks.map(b => b.id);
-                            await supabase
-                              .from('block_items')
-                              .delete()
-                              .in('block_id', blockIds);
-                          }
-                          toast.success('All block content cleared');
-                          refreshPreview();
-                        } catch (error) {
-                          console.error('Error clearing blocks:', error);
-                          toast.error('Failed to clear blocks');
-                        }
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                      Clear All
-                    </Button>
-                  )}
-                  {currentMode && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-xs h-7 px-2 text-primary hover:bg-primary/10"
-                      onClick={() => setSuggestLinksOpen(true)}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      {t('editor.suggestLinks')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Block list */}
-              {currentMode ? (
-                <div data-coach="blocks">
-                  <BlockList modeId={currentMode.id} onEditBlock={handleEditBlock} />
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  {t('editor.noMode')}
-                </div>
-              )}
-
-              {/* Sticky CTA toggle */}
-              {currentMode && (
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <Pin className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-medium">{t('editor.stickyCta')}</p>
-                      <p className="text-xs text-muted-foreground">{t('editor.stickyCtaDesc')}</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentMode.sticky_cta_enabled ?? false}
-                    onCheckedChange={async (checked) => {
-                      try {
-                        const { error } = await supabase
-                          .from('modes')
-                          .update({ sticky_cta_enabled: checked })
-                          .eq('id', currentMode.id);
-                        if (error) throw error;
-                        setModes((prev) =>
-                          prev.map((m) =>
-                            m.id === currentMode.id ? { ...m, sticky_cta_enabled: checked } : m
-                          )
-                        );
-                        toast.success(checked ? t('editor.stickyEnabled') : t('editor.stickyDisabled'));
-                        refreshPreview();
-                      } catch (error) {
-                        console.error('Error updating sticky CTA:', error);
-                        toast.error(t('editor.settingFailed'));
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Share link — compact */}
-              <div className="pt-3 border-t border-border space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {t('editor.shareLinks')}
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={mainLink}
-                    readOnly
-                    className="bg-secondary/50 font-mono text-xs h-8"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0"
-                    onClick={() => copyToClipboard(mainLink, 'main')}
-                  >
-                    {copiedLink === 'main' ? (
-                      <Check className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Goals */}
-              <GoalsPanel page={page} onUpdate={fetchPageData} />
-            </TabsContent>
-
-            {/* DESIGN TAB */}
-            <TabsContent value="design" className="flex-1 overflow-y-auto px-5 pb-6 mt-0">
-              <div className="mb-4 pb-4 border-b border-border">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Profile Photo
-                </p>
-                <div className="flex items-center gap-4">
-                  {/* Current avatar preview */}
-                  <div className="relative flex-shrink-0">
-                    {page.avatar_url ? (
-                      <img
-                        src={page.avatar_url}
-                        alt="Profile"
-                        className="w-16 h-16 rounded-full object-cover border-2 border-[#C9A55C]"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-[#1a1a1a] border-2 border-[#C9A55C] flex items-center justify-center">
-                        <Camera className="h-6 w-6 text-[#C9A55C]" />
-                      </div>
-                    )}
-                    {avatarUploading && (
-                      <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
-                        <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Upload controls */}
-                  <div className="flex flex-col gap-2 flex-1">
-                    <input
-                      ref={avatarFileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,image/webp"
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => avatarFileInputRef.current?.click()}
-                      disabled={avatarUploading}
-                      className="gap-2 h-8 text-xs"
-                    >
-                      {avatarUploading ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="h-3.5 w-3.5" />
-                      )}
-                      {page.avatar_url ? 'Change Photo' : 'Upload Photo'}
-                    </Button>
-                    {page.avatar_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-2 h-8 text-xs text-destructive hover:text-destructive"
-                        onClick={async () => {
-                          try {
-                            await supabase
-                              .from('pages')
-                              .update({ avatar_url: null })
-                              .eq('id', page!.id);
-                            toast.success('Profile photo removed');
-                            await fetchPageData();
-                            refreshPreview();
-                          } catch {
-                            toast.error('Failed to remove photo');
-                          }
-                        }}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Remove Photo
-                      </Button>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Max 5MB — JPEG, PNG, GIF, WebP
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <DesignEditor
-                pageId={page.id}
-                themeJson={page.theme_json}
-                onUpdate={() => {
-                  fetchPageData();
-                  refreshPreview();
-                }}
-                displayName={page.display_name || undefined}
-                bio={page.bio || undefined}
-                avatarUrl={page.avatar_url || undefined}
-              />
-            </TabsContent>
-          </Tabs>
         </div>
 
-        {/* RIGHT PANEL — live preview centered */}
-        <div className="flex-1 bg-muted/20 flex items-center justify-center overflow-auto py-8">
-          <div data-coach="preview">
-            <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
-          </div>
+        {/* Main content — EditableProfileView fills the screen */}
+        <div className="flex-1 overflow-y-auto">
+          <EditableProfileView
+            page={page}
+            blocks={allBlocks}
+            editMode={true}
+            onBlockEdit={handleEditBlock}
+            onBlockToggle={handleBlockToggle}
+            onBlockReorder={handleBlockReorder}
+            onRefresh={fetchBlocks}
+            selectedMode={selectedMode}
+            onModeChange={setSelectedMode}
+          />
         </div>
       </div>
 
-      {/* ── MOBILE: Live profile preview ── */}
-      <div className="lg:hidden flex items-center justify-center min-h-screen bg-muted/20 py-8">
-        <LivePreviewPanel handle={page.handle} externalRefreshKey={previewRefreshKey} />
-      </div>
-
-      {/* ── DIALOGS — unchanged ── */}
-      <BlockEditorDialog
+      {/* Block editor dialog */}
+      <BlockEditorContent
         blockId={editingBlockId}
         open={editorOpen}
         onOpenChange={handleEditorClose}
-        onSave={refreshPreview}
-      />
-
-      {currentMode && (
-        <SuggestLinksDialog
-          open={suggestLinksOpen}
-          onOpenChange={setSuggestLinksOpen}
-          modeId={currentMode.id}
-          onLinksAdded={refreshPreview}
-        />
-      )}
-
-      <WelcomeCoach username={page?.handle || ''} />
-
-      <MobileDashboard
-        pageId={page.id}
-        modeId={currentMode?.id || null}
-        onSave={refreshPreview}
+        onSave={fetchBlocks}
       />
     </DashboardLayout>
   );
