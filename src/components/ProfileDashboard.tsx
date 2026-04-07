@@ -1,15 +1,19 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
+  Plus,
+  Heart,
   Link as LinkIcon,
-  Share2,
   MousePointer,
+  Type,
+  Palette,
+  Video,
   ShoppingBag,
-  Image as ImageIcon,
-  Mail,
-  Sparkles,
+  Download,
+  Lock,
+  Calendar,
   FileText,
-  ChevronRight,
+  BarChart2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -28,7 +32,7 @@ interface DashboardRow {
   title: string;
   subtitle: string;
   blockType: string | null;
-  action?: () => void;
+  toastMessage?: string;
 }
 
 const sections: { label: string; rows: DashboardRow[] }[] = [
@@ -36,19 +40,19 @@ const sections: { label: string; rows: DashboardRow[] }[] = [
     label: 'My Links',
     rows: [
       {
-        icon: <Share2 className="h-5 w-5 text-white/70" />,
+        icon: <Heart className="h-6 w-6 text-white" />,
         title: 'Manage Platforms',
-        subtitle: 'Add your social media profiles',
+        subtitle: 'Add or edit platform links',
         blockType: 'social_links',
       },
       {
-        icon: <LinkIcon className="h-5 w-5 text-white/70" />,
+        icon: <LinkIcon className="h-6 w-6 text-white" />,
         title: 'Featured Links',
-        subtitle: 'Custom link buttons on your page',
+        subtitle: 'Add link',
         blockType: 'links',
       },
       {
-        icon: <MousePointer className="h-5 w-5 text-white/70" />,
+        icon: <MousePointer className="h-6 w-6 text-white" />,
         title: 'Primary CTA',
         subtitle: 'Your main call-to-action button',
         blockType: 'primary_cta',
@@ -56,30 +60,70 @@ const sections: { label: string; rows: DashboardRow[] }[] = [
     ],
   },
   {
-    label: 'Media',
+    label: 'Appearance',
     rows: [
       {
-        icon: <ImageIcon className="h-5 w-5 text-white/70" />,
-        title: 'Featured Media',
-        subtitle: 'Photos and video links',
-        blockType: 'featured_media',
+        icon: <Type className="h-6 w-6 text-white" />,
+        title: 'Add a Header',
+        subtitle: 'Add custom titles above your links',
+        blockType: null,
+        toastMessage: 'Coming soon!',
       },
       {
-        icon: <ShoppingBag className="h-5 w-5 text-white/70" />,
-        title: 'Products',
-        subtitle: 'Showcase your products',
+        icon: <Palette className="h-6 w-6 text-white" />,
+        title: 'Profile Customization',
+        subtitle: 'Choose fonts, background and text colors',
+        blockType: null,
+        toastMessage: 'Open the Design tab',
+      },
+      {
+        icon: <Video className="h-6 w-6 text-white" />,
+        title: 'Video Profile',
+        subtitle: 'Add video to your profile image',
+        blockType: null,
+        toastMessage: 'Coming soon!',
+      },
+    ],
+  },
+  {
+    label: 'E-Commerce',
+    rows: [
+      {
+        icon: <ShoppingBag className="h-6 w-6 text-white" />,
+        title: 'New Merch',
+        subtitle: 'Add merch',
         blockType: 'product_cards',
       },
     ],
   },
   {
-    label: 'Content',
+    label: 'Products',
     rows: [
       {
-        icon: <FileText className="h-5 w-5 text-white/70" />,
-        title: 'Content Section',
-        subtitle: 'Text and content blocks',
-        blockType: 'content_section',
+        icon: <Download className="h-6 w-6 text-white" />,
+        title: 'Digital Products',
+        subtitle: 'Manage Digital Products',
+        blockType: null,
+        toastMessage: 'Coming soon!',
+      },
+      {
+        icon: <Lock className="h-6 w-6 text-white" />,
+        title: 'Locked Products',
+        subtitle: 'Manage Locked Products',
+        blockType: null,
+        toastMessage: 'Coming soon!',
+      },
+    ],
+  },
+  {
+    label: 'Events',
+    rows: [
+      {
+        icon: <Calendar className="h-6 w-6 text-white" />,
+        title: 'Create Custom Event',
+        subtitle: 'Add custom event',
+        blockType: null,
+        toastMessage: 'Coming soon!',
       },
     ],
   },
@@ -87,21 +131,22 @@ const sections: { label: string; rows: DashboardRow[] }[] = [
     label: 'Forms',
     rows: [
       {
-        icon: <Mail className="h-5 w-5 text-white/70" />,
-        title: 'Email Capture',
-        subtitle: 'Collect visitor emails',
+        icon: <FileText className="h-6 w-6 text-white" />,
+        title: 'Create Form',
+        subtitle: 'Add custom form',
         blockType: 'email_subscribe',
       },
     ],
   },
   {
-    label: 'Coming Soon',
+    label: 'Analytics',
     rows: [
       {
-        icon: <Sparkles className="h-5 w-5 text-white/70" />,
+        icon: <BarChart2 className="h-6 w-6 text-white" />,
         title: 'Tracking Pixels',
-        subtitle: 'Analytics and retargeting',
+        subtitle: 'Add Meta, TikTok, or GA tags',
         blockType: null,
+        toastMessage: 'Coming soon!',
       },
     ],
   },
@@ -115,9 +160,9 @@ export function ProfileDashboard({
   onBlockEdit,
   onRefresh,
 }: ProfileDashboardProps) {
-  const handleRowTap = async (blockType: string | null) => {
-    if (!blockType) {
-      toast('Coming soon!');
+  const handleRowTap = async (row: DashboardRow) => {
+    if (!row.blockType) {
+      toast(row.toastMessage || 'Coming soon!');
       return;
     }
 
@@ -131,7 +176,7 @@ export function ProfileDashboard({
         .from('blocks')
         .select('id')
         .eq('mode_id', modeId)
-        .eq('type', blockType)
+        .eq('type', row.blockType)
         .maybeSingle();
 
       if (error) throw error;
@@ -172,7 +217,7 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              <h2 className="text-lg font-bold text-white">Profile Dashboard</h2>
+              <h2 className="text-lg font-bold text-white">Add Content</h2>
               <button
                 onClick={onClose}
                 className="text-white/60 hover:text-white transition-colors"
@@ -185,23 +230,24 @@ export function ProfileDashboard({
             <div className="flex-1 overflow-y-auto pb-8">
               {sections.map((section) => (
                 <div key={section.label}>
-                  <p className="px-4 pt-5 pb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+                  <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
                     {section.label}
                   </p>
                   {section.rows.map((row) => (
                     <button
                       key={row.title}
-                      onClick={() => handleRowTap(row.blockType)}
-                      className="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-white/5 transition-colors border-b border-white/5"
+                      onClick={() => handleRowTap(row)}
+                      className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
+                      style={{ width: 'calc(100% - 2rem)' }}
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
                         {row.icon}
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-sm font-semibold text-white">{row.title}</p>
+                        <p className="text-sm font-bold text-white">{row.title}</p>
                         <p className="text-xs text-white/50">{row.subtitle}</p>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-white/30" />
+                      <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
                     </button>
                   ))}
                 </div>
