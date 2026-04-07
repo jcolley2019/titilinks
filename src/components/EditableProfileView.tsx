@@ -1243,6 +1243,10 @@ export function EditableProfileView({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'preview'>('idle');
+  const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
+  const [photoScale, setPhotoScale] = useState(1);
+  const [aiProcessing, setAiProcessing] = useState(false);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1295,6 +1299,9 @@ export function EditableProfileView({
     reader.onload = () => {
       setPhotoPreview(reader.result as string);
       setPhotoFile(file);
+      setPhotoStep('choose');
+      setPhotoOffset({ x: 50, y: 30 });
+      setPhotoScale(1);
     };
     reader.readAsDataURL(file);
     if (photoInputRef.current) photoInputRef.current.value = '';
@@ -1320,6 +1327,9 @@ export function EditableProfileView({
       toast.success('Profile photo updated!');
       setPhotoPreview(null);
       setPhotoFile(null);
+      setPhotoStep('idle');
+      setPhotoOffset({ x: 50, y: 30 });
+      setPhotoScale(1);
       onRefresh();
     } catch (err) {
       console.error('Photo upload error:', err);
@@ -1327,6 +1337,39 @@ export function EditableProfileView({
     } finally {
       setPhotoSaving(false);
     }
+  };
+
+  const handleAiCrop = async () => {
+    if (!photoPreview) return;
+    setAiProcessing(true);
+    setPhotoStep('ai');
+    try {
+      const base64 = photoPreview.split(',')[1];
+      const mediaType = photoPreview.split(';')[0].split(':')[1] || 'image/jpeg';
+      const { data, error } = await supabase.functions.invoke('ai-crop', {
+        body: { base64, mediaType },
+      });
+      if (error) throw error;
+      const xPercent = Math.round((data.faceLeft ?? 0.5) * 100);
+      const yPercent = Math.round((data.faceTop ?? 0.3) * 100);
+      setPhotoOffset({ x: xPercent, y: yPercent });
+      setPhotoScale(1.2);
+      setPhotoStep('preview');
+    } catch (err) {
+      console.error('AI crop error:', err);
+      toast.error(t('editor.aiCropFailed'));
+      setPhotoStep('manual');
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  const resetPhoto = () => {
+    setPhotoPreview(null);
+    setPhotoFile(null);
+    setPhotoStep('idle');
+    setPhotoOffset({ x: 50, y: 30 });
+    setPhotoScale(1);
   };
 
   // Get theme
@@ -1450,34 +1493,156 @@ export function EditableProfileView({
               >
                 {t('editor.changePhoto')}
               </button>
-              {photoPreview && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 p-6">
-                  <p className="text-white font-semibold mb-4 text-lg">
-                    {t('editor.previewPhoto')}
-                  </p>
-                  <div className="w-64 h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#C9A55C]/50">
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="flex gap-3 w-full max-w-xs">
-                    <button
-                      onClick={() => { setPhotoPreview(null); setPhotoFile(null); }}
-                      className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
-                      disabled={photoSaving}
-                    >
-                      {t('editor.cancel')}
-                    </button>
-                    <button
-                      onClick={handlePhotoSave}
-                      disabled={photoSaving}
-                      className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
-                    >
-                      {photoSaving ? '...' : t('editor.savePhoto')}
-                    </button>
-                  </div>
+              {photoPreview && photoStep !== 'idle' && (
+                <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
+
+                  {/* CHOOSE STEP */}
+                  {photoStep === 'choose' && (
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-6">
+                      <p className="text-white font-bold text-xl">
+                        {t('editor.editPhoto')}
+                      </p>
+                      <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-white/20">
+                        <img src={photoPreview} alt="Selected" className="w-full h-full object-cover object-top" />
+                      </div>
+                      <p className="text-white/60 text-sm text-center">
+                        {t('editor.chooseEditMethod')}
+                      </p>
+                      <div className="flex flex-col gap-3 w-full max-w-xs">
+                        <button
+                          onClick={() => setPhotoStep('manual')}
+                          className="w-full py-4 rounded-2xl bg-white/10 border border-white/20 text-white font-semibold flex items-center justify-center gap-2"
+                        >
+                          {t('editor.editManually')}
+                        </button>
+                        <button
+                          onClick={handleAiCrop}
+                          className="w-full py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold flex items-center justify-center gap-2"
+                        >
+                          {t('editor.aiAutoCrop')}
+                        </button>
+                      </div>
+                      <button onClick={resetPhoto} className="text-white/40 text-sm">
+                        {t('editor.cancel')}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI PROCESSING STEP */}
+                  {photoStep === 'ai' && (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-4">
+                      <div className="w-12 h-12 border-2 border-[#C9A55C] border-t-transparent rounded-full animate-spin" />
+                      <p className="text-white font-semibold">{t('editor.aiAnalyzing')}</p>
+                    </div>
+                  )}
+
+                  {/* MANUAL CROP STEP */}
+                  {photoStep === 'manual' && (
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-4">
+                      <p className="text-white font-bold text-lg">{t('editor.editManually')}</p>
+                      <p className="text-white/50 text-xs">{t('editor.dragToPosition')}</p>
+                      <div
+                        className="w-64 h-64 rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50 relative touch-none cursor-grab active:cursor-grabbing"
+                        onPointerDown={(e) => {
+                          const el = e.currentTarget;
+                          el.setPointerCapture(e.pointerId);
+                          const startX = e.clientX;
+                          const startY = e.clientY;
+                          const startOx = photoOffset.x;
+                          const startOy = photoOffset.y;
+                          const onMove = (me: PointerEvent) => {
+                            const dx = ((me.clientX - startX) / 256) * -100;
+                            const dy = ((me.clientY - startY) / 256) * -100;
+                            setPhotoOffset({
+                              x: Math.max(0, Math.min(100, startOx + dx)),
+                              y: Math.max(0, Math.min(100, startOy + dy)),
+                            });
+                          };
+                          const onUp = () => {
+                            el.removeEventListener('pointermove', onMove);
+                            el.removeEventListener('pointerup', onUp);
+                          };
+                          el.addEventListener('pointermove', onMove);
+                          el.addEventListener('pointerup', onUp);
+                        }}
+                      >
+                        <img
+                          src={photoPreview}
+                          alt="Crop"
+                          className="w-full h-full object-cover pointer-events-none select-none"
+                          style={{
+                            objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,
+                            transform: `scale(${photoScale})`,
+                          }}
+                          draggable={false}
+                        />
+                      </div>
+                      <div className="w-64 flex items-center gap-3">
+                        <span className="text-white/50 text-xs">-</span>
+                        <input
+                          type="range"
+                          min={1}
+                          max={2}
+                          step={0.05}
+                          value={photoScale}
+                          onChange={(e) => setPhotoScale(parseFloat(e.target.value))}
+                          className="flex-1 accent-[#C9A55C]"
+                        />
+                        <span className="text-white/50 text-xs">+</span>
+                      </div>
+                      <div className="flex gap-3 w-full max-w-xs mt-2">
+                        <button
+                          onClick={() => setPhotoStep('choose')}
+                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
+                        >
+                          {t('editor.cancel')}
+                        </button>
+                        <button
+                          onClick={() => setPhotoStep('preview')}
+                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
+                        >
+                          {t('editor.done')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PREVIEW STEP */}
+                  {photoStep === 'preview' && (
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-6">
+                      <p className="text-white font-semibold text-lg">
+                        {t('editor.previewPhoto')}
+                      </p>
+                      <div className="w-64 h-64 rounded-full overflow-hidden border-2 border-[#C9A55C]/50">
+                        <img
+                          src={photoPreview}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          style={{
+                            objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,
+                            transform: `scale(${photoScale})`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex gap-3 w-full max-w-xs">
+                        <button
+                          onClick={() => setPhotoStep('choose')}
+                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
+                          disabled={photoSaving}
+                        >
+                          {t('editor.cancel')}
+                        </button>
+                        <button
+                          onClick={handlePhotoSave}
+                          disabled={photoSaving}
+                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
+                        >
+                          {photoSaving ? '...' : t('editor.savePhoto')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
             </>
