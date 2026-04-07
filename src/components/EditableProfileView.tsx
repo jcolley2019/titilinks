@@ -17,6 +17,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
 import {
   Link as LinkIcon,
   ShoppingBag,
@@ -1019,7 +1020,10 @@ function SortablePreviewCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
 
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : transition,
+  };
 
   return (
     <div
@@ -1027,8 +1031,8 @@ function SortablePreviewCard({
       style={style}
       className={cn(
         'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
-        'bg-white/[0.03] transition-all',
-        isDragging && 'opacity-90 scale-[1.02] shadow-2xl ring-1 ring-[#C9A55C]/50 z-50',
+        'bg-white/[0.03] transition-all duration-200 ease-out',
+        isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
         isDragActive && !isDragging && 'opacity-50',
         !block.is_enabled && 'opacity-40',
       )}
@@ -1065,21 +1069,29 @@ function SortablePreviewCard({
         </button>
       </div>
 
-      {/* Full-size block content preview */}
-      <div className="p-4 cursor-pointer" onClick={onEdit}>
-        {block.items.length === 0 ? (
-          <div className="py-6 text-center">
-            <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="mt-3 text-xs font-semibold text-[#C9A55C] border border-[#C9A55C]/40 rounded-full px-4 py-1.5 hover:bg-[#C9A55C]/10 transition-colors"
-            >
-              + {t('editor.addContent')}
-            </button>
-          </div>
-        ) : (
-          <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
+      {/* Full-size block content preview — smooth collapse during drag */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
+          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
         )}
+        onClick={!isDragActive ? onEdit : undefined}
+      >
+        <div className="p-4">
+          {block.items.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="mt-3 text-xs font-semibold text-[#C9A55C] border border-[#C9A55C]/40 rounded-full px-4 py-1.5 hover:bg-[#C9A55C]/10 transition-colors"
+              >
+                + {t('editor.addContent')}
+              </button>
+            </div>
+          ) : (
+            <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1122,7 +1134,7 @@ export function EditableProfileView({
 
   // Drag sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8, delay: 100, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -1317,7 +1329,7 @@ export function EditableProfileView({
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
                 <SortableContext items={displayBlocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                   {displayBlocks.map((block) => (
                     <SortablePreviewCard
