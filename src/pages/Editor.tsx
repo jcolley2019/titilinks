@@ -120,6 +120,32 @@ export default function Editor() {
     }
   };
 
+  // Default block types every mode should have
+  const DEFAULT_BLOCK_TYPES = [
+    { type: 'primary_cta', title: 'Primary CTA' },
+    { type: 'product_cards', title: 'Products' },
+    { type: 'social_links', title: 'Social Links' },
+    { type: 'links', title: 'Links' },
+    { type: 'gallery', title: 'Gallery' },
+  ] as const;
+
+  const ensureDefaultBlocks = async (modeId: string, existingTypes: string[]) => {
+    const missing = DEFAULT_BLOCK_TYPES.filter((d) => !existingTypes.includes(d.type));
+    if (missing.length === 0) return false;
+
+    const maxOrder = existingTypes.length;
+    const inserts = missing.map((d, i) => ({
+      mode_id: modeId,
+      type: d.type as any,
+      title: d.title,
+      is_enabled: true,
+      order_index: maxOrder + i,
+    }));
+
+    await supabase.from('blocks').insert(inserts);
+    return true;
+  };
+
   const fetchBlocks = async () => {
     const mode = modes.find((m) => m.type === selectedMode);
     if (!mode) {
@@ -128,7 +154,7 @@ export default function Editor() {
     }
 
     try {
-      const { data: blocksData, error: blocksError } = await supabase
+      let { data: blocksData, error: blocksError } = await supabase
         .from('blocks')
         .select('*')
         .eq('mode_id', mode.id)
@@ -136,7 +162,19 @@ export default function Editor() {
 
       if (blocksError) throw blocksError;
 
-      const blocks = blocksData || [];
+      let blocks = blocksData || [];
+
+      // Auto-create missing default blocks for existing users
+      const existingTypes = blocks.map((b) => b.type);
+      const created = await ensureDefaultBlocks(mode.id, existingTypes);
+      if (created) {
+        const { data: refreshed } = await supabase
+          .from('blocks')
+          .select('*')
+          .eq('mode_id', mode.id)
+          .order('order_index', { ascending: true });
+        blocks = refreshed || [];
+      }
       if (blocks.length === 0) {
         setAllBlocks([]);
         return;
