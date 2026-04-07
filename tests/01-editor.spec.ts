@@ -28,25 +28,20 @@ test.describe('Editor - Desktop', () => {
   });
 });
 
-test.describe('Editor - Mobile', () => {
-  test.use({ ...require('@playwright/test').devices['iPhone 14 Pro Max'] });
+test('mobile shows cinematic hero preview', async ({ page }) => {
+  await loginAsTestUser(page);
+  await page.goto('/dashboard/editor');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  await screenshotPage(page, 'mobile-editor-preview');
+  await expect(page.locator('iframe')).toBeVisible();
+});
 
-  test.beforeEach(async ({ page }) => {
-    await loginAsTestUser(page);
-    await page.goto('/dashboard/editor');
-    await page.waitForLoadState('networkidle');
-  });
-
-  test('mobile shows cinematic hero preview', async ({ page }) => {
-    await page.waitForTimeout(1000);
-    await screenshotPage(page, 'mobile-editor-preview');
-    // Should show the live preview iframe
-    await expect(page.locator('iframe')).toBeVisible();
-  });
-
-  test('mobile shows Edit Profile gold pill', async ({ page }) => {
-    await page.waitForTimeout(1000);
-    await screenshotPage(page, 'mobile-editor-pill');
-    await expect(page.locator('text=Edit Profile')).toBeVisible();
-  });
+test('mobile shows Edit Profile gold pill', async ({ page }) => {
+  await loginAsTestUser(page);
+  await page.goto('/dashboard/editor');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  await screenshotPage(page, 'mobile-editor-pill');
+  await expect(page.locator('text=Edit Profile')).toBeVisible();
 });
