@@ -1124,7 +1124,9 @@ function SortablePreviewCard({
         onClick={!isDragActive ? onEdit : undefined}
       >
         <div className="p-4">
-          {block.items.length === 0 ? (
+          {block.type === 'gallery' ? (
+            <GalleryBlock block={block} theme={theme} onEdit={onEdit} />
+          ) : block.items.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
               <button
@@ -1134,8 +1136,6 @@ function SortablePreviewCard({
                 + {t('editor.addContent')}
               </button>
             </div>
-          ) : block.type === 'gallery' ? (
-            <GalleryBlock block={block} theme={theme} onEdit={onEdit} />
           ) : (
             <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
           )}
