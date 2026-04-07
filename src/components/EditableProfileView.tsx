@@ -171,7 +171,7 @@ function BlockRenderer({ block, onOutboundClick, theme }: ThemedBlockProps) {
     case 'content_section':
       return <ContentSectionBlock {...blockProps} />;
     case 'gallery':
-      return <GalleryBlock block={block} theme={theme} />;
+      return <GalleryBlock block={block} theme={theme} onEdit={() => {}} />;
     default:
       return null;
   }
@@ -993,43 +993,45 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
   );
 }
 
-function GalleryBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
-  if (block.items.length === 0) {
-    return (
-      <div className="grid grid-cols-2 gap-2">
-        {[1, 2].map((i) => (
-          <div
-            key={i}
-            className="aspect-square rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: `${theme.buttons.fill_color}10`, border: `1px dashed ${theme.buttons.fill_color}30` }}
-          >
-            <ImageIcon className="h-8 w-8 opacity-20" style={{ color: theme.typography.text_color }} />
-          </div>
-        ))}
-      </div>
-    );
-  }
+function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void }) {
+  const count = block.items.length;
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {block.items.map((item) => (
-        <div
-          key={item.id}
-          className="aspect-square rounded-xl overflow-hidden"
-          style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+    <div className="space-y-3">
+      <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+        Gallery ({count} {count === 1 ? 'photo' : 'photos'})
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {block.items.map((item) => (
+          <div
+            key={item.id}
+            className="aspect-square rounded-xl overflow-hidden"
+            style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+          >
+            {item.image_url ? (
+              <ThumbnailImage
+                src={item.image_url}
+                alt={item.label || 'Gallery photo'}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
+              </div>
+            )}
+          </div>
+        ))}
+        {/* Always show + add tile */}
+        <button
+          onClick={onEdit}
+          className="aspect-square rounded-xl flex items-center justify-center transition-colors"
+          style={{
+            backgroundColor: `${theme.buttons.fill_color}08`,
+            border: `2px dashed ${theme.buttons.fill_color}30`,
+          }}
         >
-          {item.image_url ? (
-            <ThumbnailImage
-              src={item.image_url}
-              alt={item.label || 'Gallery photo'}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
-            </div>
-          )}
-        </div>
-      ))}
+          <span className="text-3xl font-light opacity-40" style={{ color: theme.typography.text_color }}>+</span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -1132,6 +1134,8 @@ function SortablePreviewCard({
                 + {t('editor.addContent')}
               </button>
             </div>
+          ) : block.type === 'gallery' ? (
+            <GalleryBlock block={block} theme={theme} onEdit={onEdit} />
           ) : (
             <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
           )}
