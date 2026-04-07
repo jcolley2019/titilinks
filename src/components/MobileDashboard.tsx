@@ -16,6 +16,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { BlockEditorDialog } from '@/components/BlockEditorDialog';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface MobileDashboardProps {
   pageId: string;
@@ -26,87 +27,87 @@ interface MobileDashboardProps {
 interface DashboardRow {
   type: string;
   icon: React.ReactNode;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
   action: 'block' | 'navigate';
   navigateTo?: string;
 }
 
-const CATEGORIES: { label: string; rows: DashboardRow[] }[] = [
+const CATEGORIES: { labelKey: string; rows: DashboardRow[] }[] = [
   {
-    label: 'MY LINKS',
+    labelKey: 'dashboard.myLinks',
     rows: [
       {
         type: 'social_links',
         icon: <Share2 className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Social Links',
-        subtitle: 'Add your social platforms',
+        titleKey: 'blocks.social_links.title',
+        subtitleKey: 'blocks.social_links.subtitle',
         action: 'block',
       },
       {
         type: 'links',
         icon: <Link className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Custom Links',
-        subtitle: 'Add custom link buttons',
+        titleKey: 'blocks.links.title',
+        subtitleKey: 'blocks.links.subtitle',
         action: 'block',
       },
       {
         type: 'primary_cta',
         icon: <MousePointer className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Primary CTA',
-        subtitle: 'Your main call-to-action button',
+        titleKey: 'blocks.primary_cta.title',
+        subtitleKey: 'blocks.primary_cta.subtitle',
         action: 'block',
       },
     ],
   },
   {
-    label: 'APPEARANCE',
+    labelKey: 'dashboard.appearance',
     rows: [
       {
         type: '_design',
         icon: <Palette className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Design & Theme',
-        subtitle: 'Colors, fonts, background',
+        titleKey: 'dashboard.profileCustomization',
+        subtitleKey: 'dashboard.profileCustomizationDesc',
         action: 'navigate',
         navigateTo: '/dashboard/editor?tab=design',
       },
       {
         type: '_page_style',
         icon: <LayoutTemplate className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Page Style',
-        subtitle: 'Classic, Hero, or Cinematic layout',
+        titleKey: 'dashboard.videoProfile',
+        subtitleKey: 'dashboard.videoProfileDesc',
         action: 'navigate',
         navigateTo: '/dashboard/editor?tab=design',
       },
     ],
   },
   {
-    label: 'MEDIA',
+    labelKey: 'dashboard.ecommerce',
     rows: [
       {
         type: 'featured_media',
         icon: <Image className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Featured Media',
-        subtitle: 'Photos and video links',
+        titleKey: 'blocks.featured_media.title',
+        subtitleKey: 'blocks.featured_media.subtitle',
         action: 'block',
       },
       {
         type: 'product_cards',
         icon: <ShoppingBag className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Products',
-        subtitle: 'Product cards for your shop',
+        titleKey: 'blocks.product_cards.title',
+        subtitleKey: 'blocks.product_cards.subtitle',
         action: 'block',
       },
     ],
   },
   {
-    label: 'MORE',
+    labelKey: 'dashboard.forms',
     rows: [
       {
         type: 'email_subscribe',
         icon: <Mail className="h-5 w-5 text-[#C9A55C]" />,
-        title: 'Email Capture',
-        subtitle: 'Collect visitor emails',
+        titleKey: 'blocks.email_subscribe.title',
+        subtitleKey: 'blocks.email_subscribe.subtitle',
         action: 'block',
       },
     ],
@@ -115,6 +116,7 @@ const CATEGORIES: { label: string; rows: DashboardRow[] }[] = [
 
 export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [blockMap, setBlockMap] = useState<Record<string, string>>({});
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -165,7 +167,7 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
         .insert({
           mode_id: modeId,
           type: row.type as 'primary_cta' | 'links' | 'social_links' | 'product_cards' | 'featured_media' | 'email_subscribe' | 'hero_card' | 'social_icon_row' | 'content_section',
-          title: row.title,
+          title: t(row.titleKey),
           is_enabled: true,
           order_index: Object.keys(blockMap).length,
         })
@@ -251,10 +253,10 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
               {/* Scrollable Content */}
               <div className="flex-1 overflow-y-auto px-4 py-4">
                 {CATEGORIES.map((category) => (
-                  <div key={category.label} className="mb-6">
+                  <div key={category.labelKey} className="mb-6">
                     {/* Category Label */}
                     <p className="text-xs font-semibold uppercase tracking-widest text-[#C9A55C] mb-3">
-                      {category.label}
+                      {t(category.labelKey)}
                     </p>
 
                     {/* Rows */}
@@ -273,9 +275,9 @@ export function MobileDashboard({ pageId, modeId, onSave }: MobileDashboardProps
 
                             {/* Text */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-white">{row.title}</p>
+                              <p className="text-sm font-medium text-white">{t(row.titleKey)}</p>
                               <p className="text-xs text-[#666666]">
-                                {row.subtitle}
+                                {t(row.subtitleKey)}
                               </p>
                             </div>
 

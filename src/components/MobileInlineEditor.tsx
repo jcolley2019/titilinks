@@ -1,6 +1,7 @@
 import { Switch } from '@/components/ui/switch';
 import { ChevronRight, Camera } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const BLOCK_ICONS: Record<string, string> = {
   primary_cta: '🎯',
@@ -12,18 +13,6 @@ const BLOCK_ICONS: Record<string, string> = {
   hero_card: '🖼️',
   social_icon_row: '💬',
   content_section: '📝',
-};
-
-const BLOCK_LABELS: Record<string, string> = {
-  primary_cta: 'Primary CTA',
-  social_links: 'Social Links',
-  links: 'Custom Links',
-  product_cards: 'Products',
-  featured_media: 'Featured Media',
-  email_subscribe: 'Email Capture',
-  hero_card: 'Hero Card',
-  social_icon_row: 'Social Icons',
-  content_section: 'Content Section',
 };
 
 interface MobileBlock {
@@ -52,6 +41,7 @@ export function MobileInlineEditor({
   onEditBlock,
   onToggleBlock,
 }: MobileInlineEditorProps) {
+  const { t } = useLanguage();
   const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
 
   return (
@@ -131,7 +121,7 @@ export function MobileInlineEditor({
                   className="flex-1 min-w-0 text-left"
                 >
                   <p className="text-sm font-medium text-white truncate">
-                    {BLOCK_LABELS[block.type] || block.type}
+                    {t(`blocks.${block.type}.title`) || block.type}
                   </p>
                   <p className="text-xs text-[#666] truncate">
                     Tap to edit

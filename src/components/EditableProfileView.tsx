@@ -1014,17 +1014,7 @@ const BLOCK_ICONS: Record<string, React.ReactNode> = {
   content_section: <FileText className="h-4 w-4 text-white/70" />,
 };
 
-const BLOCK_TITLES: Record<string, string> = {
-  primary_cta: 'Primary CTA',
-  product_cards: 'Products',
-  featured_media: 'Featured Media',
-  social_links: 'Social Links',
-  links: 'Custom Links',
-  email_subscribe: 'Email Capture',
-  social_icon_row: 'Social Icons',
-  hero_card: 'Hero Card',
-  content_section: 'Content Section',
-};
+// Block titles are resolved via t() in the component
 
 function SortableCompactCard({
   block,
@@ -1037,6 +1027,7 @@ function SortableCompactCard({
   onToggle: (enabled: boolean) => void;
   isDragActive: boolean;
 }) {
+  const { t } = useLanguage();
   const {
     attributes,
     listeners,
@@ -1076,7 +1067,7 @@ function SortableCompactCard({
       </div>
 
       <span className="flex-1 text-sm font-medium text-white truncate">
-        {BLOCK_TITLES[block.type] || block.type}
+        {t(`blocks.${block.type}.title`) || block.type}
       </span>
 
       {/* Toggle */}
