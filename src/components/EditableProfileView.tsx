@@ -994,7 +994,21 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function GalleryBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
-  if (block.items.length === 0) return null;
+  if (block.items.length === 0) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {[1, 2].map((i) => (
+          <div
+            key={i}
+            className="aspect-square rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `${theme.buttons.fill_color}10`, border: `1px dashed ${theme.buttons.fill_color}30` }}
+          >
+            <ImageIcon className="h-8 w-8 opacity-20" style={{ color: theme.typography.text_color }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -1008,7 +1022,6 @@ function GalleryBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'
             <ThumbnailImage
               src={item.image_url}
               alt={item.label || 'Gallery photo'}
-              className="hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
