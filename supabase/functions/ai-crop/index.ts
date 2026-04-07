@@ -57,7 +57,7 @@ serve(async (req) => {
               },
               {
                 type: "text",
-                text: 'Analyze this photo for face detection. Return ONLY a JSON object: {"faceTop": 0.3, "faceLeft": 0.5, "faceSize": 0.4} where values are 0-1 representing percentage of image dimensions. faceTop = vertical center of face from top, faceLeft = horizontal center from left, faceSize = face height as fraction of image height. If no face found, return {"faceTop": 0.35, "faceLeft": 0.5, "faceSize": 0.5}.',
+                text: 'Analyze this photo. Detect the face position. Return ONLY a JSON object: {"faceTop": 0.2, "faceLeft": 0.5, "faceSize": 0.4} where faceTop is the face CENTER position from top (0=top, 1=bottom), faceLeft is face center from left (0=left, 1=right), faceSize is face height as fraction of image. For portrait/selfie photos the face is typically in upper half. Be precise about vertical position.',
               },
             ],
           },
@@ -79,7 +79,14 @@ serve(async (req) => {
     const clean = text.replace(/```json|```/g, "").trim();
     const facePosition = JSON.parse(clean) as FacePosition;
 
-    return new Response(JSON.stringify(facePosition), {
+    // Push face higher — subtract 15% to leave room for name overlay at bottom
+    const adjustedPosition: FacePosition = {
+      faceTop: Math.max(0, facePosition.faceTop - 0.15),
+      faceLeft: facePosition.faceLeft,
+      faceSize: facePosition.faceSize,
+    };
+
+    return new Response(JSON.stringify(adjustedPosition), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
