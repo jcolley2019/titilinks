@@ -483,6 +483,8 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.content_section.subtitle': 'Text and content block',
     'blocks.gallery.title': 'Gallery',
     'blocks.gallery.subtitle': 'Photo gallery',
+    'blocks.bio.title': 'Bio',
+    'blocks.bio.subtitle': 'Tell visitors about yourself',
 
     // Editor Page
     'editor.title': 'Link Editor',
@@ -1278,6 +1280,8 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.content_section.subtitle': 'Bloque de texto y contenido',
     'blocks.gallery.title': 'Galería',
     'blocks.gallery.subtitle': 'Galería de fotos',
+    'blocks.bio.title': 'Biografía',
+    'blocks.bio.subtitle': 'Cuéntales sobre ti',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',

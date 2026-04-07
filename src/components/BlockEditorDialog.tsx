@@ -10,6 +10,7 @@ import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
+import { BioEditor } from '@/components/editors/BioEditor';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
@@ -154,6 +155,16 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
 
     case 'gallery':
       return null;
+
+    case 'bio':
+      return (
+        <BioEditor
+          blockId={blockId}
+          open={open}
+          onOpenChange={onOpenChange}
+          onSave={onSave}
+        />
+      );
 
     default:
       toast.error(t('blockEditor.unknownType'));

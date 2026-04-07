@@ -16,6 +16,7 @@ import {
   BarChart2,
   LayoutGrid,
   Image as ImageIcon,
+  User,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -64,6 +65,12 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.primaryCta',
         subtitleKey: 'dashboard.primaryCtaDesc',
         blockType: 'primary_cta',
+      },
+      {
+        icon: <User className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.bio.title',
+        subtitleKey: 'blocks.bio.subtitle',
+        blockType: 'bio',
       },
     ],
   },

@@ -175,6 +175,8 @@ function BlockRenderer({ block, onOutboundClick, theme }: ThemedBlockProps) {
       return <ContentSectionBlock {...blockProps} />;
     case 'gallery':
       return <GalleryBlock block={block} theme={theme} onEdit={() => {}} />;
+    case 'bio':
+      return <BioBlock block={block} theme={theme} />;
     default:
       return null;
   }
@@ -992,6 +994,22 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
+  const bioText = block.items[0]?.label || '';
+  if (!bioText) return null;
+
+  return (
+    <div className="px-1">
+      <p
+        className="text-sm leading-relaxed whitespace-pre-wrap"
+        style={{ color: theme.typography.text_color, opacity: 0.85 }}
+      >
+        {bioText}
+      </p>
     </div>
   );
 }
