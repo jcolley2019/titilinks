@@ -1003,7 +1003,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollBy({
-      left: dir === 'right' ? 180 : -180,
+      left: dir === 'right' ? scrollRef.current.clientWidth : -scrollRef.current.clientWidth,
       behavior: 'smooth',
     });
   };
@@ -1015,7 +1015,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
       </p>
 
       <div className="relative">
-        {count > 2 && (
+        {count > 1 && (
           <button
             onClick={(e) => { e.stopPropagation(); scroll('left'); }}
             className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors -ml-2"
@@ -1026,14 +1026,14 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
 
         <div
           ref={scrollRef}
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+          className="flex overflow-x-auto snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {block.items.map((item) => (
             <div
               key={item.id}
-              className="flex-shrink-0 w-40 h-40 rounded-xl overflow-hidden snap-start"
-              style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+              className="flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
+              style={{ minWidth: '100%', aspectRatio: '4/3', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
                 <img
@@ -1052,8 +1052,10 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
 
           <button
             onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
-            className="flex-shrink-0 w-40 h-40 rounded-xl flex items-center justify-center snap-start transition-colors"
+            className="flex-shrink-0 rounded-xl flex items-center justify-center snap-start transition-colors"
             style={{
+              minWidth: '100%',
+              aspectRatio: '4/3',
               backgroundColor: `${theme.buttons.fill_color}08`,
               border: `2px dashed ${theme.buttons.fill_color}30`,
             }}
@@ -1062,7 +1064,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
           </button>
         </div>
 
-        {count > 2 && (
+        {count > 1 && (
           <button
             onClick={(e) => { e.stopPropagation(); scroll('right'); }}
             className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors -mr-2"
