@@ -1239,6 +1239,10 @@ export function EditableProfileView({
   const { user } = useAuth();
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const [activeGalleryBlockId, setActiveGalleryBlockId] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1282,6 +1286,47 @@ export function EditableProfileView({
   const openGalleryPicker = (blockId: string) => {
     setActiveGalleryBlockId(blockId);
     setTimeout(() => galleryFileInputRef.current?.click(), 50);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoPreview(reader.result as string);
+      setPhotoFile(file);
+    };
+    reader.readAsDataURL(file);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handlePhotoSave = async () => {
+    if (!photoFile || !user) return;
+    setPhotoSaving(true);
+    try {
+      const fileExt = photoFile.name.split('.').pop();
+      const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, photoFile, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      await supabase
+        .from('pages')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', page.id);
+      toast.success('Profile photo updated!');
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      onRefresh();
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      toast.error('Failed to upload photo');
+    } finally {
+      setPhotoSaving(false);
+    }
   };
 
   // Get theme
@@ -1398,12 +1443,44 @@ export function EditableProfileView({
             @{page.handle}
           </p>
           {editMode && (
-            <button
-              onClick={() => toast(t('editor.changePhotoToast'))}
-              className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
-            >
-              {t('editor.changePhoto')}
-            </button>
+            <>
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
+              >
+                {t('editor.changePhoto')}
+              </button>
+              {photoPreview && (
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 p-6">
+                  <p className="text-white font-semibold mb-4 text-lg">
+                    {t('editor.previewPhoto')}
+                  </p>
+                  <div className="w-64 h-64 rounded-2xl overflow-hidden mb-6 border-2 border-[#C9A55C]/50">
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+                  <div className="flex gap-3 w-full max-w-xs">
+                    <button
+                      onClick={() => { setPhotoPreview(null); setPhotoFile(null); }}
+                      className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
+                      disabled={photoSaving}
+                    >
+                      {t('editor.cancel')}
+                    </button>
+                    <button
+                      onClick={handlePhotoSave}
+                      disabled={photoSaving}
+                      className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
+                    >
+                      {photoSaving ? '...' : t('editor.savePhoto')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           {page.bio && (
             <p className="text-sm mt-2 max-w-xs mx-auto text-white/80" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
@@ -1553,6 +1630,15 @@ export function EditableProfileView({
         multiple
         className="hidden"
         onChange={handleGalleryFileSelect}
+      />
+
+      {/* Hidden file input for profile photo upload */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={handlePhotoSelect}
       />
     </div>
   );
