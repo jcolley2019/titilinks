@@ -153,14 +153,7 @@ export function BlockEditorDialog({ blockId, open, onOpenChange, onSave }: Block
       );
 
     case 'gallery':
-      return (
-        <GalleryEditor
-          blockId={blockId}
-          open={open}
-          onOpenChange={onOpenChange}
-          onSave={onSave}
-        />
-      );
+      return null;
 
     default:
       toast.error(t('blockEditor.unknownType'));

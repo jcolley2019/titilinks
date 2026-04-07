@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
 import {
   DndContext,
@@ -1053,12 +1055,14 @@ function SortablePreviewCard({
   block,
   onEdit,
   onToggle,
+  onGalleryAdd,
   isDragActive,
   theme,
 }: {
   block: BlockWithItems;
   onEdit: () => void;
   onToggle: (enabled: boolean) => void;
+  onGalleryAdd: (blockId: string) => void;
   isDragActive: boolean;
   theme: ThemeJson;
 }) {
@@ -1125,7 +1129,7 @@ function SortablePreviewCard({
       >
         <div className="p-4">
           {block.type === 'gallery' ? (
-            <GalleryBlock block={block} theme={theme} onEdit={onEdit} />
+            <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} />
           ) : block.items.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
@@ -1160,6 +1164,53 @@ export function EditableProfileView({
   onAddContent,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeGalleryBlockId, setActiveGalleryBlockId] = useState<string | null>(null);
+
+  const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !activeGalleryBlockId || !user) return;
+
+    const filesToAdd = Array.from(files).slice(0, 20);
+
+    for (const file of filesToAdd) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('products')
+          .getPublicUrl(fileName);
+
+        await supabase.from('block_items').insert({
+          block_id: activeGalleryBlockId,
+          label: 'Photo',
+          url: '',
+          image_url: urlData.publicUrl,
+          order_index: 999,
+        });
+      } catch (err) {
+        console.error('Upload error:', err);
+        toast.error('Failed to upload photo');
+      }
+    }
+
+    onRefresh();
+    if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+    setActiveGalleryBlockId(null);
+  };
+
+  const openGalleryPicker = (blockId: string) => {
+    setActiveGalleryBlockId(blockId);
+    setTimeout(() => galleryFileInputRef.current?.click(), 50);
+  };
 
   // Get theme
   const rawTheme = getThemeWithDefaults(page.theme_json);
@@ -1385,6 +1436,7 @@ export function EditableProfileView({
                       block={block}
                       onEdit={() => onBlockEdit(block.id)}
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
+                      onGalleryAdd={openGalleryPicker}
                       isDragActive={isDragActive}
                       theme={theme}
                     />
@@ -1420,6 +1472,16 @@ export function EditableProfileView({
           </p>
         </footer>
       </div>
+
+      {/* Hidden file input for gallery instant upload */}
+      <input
+        ref={galleryFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        multiple
+        className="hidden"
+        onChange={handleGalleryFileSelect}
+      />
     </div>
   );
 }
