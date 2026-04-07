@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -183,6 +184,8 @@ function BlockRenderer({ block, onOutboundClick, theme }: ThemedBlockProps) {
 }
 
 function PrimaryCtaBlock({ block, theme }: ThemedBlockProps) {
+  const { t } = useLanguage();
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const item = block.items[0];
   if (!item) return null;
 
@@ -206,9 +209,9 @@ function PrimaryCtaBlock({ block, theme }: ThemedBlockProps) {
                 <ShieldAlert className="h-4 w-4 opacity-70" />
               </div>
             )}
-            <p className="font-semibold text-lg">{item.label}</p>
+            <p className="font-semibold text-lg">{tc(item.label)}</p>
             {item.subtitle && (
-              <p className="text-sm opacity-80 mt-1">{item.subtitle}</p>
+              <p className="text-sm opacity-80 mt-1">{tc(item.subtitle)}</p>
             )}
           </div>
         </LinkButton>
@@ -245,6 +248,8 @@ function SocialLinksBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function LinksBlock({ block, theme }: ThemedBlockProps) {
+  const { t } = useLanguage();
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   if (block.items.length === 0) return null;
 
   let blockStyle: Partial<BlockStyleConfig> = {};
@@ -269,7 +274,7 @@ function LinksBlock({ block, theme }: ThemedBlockProps) {
             <div className="flex items-center justify-between w-full">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium truncate">{item.label}</p>
+                  <p className="font-medium truncate">{tc(item.label)}</p>
                   {item.is_adult && (
                     <span className="text-[10px] font-semibold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5 flex-shrink-0">
                       <ShieldAlert className="h-3 w-3" />
@@ -281,12 +286,12 @@ function LinksBlock({ block, theme }: ThemedBlockProps) {
                       className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
                       style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
                     >
-                      {item.badge}
+                      {tc(item.badge)}
                     </span>
                   )}
                 </div>
                 {item.subtitle && (
-                  <p className="text-xs truncate mt-0.5 opacity-60">{item.subtitle}</p>
+                  <p className="text-xs truncate mt-0.5 opacity-60">{tc(item.subtitle)}</p>
                 )}
               </div>
             </div>
@@ -298,6 +303,8 @@ function LinksBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
+  const { t } = useLanguage();
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   if (block.items.length === 0) return null;
 
   let layout: 'stacked' | 'split' = 'stacked';
@@ -358,7 +365,7 @@ function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
               className="absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded"
               style={{ backgroundColor: theme.buttons.fill_color, color: theme.buttons.text_color }}
             >
-              {item.badge}
+              {tc(item.badge)}
             </span>
           )}
           {item.compare_at_price && item.price && item.compare_at_price > item.price && (
@@ -368,7 +375,7 @@ function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
           )}
         </div>
         <div className="p-3 space-y-2">
-          <p className="font-semibold text-sm line-clamp-2" style={{ color: theme.typography.text_color }}>{item.label}</p>
+          <p className="font-semibold text-sm line-clamp-2" style={{ color: theme.typography.text_color }}>{tc(item.label)}</p>
           {item.price && (
             <div className="flex items-center gap-2">
               <span className="font-bold text-base" style={{ color: theme.buttons.fill_color }}>
@@ -382,7 +389,7 @@ function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
             </div>
           )}
           {!item.price && item.subtitle && (
-            <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
+            <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>{tc(item.subtitle)}</p>
           )}
           {item.cta_label && (
             <div
@@ -427,18 +434,18 @@ function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-start justify-between gap-2">
-              <p className="font-semibold text-sm line-clamp-2" style={{ color: theme.typography.text_color }}>{item.label}</p>
+              <p className="font-semibold text-sm line-clamp-2" style={{ color: theme.typography.text_color }}>{tc(item.label)}</p>
               {item.badge && (
                 <span
                   className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
                   style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
                 >
-                  {item.badge}
+                  {tc(item.badge)}
                 </span>
               )}
             </div>
             {item.subtitle && (
-              <p className="text-xs mt-1 opacity-60 line-clamp-1" style={{ color: theme.typography.text_color }}>{item.subtitle}</p>
+              <p className="text-xs mt-1 opacity-60 line-clamp-1" style={{ color: theme.typography.text_color }}>{tc(item.subtitle)}</p>
             )}
           </div>
           <div className="flex items-center justify-between gap-2 mt-2">
@@ -495,6 +502,8 @@ function ProductCardsBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function FeaturedMediaBlock({ block, theme }: ThemedBlockProps) {
+  const { t } = useLanguage();
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   if (block.items.length === 0) return null;
 
   const getButtonRadius = () => {
@@ -535,7 +544,7 @@ function FeaturedMediaBlock({ block, theme }: ThemedBlockProps) {
                     </div>
                   )}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <p className="font-semibold text-white">{item.label}</p>
+                    <p className="font-semibold text-white">{tc(item.label)}</p>
                   </div>
                 </div>
               ) : (
@@ -777,6 +786,8 @@ function EmailSubscribeBlock({ block, theme }: { block: BlockWithItems; theme: T
 }
 
 function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
+  const { t } = useLanguage();
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -867,14 +878,14 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
             className="font-medium text-sm line-clamp-2"
             style={{ color: theme.typography.text_color }}
           >
-            {item.label}
+            {tc(item.label)}
           </p>
           {item.subtitle && (
             <p
               className="text-xs mt-1 opacity-60"
               style={{ color: theme.typography.text_color }}
             >
-              {item.subtitle}
+              {tc(item.subtitle)}
             </p>
           )}
         </div>
