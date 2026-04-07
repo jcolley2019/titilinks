@@ -336,6 +336,7 @@ export default function Editor() {
               onRefresh={fetchBlocks}
               selectedMode={selectedMode}
               onModeChange={setSelectedMode}
+              onAddContent={() => setProfileDashboardOpen(true)}
             />
           </div>
         </div>
@@ -353,15 +354,8 @@ export default function Editor() {
           onRefresh={fetchBlocks}
           selectedMode={selectedMode}
           onModeChange={setSelectedMode}
+          onAddContent={() => setProfileDashboardOpen(true)}
         />
-
-        {/* Gold "Add Content" pill */}
-        <button
-          onClick={() => setProfileDashboardOpen(true)}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 bg-[#C9A55C] text-[#0e0c09] font-bold px-8 py-3 rounded-full shadow-lg text-sm active:scale-95 transition-transform"
-        >
-          ✦ Add Content
-        </button>
       </div>
 
       {/* ═══ ProfileDashboard panel ═══ */}

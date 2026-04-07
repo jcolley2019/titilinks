@@ -64,6 +64,7 @@ interface EditableProfileViewProps {
   onRefresh: () => void;
   selectedMode: 'shop' | 'recruit';
   onModeChange: (mode: 'shop' | 'recruit') => void;
+  onAddContent?: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1112,6 +1113,7 @@ export function EditableProfileView({
   onRefresh,
   selectedMode,
   onModeChange,
+  onAddContent,
 }: EditableProfileViewProps) {
   // Get theme
   const rawTheme = getThemeWithDefaults(page.theme_json);
@@ -1283,9 +1285,19 @@ export function EditableProfileView({
         {editMode ? (
           /* Compact block cards for edit mode */
           <div className="pb-32">
-            <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase tracking-widest text-white/40">
-              Blocks
-            </p>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/40">
+                Blocks
+              </p>
+              {onAddContent && (
+                <button
+                  onClick={onAddContent}
+                  className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
+                >
+                  ✦ Add Content
+                </button>
+              )}
+            </div>
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
             ) : (
