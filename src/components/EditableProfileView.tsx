@@ -1222,29 +1222,59 @@ export function EditableProfileView({
           <p className="text-sm text-white/70 mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
             @{page.handle}
           </p>
+          {editMode && (
+            <button
+              onClick={() => onBlockEdit('photo')}
+              className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
+            >
+              {t('editor.changePhoto')}
+            </button>
+          )}
           {page.bio && (
             <p className="text-sm mt-2 max-w-xs mx-auto text-white/80" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
               {page.bio}
             </p>
           )}
 
-          {/* Social icons in header */}
-          {socialBlocks.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {socialBlocks.flatMap((block) =>
-                block.items.map((item) => (
-                  <span
-                    key={item.id}
-                    className="flex items-center justify-center h-10 w-10 rounded-full"
-                    style={{ background: '#ffffff20' }}
-                    title={item.label}
+          {/* Social icons in header — deduplicated by label */}
+          {socialBlocks.length > 0 && (() => {
+            const allSocialItems = socialBlocks.flatMap(b => b.items);
+            const seenLabels = new Set<string>();
+            const dedupedSocialItems = allSocialItems.filter(item => {
+              const key = item.label.toLowerCase();
+              if (seenLabels.has(key)) return false;
+              seenLabels.add(key);
+              return true;
+            });
+            return (
+              <>
+                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                  {dedupedSocialItems.map((item) => (
+                    <span
+                      key={item.id}
+                      className="flex items-center justify-center h-10 w-10 rounded-full"
+                      style={{ background: '#ffffff20' }}
+                      title={item.label}
+                    >
+                      <SocialSvgIcon label={item.label} size={18} color="#ffffff" />
+                    </span>
+                  ))}
+                </div>
+                {editMode && (
+                  <button
+                    onClick={() => {
+                      const socialBlock = socialBlocks[0];
+                      if (socialBlock) onBlockEdit(socialBlock.id);
+                    }}
+                    className="text-xs text-white/40 hover:text-white/70 mt-2 flex items-center gap-1 mx-auto"
                   >
-                    <SocialSvgIcon label={item.label} size={18} color="#ffffff" />
-                  </span>
-                ))
-              )}
-            </div>
-          )}
+                    <Share2 className="h-3 w-3" />
+                    {t('editor.editSocial')}
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Page 1 / Page 2 tabs — only show when NOT in edit mode */}
