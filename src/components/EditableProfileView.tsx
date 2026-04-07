@@ -1420,6 +1420,16 @@ export function EditableProfileView({
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
   const fontFamily = getFontFamily(theme);
 
+  // Header config
+  const headerConfig = (page.theme_json as any)?.headerConfig || {
+    nameSize: 28,
+    handleSize: 14,
+    nameColor: '#ffffff',
+    handleColor: '#ffffff99',
+    nameOffset: 0,
+    iconsOffset: 0,
+  };
+
   // Hero image
   const heroImage = localHeroImage || (theme.header?.image_url) || page.avatar_url || '';
 
@@ -1515,17 +1525,28 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: '-6rem',
+            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
             paddingBottom: '1rem',
           }}
         >
           <h1
-            className="text-2xl sm:text-3xl font-bold text-white mb-0"
-            style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
+            className="font-bold mb-0"
+            style={{
+              fontSize: `${headerConfig.nameSize}px`,
+              color: headerConfig.nameColor,
+              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+            }}
           >
             {page.display_name || `@${page.handle}`}
           </h1>
-          <p className="text-sm text-white/70 mt-0" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+          <p
+            className="mt-0"
+            style={{
+              fontSize: `${headerConfig.handleSize}px`,
+              color: headerConfig.handleColor,
+              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }}
+          >
             @{page.handle}
           </p>
           {editMode && (
@@ -1728,7 +1749,7 @@ export function EditableProfileView({
             });
             return (
               <>
-                <div className="flex flex-wrap justify-center gap-3 mt-1.5">
+                <div className="flex flex-wrap justify-center gap-3" style={{ marginTop: `${8 + headerConfig.iconsOffset}px` }}>
                   {dedupedSocialItems.map((item) => (
                     <span
                       key={item.id}
