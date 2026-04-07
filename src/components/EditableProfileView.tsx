@@ -1000,95 +1000,87 @@ function EmptyState({ textColor }: { textColor: string }) {
   );
 }
 
-// ─── Compact Block Card (edit mode) ─────────────────────────────────────────
+// ─── Preview Block Card (edit mode) ─────────────────────────────────────────
 
-const BLOCK_ICONS: Record<string, React.ReactNode> = {
-  primary_cta: <MousePointer className="h-4 w-4 text-white/70" />,
-  product_cards: <ShoppingBag className="h-4 w-4 text-white/70" />,
-  featured_media: <ImageIcon className="h-4 w-4 text-white/70" />,
-  social_links: <Share2 className="h-4 w-4 text-white/70" />,
-  links: <LinkIcon className="h-4 w-4 text-white/70" />,
-  email_subscribe: <Mail className="h-4 w-4 text-white/70" />,
-  social_icon_row: <Share2 className="h-4 w-4 text-white/70" />,
-  hero_card: <User className="h-4 w-4 text-white/70" />,
-  content_section: <FileText className="h-4 w-4 text-white/70" />,
-};
-
-// Block titles are resolved via t() in the component
-
-function SortableCompactCard({
+function SortablePreviewCard({
   block,
   onEdit,
   onToggle,
   isDragActive,
+  theme,
 }: {
-  block: Block;
+  block: BlockWithItems;
   onEdit: () => void;
   onToggle: (enabled: boolean) => void;
   isDragActive: boolean;
+  theme: ThemeJson;
 }) {
   const { t } = useLanguage();
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: block.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: block.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-3 px-4 py-3.5 border-b border-white/5 bg-transparent hover:bg-white/[0.03] transition-all',
-        isDragging && 'opacity-100 scale-100 bg-white/5 z-50 rounded-xl',
-        isDragging && 'ring-1 ring-[#C9A55C]/50',
-        isDragActive && !isDragging && 'opacity-60 scale-[0.98]',
+        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
+        'bg-white/[0.03] transition-all',
+        isDragging && 'opacity-90 scale-[1.02] shadow-2xl ring-1 ring-[#C9A55C]/50 z-50',
+        isDragActive && !isDragging && 'opacity-50',
         !block.is_enabled && 'opacity-40',
       )}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-white/20 hover:text-white/50 touch-none"
-      >
-        <GripVertical className="h-5 w-5" />
-      </button>
-
-      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-        {BLOCK_ICONS[block.type] || <LinkIcon className="h-4 w-4 text-white/70" />}
+      {/* Control bar */}
+      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
+          {t(`blocks.${block.type}.title`) || block.type}
+        </span>
+        {/* Toggle */}
+        <button
+          onClick={() => onToggle(!block.is_enabled)}
+          className={cn(
+            'w-11 h-6 rounded-full flex-shrink-0 p-[2px] transition-colors',
+            block.is_enabled ? 'bg-[#C9A55C]' : 'bg-white/20'
+          )}
+        >
+          <div
+            className={cn(
+              'h-5 w-5 rounded-full bg-white shadow-md transition-transform',
+              block.is_enabled ? 'translate-x-[20px]' : 'translate-x-0'
+            )}
+          />
+        </button>
+        <button onClick={onEdit} className="text-white/30 hover:text-white/80">
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
 
-      <span className="flex-1 text-sm font-medium text-white truncate">
-        {t(`blocks.${block.type}.title`) || block.type}
-      </span>
-
-      {/* Toggle */}
-      <button
-        onClick={() => onToggle(!block.is_enabled)}
-        className={cn(
-          'w-11 h-6 rounded-full flex-shrink-0 p-[2px] transition-colors',
-          block.is_enabled ? 'bg-[#C9A55C]' : 'bg-white/20'
+      {/* Full-size block content preview */}
+      <div className="p-4 cursor-pointer" onClick={onEdit}>
+        {block.items.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="mt-3 text-xs font-semibold text-[#C9A55C] border border-[#C9A55C]/40 rounded-full px-4 py-1.5 hover:bg-[#C9A55C]/10 transition-colors"
+            >
+              + {t('editor.addContent')}
+            </button>
+          </div>
+        ) : (
+          <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
         )}
-      >
-        <div
-          className={cn(
-            'h-5 w-5 rounded-full bg-white shadow-md transition-transform',
-            block.is_enabled ? 'translate-x-[20px]' : 'translate-x-0'
-          )}
-        />
-      </button>
-
-      <button onClick={onEdit} className="text-white/30 hover:text-white ml-1">
-        <ChevronRight className="h-5 w-5" />
-      </button>
+      </div>
     </div>
   );
 }
@@ -1307,8 +1299,8 @@ export function EditableProfileView({
 
         {/* Blocks */}
         {editMode ? (
-          /* Compact block cards for edit mode */
-          <div className="pb-32">
+          /* Preview block cards for edit mode */
+          <div className="pb-32 pt-2">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <p className="text-xs font-bold uppercase tracking-widest text-white/40">
                 {t('editor.blocksLabel')}
@@ -1328,12 +1320,13 @@ export function EditableProfileView({
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <SortableContext items={displayBlocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                   {displayBlocks.map((block) => (
-                    <SortableCompactCard
+                    <SortablePreviewCard
                       key={block.id}
                       block={block}
                       onEdit={() => onBlockEdit(block.id)}
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
                       isDragActive={isDragActive}
+                      theme={theme}
                     />
                   ))}
                 </SortableContext>
