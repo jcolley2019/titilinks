@@ -14,6 +14,7 @@ import {
   Calendar,
   FileText,
   BarChart2,
+  LayoutGrid,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -79,6 +80,13 @@ const sections: DashboardSection[] = [
         icon: <Palette className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.profileCustomization',
         subtitleKey: 'dashboard.profileCustomizationDesc',
+        blockType: null,
+        toastKey: 'dashboard.openDesignTab',
+      },
+      {
+        icon: <LayoutGrid className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.templateGallery',
+        subtitleKey: 'dashboard.templateGalleryDesc',
         blockType: null,
         toastKey: 'dashboard.openDesignTab',
       },
