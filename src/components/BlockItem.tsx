@@ -1,9 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-import { GripVertical, Edit, ShoppingBag, Users, Link, Share2, Image, MousePointer } from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage';
+import { GripVertical, ShoppingBag, Link, Share2, Image, MousePointer, Mail, User, FileText, ChevronRight } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Block = Tables<'blocks'>;
@@ -14,14 +12,34 @@ const BLOCK_TYPE_ICONS: Record<string, React.ReactNode> = {
   featured_media: <Image className="h-4 w-4" />,
   social_links: <Share2 className="h-4 w-4" />,
   links: <Link className="h-4 w-4" />,
+  email_subscribe: <Mail className="h-4 w-4" />,
+  social_icon_row: <Share2 className="h-4 w-4" />,
+  hero_card: <User className="h-4 w-4" />,
+  content_section: <FileText className="h-4 w-4" />,
 };
 
-const BLOCK_TYPE_LABEL_KEYS: Record<string, string> = {
-  primary_cta: 'blockItem.primaryCta',
-  product_cards: 'blockItem.productCards',
-  featured_media: 'blockItem.featuredMedia',
-  social_links: 'blockItem.socialLinks',
-  links: 'blockItem.links',
+const BLOCK_TYPE_TITLES: Record<string, string> = {
+  primary_cta: 'Primary CTA',
+  product_cards: 'Products',
+  featured_media: 'Featured Media',
+  social_links: 'Social Links',
+  links: 'Custom Links',
+  email_subscribe: 'Email Capture',
+  social_icon_row: 'Social Icons',
+  hero_card: 'Hero Card',
+  content_section: 'Content Section',
+};
+
+const BLOCK_TYPE_SUBTITLES: Record<string, string> = {
+  primary_cta: 'Your main call-to-action button',
+  product_cards: 'Showcase your products',
+  featured_media: 'Photos and video links',
+  social_links: 'Add your social platforms',
+  links: 'Add custom link buttons',
+  email_subscribe: 'Collect visitor emails',
+  social_icon_row: 'Row of social media icons',
+  hero_card: 'Profile hero section',
+  content_section: 'Text and content block',
 };
 
 interface BlockItemProps {
@@ -31,7 +49,6 @@ interface BlockItemProps {
 }
 
 export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
-  const { t } = useLanguage();
   const {
     attributes,
     listeners,
@@ -52,7 +69,7 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
       ref={setNodeRef}
       style={style}
       className={[
-        'flex items-center gap-3 p-4 bg-card border rounded-lg',
+        'flex items-center gap-3 px-4 py-3 bg-card border rounded-lg',
         // Base transition
         'transition-all duration-150 ease-out',
         // Reduced motion support
@@ -77,13 +94,13 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
         <GripVertical className="h-5 w-5" />
       </button>
 
-      <div className="flex items-center gap-2 text-primary">
+      <div className="flex items-center gap-2 text-primary bg-primary/10 p-2 rounded-lg">
         {BLOCK_TYPE_ICONS[block.type] || <Link className="h-4 w-4" />}
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{block.title || (BLOCK_TYPE_LABEL_KEYS[block.type] ? t(BLOCK_TYPE_LABEL_KEYS[block.type]) : block.type)}</p>
-        <p className="text-sm text-muted-foreground">{BLOCK_TYPE_LABEL_KEYS[block.type] ? t(BLOCK_TYPE_LABEL_KEYS[block.type]) : block.type}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{BLOCK_TYPE_TITLES[block.type] || block.title || block.type}</p>
+        <p className="text-xs text-muted-foreground">{BLOCK_TYPE_SUBTITLES[block.type] || ''}</p>
       </div>
 
       <div className="flex items-center gap-3">
@@ -91,14 +108,12 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
           checked={block.is_enabled}
           onCheckedChange={(checked) => onToggle(block.id, checked)}
         />
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={() => onEdit(block.id)}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Edit className="h-4 w-4" />
-        </Button>
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
