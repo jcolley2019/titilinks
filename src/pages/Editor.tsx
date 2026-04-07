@@ -7,9 +7,10 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { BlockEditorContent } from '@/components/BlockEditorContent';
 import { EditableProfileView } from '@/components/EditableProfileView';
+import { ProfileDashboard } from '@/components/ProfileDashboard';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
-import type { Json } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'> & { sticky_cta_enabled?: boolean };
@@ -40,6 +41,12 @@ export default function Editor() {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
+  const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
+
+  // Page labels from theme
+  const themeJson = (page?.theme_json as ThemeJson) || {};
+  const page1Label = themeJson.pages?.page1?.label || 'Page 1';
+  const page2Label = themeJson.pages?.page2?.label || 'Page 2';
 
   // ── Data Fetching ──
 
@@ -200,13 +207,11 @@ export default function Editor() {
   };
 
   const handleBlockReorder = async (blockIds: string[]) => {
-    // Optimistic update
     const reordered = blockIds
       .map((id) => allBlocks.find((b) => b.id === id))
       .filter(Boolean) as BlockWithItems[];
     setAllBlocks(reordered);
 
-    // Persist to DB
     try {
       for (let i = 0; i < blockIds.length; i++) {
         await supabase
@@ -224,6 +229,8 @@ export default function Editor() {
   const handleOnboardingComplete = () => {
     fetchPageData();
   };
+
+  const currentMode = modes.find((m) => m.type === selectedMode);
 
   // ── Render ──
 
@@ -247,16 +254,59 @@ export default function Editor() {
 
   return (
     <DashboardLayout>
-      <div className="fixed inset-0 top-16 bg-[#0e0c09] overflow-hidden flex flex-col">
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur-md flex-shrink-0 z-30 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-white">
-              Titi<span className="italic text-[#C9A55C]">Links</span>
-            </span>
-            <span className="text-xs text-white/50">@{page.handle}</span>
+      {/* ═══ DESKTOP: Blurred hero bg + phone frame ═══ */}
+      <div className="hidden lg:block fixed inset-0 left-64 top-0 overflow-hidden">
+        {/* Blurred hero background */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <div
+            style={{
+              backgroundImage: `url(${page.avatar_url || ''})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(40px)',
+              transform: 'scale(1.15)',
+              opacity: 0.35,
+              position: 'absolute',
+              inset: '-20px',
+            }}
+          />
+          <div className="absolute inset-0 bg-black/50" />
+        </div>
+
+        {/* Desktop top bar */}
+        <div className="relative z-30 flex items-center justify-between px-6 h-[52px] bg-black/30 backdrop-blur-md border-b border-white/5">
+          <span className="text-sm font-bold text-white">
+            Titi<span className="italic text-[#C9A55C]">Links</span>
+          </span>
+
+          {/* Page 1 / Page 2 tabs */}
+          <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5">
+            <button
+              onClick={() => setSelectedMode('shop')}
+              className={cn(
+                'px-4 py-1 rounded-full text-xs font-medium transition-colors',
+                selectedMode === 'shop'
+                  ? 'bg-[#C9A55C] text-[#0e0c09]'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              {page1Label}
+            </button>
+            <button
+              onClick={() => setSelectedMode('recruit')}
+              className={cn(
+                'px-4 py-1 rounded-full text-xs font-medium transition-colors',
+                selectedMode === 'recruit'
+                  ? 'bg-[#C9A55C] text-[#0e0c09]'
+                  : 'text-white/60 hover:text-white'
+              )}
+            >
+              {page2Label}
+            </button>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white/50">@{page.handle}</span>
             <button
               onClick={() => window.open(`/${page.handle}`, '_blank')}
               className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
@@ -266,23 +316,65 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Main content — EditableProfileView fills the screen */}
-        <div className="flex-1 overflow-y-auto">
-          <EditableProfileView
-            page={page}
-            blocks={allBlocks}
-            editMode={true}
-            onBlockEdit={handleEditBlock}
-            onBlockToggle={handleBlockToggle}
-            onBlockReorder={handleBlockReorder}
-            onRefresh={fetchBlocks}
-            selectedMode={selectedMode}
-            onModeChange={setSelectedMode}
-          />
+        {/* Phone frame */}
+        <div className="relative z-10 flex items-start justify-center pt-6 pb-8 h-[calc(100vh-52px)] overflow-hidden">
+          <div
+            className="w-[390px] h-full overflow-y-auto"
+            style={{
+              borderRadius: '44px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
+            }}
+          >
+            <EditableProfileView
+              page={page}
+              blocks={allBlocks}
+              editMode={true}
+              onBlockEdit={handleEditBlock}
+              onBlockToggle={handleBlockToggle}
+              onBlockReorder={handleBlockReorder}
+              onRefresh={fetchBlocks}
+              selectedMode={selectedMode}
+              onModeChange={setSelectedMode}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Block editor dialog */}
+      {/* ═══ MOBILE: Full screen live profile ═══ */}
+      <div className="lg:hidden -mx-4 -mt-6 min-h-screen bg-[#0e0c09]">
+        <EditableProfileView
+          page={page}
+          blocks={allBlocks}
+          editMode={true}
+          onBlockEdit={handleEditBlock}
+          onBlockToggle={handleBlockToggle}
+          onBlockReorder={handleBlockReorder}
+          onRefresh={fetchBlocks}
+          selectedMode={selectedMode}
+          onModeChange={setSelectedMode}
+        />
+
+        {/* Gold "Add Content" pill */}
+        <button
+          onClick={() => setProfileDashboardOpen(true)}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 bg-[#C9A55C] text-[#0e0c09] font-bold px-8 py-3 rounded-full shadow-lg text-sm active:scale-95 transition-transform"
+        >
+          ✦ Add Content
+        </button>
+      </div>
+
+      {/* ═══ ProfileDashboard panel ═══ */}
+      <ProfileDashboard
+        open={profileDashboardOpen}
+        onClose={() => setProfileDashboardOpen(false)}
+        pageId={page.id}
+        modeId={currentMode?.id || null}
+        onBlockEdit={handleEditBlock}
+        onRefresh={fetchBlocks}
+      />
+
+      {/* ═══ Block editor dialog ═══ */}
       <BlockEditorContent
         blockId={editingBlockId}
         open={editorOpen}
