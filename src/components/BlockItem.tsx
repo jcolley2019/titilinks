@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '@/components/ui/switch';
 import { GripVertical, ShoppingBag, Link, Share2, Image, MousePointer, Mail, User, FileText, ChevronRight } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Block = Tables<'blocks'>;
@@ -18,30 +19,6 @@ const BLOCK_TYPE_ICONS: Record<string, React.ReactNode> = {
   content_section: <FileText className="h-4 w-4" />,
 };
 
-const BLOCK_TYPE_TITLES: Record<string, string> = {
-  primary_cta: 'Primary CTA',
-  product_cards: 'Products',
-  featured_media: 'Featured Media',
-  social_links: 'Social Links',
-  links: 'Custom Links',
-  email_subscribe: 'Email Capture',
-  social_icon_row: 'Social Icons',
-  hero_card: 'Hero Card',
-  content_section: 'Content Section',
-};
-
-const BLOCK_TYPE_SUBTITLES: Record<string, string> = {
-  primary_cta: 'Your main call-to-action button',
-  product_cards: 'Showcase your products',
-  featured_media: 'Photos and video links',
-  social_links: 'Add your social platforms',
-  links: 'Add custom link buttons',
-  email_subscribe: 'Collect visitor emails',
-  social_icon_row: 'Row of social media icons',
-  hero_card: 'Profile hero section',
-  content_section: 'Text and content block',
-};
-
 interface BlockItemProps {
   block: Block;
   onToggle: (id: string, enabled: boolean) => void;
@@ -49,6 +26,7 @@ interface BlockItemProps {
 }
 
 export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
+  const { t } = useLanguage();
   const {
     attributes,
     listeners,
@@ -99,8 +77,8 @@ export function BlockItem({ block, onToggle, onEdit }: BlockItemProps) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{BLOCK_TYPE_TITLES[block.type] || block.title || block.type}</p>
-        <p className="text-xs text-muted-foreground">{BLOCK_TYPE_SUBTITLES[block.type] || ''}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{t(`blocks.${block.type}.title`) || block.title || block.type}</p>
+        <p className="text-xs text-muted-foreground">{t(`blocks.${block.type}.subtitle`) || ''}</p>
       </div>
 
       <div className="flex items-center gap-3">
