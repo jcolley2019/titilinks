@@ -1243,6 +1243,7 @@ export function EditableProfileView({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [localHeroImage, setLocalHeroImage] = useState<string | null>(null);
   const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'preview'>('idle');
   const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
   const [photoScale, setPhotoScale] = useState(1);
@@ -1308,14 +1309,20 @@ export function EditableProfileView({
   };
 
   const handlePhotoSave = async () => {
-    if (!photoFile || !user) return;
+    let fileToUpload = photoFile;
+    if (!fileToUpload && photoPreview) {
+      const res = await fetch(photoPreview);
+      const blob = await res.blob();
+      fileToUpload = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+    }
+    if (!fileToUpload || !user) return;
     setPhotoSaving(true);
     try {
-      const fileExt = photoFile.name.split('.').pop();
+      const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, photoFile, { upsert: true });
+        .upload(fileName, fileToUpload, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage
         .from('avatars')
@@ -1325,9 +1332,10 @@ export function EditableProfileView({
         .update({ avatar_url: urlData.publicUrl })
         .eq('id', page.id);
       toast.success('Profile photo updated!');
+      setLocalHeroImage(urlData.publicUrl);
+      setPhotoStep('idle');
       setPhotoPreview(null);
       setPhotoFile(null);
-      setPhotoStep('idle');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
       onRefresh();
@@ -1378,7 +1386,7 @@ export function EditableProfileView({
   const fontFamily = getFontFamily(theme);
 
   // Hero image
-  const heroImage = (theme.header?.image_url) || page.avatar_url || '';
+  const heroImage = localHeroImage || (theme.header?.image_url) || page.avatar_url || '';
 
   // Page labels from theme
   const themePages = (page.theme_json as any)?.pages;
@@ -1613,7 +1621,7 @@ export function EditableProfileView({
                       <p className="text-white font-semibold text-lg">
                         {t('editor.previewPhoto')}
                       </p>
-                      <div className="w-64 h-64 rounded-full overflow-hidden border-2 border-[#C9A55C]/50">
+                      <div className="w-full rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50 aspect-video">
                         <img
                           src={photoPreview}
                           alt="Preview"
@@ -1621,6 +1629,7 @@ export function EditableProfileView({
                           style={{
                             objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,
                             transform: `scale(${photoScale})`,
+                            transformOrigin: 'center',
                           }}
                         />
                       </div>
