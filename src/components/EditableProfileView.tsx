@@ -1480,7 +1480,7 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: '-3rem',
+            marginTop: '-6rem',
             paddingBottom: '1rem',
           }}
         >
@@ -1734,8 +1734,8 @@ export function EditableProfileView({
         {/* Blocks */}
         {editMode ? (
           /* Preview block cards for edit mode */
-          <div className="pb-32 pt-2">
-            <div className="flex items-center justify-between px-4 pt-2 pb-2">
+          <div className="pb-32 pt-0">
+            <div className="flex items-center justify-between px-4 pt-1 pb-2">
               <p className="text-xs font-bold uppercase tracking-widest text-white/40">
                 {t('editor.blocksLabel')}
               </p>
