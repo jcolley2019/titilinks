@@ -98,10 +98,10 @@ export const DEFAULT_THEME: ThemeJson = {
   },
   buttons: {
     shape: 'rounded',
-    fill_color: '#f97316',
+    fill_color: '#C9A55C',
     text_color: '#ffffff',
     border_enabled: false,
-    border_color: '#f97316',
+    border_color: '#C9A55C',
     shadow_enabled: true,
     density: 'normal',
   },
