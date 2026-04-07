@@ -491,6 +491,7 @@ export type Database = {
         | "email_subscribe"
         | "content_section"
         | "product_catalog"
+        | "gallery"
       event_type: "page_view" | "outbound_click" | "mode_routed"
       mode_type: "shop" | "recruit"
     }
@@ -631,6 +632,7 @@ export const Constants = {
         "email_subscribe",
         "content_section",
         "product_catalog",
+        "gallery",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
       mode_type: ["shop", "recruit"],

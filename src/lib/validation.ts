@@ -60,6 +60,7 @@ export const ITEM_CAPS = {
   email_subscribe: 1,
   content_section: 10,
   product_catalog: 24,
+  gallery: 20,
 } as const;
 
 export type BlockType = keyof typeof ITEM_CAPS;

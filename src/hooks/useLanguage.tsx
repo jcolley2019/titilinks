@@ -481,6 +481,8 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.hero_card.subtitle': 'Profile hero section',
     'blocks.content_section.title': 'Content Section',
     'blocks.content_section.subtitle': 'Text and content block',
+    'blocks.gallery.title': 'Gallery',
+    'blocks.gallery.subtitle': 'Photo gallery',
 
     // Editor Page
     'editor.title': 'Link Editor',
@@ -1274,6 +1276,8 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.hero_card.subtitle': 'Sección hero del perfil',
     'blocks.content_section.title': 'Sección de Contenido',
     'blocks.content_section.subtitle': 'Bloque de texto y contenido',
+    'blocks.gallery.title': 'Galería',
+    'blocks.gallery.subtitle': 'Galería de fotos',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',
