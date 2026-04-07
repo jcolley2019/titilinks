@@ -1033,13 +1033,14 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
             <div
               key={item.id}
               className="flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
-              style={{ minWidth: '100%', aspectRatio: '4/3', backgroundColor: `${theme.buttons.fill_color}10` }}
+              style={{ minWidth: '100%', aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
                 <img
                   src={item.image_url}
                   alt={item.label || 'Gallery photo'}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
+                  style={{ backgroundColor: '#000000' }}
                   loading="lazy"
                 />
               ) : (
@@ -1055,7 +1056,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
             className="flex-shrink-0 rounded-xl flex items-center justify-center snap-start transition-colors"
             style={{
               minWidth: '100%',
-              aspectRatio: '4/3',
+              aspectRatio: '1/1',
               backgroundColor: `${theme.buttons.fill_color}08`,
               border: `2px dashed ${theme.buttons.fill_color}30`,
             }}
