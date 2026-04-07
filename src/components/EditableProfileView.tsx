@@ -38,6 +38,7 @@ import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
+import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 
@@ -1258,7 +1259,7 @@ export function EditableProfileView({
           </p>
           {editMode && (
             <button
-              onClick={() => onBlockEdit('photo')}
+              onClick={() => toast('Go to Settings to change your profile photo')}
               className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
             >
               {t('editor.changePhoto')}
