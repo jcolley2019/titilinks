@@ -1485,19 +1485,19 @@ export function EditableProfileView({
           }}
         >
           <h1
-            className="text-2xl sm:text-3xl font-bold text-white"
+            className="text-2xl sm:text-3xl font-bold text-white mb-0"
             style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}
           >
             {page.display_name || `@${page.handle}`}
           </h1>
-          <p className="text-sm text-white/70 mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+          <p className="text-sm text-white/70 mt-0" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
             @{page.handle}
           </p>
           {editMode && (
             <>
               <button
                 onClick={() => photoInputRef.current?.click()}
-                className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
+                className="text-xs text-[#C9A55C] mt-0.5 underline underline-offset-2 opacity-80 hover:opacity-100"
               >
                 {t('editor.changePhoto')}
               </button>
@@ -1674,7 +1674,7 @@ export function EditableProfileView({
             });
             return (
               <>
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                <div className="flex flex-wrap justify-center gap-3 mt-1.5">
                   {dedupedSocialItems.map((item) => (
                     <span
                       key={item.id}
@@ -1692,7 +1692,7 @@ export function EditableProfileView({
                       const socialBlock = socialBlocks[0];
                       if (socialBlock) onBlockEdit(socialBlock.id);
                     }}
-                    className="text-xs text-white/40 hover:text-white/70 mt-2 flex items-center gap-1 mx-auto"
+                    className="text-xs text-white/40 hover:text-white/70 mt-1 flex items-center gap-1 mx-auto"
                   >
                     <Share2 className="h-3 w-3" />
                     {t('editor.editSocial')}
