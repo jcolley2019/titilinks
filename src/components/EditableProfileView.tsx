@@ -26,6 +26,7 @@ import {
   Image as ImageIcon,
   ShieldAlert,
   GripVertical,
+  ChevronLeft,
   ChevronRight,
   MousePointer,
   Share2,
@@ -996,43 +997,79 @@ function ContentSectionBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
+  const scroll = (dir: 'left' | 'right') => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({
+      left: dir === 'right' ? 180 : -180,
+      behavior: 'smooth',
+    });
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
         Gallery ({count} {count === 1 ? 'photo' : 'photos'})
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        {block.items.map((item) => (
-          <div
-            key={item.id}
-            className="aspect-square rounded-xl overflow-hidden"
-            style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+
+      <div className="relative">
+        {count > 2 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); scroll('left'); }}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors -ml-2"
           >
-            {item.image_url ? (
-              <ThumbnailImage
-                src={item.image_url}
-                alt={item.label || 'Gallery photo'}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
-              </div>
-            )}
-          </div>
-        ))}
-        {/* Always show + add tile */}
-        <button
-          onClick={onEdit}
-          className="aspect-square rounded-xl flex items-center justify-center transition-colors"
-          style={{
-            backgroundColor: `${theme.buttons.fill_color}08`,
-            border: `2px dashed ${theme.buttons.fill_color}30`,
-          }}
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
         >
-          <span className="text-3xl font-light opacity-40" style={{ color: theme.typography.text_color }}>+</span>
-        </button>
+          {block.items.map((item) => (
+            <div
+              key={item.id}
+              className="flex-shrink-0 w-40 h-40 rounded-xl overflow-hidden snap-start"
+              style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
+            >
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.label || 'Gallery photo'}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
+            className="flex-shrink-0 w-40 h-40 rounded-xl flex items-center justify-center snap-start transition-colors"
+            style={{
+              backgroundColor: `${theme.buttons.fill_color}08`,
+              border: `2px dashed ${theme.buttons.fill_color}30`,
+            }}
+          >
+            <span className="text-4xl font-light opacity-30" style={{ color: theme.typography.text_color }}>+</span>
+          </button>
+        </div>
+
+        {count > 2 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); scroll('right'); }}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors -mr-2"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );
