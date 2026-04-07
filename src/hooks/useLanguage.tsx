@@ -486,6 +486,19 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.bio.title': 'Bio',
     'blocks.bio.subtitle': 'Tell visitors about yourself',
 
+    // Gallery & shared block strings
+    'gallery.label': 'Gallery',
+    'gallery.photo': 'photo',
+    'gallery.photos': 'photos',
+    'gallery.uploadFailed': 'Failed to upload photo',
+    'emptyState.noContent': 'No content yet',
+    'emailSubscribe.defaultTitle': 'Stay up to date',
+    'emailSubscribe.defaultPlaceholder': 'your@email.com',
+    'emailSubscribe.defaultButton': 'Subscribe',
+    'emailSubscribe.defaultSuccess': 'Thanks for subscribing!',
+    'emailSubscribe.defaultName': 'Your name',
+    'editor.changePhotoToast': 'Go to Settings to change your profile photo',
+
     // Editor Page
     'editor.title': 'Link Editor',
     'editor.editing': 'Editing',
@@ -1282,6 +1295,19 @@ const translations: Record<Language, Record<string, string>> = {
     'blocks.gallery.subtitle': 'Galería de fotos',
     'blocks.bio.title': 'Biografía',
     'blocks.bio.subtitle': 'Cuéntales sobre ti',
+
+    // Gallery & shared block strings
+    'gallery.label': 'Galería',
+    'gallery.photo': 'foto',
+    'gallery.photos': 'fotos',
+    'gallery.uploadFailed': 'Error al subir la foto',
+    'emptyState.noContent': 'Aún no hay contenido',
+    'emailSubscribe.defaultTitle': 'Mantente al día',
+    'emailSubscribe.defaultPlaceholder': 'tu@email.com',
+    'emailSubscribe.defaultButton': 'Suscribirse',
+    'emailSubscribe.defaultSuccess': '¡Gracias por suscribirte!',
+    'emailSubscribe.defaultName': 'Tu nombre',
+    'editor.changePhotoToast': 'Ve a Ajustes para cambiar tu foto de perfil',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',

@@ -692,17 +692,18 @@ function SocialIconRowBlock({ block, theme }: ThemedBlockProps) {
 }
 
 function EmailSubscribeBlock({ block, theme }: { block: BlockWithItems; theme: ThemeJson }) {
+  const { t } = useLanguage();
   const item = block.items[0];
   if (!item) return null;
 
   let config = {
-    title: 'Stay up to date',
-    placeholder: 'your@email.com',
-    button_label: 'Subscribe',
-    success_message: 'Thanks for subscribing!',
+    title: t('emailSubscribe.defaultTitle'),
+    placeholder: t('emailSubscribe.defaultPlaceholder'),
+    button_label: t('emailSubscribe.defaultButton'),
+    success_message: t('emailSubscribe.defaultSuccess'),
     redirect_url: '',
     collect_name: false,
-    name_placeholder: 'Your name',
+    name_placeholder: t('emailSubscribe.defaultName'),
   };
 
   if (item.badge) {
@@ -1015,6 +1016,7 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
 }
 
 function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void }) {
+  const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
@@ -1029,7 +1031,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
   return (
     <div className="space-y-2">
       <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
-        Gallery ({count} {count === 1 ? 'photo' : 'photos'})
+        {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
       </p>
 
       <div className="relative">
@@ -1097,12 +1099,13 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
 }
 
 function EmptyState({ textColor }: { textColor: string }) {
+  const { t } = useLanguage();
   return (
     <div className="text-center py-12">
       <div className="rounded-full bg-white/10 p-4 w-fit mx-auto mb-4">
         <LinkIcon className="h-8 w-8" style={{ color: textColor, opacity: 0.6 }} />
       </div>
-      <p style={{ color: textColor, opacity: 0.6 }}>No content yet</p>
+      <p style={{ color: textColor, opacity: 0.6 }}>{t('emptyState.noContent')}</p>
     </div>
   );
 }
@@ -1256,7 +1259,7 @@ export function EditableProfileView({
         });
       } catch (err) {
         console.error('Upload error:', err);
-        toast.error('Failed to upload photo');
+        toast.error(t('gallery.uploadFailed'));
       }
     }
 
@@ -1385,7 +1388,7 @@ export function EditableProfileView({
           </p>
           {editMode && (
             <button
-              onClick={() => toast('Go to Settings to change your profile photo')}
+              onClick={() => toast(t('editor.changePhotoToast'))}
               className="text-xs text-[#C9A55C] mt-1 underline underline-offset-2 opacity-80 hover:opacity-100"
             >
               {t('editor.changePhoto')}
