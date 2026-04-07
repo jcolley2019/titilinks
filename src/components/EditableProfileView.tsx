@@ -1081,14 +1081,14 @@ function SortableCompactCard({
       <button
         onClick={() => onToggle(!block.is_enabled)}
         className={cn(
-          'w-11 h-6 rounded-full relative transition-colors flex-shrink-0 overflow-hidden',
+          'w-11 h-6 rounded-full flex-shrink-0 p-[2px] transition-colors',
           block.is_enabled ? 'bg-[#C9A55C]' : 'bg-white/20'
         )}
       >
-        <span
+        <div
           className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-            block.is_enabled ? 'translate-x-[22px]' : 'translate-x-0.5'
+            'h-5 w-5 rounded-full bg-white shadow-md transition-transform',
+            block.is_enabled ? 'translate-x-[20px]' : 'translate-x-0'
           )}
         />
       </button>
