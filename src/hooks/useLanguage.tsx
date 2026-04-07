@@ -1434,7 +1434,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dashLayout.dashboard': 'Panel',
     'dashLayout.editor': 'Editor',
     'dashLayout.analytics': 'Analíticas',
-    'dashLayout.aiSetup': 'Config. IA',
+    'dashLayout.aiSetup': 'IA Setup',
     'dashLayout.settings': 'Ajustes',
     'dashLayout.profileSetup': 'Configurar perfil',
     'dashLayout.signOut': 'Cerrar sesión',
