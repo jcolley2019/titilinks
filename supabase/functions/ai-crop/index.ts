@@ -79,9 +79,9 @@ serve(async (req) => {
     const clean = text.replace(/```json|```/g, "").trim();
     const facePosition = JSON.parse(clean) as FacePosition;
 
-    // Push face higher — subtract 15% to leave room for name overlay at bottom
+    // Push face higher — subtract 25% to leave room for name overlay at bottom
     const adjustedPosition: FacePosition = {
-      faceTop: Math.max(0, facePosition.faceTop - 0.15),
+      faceTop: Math.max(0, facePosition.faceTop - 0.25),
       faceLeft: facePosition.faceLeft,
       faceSize: facePosition.faceSize,
     };
