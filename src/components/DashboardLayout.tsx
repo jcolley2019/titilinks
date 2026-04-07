@@ -57,6 +57,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { signOut, user } = useAuth();
   const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isEditorPage = location.pathname === '/dashboard/editor';
   const [hasPage, setHasPage] = useState<boolean | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
   const [userPlan, setUserPlan] = useState<UserPlan>('Free');
@@ -344,13 +345,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Badge>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </Button>
+        {!isEditorPage && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </Button>
+        )}
       </header>
 
       {/* Mobile Menu Overlay */}
