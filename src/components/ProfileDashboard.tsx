@@ -212,7 +212,23 @@ export function ProfileDashboard({
       if (error) throw error;
 
       if (!block) {
-        toast.error(t('dashboard.blockNotCreated'));
+        // Block doesn't exist yet — create it
+        const { data: newBlock, error: insertError } = await supabase
+          .from('blocks')
+          .insert({
+            mode_id: modeId,
+            type: row.blockType,
+            title: t(row.titleKey),
+            is_enabled: true,
+            order_index: 99,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+        onClose();
+        onBlockEdit(newBlock.id);
+        onRefresh();
         return;
       }
 
