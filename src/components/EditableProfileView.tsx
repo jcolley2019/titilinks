@@ -45,6 +45,8 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables, Enums } from '@/integrations/supabase/types';
+import ReactCrop, { type Crop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1248,6 +1250,10 @@ export function EditableProfileView({
   const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
   const [photoScale, setPhotoScale] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<Crop>();
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1303,9 +1309,38 @@ export function EditableProfileView({
       setPhotoStep('choose');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+      setAspectRatio(undefined);
     };
     reader.readAsDataURL(file);
     if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const getCroppedImage = async (): Promise<string> => {
+    if (!completedCrop || !imgRef.current) return photoPreview || '';
+
+    const canvas = document.createElement('canvas');
+    const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+    const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+    canvas.width = completedCrop.width;
+    canvas.height = completedCrop.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return photoPreview || '';
+
+    ctx.drawImage(
+      imgRef.current,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
+      completedCrop.width * scaleX,
+      completedCrop.height * scaleY,
+      0,
+      0,
+      completedCrop.width,
+      completedCrop.height,
+    );
+
+    return canvas.toDataURL('image/jpeg', 0.95);
   };
 
   const handlePhotoSave = async () => {
@@ -1546,70 +1581,89 @@ export function EditableProfileView({
 
                   {/* MANUAL CROP STEP */}
                   {photoStep === 'manual' && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-4">
-                      <p className="text-white font-bold text-lg">{t('editor.editManually')}</p>
-                      <p className="text-white/50 text-xs">{t('editor.dragToPosition')}</p>
-                      <div
-                        className="w-64 h-64 rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50 relative touch-none cursor-grab active:cursor-grabbing"
-                        onPointerDown={(e) => {
-                          const el = e.currentTarget;
-                          el.setPointerCapture(e.pointerId);
-                          const startX = e.clientX;
-                          const startY = e.clientY;
-                          const startOx = photoOffset.x;
-                          const startOy = photoOffset.y;
-                          const onMove = (me: PointerEvent) => {
-                            const dx = ((me.clientX - startX) / 256) * -100;
-                            const dy = ((me.clientY - startY) / 256) * -100;
-                            setPhotoOffset({
-                              x: Math.max(0, Math.min(100, startOx + dx)),
-                              y: Math.max(0, Math.min(100, startOy + dy)),
-                            });
-                          };
-                          const onUp = () => {
-                            el.removeEventListener('pointermove', onMove);
-                            el.removeEventListener('pointerup', onUp);
-                          };
-                          el.addEventListener('pointermove', onMove);
-                          el.addEventListener('pointerup', onUp);
-                        }}
-                      >
-                        <img
-                          src={photoPreview}
-                          alt="Crop"
-                          className="w-full h-full object-cover pointer-events-none select-none"
-                          style={{
-                            objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,
-                            transform: `scale(${photoScale})`,
-                          }}
-                          draggable={false}
-                        />
-                      </div>
-                      <div className="w-64 flex items-center gap-3">
-                        <span className="text-white/50 text-xs">-</span>
-                        <input
-                          type="range"
-                          min={1}
-                          max={2}
-                          step={0.05}
-                          value={photoScale}
-                          onChange={(e) => setPhotoScale(parseFloat(e.target.value))}
-                          className="flex-1 accent-[#C9A55C]"
-                        />
-                        <span className="text-white/50 text-xs">+</span>
-                      </div>
-                      <div className="flex gap-3 w-full max-w-xs mt-2">
+                    <div className="flex flex-col h-full bg-black">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                         <button
                           onClick={() => setPhotoStep('choose')}
-                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
+                          className="text-white/60 text-sm font-medium"
                         >
-                          {t('editor.cancel')}
+                          ← Back
+                        </button>
+                        <p className="text-white font-semibold">Crop Image</p>
+                        <button
+                          onClick={async () => {
+                            const cropped = await getCroppedImage();
+                            setPhotoPreview(cropped);
+                            setPhotoStep('preview');
+                          }}
+                          className="text-[#C9A55C] text-sm font-bold"
+                        >
+                          Apply
+                        </button>
+                      </div>
+
+                      {/* Aspect ratio picker */}
+                      <div className="flex gap-2 px-4 py-3 overflow-x-auto">
+                        {[
+                          { label: 'Free', value: undefined },
+                          { label: 'Square', value: 1 },
+                          { label: '16:9', value: 16/9 },
+                          { label: '4:3', value: 4/3 },
+                          { label: '3:2', value: 3/2 },
+                        ].map(({ label, value }) => (
+                          <button
+                            key={label}
+                            onClick={() => setAspectRatio(value)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-colors ${
+                              aspectRatio === value
+                                ? 'bg-[#C9A55C] text-[#0e0c09]'
+                                : 'bg-white/10 text-white'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Crop area */}
+                      <div className="flex-1 flex items-center justify-center overflow-hidden px-2">
+                        {photoPreview && (
+                          <ReactCrop
+                            crop={crop}
+                            onChange={(c) => setCrop(c)}
+                            onComplete={(c) => setCompletedCrop(c)}
+                            aspect={aspectRatio}
+                            className="max-h-full"
+                          >
+                            <img
+                              ref={imgRef}
+                              src={photoPreview}
+                              alt="Crop"
+                              className="max-h-[50vh] w-auto"
+                              style={{ maxWidth: '100%' }}
+                            />
+                          </ReactCrop>
+                        )}
+                      </div>
+
+                      {/* Bottom buttons */}
+                      <div className="flex gap-3 px-4 py-4 border-t border-white/10">
+                        <button
+                          onClick={() => setPhotoStep('choose')}
+                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                        >
+                          Cancel
                         </button>
                         <button
-                          onClick={() => setPhotoStep('preview')}
-                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
+                          onClick={async () => {
+                            const cropped = await getCroppedImage();
+                            setPhotoPreview(cropped);
+                            setPhotoStep('preview');
+                          }}
+                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
                         >
-                          {t('editor.done')}
+                          Apply Crop
                         </button>
                       </div>
                     </div>
