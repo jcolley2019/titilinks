@@ -23,6 +23,12 @@ import {
   Image as ImageIcon,
   ShieldAlert,
   GripVertical,
+  ChevronRight,
+  MousePointer,
+  Share2,
+  FileText,
+  Mail,
+  User,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
@@ -992,20 +998,42 @@ function EmptyState({ textColor }: { textColor: string }) {
   );
 }
 
-// ─── EditableBlockWrapper ────────────────────────────────────────────────────
+// ─── Compact Block Card (edit mode) ─────────────────────────────────────────
 
-function EditableBlockWrapper({
+const BLOCK_ICONS: Record<string, React.ReactNode> = {
+  primary_cta: <MousePointer className="h-4 w-4 text-white/70" />,
+  product_cards: <ShoppingBag className="h-4 w-4 text-white/70" />,
+  featured_media: <ImageIcon className="h-4 w-4 text-white/70" />,
+  social_links: <Share2 className="h-4 w-4 text-white/70" />,
+  links: <LinkIcon className="h-4 w-4 text-white/70" />,
+  email_subscribe: <Mail className="h-4 w-4 text-white/70" />,
+  social_icon_row: <Share2 className="h-4 w-4 text-white/70" />,
+  hero_card: <User className="h-4 w-4 text-white/70" />,
+  content_section: <FileText className="h-4 w-4 text-white/70" />,
+};
+
+const BLOCK_TITLES: Record<string, string> = {
+  primary_cta: 'Primary CTA',
+  product_cards: 'Products',
+  featured_media: 'Featured Media',
+  social_links: 'Social Links',
+  links: 'Custom Links',
+  email_subscribe: 'Email Capture',
+  social_icon_row: 'Social Icons',
+  hero_card: 'Hero Card',
+  content_section: 'Content Section',
+};
+
+function SortableCompactCard({
   block,
   onEdit,
   onToggle,
-  children,
-  editMode,
+  isDragActive,
 }: {
   block: Block;
   onEdit: () => void;
   onToggle: (enabled: boolean) => void;
-  children: React.ReactNode;
-  editMode: boolean;
+  isDragActive: boolean;
 }) {
   const {
     attributes,
@@ -1021,52 +1049,53 @@ function EditableBlockWrapper({
     transition,
   };
 
-  if (!editMode) return <>{children}</>;
-
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'relative group rounded-xl transition-all',
-        isDragging && 'opacity-70 scale-[1.02] z-50',
-        !block.is_enabled && 'opacity-40'
+        'flex items-center gap-3 px-4 py-3.5 border-b border-white/5 bg-transparent hover:bg-white/[0.03] transition-all',
+        isDragging && 'opacity-100 scale-100 bg-white/5 z-50 rounded-xl',
+        isDragging && 'ring-1 ring-[#C9A55C]/50',
+        isDragActive && !isDragging && 'opacity-60 scale-[0.98]',
+        !block.is_enabled && 'opacity-40',
       )}
     >
-      {children}
-      {/* Gold outline on hover */}
-      <div
-        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-        style={{ outline: '2px solid #C9A55C', outlineOffset: '2px' }}
-      />
-      {/* Controls bar */}
-      <div className="absolute -top-3 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-        {/* Drag handle */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="h-6 w-6 rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing"
-          style={{ backgroundColor: '#C9A55C', color: '#0e0c09' }}
-        >
-          <GripVertical className="h-3 w-3" />
-        </button>
-        {/* Toggle */}
-        <button
-          onClick={() => onToggle(!block.is_enabled)}
-          className="h-6 px-2 rounded-full text-xs font-medium"
-          style={{ backgroundColor: block.is_enabled ? '#C9A55C' : '#666', color: '#0e0c09' }}
-        >
-          {block.is_enabled ? 'ON' : 'OFF'}
-        </button>
-        {/* Edit */}
-        <button
-          onClick={onEdit}
-          className="h-6 px-2 rounded-full text-xs font-medium flex items-center gap-1"
-          style={{ backgroundColor: '#C9A55C', color: '#0e0c09' }}
-        >
-          Edit &rarr;
-        </button>
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-white/20 hover:text-white/50 touch-none"
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+
+      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+        {BLOCK_ICONS[block.type] || <LinkIcon className="h-4 w-4 text-white/70" />}
       </div>
+
+      <span className="flex-1 text-sm font-medium text-white truncate">
+        {BLOCK_TITLES[block.type] || block.type}
+      </span>
+
+      {/* Toggle */}
+      <button
+        onClick={() => onToggle(!block.is_enabled)}
+        className={cn(
+          'w-11 h-6 rounded-full relative transition-colors flex-shrink-0',
+          block.is_enabled ? 'bg-[#C9A55C]' : 'bg-white/20'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+            block.is_enabled ? 'translate-x-5' : 'translate-x-0.5'
+          )}
+        />
+      </button>
+
+      <button onClick={onEdit} className="text-white/30 hover:text-white ml-1">
+        <ChevronRight className="h-5 w-5" />
+      </button>
     </div>
   );
 }
@@ -1100,13 +1129,21 @@ export function EditableProfileView({
   // No-op click handler for edit mode
   const noOpClick = () => false;
 
+  // Drag state
+  const [isDragActive, setIsDragActive] = useState(false);
+
   // Drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const handleDragStart = () => {
+    setIsDragActive(true);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setIsDragActive(false);
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = blocks.findIndex((b) => b.id === active.id);
@@ -1214,65 +1251,78 @@ export function EditableProfileView({
           )}
         </div>
 
-        {/* Page 1 / Page 2 tabs */}
-        <div className="flex justify-center gap-2 px-4 pb-4">
-          <button
-            onClick={() => onModeChange('shop')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-              selectedMode === 'shop'
-                ? 'bg-[#C9A55C] text-[#0e0c09]'
-                : 'bg-white/10 text-white/60 hover:text-white'
-            )}
-          >
-            {page1Label}
-          </button>
-          <button
-            onClick={() => onModeChange('recruit')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-              selectedMode === 'recruit'
-                ? 'bg-[#C9A55C] text-[#0e0c09]'
-                : 'bg-white/10 text-white/60 hover:text-white'
-            )}
-          >
-            {page2Label}
-          </button>
-        </div>
+        {/* Page 1 / Page 2 tabs — only show when NOT in edit mode */}
+        {!editMode && (
+          <div className="flex justify-center gap-2 px-4 pb-4">
+            <button
+              onClick={() => onModeChange('shop')}
+              className={cn(
+                'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+                selectedMode === 'shop'
+                  ? 'bg-[#C9A55C] text-[#0e0c09]'
+                  : 'bg-white/10 text-white/60 hover:text-white'
+              )}
+            >
+              {page1Label}
+            </button>
+            <button
+              onClick={() => onModeChange('recruit')}
+              className={cn(
+                'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+                selectedMode === 'recruit'
+                  ? 'bg-[#C9A55C] text-[#0e0c09]'
+                  : 'bg-white/10 text-white/60 hover:text-white'
+              )}
+            >
+              {page2Label}
+            </button>
+          </div>
+        )}
 
-        {/* Blocks with drag-and-drop */}
-        <div className="px-4 space-y-6 pb-20">
-          {displayBlocks.length === 0 ? (
-            <EmptyState textColor={theme.typography.text_color} />
-          ) : editMode ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={displayBlocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                {displayBlocks.map((block) => (
-                  <EditableBlockWrapper
-                    key={block.id}
-                    block={block}
-                    onEdit={() => onBlockEdit(block.id)}
-                    onToggle={(enabled) => onBlockToggle(block.id, enabled)}
-                    editMode={editMode}
-                  >
-                    <BlockRenderer block={block} onOutboundClick={noOpClick} theme={theme} />
-                  </EditableBlockWrapper>
-                ))}
-              </SortableContext>
-            </DndContext>
-          ) : (
-            displayBlocks.map((block, index) => (
-              <motion.section
-                key={block.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <BlockRenderer block={block} onOutboundClick={noOpClick} theme={theme} />
-              </motion.section>
-            ))
-          )}
-        </div>
+        {/* Blocks */}
+        {editMode ? (
+          /* Compact block cards for edit mode */
+          <div className="pb-32">
+            <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase tracking-widest text-white/40">
+              Blocks
+            </p>
+            {displayBlocks.length === 0 ? (
+              <EmptyState textColor={theme.typography.text_color} />
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <SortableContext items={displayBlocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                  {displayBlocks.map((block) => (
+                    <SortableCompactCard
+                      key={block.id}
+                      block={block}
+                      onEdit={() => onBlockEdit(block.id)}
+                      onToggle={(enabled) => onBlockToggle(block.id, enabled)}
+                      isDragActive={isDragActive}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        ) : (
+          /* Full block content for view mode */
+          <div className="px-4 space-y-6 pb-20">
+            {displayBlocks.length === 0 ? (
+              <EmptyState textColor={theme.typography.text_color} />
+            ) : (
+              displayBlocks.map((block, index) => (
+                <motion.section
+                  key={block.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <BlockRenderer block={block} onOutboundClick={noOpClick} theme={theme} />
+                </motion.section>
+              ))
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="mt-12 pb-8 text-center">
