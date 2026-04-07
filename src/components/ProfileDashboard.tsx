@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ProfileDashboardProps {
   open: boolean;
@@ -29,124 +30,129 @@ interface ProfileDashboardProps {
 
 interface DashboardRow {
   icon: React.ReactNode;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
   blockType: string | null;
-  toastMessage?: string;
+  toastKey?: string;
 }
 
-const sections: { label: string; rows: DashboardRow[] }[] = [
+interface DashboardSection {
+  labelKey: string;
+  rows: DashboardRow[];
+}
+
+const sections: DashboardSection[] = [
   {
-    label: 'My Links',
+    labelKey: 'dashboard.myLinks',
     rows: [
       {
         icon: <Heart className="h-6 w-6 text-white" />,
-        title: 'Manage Platforms',
-        subtitle: 'Add or edit platform links',
+        titleKey: 'dashboard.managePlatforms',
+        subtitleKey: 'dashboard.managePlatformsDesc',
         blockType: 'social_links',
       },
       {
         icon: <LinkIcon className="h-6 w-6 text-white" />,
-        title: 'Featured Links',
-        subtitle: 'Add link',
+        titleKey: 'dashboard.featuredLinks',
+        subtitleKey: 'dashboard.featuredLinksDesc',
         blockType: 'links',
       },
       {
         icon: <MousePointer className="h-6 w-6 text-white" />,
-        title: 'Primary CTA',
-        subtitle: 'Your main call-to-action button',
+        titleKey: 'dashboard.primaryCta',
+        subtitleKey: 'dashboard.primaryCtaDesc',
         blockType: 'primary_cta',
       },
     ],
   },
   {
-    label: 'Appearance',
+    labelKey: 'dashboard.appearance',
     rows: [
       {
         icon: <Type className="h-6 w-6 text-white" />,
-        title: 'Add a Header',
-        subtitle: 'Add custom titles above your links',
+        titleKey: 'dashboard.addHeader',
+        subtitleKey: 'dashboard.addHeaderDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
       {
         icon: <Palette className="h-6 w-6 text-white" />,
-        title: 'Profile Customization',
-        subtitle: 'Choose fonts, background and text colors',
+        titleKey: 'dashboard.profileCustomization',
+        subtitleKey: 'dashboard.profileCustomizationDesc',
         blockType: null,
-        toastMessage: 'Open the Design tab',
+        toastKey: 'dashboard.openDesignTab',
       },
       {
         icon: <Video className="h-6 w-6 text-white" />,
-        title: 'Video Profile',
-        subtitle: 'Add video to your profile image',
+        titleKey: 'dashboard.videoProfile',
+        subtitleKey: 'dashboard.videoProfileDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
     ],
   },
   {
-    label: 'E-Commerce',
+    labelKey: 'dashboard.ecommerce',
     rows: [
       {
         icon: <ShoppingBag className="h-6 w-6 text-white" />,
-        title: 'New Merch',
-        subtitle: 'Add merch',
+        titleKey: 'dashboard.newMerch',
+        subtitleKey: 'dashboard.newMerchDesc',
         blockType: 'product_cards',
       },
     ],
   },
   {
-    label: 'Products',
+    labelKey: 'dashboard.products',
     rows: [
       {
         icon: <Download className="h-6 w-6 text-white" />,
-        title: 'Digital Products',
-        subtitle: 'Manage Digital Products',
+        titleKey: 'dashboard.digitalProducts',
+        subtitleKey: 'dashboard.digitalProductsDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
       {
         icon: <Lock className="h-6 w-6 text-white" />,
-        title: 'Locked Products',
-        subtitle: 'Manage Locked Products',
+        titleKey: 'dashboard.lockedProducts',
+        subtitleKey: 'dashboard.lockedProductsDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
     ],
   },
   {
-    label: 'Events',
+    labelKey: 'dashboard.events',
     rows: [
       {
         icon: <Calendar className="h-6 w-6 text-white" />,
-        title: 'Create Custom Event',
-        subtitle: 'Add custom event',
+        titleKey: 'dashboard.createEvent',
+        subtitleKey: 'dashboard.createEventDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
     ],
   },
   {
-    label: 'Forms',
+    labelKey: 'dashboard.forms',
     rows: [
       {
         icon: <FileText className="h-6 w-6 text-white" />,
-        title: 'Create Form',
-        subtitle: 'Add custom form',
+        titleKey: 'dashboard.createForm',
+        subtitleKey: 'dashboard.createFormDesc',
         blockType: 'email_subscribe',
       },
     ],
   },
   {
-    label: 'Analytics',
+    labelKey: 'dashboard.analytics',
     rows: [
       {
         icon: <BarChart2 className="h-6 w-6 text-white" />,
-        title: 'Tracking Pixels',
-        subtitle: 'Add Meta, TikTok, or GA tags',
+        titleKey: 'dashboard.trackingPixels',
+        subtitleKey: 'dashboard.trackingPixelsDesc',
         blockType: null,
-        toastMessage: 'Coming soon!',
+        toastKey: 'dashboard.comingSoon',
       },
     ],
   },
@@ -160,14 +166,16 @@ export function ProfileDashboard({
   onBlockEdit,
   onRefresh,
 }: ProfileDashboardProps) {
+  const { t } = useLanguage();
+
   const handleRowTap = async (row: DashboardRow) => {
     if (!row.blockType) {
-      toast(row.toastMessage || 'Coming soon!');
+      toast(t(row.toastKey || 'dashboard.comingSoon'));
       return;
     }
 
     if (!modeId) {
-      toast.error('No mode found');
+      toast.error(t('dashboard.noMode'));
       return;
     }
 
@@ -182,7 +190,7 @@ export function ProfileDashboard({
       if (error) throw error;
 
       if (!block) {
-        toast.error("This block hasn't been created yet.");
+        toast.error(t('dashboard.blockNotCreated'));
         return;
       }
 
@@ -190,7 +198,7 @@ export function ProfileDashboard({
       onBlockEdit(block.id);
     } catch (err) {
       console.error('Error finding block:', err);
-      toast.error('Failed to open editor');
+      toast.error(t('dashboard.failedOpen'));
     }
   };
 
@@ -217,7 +225,7 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              <h2 className="text-lg font-bold text-white">Add Content</h2>
+              <h2 className="text-lg font-bold text-white">{t('dashboard.addContent')}</h2>
               <button
                 onClick={onClose}
                 className="text-white/60 hover:text-white transition-colors"
@@ -229,13 +237,13 @@ export function ProfileDashboard({
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
               {sections.map((section) => (
-                <div key={section.label}>
+                <div key={section.labelKey}>
                   <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
-                    {section.label}
+                    {t(section.labelKey)}
                   </p>
                   {section.rows.map((row) => (
                     <button
-                      key={row.title}
+                      key={row.titleKey}
                       onClick={() => handleRowTap(row)}
                       className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
                       style={{ width: 'calc(100% - 2rem)' }}
@@ -244,8 +252,8 @@ export function ProfileDashboard({
                         {row.icon}
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-sm font-bold text-white">{row.title}</p>
-                        <p className="text-xs text-white/50">{row.subtitle}</p>
+                        <p className="text-sm font-bold text-white">{t(row.titleKey)}</p>
+                        <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
                       </div>
                       <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
                     </button>

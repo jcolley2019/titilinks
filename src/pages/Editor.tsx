@@ -202,7 +202,7 @@ export default function Editor() {
       );
     } catch (error) {
       console.error('Error toggling block:', error);
-      toast.error('Failed to update block');
+      toast.error(t('editor.failedToggle'));
     }
   };
 
@@ -221,7 +221,7 @@ export default function Editor() {
       }
     } catch (error) {
       console.error('Error reordering blocks:', error);
-      toast.error('Failed to reorder blocks');
+      toast.error(t('editor.failedReorder'));
       fetchBlocks();
     }
   };
@@ -311,7 +311,7 @@ export default function Editor() {
               onClick={() => window.open(`/${page.handle}`, '_blank')}
               className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
             >
-              View Live ↗
+              {t('editor.viewLive')} ↗
             </button>
           </div>
         </div>

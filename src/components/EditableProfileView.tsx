@@ -37,6 +37,7 @@ import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1115,6 +1116,8 @@ export function EditableProfileView({
   onModeChange,
   onAddContent,
 }: EditableProfileViewProps) {
+  const { t } = useLanguage();
+
   // Get theme
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
@@ -1287,14 +1290,14 @@ export function EditableProfileView({
           <div className="pb-32">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <p className="text-xs font-bold uppercase tracking-widest text-white/40">
-                Blocks
+                {t('editor.blocksLabel')}
               </p>
               {onAddContent && (
                 <button
                   onClick={onAddContent}
                   className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
                 >
-                  ✦ Add Content
+                  {t('editor.addContent')}
                 </button>
               )}
             </div>
