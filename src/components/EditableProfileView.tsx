@@ -28,6 +28,7 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   MousePointer,
   Share2,
   FileText,
@@ -1121,6 +1122,264 @@ function EmptyState({ textColor }: { textColor: string }) {
   );
 }
 
+// ─── Name/Handle Sortable Card ──────────────────────────────────────────────
+
+function NameHandleCard({
+  page,
+  headerConfig,
+  expanded,
+  onToggleExpand,
+  isDragActive,
+  localNameSize, setLocalNameSize,
+  localHandleSize, setLocalHandleSize,
+  localNameColor, setLocalNameColor,
+  localHandleColor, setLocalHandleColor,
+  localNamePaddingY, setLocalNamePaddingY,
+  onSave,
+}: {
+  page: any;
+  headerConfig: any;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  isDragActive: boolean;
+  localNameSize: number; setLocalNameSize: (v: number) => void;
+  localHandleSize: number; setLocalHandleSize: (v: number) => void;
+  localNameColor: string; setLocalNameColor: (v: string) => void;
+  localHandleColor: string; setLocalHandleColor: (v: string) => void;
+  localNamePaddingY: number; setLocalNamePaddingY: (v: number) => void;
+  onSave: () => void;
+}) {
+  const { t } = useLanguage();
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: '__name_handle__' });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
+        'bg-white/[0.03] transition-all duration-200 ease-out',
+        isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
+        isDragActive && !isDragging && 'opacity-50',
+      )}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
+          {t('editor.nameHandleCard')}
+        </span>
+        <button onClick={onToggleExpand} className="text-white/30 hover:text-white/80">
+          <ChevronDown className={cn('h-5 w-5 transition-transform', expanded && 'rotate-180')} />
+        </button>
+      </div>
+
+      {/* Preview */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
+          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
+        )}
+        onClick={!isDragActive ? onToggleExpand : undefined}
+      >
+        <div style={{ paddingTop: localNamePaddingY, paddingBottom: localNamePaddingY, paddingLeft: 16, paddingRight: 16, textAlign: 'center' }}>
+          <p style={{ fontSize: localNameSize, color: localNameColor, fontWeight: 'bold', lineHeight: 1.2 }}>
+            {page.display_name || `@${page.handle}`}
+          </p>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor, marginTop: 2 }}>
+            @{page.handle}
+          </p>
+        </div>
+      </div>
+
+      {/* Settings panel */}
+      {expanded && (
+        <div className="px-4 pb-4 pt-2 border-t border-white/10 space-y-4">
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">{t('editor.nameSize')}: {localNameSize}px</label>
+            <input type="range" min={16} max={48} step={1} value={localNameSize}
+              onChange={(e) => setLocalNameSize(Number(e.target.value))}
+              className="w-full accent-[#C9A55C] h-1.5" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">{t('editor.handleSize')}: {localHandleSize}px</label>
+            <input type="range" min={10} max={24} step={1} value={localHandleSize}
+              onChange={(e) => setLocalHandleSize(Number(e.target.value))}
+              className="w-full accent-[#C9A55C] h-1.5" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-xs text-white/50 mb-1 block">{t('editor.nameColor')}</label>
+              <input type="color" value={localNameColor}
+                onChange={(e) => setLocalNameColor(e.target.value)}
+                className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/20" />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-white/50 mb-1 block">{t('editor.handleColor')}</label>
+              <input type="color" value={localHandleColor.slice(0, 7)}
+                onChange={(e) => setLocalHandleColor(e.target.value)}
+                className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/20" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">{t('editor.padding')}: {localNamePaddingY}px</label>
+            <input type="range" min={0} max={60} step={2} value={localNamePaddingY}
+              onChange={(e) => setLocalNamePaddingY(Number(e.target.value))}
+              className="w-full accent-[#C9A55C] h-1.5" />
+          </div>
+          <button
+            onClick={onSave}
+            className="w-full bg-[#C9A55C] text-[#0e0c09] rounded-xl px-4 py-2 text-sm font-bold"
+          >
+            {t('editor.savePhoto')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Social Icons Sortable Card ─────────────────────────────────────────────
+
+function SocialIconsCard({
+  socialItems,
+  expanded,
+  onToggleExpand,
+  isDragActive,
+  localIconsPaddingY, setLocalIconsPaddingY,
+  localIconSize, setLocalIconSize,
+  onEditSocial,
+  onSave,
+}: {
+  socialItems: any[];
+  expanded: boolean;
+  onToggleExpand: () => void;
+  isDragActive: boolean;
+  localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
+  localIconSize: 'small'|'medium'|'large'; setLocalIconSize: (v: 'small'|'medium'|'large') => void;
+  onEditSocial: () => void;
+  onSave: () => void;
+}) {
+  const { t } = useLanguage();
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: '__social_icons__' });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : transition,
+  };
+
+  const iconSizeMap = { small: 14, medium: 18, large: 24 };
+  const iconContainerMap = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
+        'bg-white/[0.03] transition-all duration-200 ease-out',
+        isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
+        isDragActive && !isDragging && 'opacity-50',
+      )}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
+          {t('editor.socialIconsCard')}
+        </span>
+        <button onClick={onToggleExpand} className="text-white/30 hover:text-white/80">
+          <ChevronDown className={cn('h-5 w-5 transition-transform', expanded && 'rotate-180')} />
+        </button>
+      </div>
+
+      {/* Preview */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
+          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
+        )}
+        onClick={!isDragActive ? onToggleExpand : undefined}
+      >
+        <div style={{ paddingTop: localIconsPaddingY, paddingBottom: localIconsPaddingY }} className="flex flex-wrap justify-center gap-3 px-4">
+          {socialItems.map((item) => (
+            <span
+              key={item.id}
+              className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
+              style={{ background: '#ffffff20' }}
+              title={item.label}
+            >
+              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color="#ffffff" />
+            </span>
+          ))}
+          {socialItems.length === 0 && (
+            <p className="text-xs text-white/30">{t('editor.editSocial')}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Settings panel */}
+      {expanded && (
+        <div className="px-4 pb-4 pt-2 border-t border-white/10 space-y-4">
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">{t('editor.padding')}: {localIconsPaddingY}px</label>
+            <input type="range" min={0} max={60} step={2} value={localIconsPaddingY}
+              onChange={(e) => setLocalIconsPaddingY(Number(e.target.value))}
+              className="w-full accent-[#C9A55C] h-1.5" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-2 block">{t('editor.iconSize')}</label>
+            <div className="flex gap-2">
+              {(['small', 'medium', 'large'] as const).map((sz) => (
+                <button
+                  key={sz}
+                  onClick={() => setLocalIconSize(sz)}
+                  className={cn(
+                    'flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    localIconSize === sz
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  )}
+                >
+                  {sz.charAt(0).toUpperCase() + sz.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={onEditSocial}
+            className="w-full text-xs text-white/40 hover:text-white/70 flex items-center gap-1 justify-center py-2 border border-white/10 rounded-xl"
+          >
+            <Share2 className="h-3 w-3" />
+            {t('editor.editSocial')}
+          </button>
+          <button
+            onClick={onSave}
+            className="w-full bg-[#C9A55C] text-[#0e0c09] rounded-xl px-4 py-2 text-sm font-bold"
+          >
+            {t('editor.savePhoto')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Preview Block Card (edit mode) ─────────────────────────────────────────
 
 function SortablePreviewCard({
@@ -1261,13 +1520,19 @@ export function EditableProfileView({
   const [resizeHandle, setResizeHandle] = useState<'tl'|'tr'|'bl'|'br'|'t'|'b'|'l'|'r'|null>(null);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
-  // Drag handle state for name/handle and icons vertical repositioning
-  const [nameHandleDragY, setNameHandleDragY] = useState(0);
-  const [iconsDragY, setIconsDragY] = useState(0);
-  const [isDraggingNameHandle, setIsDraggingNameHandle] = useState(false);
-  const [isDraggingIcons, setIsDraggingIcons] = useState(false);
-  const [nameDragStart, setNameDragStart] = useState(0);
-  const [iconsDragStart, setIconsDragStart] = useState(0);
+  // Header card sortable state
+  const [headerCardOrder, setHeaderCardOrder] = useState<string[]>(() => {
+    const saved = (page.theme_json as any)?.headerCardOrder;
+    return saved || ['__name_handle__', '__social_icons__'];
+  });
+  const [expandedHeaderCard, setExpandedHeaderCard] = useState<string | null>(null);
+  const [localNameSize, setLocalNameSize] = useState(headerConfig.nameSize ?? 28);
+  const [localHandleSize, setLocalHandleSize] = useState(headerConfig.handleSize ?? 14);
+  const [localNameColor, setLocalNameColor] = useState(headerConfig.nameColor ?? '#ffffff');
+  const [localHandleColor, setLocalHandleColor] = useState(headerConfig.handleColor ?? '#ffffff99');
+  const [localNamePaddingY, setLocalNamePaddingY] = useState(headerConfig.namePaddingY ?? 16);
+  const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
+  const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1541,15 +1806,12 @@ export function EditableProfileView({
     handleColor: '#ffffff99',
     nameOffset: 0,
     iconsOffset: 0,
+    namePaddingY: 16,
+    iconsPaddingY: 8,
+    iconSize: 'medium' as 'small'|'medium'|'large',
   };
 
-  // Initialize drag offsets from headerConfig
-  useEffect(() => {
-    setNameHandleDragY(headerConfig.nameOffset || 0);
-    setIconsDragY(headerConfig.iconsOffset || 0);
-  }, [page.theme_json]);
-
-  const saveDragPosition = async (nameOffset: number, iconsOffset: number) => {
+  const saveHeaderConfig = async (config: Record<string, unknown>) => {
     const existingTheme = (page.theme_json as any) || {};
     await supabase
       .from('pages')
@@ -1558,9 +1820,9 @@ export function EditableProfileView({
           ...existingTheme,
           headerConfig: {
             ...(existingTheme.headerConfig || {}),
-            nameOffset,
-            iconsOffset,
+            ...config,
           },
+          headerCardOrder,
         },
       })
       .eq('id', page.id);
@@ -1591,17 +1853,6 @@ export function EditableProfileView({
     setIsDragActive(true);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setIsDragActive(false);
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = blocks.findIndex((b) => b.id === active.id);
-      const newIndex = blocks.findIndex((b) => b.id === over.id);
-      const newOrder = arrayMove(blocks, oldIndex, newIndex);
-      onBlockReorder(newOrder.map((b) => b.id));
-    }
-  };
-
   // Filter blocks for display (cinematic hides social in header)
   const displayBlocks = blocks.filter(
     (b) => b.type !== 'social_links' && b.type !== 'social_icon_row'
@@ -1609,6 +1860,33 @@ export function EditableProfileView({
   const socialBlocks = blocks.filter(
     (b) => b.type === 'social_links' || b.type === 'social_icon_row'
   );
+
+  const allSortableItems = editMode
+    ? [...headerCardOrder, ...displayBlocks.map(b => b.id)]
+    : displayBlocks.map(b => b.id);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setIsDragActive(false);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = allSortableItems.indexOf(active.id as string);
+    const newIndex = allSortableItems.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(allSortableItems, oldIndex, newIndex);
+
+    const headerIds = ['__name_handle__', '__social_icons__'];
+    const newHeaderOrder = newOrder.filter(id => headerIds.includes(id));
+    const newBlockOrder = newOrder.filter(id => !headerIds.includes(id));
+
+    setHeaderCardOrder(newHeaderOrder);
+    onBlockReorder(newBlockOrder);
+
+    const existingTheme = (page.theme_json as any) || {};
+    supabase.from('pages').update({
+      theme_json: { ...existingTheme, headerCardOrder: newHeaderOrder },
+    }).eq('id', page.id);
+  };
 
   return (
     <div
@@ -1662,51 +1940,66 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `calc(-6rem + ${editMode ? nameHandleDragY : headerConfig.nameOffset}px)`,
+            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
             paddingBottom: '1rem',
           }}
         >
-          {editMode && (
-            <div
-              className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/40 hover:text-white/80 touch-none select-none z-10"
-              onPointerDown={(e) => {
-                setIsDraggingNameHandle(true);
-                setNameDragStart(e.clientY - nameHandleDragY);
-                e.currentTarget.setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                if (!isDraggingNameHandle) return;
-                const newY = e.clientY - nameDragStart;
-                setNameHandleDragY(Math.max(-150, Math.min(150, newY)));
-              }}
-              onPointerUp={() => {
-                setIsDraggingNameHandle(false);
-                saveDragPosition(nameHandleDragY, iconsDragY);
-              }}
-            >
-              <GripVertical className="h-6 w-6" />
-            </div>
-          )}
-          <h1
-            className="font-bold mb-0"
-            style={{
-              fontSize: `${headerConfig.nameSize}px`,
-              color: headerConfig.nameColor,
-              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
-            }}
-          >
-            {page.display_name || `@${page.handle}`}
-          </h1>
-          <p
-            className="mt-0"
-            style={{
-              fontSize: `${headerConfig.handleSize}px`,
-              color: headerConfig.handleColor,
-              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }}
-          >
-            @{page.handle}
-          </p>
+          {/* In edit mode, name/handle render as sortable cards below */}
+          {!editMode && headerCardOrder.map(id => {
+            if (id === '__name_handle__') return (
+              <div key={id} style={{ paddingTop: headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePaddingY ?? 16 }}>
+                <h1
+                  className="font-bold mb-0"
+                  style={{
+                    fontSize: `${headerConfig.nameSize}px`,
+                    color: headerConfig.nameColor,
+                    textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+                  }}
+                >
+                  {page.display_name || `@${page.handle}`}
+                </h1>
+                <p
+                  className="mt-0"
+                  style={{
+                    fontSize: `${headerConfig.handleSize}px`,
+                    color: headerConfig.handleColor,
+                    textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  @{page.handle}
+                </p>
+              </div>
+            );
+            if (id === '__social_icons__') {
+              const allSocialItems = socialBlocks.flatMap(b => b.items);
+              const seenLabels = new Set<string>();
+              const dedupedItems = allSocialItems.filter(item => {
+                const key = item.label.toLowerCase();
+                if (seenLabels.has(key)) return false;
+                seenLabels.add(key);
+                return true;
+              });
+              if (dedupedItems.length === 0) return null;
+              const iSize = headerConfig.iconSize ?? 'medium';
+              const sizeMap: Record<string, number> = { small: 14, medium: 18, large: 24 };
+              const containerMap: Record<string, string> = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
+              return (
+                <div key={id} style={{ paddingTop: headerConfig.iconsPaddingY ?? 8, paddingBottom: headerConfig.iconsPaddingY ?? 8 }} className="flex flex-wrap justify-center gap-3">
+                  {dedupedItems.map((item) => (
+                    <span
+                      key={item.id}
+                      className={cn('flex items-center justify-center rounded-full', containerMap[iSize])}
+                      style={{ background: '#ffffff20' }}
+                      title={item.label}
+                    >
+                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color="#ffffff" />
+                    </span>
+                  ))}
+                </div>
+              );
+            }
+            return null;
+          })}
           {editMode && (
             <>
               <button
@@ -2082,68 +2375,7 @@ export function EditableProfileView({
             </p>
           )}
 
-          {/* Social icons in header — deduplicated by label */}
-          {socialBlocks.length > 0 && (() => {
-            const allSocialItems = socialBlocks.flatMap(b => b.items);
-            const seenLabels = new Set<string>();
-            const dedupedSocialItems = allSocialItems.filter(item => {
-              const key = item.label.toLowerCase();
-              if (seenLabels.has(key)) return false;
-              seenLabels.add(key);
-              return true;
-            });
-            return (
-              <>
-                {editMode && (
-                  <div className="flex items-center justify-center mt-1 mb-1">
-                    <div
-                      className="cursor-grab active:cursor-grabbing text-white/40 hover:text-white/80 touch-none select-none"
-                      onPointerDown={(e) => {
-                        setIsDraggingIcons(true);
-                        setIconsDragStart(e.clientY - iconsDragY);
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                      }}
-                      onPointerMove={(e) => {
-                        if (!isDraggingIcons) return;
-                        const newY = e.clientY - iconsDragStart;
-                        setIconsDragY(Math.max(-100, Math.min(100, newY)));
-                      }}
-                      onPointerUp={() => {
-                        setIsDraggingIcons(false);
-                        saveDragPosition(nameHandleDragY, iconsDragY);
-                      }}
-                    >
-                      <GripVertical className="h-5 w-5" />
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-wrap justify-center gap-3" style={{ marginTop: `${8 + (editMode ? iconsDragY : headerConfig.iconsOffset)}px` }}>
-                  {dedupedSocialItems.map((item) => (
-                    <span
-                      key={item.id}
-                      className="flex items-center justify-center h-10 w-10 rounded-full"
-                      style={{ background: '#ffffff20' }}
-                      title={item.label}
-                    >
-                      <SocialSvgIcon label={item.label} size={18} color="#ffffff" />
-                    </span>
-                  ))}
-                </div>
-                {editMode && (
-                  <button
-                    onClick={() => {
-                      const socialBlock = socialBlocks[0];
-                      if (socialBlock) onBlockEdit(socialBlock.id);
-                    }}
-                    className="text-xs text-white/40 hover:text-white/70 mt-1 flex items-center gap-1 mx-auto"
-                  >
-                    <Share2 className="h-3 w-3" />
-                    {t('editor.editSocial')}
-                  </button>
-                )}
-              </>
-            );
-          })()}
+          {/* Social icons in non-edit mode are rendered via headerCardOrder above */}
         </div>
 
         {/* Page 1 / Page 2 tabs — only show when NOT in edit mode */}
@@ -2191,25 +2423,80 @@ export function EditableProfileView({
                 </button>
               )}
             </div>
-            {displayBlocks.length === 0 ? (
-              <EmptyState textColor={theme.typography.text_color} />
-            ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
-                <SortableContext items={displayBlocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                  {displayBlocks.map((block) => (
-                    <SortablePreviewCard
-                      key={block.id}
-                      block={block}
-                      onEdit={() => onBlockEdit(block.id)}
-                      onToggle={(enabled) => onBlockToggle(block.id, enabled)}
-                      onGalleryAdd={openGalleryPicker}
-                      isDragActive={isDragActive}
-                      theme={theme}
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
-            )}
+            {(() => {
+              const dedupedSocialItems = (() => {
+                const allItems = socialBlocks.flatMap(b => b.items);
+                const seen = new Set<string>();
+                return allItems.filter(item => {
+                  const key = item.label.toLowerCase();
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+              })();
+              return (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
+                  <SortableContext items={allSortableItems} strategy={verticalListSortingStrategy}>
+                    {allSortableItems.map((itemId) => {
+                      if (itemId === '__name_handle__') return (
+                        <NameHandleCard
+                          key={itemId}
+                          page={page}
+                          headerConfig={headerConfig}
+                          expanded={expandedHeaderCard === '__name_handle__'}
+                          onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}
+                          isDragActive={isDragActive}
+                          localNameSize={localNameSize} setLocalNameSize={setLocalNameSize}
+                          localHandleSize={localHandleSize} setLocalHandleSize={setLocalHandleSize}
+                          localNameColor={localNameColor} setLocalNameColor={setLocalNameColor}
+                          localHandleColor={localHandleColor} setLocalHandleColor={setLocalHandleColor}
+                          localNamePaddingY={localNamePaddingY} setLocalNamePaddingY={setLocalNamePaddingY}
+                          onSave={() => saveHeaderConfig({
+                            nameSize: localNameSize,
+                            handleSize: localHandleSize,
+                            nameColor: localNameColor,
+                            handleColor: localHandleColor,
+                            namePaddingY: localNamePaddingY,
+                          })}
+                        />
+                      );
+                      if (itemId === '__social_icons__') return (
+                        <SocialIconsCard
+                          key={itemId}
+                          socialItems={dedupedSocialItems}
+                          expanded={expandedHeaderCard === '__social_icons__'}
+                          onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
+                          isDragActive={isDragActive}
+                          localIconsPaddingY={localIconsPaddingY} setLocalIconsPaddingY={setLocalIconsPaddingY}
+                          localIconSize={localIconSize} setLocalIconSize={setLocalIconSize}
+                          onEditSocial={() => {
+                            const socialBlock = socialBlocks[0];
+                            if (socialBlock) onBlockEdit(socialBlock.id);
+                          }}
+                          onSave={() => saveHeaderConfig({
+                            iconsPaddingY: localIconsPaddingY,
+                            iconSize: localIconSize,
+                          })}
+                        />
+                      );
+                      const block = displayBlocks.find(b => b.id === itemId);
+                      if (!block) return null;
+                      return (
+                        <SortablePreviewCard
+                          key={block.id}
+                          block={block}
+                          onEdit={() => onBlockEdit(block.id)}
+                          onToggle={(enabled) => onBlockToggle(block.id, enabled)}
+                          onGalleryAdd={openGalleryPicker}
+                          isDragActive={isDragActive}
+                          theme={theme}
+                        />
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
+              );
+            })()}
           </div>
         ) : (
           /* Full block content for view mode */

@@ -620,6 +620,14 @@ const translations: Record<Language, Record<string, string>> = {
     'editor.blocksLabel': 'Blocks',
     'editor.failedToggle': 'Failed to update block',
     'editor.failedReorder': 'Failed to reorder blocks',
+    'editor.nameHandleCard': 'Name & Handle',
+    'editor.socialIconsCard': 'Social Icons',
+    'editor.nameSize': 'Name Size',
+    'editor.handleSize': 'Handle Size',
+    'editor.nameColor': 'Name Color',
+    'editor.handleColor': 'Handle Color',
+    'editor.padding': 'Padding',
+    'editor.iconSize': 'Icon Size',
 
     // Profile Dashboard
     'dashboard.addContent': 'Add Content',
@@ -1511,6 +1519,14 @@ const translations: Record<Language, Record<string, string>> = {
     'editor.blocksLabel': 'Bloques',
     'editor.failedToggle': 'Error al actualizar bloque',
     'editor.failedReorder': 'Error al reordenar bloques',
+    'editor.nameHandleCard': 'Nombre y Handle',
+    'editor.socialIconsCard': 'Íconos Sociales',
+    'editor.nameSize': 'Tamaño del Nombre',
+    'editor.handleSize': 'Tamaño del Handle',
+    'editor.nameColor': 'Color del Nombre',
+    'editor.handleColor': 'Color del Handle',
+    'editor.padding': 'Espaciado',
+    'editor.iconSize': 'Tamaño de Ícono',
 
     // Profile Dashboard
     'dashboard.addContent': 'Agregar contenido',
