@@ -45,8 +45,6 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables, Enums } from '@/integrations/supabase/types';
-import ReactCrop, { type Crop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1250,10 +1248,14 @@ export function EditableProfileView({
   const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
   const [photoScale, setPhotoScale] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<Crop>();
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropAspect, setCropAspect] = useState<'preferred'|'free'|'square'|'16:9'|'4:3'|'3:2'>('preferred');
+  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const cropImgRef = useRef<HTMLImageElement>(null);
+  const cropFrameRef = useRef<HTMLDivElement>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
 
   // Drag handle state for name/handle and icons vertical repositioning
   const [nameHandleDragY, setNameHandleDragY] = useState(0);
@@ -1317,35 +1319,43 @@ export function EditableProfileView({
       setPhotoStep('choose');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
-      setCrop(undefined);
-      setCompletedCrop(undefined);
-      setAspectRatio(undefined);
+      setCropZoom(1);
+      setCropPosition({ x: 0, y: 0 });
+      setCropAspect('preferred');
     };
     reader.readAsDataURL(file);
     if (photoInputRef.current) photoInputRef.current.value = '';
   };
 
-  const getCroppedImage = async (): Promise<string> => {
-    if (!completedCrop || !imgRef.current) return photoPreview || '';
+  const getCroppedCanvas = (): string => {
+    const img = cropImgRef.current;
+    const frame = cropFrameRef.current;
+    if (!img || !frame || !photoPreview) return photoPreview || '';
+
+    const frameRect = frame.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+
+    const scaleX = img.naturalWidth / imgRect.width;
+    const scaleY = img.naturalHeight / imgRect.height;
+
+    const sx = (frameRect.left - imgRect.left) * scaleX;
+    const sy = (frameRect.top - imgRect.top) * scaleY;
+    const sw = frameRect.width * scaleX;
+    const sh = frameRect.height * scaleY;
 
     const canvas = document.createElement('canvas');
-    const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
-    const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-    canvas.width = completedCrop.width;
-    canvas.height = completedCrop.height;
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
     const ctx = canvas.getContext('2d');
     if (!ctx) return photoPreview || '';
 
     ctx.drawImage(
-      imgRef.current,
-      completedCrop.x * scaleX,
-      completedCrop.y * scaleY,
-      completedCrop.width * scaleX,
-      completedCrop.height * scaleY,
-      0,
-      0,
-      completedCrop.width,
-      completedCrop.height,
+      img,
+      Math.max(0, Math.round(sx)), Math.max(0, Math.round(sy)),
+      Math.round(Math.min(sw, img.naturalWidth - Math.max(0, sx))),
+      Math.round(Math.min(sh, img.naturalHeight - Math.max(0, sy))),
+      0, 0,
+      canvas.width, canvas.height,
     );
 
     return canvas.toDataURL('image/jpeg', 0.95);
@@ -1630,13 +1640,20 @@ export function EditableProfileView({
                           onClick={() => setPhotoStep('manual')}
                           className="w-full py-4 rounded-2xl bg-white/10 border border-white/20 text-white font-semibold flex items-center justify-center gap-2"
                         >
-                          {t('editor.editManually')}
+                          {t('editor.cropImage')}
                         </button>
                         <button
                           onClick={handleAiCrop}
                           className="w-full py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold flex items-center justify-center gap-2"
                         >
-                          {t('editor.aiAutoCrop')}
+                          {t('editor.useAiCrop')}
+                        </button>
+                        <button
+                          onClick={handlePhotoSave}
+                          disabled={photoSaving}
+                          className="w-full py-4 rounded-2xl bg-white/10 border border-white/20 text-white/70 font-medium flex items-center justify-center gap-2 text-sm"
+                        >
+                          {t('editor.useOriginal')}
                         </button>
                       </div>
                       <button onClick={resetPhoto} className="text-white/40 text-sm">
@@ -1655,84 +1672,189 @@ export function EditableProfileView({
 
                   {/* MANUAL CROP STEP */}
                   {photoStep === 'manual' && (
-                    <div className="flex flex-col h-full bg-black">
+                    <div className="flex flex-col h-full bg-[#0e0c09]">
+
                       {/* Header */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                      <div className="flex items-center justify-between px-4 h-14 border-b border-white/10 flex-shrink-0">
+                        <div className="w-10" />
+                        <p className="text-white font-semibold text-base">{t('editor.cropImage')}</p>
                         <button
                           onClick={() => setPhotoStep('choose')}
-                          className="text-white/60 text-sm font-medium"
+                          className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white"
                         >
-                          ← Back
-                        </button>
-                        <p className="text-white font-semibold">Crop Image</p>
-                        <button
-                          onClick={async () => {
-                            const cropped = await getCroppedImage();
-                            setPhotoPreview(cropped);
-                            setPhotoStep('preview');
-                          }}
-                          className="text-[#C9A55C] text-sm font-bold"
-                        >
-                          Apply
+                          ✕
                         </button>
                       </div>
 
-                      {/* Aspect ratio picker */}
-                      <div className="flex gap-2 px-4 py-3 overflow-x-auto">
-                        {[
-                          { label: 'Free', value: undefined },
-                          { label: 'Square', value: 1 },
-                          { label: '16:9', value: 16/9 },
-                          { label: '4:3', value: 4/3 },
-                          { label: '3:2', value: 3/2 },
-                        ].map(({ label, value }) => (
+                      {/* Aspect ratio pills */}
+                      <div className="flex items-center gap-2 px-4 py-3 overflow-x-auto flex-shrink-0">
+                        <span className="text-white/50 text-xs font-medium flex-shrink-0">Aspect Ratio:</span>
+                        {(['preferred','free','square','16:9','4:3','3:2'] as const).map((asp) => (
                           <button
-                            key={label}
-                            onClick={() => setAspectRatio(value)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-colors ${
-                              aspectRatio === value
+                            key={asp}
+                            onClick={() => {
+                              setCropAspect(asp);
+                              setCropPosition({ x: 0, y: 0 });
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-colors capitalize ${
+                              cropAspect === asp
                                 ? 'bg-[#C9A55C] text-[#0e0c09]'
-                                : 'bg-white/10 text-white'
+                                : 'bg-white/10 text-white border border-white/20'
                             }`}
                           >
-                            {label}
+                            {asp === 'preferred' ? 'Preferred' :
+                             asp === 'free' ? 'Free' :
+                             asp === 'square' ? 'Square' : asp}
                           </button>
                         ))}
                       </div>
 
+                      {/* Zoom slider */}
+                      <div className="flex items-center gap-3 px-4 pb-3 flex-shrink-0">
+                        <span className="text-white/50 text-xs font-medium flex-shrink-0">Zoom:</span>
+                        <input
+                          type="range"
+                          min={0.5}
+                          max={3}
+                          step={0.01}
+                          value={cropZoom}
+                          onChange={(e) => setCropZoom(Number(e.target.value))}
+                          className="flex-1 accent-[#C9A55C] h-1.5"
+                        />
+                        <span className="text-white/70 text-xs font-mono w-10 text-right flex-shrink-0">
+                          {cropZoom.toFixed(1)}x
+                        </span>
+                      </div>
+
                       {/* Crop area */}
-                      <div className="flex-1 flex items-center justify-center overflow-hidden px-2">
+                      <div
+                        ref={cropContainerRef}
+                        className="flex-1 relative overflow-hidden bg-black flex items-center justify-center"
+                        style={{ touchAction: 'none' }}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          setIsDraggingCrop(true);
+                          setDragStart({ x: e.clientX - cropPosition.x, y: e.clientY - cropPosition.y });
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                        }}
+                        onPointerMove={(e) => {
+                          e.preventDefault();
+                          if (!isDraggingCrop) return;
+                          setCropPosition({
+                            x: e.clientX - dragStart.x,
+                            y: e.clientY - dragStart.y,
+                          });
+                        }}
+                        onPointerUp={(e) => {
+                          e.preventDefault();
+                          setIsDraggingCrop(false);
+                        }}
+                      >
+                        {/* Panning + zooming image */}
                         {photoPreview && (
-                          <ReactCrop
-                            crop={crop}
-                            onChange={(c) => setCrop(c)}
-                            onComplete={(c) => setCompletedCrop(c)}
-                            aspect={aspectRatio}
-                            className="max-h-full"
-                          >
-                            <img
-                              ref={imgRef}
-                              src={photoPreview}
-                              alt="Crop"
-                              className="max-h-[50vh] w-auto"
-                              style={{ maxWidth: '100%' }}
-                            />
-                          </ReactCrop>
+                          <img
+                            ref={cropImgRef}
+                            src={photoPreview}
+                            alt="Crop"
+                            draggable={false}
+                            className="absolute max-w-none select-none pointer-events-none"
+                            style={{
+                              transform: `translate(${cropPosition.x}px, ${cropPosition.y}px) scale(${cropZoom})`,
+                              transformOrigin: 'center center',
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              userSelect: 'none',
+                              WebkitUserSelect: 'none',
+                            }}
+                          />
                         )}
+
+                        {/* Fixed crop frame */}
+                        {(() => {
+                          const containerW = cropContainerRef.current?.clientWidth || 300;
+                          const containerH = cropContainerRef.current?.clientHeight || 400;
+                          const padding = 32;
+                          const availW = containerW - padding * 2;
+                          const availH = containerH - padding * 2;
+
+                          const aspectMap: Record<string, number | undefined> = {
+                            preferred: 3 / 4,
+                            free: undefined,
+                            square: 1,
+                            '16:9': 16 / 9,
+                            '4:3': 4 / 3,
+                            '3:2': 3 / 2,
+                          };
+                          const ratio = aspectMap[cropAspect];
+
+                          let fw: number;
+                          let fh: number;
+                          if (!ratio) {
+                            fw = availW;
+                            fh = availH;
+                          } else if (ratio >= 1) {
+                            fw = availW;
+                            fh = fw / ratio;
+                            if (fh > availH) { fh = availH; fw = fh * ratio; }
+                          } else {
+                            fh = availH;
+                            fw = fh * ratio;
+                            if (fw > availW) { fw = availW; fh = fw / ratio; }
+                          }
+
+                          const handles = [
+                            { top: 0, left: 0, transform: 'translate(-50%,-50%)' },
+                            { top: 0, left: '50%', transform: 'translate(-50%,-50%)' },
+                            { top: 0, right: 0, transform: 'translate(50%,-50%)' },
+                            { top: '50%', left: 0, transform: 'translate(-50%,-50%)' },
+                            { top: '50%', right: 0, transform: 'translate(50%,-50%)' },
+                            { bottom: 0, left: 0, transform: 'translate(-50%,50%)' },
+                            { bottom: 0, left: '50%', transform: 'translate(-50%,50%)' },
+                            { bottom: 0, right: 0, transform: 'translate(50%,50%)' },
+                          ];
+
+                          return (
+                            <div
+                              ref={cropFrameRef}
+                              className="absolute pointer-events-none"
+                              style={{
+                                width: fw,
+                                height: fh,
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                border: '2px solid #C9A55C',
+                                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                                zIndex: 10,
+                              }}
+                            >
+                              {handles.map((style, i) => (
+                                <div
+                                  key={i}
+                                  className="absolute w-4 h-4 bg-white border-2 border-[#C9A55C] rounded-sm"
+                                  style={style as React.CSSProperties}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Bottom buttons */}
-                      <div className="flex gap-3 px-4 py-4 border-t border-white/10">
+                      <div className="flex gap-3 px-4 py-4 border-t border-white/10 flex-shrink-0">
                         <button
                           onClick={() => setPhotoStep('choose')}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
                         >
-                          Cancel
+                          Back
                         </button>
                         <button
-                          onClick={async () => {
-                            const cropped = await getCroppedImage();
+                          onClick={() => {
+                            const cropped = getCroppedCanvas();
                             setPhotoPreview(cropped);
+                            setCropZoom(1);
+                            setCropPosition({ x: 0, y: 0 });
                             setPhotoStep('preview');
                           }}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
@@ -1740,6 +1862,7 @@ export function EditableProfileView({
                           Apply Crop
                         </button>
                       </div>
+
                     </div>
                   )}
 
