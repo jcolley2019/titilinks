@@ -28,7 +28,6 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   MousePointer,
   Share2,
   FileText,
@@ -1126,7 +1125,6 @@ function EmptyState({ textColor }: { textColor: string }) {
 
 function NameHandleCard({
   page,
-  headerConfig,
   expanded,
   onToggleExpand,
   isDragActive,
@@ -1138,7 +1136,6 @@ function NameHandleCard({
   onSave,
 }: {
   page: any;
-  headerConfig: any;
   expanded: boolean;
   onToggleExpand: () => void;
   isDragActive: boolean;
@@ -1157,94 +1154,86 @@ function NameHandleCard({
     transition: isDragging ? 'none' : transition,
   };
 
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debouncedSave = () => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(onSave, 500);
+  };
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
       className={cn(
-        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
-        'bg-white/[0.03] transition-all duration-200 ease-out',
+        'mx-4 mb-2 relative transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
         isDragActive && !isDragging && 'opacity-50',
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none"
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
-        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
-          {t('editor.nameHandleCard')}
-        </span>
-        <button onClick={onToggleExpand} className="text-white/30 hover:text-white/80">
-          <ChevronDown className={cn('h-5 w-5 transition-transform', expanded && 'rotate-180')} />
-        </button>
-      </div>
+      {/* Grip handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/20 touch-none z-10"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
 
-      {/* Preview */}
+      {/* Content — matches profile display */}
       <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
-          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
-        )}
+        className="cursor-pointer"
+        style={{ paddingTop: localNamePaddingY, paddingBottom: localNamePaddingY, textAlign: 'center' }}
         onClick={!isDragActive ? onToggleExpand : undefined}
       >
-        <div style={{ paddingTop: localNamePaddingY, paddingBottom: localNamePaddingY, paddingLeft: 16, paddingRight: 16, textAlign: 'center' }}>
-          <p style={{ fontSize: localNameSize, color: localNameColor, fontWeight: 'bold', lineHeight: 1.2 }}>
-            {page.display_name || `@${page.handle}`}
-          </p>
-          <p style={{ fontSize: localHandleSize, color: localHandleColor, marginTop: 2 }}>
-            @{page.handle}
-          </p>
-        </div>
+        <h1
+          className="font-bold mb-0"
+          style={{
+            fontSize: localNameSize,
+            color: localNameColor,
+            textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+          }}
+        >
+          {page.display_name || `@${page.handle}`}
+        </h1>
+        <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', marginTop: 0 }}>
+          @{page.handle}
+        </p>
       </div>
 
-      {/* Settings panel */}
-      {expanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-white/10 space-y-4">
-          <div>
-            <label className="text-xs text-white/50 mb-1 block">{t('editor.nameSize')}: {localNameSize}px</label>
+      {/* Compact settings row */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out',
+          expanded ? 'max-h-[120px] opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="px-6 pb-2 space-y-1.5">
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Name</label>
             <input type="range" min={16} max={48} step={1} value={localNameSize}
-              onChange={(e) => setLocalNameSize(Number(e.target.value))}
-              className="w-full accent-[#C9A55C] h-1.5" />
+              onChange={(e) => { setLocalNameSize(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
+            <input type="color" value={localNameColor}
+              onChange={(e) => { setLocalNameColor(e.target.value); debouncedSave(); }}
+              className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
           </div>
-          <div>
-            <label className="text-xs text-white/50 mb-1 block">{t('editor.handleSize')}: {localHandleSize}px</label>
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Handle</label>
             <input type="range" min={10} max={24} step={1} value={localHandleSize}
-              onChange={(e) => setLocalHandleSize(Number(e.target.value))}
-              className="w-full accent-[#C9A55C] h-1.5" />
+              onChange={(e) => { setLocalHandleSize(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
+            <input type="color" value={localHandleColor.slice(0, 7)}
+              onChange={(e) => { setLocalHandleColor(e.target.value); debouncedSave(); }}
+              className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
           </div>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs text-white/50 mb-1 block">{t('editor.nameColor')}</label>
-              <input type="color" value={localNameColor}
-                onChange={(e) => setLocalNameColor(e.target.value)}
-                className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/20" />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-white/50 mb-1 block">{t('editor.handleColor')}</label>
-              <input type="color" value={localHandleColor.slice(0, 7)}
-                onChange={(e) => setLocalHandleColor(e.target.value)}
-                className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/20" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-white/50 mb-1 block">{t('editor.padding')}: {localNamePaddingY}px</label>
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Pad</label>
             <input type="range" min={0} max={60} step={2} value={localNamePaddingY}
-              onChange={(e) => setLocalNamePaddingY(Number(e.target.value))}
-              className="w-full accent-[#C9A55C] h-1.5" />
+              onChange={(e) => { setLocalNamePaddingY(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
-          <button
-            onClick={onSave}
-            className="w-full bg-[#C9A55C] text-[#0e0c09] rounded-xl px-4 py-2 text-sm font-bold"
-          >
-            {t('editor.savePhoto')}
-          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1281,42 +1270,38 @@ function SocialIconsCard({
   const iconSizeMap = { small: 14, medium: 18, large: 24 };
   const iconContainerMap = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
 
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debouncedSave = () => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(onSave, 500);
+  };
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
       className={cn(
-        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
-        'bg-white/[0.03] transition-all duration-200 ease-out',
+        'mx-4 mb-2 relative transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
         isDragActive && !isDragging && 'opacity-50',
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none"
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
-        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
-          {t('editor.socialIconsCard')}
-        </span>
-        <button onClick={onToggleExpand} className="text-white/30 hover:text-white/80">
-          <ChevronDown className={cn('h-5 w-5 transition-transform', expanded && 'rotate-180')} />
-        </button>
-      </div>
+      {/* Grip handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/20 touch-none z-10"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
 
-      {/* Preview */}
+      {/* Content — matches profile display */}
       <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
-          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
-        )}
+        className="cursor-pointer"
+        style={{ paddingTop: localIconsPaddingY, paddingBottom: localIconsPaddingY }}
         onClick={!isDragActive ? onToggleExpand : undefined}
       >
-        <div style={{ paddingTop: localIconsPaddingY, paddingBottom: localIconsPaddingY }} className="flex flex-wrap justify-center gap-3 px-4">
+        <div className="flex flex-wrap justify-center gap-3 px-4">
           {socialItems.map((item) => (
             <span
               key={item.id}
@@ -1333,27 +1318,32 @@ function SocialIconsCard({
         </div>
       </div>
 
-      {/* Settings panel */}
-      {expanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-white/10 space-y-4">
-          <div>
-            <label className="text-xs text-white/50 mb-1 block">{t('editor.padding')}: {localIconsPaddingY}px</label>
+      {/* Compact settings row */}
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200 ease-out',
+          expanded ? 'max-h-[120px] opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="px-6 pb-2 space-y-1.5">
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Pad</label>
             <input type="range" min={0} max={60} step={2} value={localIconsPaddingY}
-              onChange={(e) => setLocalIconsPaddingY(Number(e.target.value))}
-              className="w-full accent-[#C9A55C] h-1.5" />
+              onChange={(e) => { setLocalIconsPaddingY(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
-          <div>
-            <label className="text-xs text-white/50 mb-2 block">{t('editor.iconSize')}</label>
-            <div className="flex gap-2">
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Size</label>
+            <div className="flex gap-1 flex-1">
               {(['small', 'medium', 'large'] as const).map((sz) => (
                 <button
                   key={sz}
-                  onClick={() => setLocalIconSize(sz)}
+                  onClick={() => { setLocalIconSize(sz); debouncedSave(); }}
                   className={cn(
-                    'flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    'flex-1 py-1 rounded text-[10px] font-semibold transition-colors',
                     localIconSize === sz
                       ? 'bg-[#C9A55C] text-[#0e0c09]'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      : 'bg-white/10 text-white/50'
                   )}
                 >
                   {sz.charAt(0).toUpperCase() + sz.slice(1)}
@@ -1363,19 +1353,13 @@ function SocialIconsCard({
           </div>
           <button
             onClick={onEditSocial}
-            className="w-full text-xs text-white/40 hover:text-white/70 flex items-center gap-1 justify-center py-2 border border-white/10 rounded-xl"
+            className="w-full text-[10px] text-white/40 hover:text-white/60 flex items-center gap-1 justify-center py-1"
           >
             <Share2 className="h-3 w-3" />
             {t('editor.editSocial')}
           </button>
-          <button
-            onClick={onSave}
-            className="w-full bg-[#C9A55C] text-[#0e0c09] rounded-xl px-4 py-2 text-sm font-bold"
-          >
-            {t('editor.savePhoto')}
-          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -2442,7 +2426,6 @@ export function EditableProfileView({
                         <NameHandleCard
                           key={itemId}
                           page={page}
-                          headerConfig={headerConfig}
                           expanded={expandedHeaderCard === '__name_handle__'}
                           onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}
                           isDragActive={isDragActive}
