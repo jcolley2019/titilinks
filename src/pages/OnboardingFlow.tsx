@@ -313,7 +313,15 @@ export default function OnboardingFlow() {
         // Update existing page theme
         await supabase.from('pages').update({
           theme_json: {
-            background: state.backgroundColor,
+            background: {
+              type: 'solid' as const,
+              solid_color: state.backgroundColor || '#1a1a2e',
+              gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+              image_url: '',
+              overlay_color: '#000000',
+              overlay_opacity: 0.5,
+              source: null,
+            },
             buttonStyle: state.buttonStyle,
             font: state.fontChoice,
             pageStyle: state.pageStyle,
@@ -335,7 +343,15 @@ export default function OnboardingFlow() {
         display_name: state.displayName,
         avatar_url: state.avatarPreview || null,
         theme_json: {
-          background: state.backgroundColor,
+          background: {
+            type: 'solid' as const,
+            solid_color: state.backgroundColor || '#1a1a2e',
+            gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+            image_url: '',
+            overlay_color: '#000000',
+            overlay_opacity: 0.5,
+            source: null,
+          },
           buttonStyle: state.buttonStyle,
           font: state.fontChoice,
           pageStyle: state.pageStyle,

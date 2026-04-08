@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
@@ -1255,6 +1255,14 @@ export function EditableProfileView({
   const imgRef = useRef<HTMLImageElement>(null);
   const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
 
+  // Drag handle state for name/handle and icons vertical repositioning
+  const [nameHandleDragY, setNameHandleDragY] = useState(0);
+  const [iconsDragY, setIconsDragY] = useState(0);
+  const [isDraggingNameHandle, setIsDraggingNameHandle] = useState(false);
+  const [isDraggingIcons, setIsDraggingIcons] = useState(false);
+  const [nameDragStart, setNameDragStart] = useState(0);
+  const [iconsDragStart, setIconsDragStart] = useState(0);
+
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !activeGalleryBlockId || !user) return;
@@ -1430,6 +1438,30 @@ export function EditableProfileView({
     iconsOffset: 0,
   };
 
+  // Initialize drag offsets from headerConfig
+  useEffect(() => {
+    setNameHandleDragY(headerConfig.nameOffset || 0);
+    setIconsDragY(headerConfig.iconsOffset || 0);
+  }, [page.theme_json]);
+
+  const saveDragPosition = async (nameOffset: number, iconsOffset: number) => {
+    const existingTheme = (page.theme_json as any) || {};
+    await supabase
+      .from('pages')
+      .update({
+        theme_json: {
+          ...existingTheme,
+          headerConfig: {
+            ...(existingTheme.headerConfig || {}),
+            nameOffset,
+            iconsOffset,
+          },
+        },
+      })
+      .eq('id', page.id);
+    onRefresh();
+  };
+
   // Hero image
   const heroImage = localHeroImage || (theme.header?.image_url) || page.avatar_url || '';
 
@@ -1525,10 +1557,31 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
+            marginTop: `calc(-6rem + ${editMode ? nameHandleDragY : headerConfig.nameOffset}px)`,
             paddingBottom: '1rem',
           }}
         >
+          {editMode && (
+            <div
+              className="absolute left-2 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/40 hover:text-white/80 touch-none select-none z-10"
+              onPointerDown={(e) => {
+                setIsDraggingNameHandle(true);
+                setNameDragStart(e.clientY - nameHandleDragY);
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!isDraggingNameHandle) return;
+                const newY = e.clientY - nameDragStart;
+                setNameHandleDragY(Math.max(-150, Math.min(150, newY)));
+              }}
+              onPointerUp={() => {
+                setIsDraggingNameHandle(false);
+                saveDragPosition(nameHandleDragY, iconsDragY);
+              }}
+            >
+              <GripVertical className="h-6 w-6" />
+            </div>
+          )}
           <h1
             className="font-bold mb-0"
             style={{
@@ -1749,7 +1802,30 @@ export function EditableProfileView({
             });
             return (
               <>
-                <div className="flex flex-wrap justify-center gap-3" style={{ marginTop: `${8 + headerConfig.iconsOffset}px` }}>
+                {editMode && (
+                  <div className="flex items-center justify-center mt-1 mb-1">
+                    <div
+                      className="cursor-grab active:cursor-grabbing text-white/40 hover:text-white/80 touch-none select-none"
+                      onPointerDown={(e) => {
+                        setIsDraggingIcons(true);
+                        setIconsDragStart(e.clientY - iconsDragY);
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                      }}
+                      onPointerMove={(e) => {
+                        if (!isDraggingIcons) return;
+                        const newY = e.clientY - iconsDragStart;
+                        setIconsDragY(Math.max(-100, Math.min(100, newY)));
+                      }}
+                      onPointerUp={() => {
+                        setIsDraggingIcons(false);
+                        saveDragPosition(nameHandleDragY, iconsDragY);
+                      }}
+                    >
+                      <GripVertical className="h-5 w-5" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-center gap-3" style={{ marginTop: `${8 + (editMode ? iconsDragY : headerConfig.iconsOffset)}px` }}>
                   {dedupedSocialItems.map((item) => (
                     <span
                       key={item.id}
