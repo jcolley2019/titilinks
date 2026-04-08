@@ -293,7 +293,7 @@ export default function Editor() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}>
       {/* ═══ DESKTOP: Blurred hero bg + phone frame ═══ */}
       <div className="hidden lg:block fixed inset-0 left-64 top-0 overflow-hidden">
         {/* Blurred hero background */}

@@ -2423,15 +2423,6 @@ export function EditableProfileView({
           /* Preview block cards for edit mode */
           <div className="pb-32 pt-0">
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
-
-              {onAddContent && (
-                <button
-                  onClick={onAddContent}
-                  className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
-                >
-                  {t('editor.addContent')}
-                </button>
-              )}
             </div>
             {/* Free-drag header cards (outside DndContext) */}
             {(() => {

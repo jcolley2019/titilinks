@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  onAddContent?: () => void;
 }
 
 interface ProfileCompletion {
@@ -51,7 +52,7 @@ const baseNavItems = [
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -345,7 +346,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Badge>
           )}
         </div>
-        {!isEditorPage && (
+        {isEditorPage && onAddContent ? (
+          <button
+            onClick={onAddContent}
+            className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
+          >
+            + Add
+          </button>
+        ) : !isEditorPage ? (
           <Button
             variant="ghost"
             size="icon"
@@ -353,7 +361,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
-        )}
+        ) : null}
       </header>
 
       {/* Mobile Menu Overlay */}
