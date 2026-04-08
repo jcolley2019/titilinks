@@ -1133,6 +1133,7 @@ function NameHandleCard({
   localNameColor, setLocalNameColor,
   localHandleColor, setLocalHandleColor,
   localNamePaddingY, setLocalNamePaddingY,
+  localNameHandleGap, setLocalNameHandleGap,
   onSave,
 }: {
   page: any;
@@ -1144,6 +1145,7 @@ function NameHandleCard({
   localNameColor: string; setLocalNameColor: (v: string) => void;
   localHandleColor: string; setLocalHandleColor: (v: string) => void;
   localNamePaddingY: number; setLocalNamePaddingY: (v: number) => void;
+  localNameHandleGap: number; setLocalNameHandleGap: (v: number) => void;
   onSave: () => void;
 }) {
   const { t } = useLanguage();
@@ -1167,7 +1169,6 @@ function NameHandleCard({
       className={cn(
         'mx-4 mb-2 relative transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
-        isDragActive && !isDragging && 'opacity-50',
       )}
     >
       {/* Grip handle */}
@@ -1185,19 +1186,21 @@ function NameHandleCard({
         style={{ paddingTop: localNamePaddingY, paddingBottom: localNamePaddingY, textAlign: 'center' }}
         onClick={!isDragActive ? onToggleExpand : undefined}
       >
-        <h1
-          className="font-bold mb-0"
-          style={{
-            fontSize: localNameSize,
-            color: localNameColor,
-            textShadow: '0 2px 20px rgba(0,0,0,0.8)',
-          }}
-        >
-          {page.display_name || `@${page.handle}`}
-        </h1>
-        <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', marginTop: 0 }}>
-          @{page.handle}
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: `${localNameHandleGap}px`, alignItems: 'center' }}>
+          <h1
+            className="font-bold mb-0"
+            style={{
+              fontSize: localNameSize,
+              color: localNameColor,
+              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+            }}
+          >
+            {page.display_name || `@${page.handle}`}
+          </h1>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0 }}>
+            @{page.handle}
+          </p>
+        </div>
       </div>
 
       {/* Compact settings row */}
@@ -1225,6 +1228,12 @@ function NameHandleCard({
             <input type="color" value={localHandleColor.slice(0, 7)}
               onChange={(e) => { setLocalHandleColor(e.target.value); debouncedSave(); }}
               className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
+          </div>
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
+            <input type="range" min={0} max={20} step={1} value={localNameHandleGap}
+              onChange={(e) => { setLocalNameHandleGap(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
           <div className="flex gap-3 items-center">
             <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Pad</label>
@@ -1283,7 +1292,6 @@ function SocialIconsCard({
       className={cn(
         'mx-4 mb-2 relative transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
-        isDragActive && !isDragging && 'opacity-50',
       )}
     >
       {/* Grip handle */}
@@ -1515,6 +1523,7 @@ export function EditableProfileView({
     namePaddingY: 16,
     iconsPaddingY: 8,
     iconSize: 'medium' as 'small'|'medium'|'large',
+    nameHandleGap: 2,
   };
 
   // Header card sortable state
@@ -1530,6 +1539,7 @@ export function EditableProfileView({
   const [localNamePaddingY, setLocalNamePaddingY] = useState(headerConfig.namePaddingY ?? 16);
   const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
   const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
+  const [localNameHandleGap, setLocalNameHandleGap] = useState(headerConfig.nameHandleGap ?? 2);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1931,7 +1941,7 @@ export function EditableProfileView({
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             if (id === '__name_handle__') return (
-              <div key={id} style={{ paddingTop: headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePaddingY ?? 16 }}>
+              <div key={id} style={{ paddingTop: headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, gap: `${headerConfig.nameHandleGap ?? 2}px`, alignItems: 'center' }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -1943,11 +1953,11 @@ export function EditableProfileView({
                   {page.display_name || `@${page.handle}`}
                 </h1>
                 <p
-                  className="mt-0"
                   style={{
                     fontSize: `${headerConfig.handleSize}px`,
                     color: headerConfig.handleColor,
                     textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                    margin: 0,
                   }}
                 >
                   @{page.handle}
@@ -2434,12 +2444,14 @@ export function EditableProfileView({
                           localNameColor={localNameColor} setLocalNameColor={setLocalNameColor}
                           localHandleColor={localHandleColor} setLocalHandleColor={setLocalHandleColor}
                           localNamePaddingY={localNamePaddingY} setLocalNamePaddingY={setLocalNamePaddingY}
+                          localNameHandleGap={localNameHandleGap} setLocalNameHandleGap={setLocalNameHandleGap}
                           onSave={() => saveHeaderConfig({
                             nameSize: localNameSize,
                             handleSize: localHandleSize,
                             nameColor: localNameColor,
                             handleColor: localHandleColor,
                             namePaddingY: localNamePaddingY,
+                            nameHandleGap: localNameHandleGap,
                           })}
                         />
                       );

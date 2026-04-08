@@ -628,6 +628,7 @@ const translations: Record<Language, Record<string, string>> = {
     'editor.handleColor': 'Handle Color',
     'editor.padding': 'Padding',
     'editor.iconSize': 'Icon Size',
+    'editor.nameHandleGap': 'Text Gap',
 
     // Profile Dashboard
     'dashboard.addContent': 'Add Content',
@@ -1527,6 +1528,7 @@ const translations: Record<Language, Record<string, string>> = {
     'editor.handleColor': 'Color del Handle',
     'editor.padding': 'Espaciado',
     'editor.iconSize': 'Tamaño de Ícono',
+    'editor.nameHandleGap': 'Espacio de Texto',
 
     // Profile Dashboard
     'dashboard.addContent': 'Agregar contenido',
