@@ -1256,6 +1256,10 @@ export function EditableProfileView({
   const cropImgRef = useRef<HTMLImageElement>(null);
   const cropFrameRef = useRef<HTMLDivElement>(null);
   const cropContainerRef = useRef<HTMLDivElement>(null);
+  const [cropFrameSize, setCropFrameSize] = useState({ w: 280, h: 280 });
+  const [isResizingCrop, setIsResizingCrop] = useState(false);
+  const [resizeCorner, setResizeCorner] = useState<'tl'|'tr'|'bl'|'br'|null>(null);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
   // Drag handle state for name/handle and icons vertical repositioning
   const [nameHandleDragY, setNameHandleDragY] = useState(0);
@@ -1672,7 +1676,7 @@ export function EditableProfileView({
 
                   {/* MANUAL CROP STEP */}
                   {photoStep === 'manual' && (
-                    <div className="flex flex-col h-full bg-[#0e0c09]">
+                    <div className="fixed inset-0 z-[100] flex flex-col bg-[#0e0c09]">
 
                       {/* Header */}
                       <div className="flex items-center justify-between px-4 h-14 border-b border-white/10 flex-shrink-0">
@@ -1687,16 +1691,16 @@ export function EditableProfileView({
                       </div>
 
                       {/* Aspect ratio pills */}
-                      <div className="flex items-center gap-2 px-4 py-3 overflow-x-auto flex-shrink-0">
-                        <span className="text-white/50 text-xs font-medium flex-shrink-0">Aspect Ratio:</span>
+                      <div className="grid grid-cols-6 gap-1.5 px-3 py-2 flex-shrink-0">
                         {(['preferred','free','square','16:9','4:3','3:2'] as const).map((asp) => (
                           <button
                             key={asp}
                             onClick={() => {
                               setCropAspect(asp);
                               setCropPosition({ x: 0, y: 0 });
+                              if (asp === 'free') setCropFrameSize({ w: 280, h: 280 });
                             }}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-colors capitalize ${
+                            className={`py-1.5 rounded-full text-[11px] font-semibold transition-colors text-center truncate px-1 ${
                               cropAspect === asp
                                 ? 'bg-[#C9A55C] text-[#0e0c09]'
                                 : 'bg-white/10 text-white border border-white/20'
@@ -1729,16 +1733,30 @@ export function EditableProfileView({
                       {/* Crop area */}
                       <div
                         ref={cropContainerRef}
-                        className="flex-1 relative overflow-hidden bg-black flex items-center justify-center"
-                        style={{ touchAction: 'none' }}
+                        className="relative overflow-hidden bg-black flex items-center justify-center"
+                        style={{ touchAction: 'none', height: 'calc(100vh - 200px)' }}
                         onPointerDown={(e) => {
                           e.preventDefault();
+                          if (isResizingCrop) return;
                           setIsDraggingCrop(true);
                           setDragStart({ x: e.clientX - cropPosition.x, y: e.clientY - cropPosition.y });
                           e.currentTarget.setPointerCapture(e.pointerId);
                         }}
                         onPointerMove={(e) => {
                           e.preventDefault();
+                          if (isResizingCrop && resizeCorner) {
+                            const dx = e.clientX - resizeStart.x;
+                            const dy = e.clientY - resizeStart.y;
+                            const minSize = 80;
+                            let newW = resizeStart.w;
+                            let newH = resizeStart.h;
+                            if (resizeCorner === 'tr' || resizeCorner === 'br') newW = Math.max(minSize, resizeStart.w + dx);
+                            if (resizeCorner === 'tl' || resizeCorner === 'bl') newW = Math.max(minSize, resizeStart.w - dx);
+                            if (resizeCorner === 'bl' || resizeCorner === 'br') newH = Math.max(minSize, resizeStart.h + dy);
+                            if (resizeCorner === 'tl' || resizeCorner === 'tr') newH = Math.max(minSize, resizeStart.h - dy);
+                            setCropFrameSize({ w: newW, h: newH });
+                            return;
+                          }
                           if (!isDraggingCrop) return;
                           setCropPosition({
                             x: e.clientX - dragStart.x,
@@ -1748,6 +1766,8 @@ export function EditableProfileView({
                         onPointerUp={(e) => {
                           e.preventDefault();
                           setIsDraggingCrop(false);
+                          setIsResizingCrop(false);
+                          setResizeCorner(null);
                         }}
                       >
                         {/* Panning + zooming image */}
@@ -1770,54 +1790,60 @@ export function EditableProfileView({
                           />
                         )}
 
-                        {/* Fixed crop frame */}
+                        {/* Crop frame */}
                         {(() => {
-                          const containerW = cropContainerRef.current?.clientWidth || 300;
-                          const containerH = cropContainerRef.current?.clientHeight || 400;
-                          const padding = 32;
-                          const availW = containerW - padding * 2;
-                          const availH = containerH - padding * 2;
-
-                          const aspectMap: Record<string, number | undefined> = {
-                            preferred: 3 / 4,
-                            free: undefined,
-                            square: 1,
-                            '16:9': 16 / 9,
-                            '4:3': 4 / 3,
-                            '3:2': 3 / 2,
-                          };
-                          const ratio = aspectMap[cropAspect];
-
+                          const isFree = cropAspect === 'free';
                           let fw: number;
                           let fh: number;
-                          if (!ratio) {
-                            fw = availW;
-                            fh = availH;
-                          } else if (ratio >= 1) {
-                            fw = availW;
-                            fh = fw / ratio;
-                            if (fh > availH) { fh = availH; fw = fh * ratio; }
+
+                          if (isFree) {
+                            fw = cropFrameSize.w;
+                            fh = cropFrameSize.h;
                           } else {
-                            fh = availH;
-                            fw = fh * ratio;
-                            if (fw > availW) { fw = availW; fh = fw / ratio; }
+                            const containerW = cropContainerRef.current?.clientWidth || 300;
+                            const containerH = cropContainerRef.current?.clientHeight || 400;
+                            const padding = 32;
+                            const availW = containerW - padding * 2;
+                            const availH = containerH - padding * 2;
+
+                            const aspectMap: Record<string, number> = {
+                              preferred: 3 / 4,
+                              square: 1,
+                              '16:9': 16 / 9,
+                              '4:3': 4 / 3,
+                              '3:2': 3 / 2,
+                            };
+                            const ratio = aspectMap[cropAspect] ?? 3 / 4;
+
+                            if (ratio >= 1) {
+                              fw = availW;
+                              fh = fw / ratio;
+                              if (fh > availH) { fh = availH; fw = fh * ratio; }
+                            } else {
+                              fh = availH;
+                              fw = fh * ratio;
+                              if (fw > availW) { fw = availW; fh = fw / ratio; }
+                            }
                           }
 
-                          const handles = [
-                            { top: 0, left: 0, transform: 'translate(-50%,-50%)' },
-                            { top: 0, left: '50%', transform: 'translate(-50%,-50%)' },
-                            { top: 0, right: 0, transform: 'translate(50%,-50%)' },
-                            { top: '50%', left: 0, transform: 'translate(-50%,-50%)' },
-                            { top: '50%', right: 0, transform: 'translate(50%,-50%)' },
-                            { bottom: 0, left: 0, transform: 'translate(-50%,50%)' },
-                            { bottom: 0, left: '50%', transform: 'translate(-50%,50%)' },
-                            { bottom: 0, right: 0, transform: 'translate(50%,50%)' },
+                          const cornerKeys = ['tl', 'tr', 'bl', 'br'] as const;
+                          const corners: Array<{ key: typeof cornerKeys[number]; style: React.CSSProperties }> = [
+                            { key: 'tl', style: { top: 0, left: 0, transform: 'translate(-50%,-50%)', cursor: 'nwse-resize' } },
+                            { key: 'tr', style: { top: 0, right: 0, transform: 'translate(50%,-50%)', cursor: 'nesw-resize' } },
+                            { key: 'bl', style: { bottom: 0, left: 0, transform: 'translate(-50%,50%)', cursor: 'nesw-resize' } },
+                            { key: 'br', style: { bottom: 0, right: 0, transform: 'translate(50%,50%)', cursor: 'nwse-resize' } },
+                          ];
+                          const midpoints: Array<{ style: React.CSSProperties }> = [
+                            { style: { top: 0, left: '50%', transform: 'translate(-50%,-50%)' } },
+                            { style: { bottom: 0, left: '50%', transform: 'translate(-50%,50%)' } },
+                            { style: { top: '50%', left: 0, transform: 'translate(-50%,-50%)' } },
+                            { style: { top: '50%', right: 0, transform: 'translate(50%,-50%)' } },
                           ];
 
                           return (
                             <div
                               ref={cropFrameRef}
-                              className="absolute pointer-events-none"
+                              className="absolute"
                               style={{
                                 width: fw,
                                 height: fh,
@@ -1827,13 +1853,35 @@ export function EditableProfileView({
                                 border: '2px solid #C9A55C',
                                 boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
                                 zIndex: 10,
+                                pointerEvents: 'none',
                               }}
                             >
-                              {handles.map((style, i) => (
+                              {/* Corner handles */}
+                              {corners.map(({ key, style }) => (
                                 <div
-                                  key={i}
-                                  className="absolute w-4 h-4 bg-white border-2 border-[#C9A55C] rounded-sm"
-                                  style={style as React.CSSProperties}
+                                  key={key}
+                                  className="absolute w-5 h-5 bg-white border-2 border-[#C9A55C] rounded-sm"
+                                  style={{
+                                    ...style,
+                                    pointerEvents: isFree ? 'auto' : 'none',
+                                    touchAction: 'none',
+                                  }}
+                                  onPointerDown={isFree ? (e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setIsResizingCrop(true);
+                                    setResizeCorner(key);
+                                    setResizeStart({ x: e.clientX, y: e.clientY, w: cropFrameSize.w, h: cropFrameSize.h });
+                                    e.currentTarget.setPointerCapture(e.pointerId);
+                                  } : undefined}
+                                />
+                              ))}
+                              {/* Midpoint handles (decorative) */}
+                              {midpoints.map(({ style }, i) => (
+                                <div
+                                  key={`mid-${i}`}
+                                  className="absolute w-4 h-4 bg-white border-2 border-[#C9A55C] rounded-sm pointer-events-none"
+                                  style={style}
                                 />
                               ))}
                             </div>
