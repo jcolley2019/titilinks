@@ -1482,6 +1482,12 @@ export function EditableProfileView({
       sx = Math.max(0, Math.min(sx, natW - cropW));
       sy = Math.max(0, Math.min(sy, natH - finalH));
 
+      // Pull crop toward horizontal center of image
+      const imageCenterX = natW / 2;
+      const cropCenterX = sx + cropW / 2;
+      const horizontalPull = (imageCenterX - cropCenterX) * 0.3;
+      sx = Math.max(0, Math.min(sx + horizontalPull, natW - cropW));
+
       // Draw to canvas
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(cropW);
