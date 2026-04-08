@@ -1333,33 +1333,82 @@ export function EditableProfileView({
 
   const getCroppedCanvas = (): string => {
     const img = cropImgRef.current;
+    const container = cropContainerRef.current;
     const frame = cropFrameRef.current;
-    if (!img || !frame || !photoPreview) return photoPreview || '';
+    if (!img || !container || !frame || !photoPreview) return photoPreview || '';
 
+    // Container dimensions
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
+
+    // Frame dimensions from bounding rect (frame has no transform, safe to use)
     const frameRect = frame.getBoundingClientRect();
-    const imgRect = img.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
 
-    const scaleX = img.naturalWidth / imgRect.width;
-    const scaleY = img.naturalHeight / imgRect.height;
+    // Frame position relative to container center
+    const frameCenterX = frameRect.left - containerRect.left + frameRect.width / 2;
+    const frameCenterY = frameRect.top - containerRect.top + frameRect.height / 2;
 
-    const sx = (frameRect.left - imgRect.left) * scaleX;
-    const sy = (frameRect.top - imgRect.top) * scaleY;
-    const sw = frameRect.width * scaleX;
-    const sh = frameRect.height * scaleY;
+    // The image is rendered at object-fit: contain inside the container,
+    // then transformed by translate(cropPosition.x, cropPosition.y) scale(cropZoom).
+    // We need to find what part of the natural image falls inside the frame.
 
+    // Step 1: Natural image dimensions
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+
+    // Step 2: Compute the base rendered size of the image (before transform)
+    // object-fit: contain means image fills container preserving aspect ratio
+    const containerAspect = containerW / containerH;
+    const imageAspect = naturalW / naturalH;
+    let baseW: number, baseH: number;
+    if (imageAspect > containerAspect) {
+      baseW = containerW;
+      baseH = containerW / imageAspect;
+    } else {
+      baseH = containerH;
+      baseW = containerH * imageAspect;
+    }
+
+    // Step 3: After transform, rendered size is baseW*cropZoom x baseH*cropZoom
+    const renderedW = baseW * cropZoom;
+    const renderedH = baseH * cropZoom;
+
+    // Step 4: Image center on screen (container center + pan offset)
+    const imgCenterX = containerW / 2 + cropPosition.x;
+    const imgCenterY = containerH / 2 + cropPosition.y;
+
+    // Step 5: Image top-left on screen
+    const imgLeft = imgCenterX - renderedW / 2;
+    const imgTop = imgCenterY - renderedH / 2;
+
+    // Step 6: Frame position relative to image top-left
+    const frameLeft = (frameRect.left - containerRect.left) - imgLeft;
+    const frameTop = (frameRect.top - containerRect.top) - imgTop;
+
+    // Step 7: Convert frame position/size to natural image pixels
+    const scaleToNatural = naturalW / renderedW;
+    const sx = frameLeft * scaleToNatural;
+    const sy = frameTop * scaleToNatural;
+    const sw = frameRect.width * scaleToNatural;
+    const sh = frameRect.height * scaleToNatural;
+
+    // Step 8: Draw to canvas
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(sw);
-    canvas.height = Math.round(sh);
+    canvas.width = Math.round(Math.min(sw, naturalW));
+    canvas.height = Math.round(Math.min(sh, naturalH));
     const ctx = canvas.getContext('2d');
     if (!ctx) return photoPreview || '';
 
     ctx.drawImage(
       img,
-      Math.max(0, Math.round(sx)), Math.max(0, Math.round(sy)),
-      Math.round(Math.min(sw, img.naturalWidth - Math.max(0, sx))),
-      Math.round(Math.min(sh, img.naturalHeight - Math.max(0, sy))),
+      Math.max(0, sx),
+      Math.max(0, sy),
+      canvas.width,
+      canvas.height,
       0, 0,
-      canvas.width, canvas.height,
+      canvas.width,
+      canvas.height
     );
 
     return canvas.toDataURL('image/jpeg', 0.95);
