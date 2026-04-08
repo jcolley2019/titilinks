@@ -1470,13 +1470,13 @@ export function EditableProfileView({
       const faceH = (data.faceSize ?? 0.3) * natH;
 
       // Crop region: 2.5x face height, 3:4 aspect ratio
-      const cropH = Math.min(faceH * 2.0, natH);
+      const cropH = Math.min(faceH * 2.5, natH);
       const cropW = Math.min(cropH * (3 / 4), natW);
       const finalH = cropW / (3 / 4);
 
       // Center crop on face, shift up slightly to include hair
       let sx = faceCX - cropW / 2;
-      let sy = faceCY - finalH * 0.25;
+      let sy = faceCY - finalH * 0.40;
 
       // Clamp to image bounds
       sx = Math.max(0, Math.min(sx, natW - cropW));
