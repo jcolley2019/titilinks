@@ -1132,7 +1132,8 @@ function NameHandleCard({
   localHandleSize, setLocalHandleSize,
   localNameColor, setLocalNameColor,
   localHandleColor, setLocalHandleColor,
-  localNamePaddingY, setLocalNamePaddingY,
+  localNamePadTop, setLocalNamePadTop,
+  localNamePadBottom, setLocalNamePadBottom,
   localNameHandleGap, setLocalNameHandleGap,
   onSave,
 }: {
@@ -1144,7 +1145,8 @@ function NameHandleCard({
   localHandleSize: number; setLocalHandleSize: (v: number) => void;
   localNameColor: string; setLocalNameColor: (v: string) => void;
   localHandleColor: string; setLocalHandleColor: (v: string) => void;
-  localNamePaddingY: number; setLocalNamePaddingY: (v: number) => void;
+  localNamePadTop: number; setLocalNamePadTop: (v: number) => void;
+  localNamePadBottom: number; setLocalNamePadBottom: (v: number) => void;
   localNameHandleGap: number; setLocalNameHandleGap: (v: number) => void;
   onSave: () => void;
 }) {
@@ -1183,10 +1185,10 @@ function NameHandleCard({
       {/* Content — matches profile display */}
       <div
         className="cursor-pointer"
-        style={{ paddingTop: localNamePaddingY, paddingBottom: localNamePaddingY, textAlign: 'center' }}
+        style={{ paddingTop: localNamePadTop, paddingBottom: localNamePadBottom, textAlign: 'center' }}
         onClick={!isDragActive ? onToggleExpand : undefined}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: `${localNameHandleGap}px`, alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h1
             className="font-bold mb-0"
             style={{
@@ -1197,7 +1199,7 @@ function NameHandleCard({
           >
             {page.display_name || `@${page.handle}`}
           </h1>
-          <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0 }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
             @{page.handle}
           </p>
         </div>
@@ -1231,14 +1233,20 @@ function NameHandleCard({
           </div>
           <div className="flex gap-3 items-center">
             <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
-            <input type="range" min={0} max={20} step={1} value={localNameHandleGap}
+            <input type="range" min={-10} max={20} step={1} value={localNameHandleGap}
               onChange={(e) => { setLocalNameHandleGap(Number(e.target.value)); debouncedSave(); }}
               className="flex-1 accent-[#C9A55C] h-1" />
           </div>
           <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Pad</label>
-            <input type="range" min={0} max={60} step={2} value={localNamePaddingY}
-              onChange={(e) => { setLocalNamePaddingY(Number(e.target.value)); debouncedSave(); }}
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Top</label>
+            <input type="range" min={0} max={60} step={2} value={localNamePadTop}
+              onChange={(e) => { setLocalNamePadTop(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
+          </div>
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Bottom</label>
+            <input type="range" min={0} max={60} step={2} value={localNamePadBottom}
+              onChange={(e) => { setLocalNamePadBottom(Number(e.target.value)); debouncedSave(); }}
               className="flex-1 accent-[#C9A55C] h-1" />
           </div>
         </div>
@@ -1520,7 +1528,8 @@ export function EditableProfileView({
     handleColor: '#ffffff99',
     nameOffset: 0,
     iconsOffset: 0,
-    namePaddingY: 16,
+    namePadTop: 16,
+    namePadBottom: 16,
     iconsPaddingY: 8,
     iconSize: 'medium' as 'small'|'medium'|'large',
     nameHandleGap: 2,
@@ -1536,7 +1545,8 @@ export function EditableProfileView({
   const [localHandleSize, setLocalHandleSize] = useState(headerConfig.handleSize ?? 14);
   const [localNameColor, setLocalNameColor] = useState(headerConfig.nameColor ?? '#ffffff');
   const [localHandleColor, setLocalHandleColor] = useState(headerConfig.handleColor ?? '#ffffff99');
-  const [localNamePaddingY, setLocalNamePaddingY] = useState(headerConfig.namePaddingY ?? 16);
+  const [localNamePadTop, setLocalNamePadTop] = useState(headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16);
+  const [localNamePadBottom, setLocalNamePadBottom] = useState(headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16);
   const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
   const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
   const [localNameHandleGap, setLocalNameHandleGap] = useState(headerConfig.nameHandleGap ?? 2);
@@ -1941,7 +1951,7 @@ export function EditableProfileView({
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             if (id === '__name_handle__') return (
-              <div key={id} style={{ paddingTop: headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, gap: `${headerConfig.nameHandleGap ?? 2}px`, alignItems: 'center' }}>
+              <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -1958,6 +1968,7 @@ export function EditableProfileView({
                     color: headerConfig.handleColor,
                     textShadow: '0 1px 4px rgba(0,0,0,0.4)',
                     margin: 0,
+                    marginTop: headerConfig.nameHandleGap ?? 2,
                   }}
                 >
                   @{page.handle}
@@ -2443,14 +2454,16 @@ export function EditableProfileView({
                           localHandleSize={localHandleSize} setLocalHandleSize={setLocalHandleSize}
                           localNameColor={localNameColor} setLocalNameColor={setLocalNameColor}
                           localHandleColor={localHandleColor} setLocalHandleColor={setLocalHandleColor}
-                          localNamePaddingY={localNamePaddingY} setLocalNamePaddingY={setLocalNamePaddingY}
+                          localNamePadTop={localNamePadTop} setLocalNamePadTop={setLocalNamePadTop}
+                          localNamePadBottom={localNamePadBottom} setLocalNamePadBottom={setLocalNamePadBottom}
                           localNameHandleGap={localNameHandleGap} setLocalNameHandleGap={setLocalNameHandleGap}
                           onSave={() => saveHeaderConfig({
                             nameSize: localNameSize,
                             handleSize: localHandleSize,
                             nameColor: localNameColor,
                             handleColor: localHandleColor,
-                            namePaddingY: localNamePaddingY,
+                            namePadTop: localNamePadTop,
+                            namePadBottom: localNamePadBottom,
                             nameHandleGap: localNameHandleGap,
                           })}
                         />
