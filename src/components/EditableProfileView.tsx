@@ -1520,6 +1520,19 @@ export function EditableProfileView({
   const [resizeHandle, setResizeHandle] = useState<'tl'|'tr'|'bl'|'br'|'t'|'b'|'l'|'r'|null>(null);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
+  // Header config (must be before state that depends on it)
+  const headerConfig = (page.theme_json as any)?.headerConfig || {
+    nameSize: 28,
+    handleSize: 14,
+    nameColor: '#ffffff',
+    handleColor: '#ffffff99',
+    nameOffset: 0,
+    iconsOffset: 0,
+    namePaddingY: 16,
+    iconsPaddingY: 8,
+    iconSize: 'medium' as 'small'|'medium'|'large',
+  };
+
   // Header card sortable state
   const [headerCardOrder, setHeaderCardOrder] = useState<string[]>(() => {
     const saved = (page.theme_json as any)?.headerCardOrder;
@@ -1797,19 +1810,6 @@ export function EditableProfileView({
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
   const fontFamily = getFontFamily(theme);
-
-  // Header config
-  const headerConfig = (page.theme_json as any)?.headerConfig || {
-    nameSize: 28,
-    handleSize: 14,
-    nameColor: '#ffffff',
-    handleColor: '#ffffff99',
-    nameOffset: 0,
-    iconsOffset: 0,
-    namePaddingY: 16,
-    iconsPaddingY: 8,
-    iconSize: 'medium' as 'small'|'medium'|'large',
-  };
 
   const saveHeaderConfig = async (config: Record<string, unknown>) => {
     const existingTheme = (page.theme_json as any) || {};
