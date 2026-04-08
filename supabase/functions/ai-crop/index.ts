@@ -79,14 +79,7 @@ serve(async (req) => {
     const clean = text.replace(/```json|```/g, "").trim();
     const facePosition = JSON.parse(clean) as FacePosition;
 
-    // Push face higher — subtract 25% to leave room for name overlay at bottom
-    const adjustedPosition: FacePosition = {
-      faceTop: Math.max(0, facePosition.faceTop - 0.25),
-      faceLeft: facePosition.faceLeft,
-      faceSize: facePosition.faceSize,
-    };
-
-    return new Response(JSON.stringify(adjustedPosition), {
+    return new Response(JSON.stringify(facePosition), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
