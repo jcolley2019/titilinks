@@ -1249,7 +1249,7 @@ export function EditableProfileView({
   const [photoScale, setPhotoScale] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
-  const [cropAspect, setCropAspect] = useState<'preferred'|'free'|'square'|'16:9'|'4:3'|'3:2'>('preferred');
+  const [cropAspect, setCropAspect] = useState<'preferred'|'free'|'square'|'16:9'|'4:3'|'3:2'>('free');
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -1258,7 +1258,7 @@ export function EditableProfileView({
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const [cropFrameSize, setCropFrameSize] = useState({ w: 280, h: 280 });
   const [isResizingCrop, setIsResizingCrop] = useState(false);
-  const [resizeCorner, setResizeCorner] = useState<'tl'|'tr'|'bl'|'br'|null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'tl'|'tr'|'bl'|'br'|'t'|'b'|'l'|'r'|null>(null);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
   // Drag handle state for name/handle and icons vertical repositioning
@@ -1337,28 +1337,17 @@ export function EditableProfileView({
     const frame = cropFrameRef.current;
     if (!img || !container || !frame || !photoPreview) return photoPreview || '';
 
-    // Container dimensions
     const containerW = container.clientWidth;
     const containerH = container.clientHeight;
 
-    // Frame dimensions from bounding rect (frame has no transform, safe to use)
+    // Frame rect — frame uses translate but no scale, safe to use getBoundingClientRect
     const frameRect = frame.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
 
-    // Frame position relative to container center
-    const frameCenterX = frameRect.left - containerRect.left + frameRect.width / 2;
-    const frameCenterY = frameRect.top - containerRect.top + frameRect.height / 2;
-
-    // The image is rendered at object-fit: contain inside the container,
-    // then transformed by translate(cropPosition.x, cropPosition.y) scale(cropZoom).
-    // We need to find what part of the natural image falls inside the frame.
-
-    // Step 1: Natural image dimensions
     const naturalW = img.naturalWidth;
     const naturalH = img.naturalHeight;
 
-    // Step 2: Compute the base rendered size of the image (before transform)
-    // object-fit: contain means image fills container preserving aspect ratio
+    // Base rendered size (object-fit: contain, before zoom)
     const containerAspect = containerW / containerH;
     const imageAspect = naturalW / naturalH;
     let baseW: number, baseH: number;
@@ -1370,30 +1359,32 @@ export function EditableProfileView({
       baseW = containerH * imageAspect;
     }
 
-    // Step 3: After transform, rendered size is baseW*cropZoom x baseH*cropZoom
+    // After zoom
     const renderedW = baseW * cropZoom;
     const renderedH = baseH * cropZoom;
 
-    // Step 4: Image center on screen (container center + pan offset)
-    const imgCenterX = containerW / 2 + cropPosition.x;
-    const imgCenterY = containerH / 2 + cropPosition.y;
+    // Image is stationary and centered — no pan offset
+    const imgCenterX = containerW / 2;
+    const imgCenterY = containerH / 2;
 
-    // Step 5: Image top-left on screen
+    // Image top-left on screen
     const imgLeft = imgCenterX - renderedW / 2;
     const imgTop = imgCenterY - renderedH / 2;
 
-    // Step 6: Frame position relative to image top-left
-    const frameLeft = (frameRect.left - containerRect.left) - imgLeft;
-    const frameTop = (frameRect.top - containerRect.top) - imgTop;
+    // Frame position relative to image top-left
+    const frameLeftInContainer = frameRect.left - containerRect.left;
+    const frameTopInContainer = frameRect.top - containerRect.top;
+    const frameLeftRelImg = frameLeftInContainer - imgLeft;
+    const frameTopRelImg = frameTopInContainer - imgTop;
 
-    // Step 7: Convert frame position/size to natural image pixels
+    // Convert to natural image pixels
     const scaleToNatural = naturalW / renderedW;
-    const sx = frameLeft * scaleToNatural;
-    const sy = frameTop * scaleToNatural;
+    const sx = frameLeftRelImg * scaleToNatural;
+    const sy = frameTopRelImg * scaleToNatural;
     const sw = frameRect.width * scaleToNatural;
     const sh = frameRect.height * scaleToNatural;
 
-    // Step 8: Draw to canvas
+    // Draw to canvas
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(Math.min(sw, naturalW));
     canvas.height = Math.round(Math.min(sh, naturalH));
@@ -1464,11 +1455,48 @@ export function EditableProfileView({
         body: { base64, mediaType },
       });
       if (error) throw error;
-      const xPercent = Math.round((data.faceLeft ?? 0.5) * 100);
-      const yPercent = Math.round((data.faceTop ?? 0.3) * 100);
-      setPhotoOffset({ x: xPercent, y: yPercent });
-      setPhotoScale(1.2);
-      setPhotoStep('preview');
+
+      // Load image to get natural dimensions
+      const img = new Image();
+      img.src = photoPreview;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+
+      const natW = img.naturalWidth;
+      const natH = img.naturalHeight;
+
+      // Face center in pixels
+      const faceCX = (data.faceLeft ?? 0.5) * natW;
+      const faceCY = (data.faceTop ?? 0.3) * natH;
+      const faceH = (data.faceSize ?? 0.3) * natH;
+
+      // Crop region: 2.5x face height, 3:4 aspect ratio
+      const cropH = Math.min(faceH * 2.5, natH);
+      const cropW = Math.min(cropH * (3 / 4), natW);
+      const finalH = cropW / (3 / 4);
+
+      // Center crop on face, shift up slightly to include hair
+      let sx = faceCX - cropW / 2;
+      let sy = faceCY - finalH * 0.35;
+
+      // Clamp to image bounds
+      sx = Math.max(0, Math.min(sx, natW - cropW));
+      sy = Math.max(0, Math.min(sy, natH - finalH));
+
+      // Draw to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(cropW);
+      canvas.height = Math.round(finalH);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+      ctx.drawImage(img, sx, sy, cropW, finalH, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      setPhotoPreview(dataUrl);
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'ai-cropped.jpg', { type: 'image/jpeg' });
+      setPhotoFile(file);
+      await handlePhotoSave(file);
     } catch (err) {
       console.error('AI crop error:', err);
       toast.error(t('editor.aiCropFailed'));
@@ -1793,16 +1821,36 @@ export function EditableProfileView({
                         }}
                         onPointerMove={(e) => {
                           e.preventDefault();
-                          if (isResizingCrop && resizeCorner) {
+                          if (isResizingCrop && resizeHandle) {
                             const dx = e.clientX - resizeStart.x;
                             const dy = e.clientY - resizeStart.y;
                             const minSize = 80;
                             let newW = resizeStart.w;
                             let newH = resizeStart.h;
-                            if (resizeCorner === 'tr' || resizeCorner === 'br') newW = Math.max(minSize, resizeStart.w + dx);
-                            if (resizeCorner === 'tl' || resizeCorner === 'bl') newW = Math.max(minSize, resizeStart.w - dx);
-                            if (resizeCorner === 'bl' || resizeCorner === 'br') newH = Math.max(minSize, resizeStart.h + dy);
-                            if (resizeCorner === 'tl' || resizeCorner === 'tr') newH = Math.max(minSize, resizeStart.h - dy);
+
+                            // Width changes
+                            if (resizeHandle === 'tr' || resizeHandle === 'br' || resizeHandle === 'r') newW = Math.max(minSize, resizeStart.w + dx);
+                            if (resizeHandle === 'tl' || resizeHandle === 'bl' || resizeHandle === 'l') newW = Math.max(minSize, resizeStart.w - dx);
+
+                            // Height changes
+                            if (resizeHandle === 'bl' || resizeHandle === 'br' || resizeHandle === 'b') newH = Math.max(minSize, resizeStart.h + dy);
+                            if (resizeHandle === 'tl' || resizeHandle === 'tr' || resizeHandle === 't') newH = Math.max(minSize, resizeStart.h - dy);
+
+                            // Fixed-ratio corner resize
+                            if (cropAspect !== 'free' && ['tl','tr','bl','br'].includes(resizeHandle)) {
+                              const aspectMap: Record<string, number> = {
+                                preferred: 3 / 4, square: 1, '16:9': 16 / 9, '4:3': 4 / 3, '3:2': 3 / 2,
+                              };
+                              const ratio = aspectMap[cropAspect] ?? 3 / 4;
+                              if (Math.abs(dx) >= Math.abs(dy)) {
+                                newH = newW / ratio;
+                              } else {
+                                newW = newH * ratio;
+                              }
+                              newW = Math.max(minSize, newW);
+                              newH = Math.max(minSize, newH);
+                            }
+
                             setCropFrameSize({ w: newW, h: newH });
                             return;
                           }
@@ -1816,7 +1864,7 @@ export function EditableProfileView({
                           e.preventDefault();
                           setIsDraggingCrop(false);
                           setIsResizingCrop(false);
-                          setResizeCorner(null);
+                          setResizeHandle(null);
                         }}
                       >
                         {/* Panning + zooming image */}
@@ -1828,7 +1876,7 @@ export function EditableProfileView({
                             draggable={false}
                             className="absolute max-w-none select-none pointer-events-none"
                             style={{
-                              transform: `translate(${cropPosition.x}px, ${cropPosition.y}px) scale(${cropZoom})`,
+                              transform: `scale(${cropZoom})`,
                               transformOrigin: 'center center',
                               width: '100%',
                               height: '100%',
@@ -1875,18 +1923,26 @@ export function EditableProfileView({
                             }
                           }
 
-                          const cornerKeys = ['tl', 'tr', 'bl', 'br'] as const;
-                          const corners: Array<{ key: typeof cornerKeys[number]; style: React.CSSProperties }> = [
+                          const handleStartResize = (handleKey: 'tl'|'tr'|'bl'|'br'|'t'|'b'|'l'|'r') => (e: React.PointerEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setIsResizingCrop(true);
+                            setResizeHandle(handleKey);
+                            setResizeStart({ x: e.clientX, y: e.clientY, w: cropFrameSize.w, h: cropFrameSize.h });
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                          };
+
+                          const corners: Array<{ key: 'tl'|'tr'|'bl'|'br'; style: React.CSSProperties }> = [
                             { key: 'tl', style: { top: 0, left: 0, transform: 'translate(-50%,-50%)', cursor: 'nwse-resize' } },
                             { key: 'tr', style: { top: 0, right: 0, transform: 'translate(50%,-50%)', cursor: 'nesw-resize' } },
                             { key: 'bl', style: { bottom: 0, left: 0, transform: 'translate(-50%,50%)', cursor: 'nesw-resize' } },
                             { key: 'br', style: { bottom: 0, right: 0, transform: 'translate(50%,50%)', cursor: 'nwse-resize' } },
                           ];
-                          const midpoints: Array<{ style: React.CSSProperties }> = [
-                            { style: { top: 0, left: '50%', transform: 'translate(-50%,-50%)' } },
-                            { style: { bottom: 0, left: '50%', transform: 'translate(-50%,50%)' } },
-                            { style: { top: '50%', left: 0, transform: 'translate(-50%,-50%)' } },
-                            { style: { top: '50%', right: 0, transform: 'translate(50%,-50%)' } },
+                          const midpoints: Array<{ key: 't'|'b'|'l'|'r'; style: React.CSSProperties }> = [
+                            { key: 't', style: { top: 0, left: '50%', transform: 'translate(-50%,-50%)', cursor: 'ns-resize' } },
+                            { key: 'b', style: { bottom: 0, left: '50%', transform: 'translate(-50%,50%)', cursor: 'ns-resize' } },
+                            { key: 'l', style: { top: '50%', left: 0, transform: 'translate(-50%,-50%)', cursor: 'ew-resize' } },
+                            { key: 'r', style: { top: '50%', right: 0, transform: 'translate(50%,-50%)', cursor: 'ew-resize' } },
                           ];
 
                           return (
@@ -1898,39 +1954,37 @@ export function EditableProfileView({
                                 height: fh,
                                 top: '50%',
                                 left: '50%',
-                                transform: 'translate(-50%, -50%)',
+                                transform: `translate(calc(-50% + ${cropPosition.x}px), calc(-50% + ${cropPosition.y}px))`,
                                 border: '2px solid #C9A55C',
                                 boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
                                 zIndex: 10,
                                 pointerEvents: 'none',
                               }}
                             >
-                              {/* Corner handles */}
+                              {/* Corner handles — always interactive (fixed ratio: constrained; free: unconstrained) */}
                               {corners.map(({ key, style }) => (
                                 <div
                                   key={key}
                                   className="absolute w-5 h-5 bg-white border-2 border-[#C9A55C] rounded-sm"
                                   style={{
                                     ...style,
+                                    pointerEvents: 'auto',
+                                    touchAction: 'none',
+                                  }}
+                                  onPointerDown={handleStartResize(key)}
+                                />
+                              ))}
+                              {/* Midpoint handles — interactive in Free mode only */}
+                              {midpoints.map(({ key, style }) => (
+                                <div
+                                  key={`mid-${key}`}
+                                  className="absolute w-4 h-4 bg-white border-2 border-[#C9A55C] rounded-sm"
+                                  style={{
+                                    ...style,
                                     pointerEvents: isFree ? 'auto' : 'none',
                                     touchAction: 'none',
                                   }}
-                                  onPointerDown={isFree ? (e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    setIsResizingCrop(true);
-                                    setResizeCorner(key);
-                                    setResizeStart({ x: e.clientX, y: e.clientY, w: cropFrameSize.w, h: cropFrameSize.h });
-                                    e.currentTarget.setPointerCapture(e.pointerId);
-                                  } : undefined}
-                                />
-                              ))}
-                              {/* Midpoint handles (decorative) */}
-                              {midpoints.map(({ style }, i) => (
-                                <div
-                                  key={`mid-${i}`}
-                                  className="absolute w-4 h-4 bg-white border-2 border-[#C9A55C] rounded-sm pointer-events-none"
-                                  style={style}
+                                  onPointerDown={isFree ? handleStartResize(key) : undefined}
                                 />
                               ))}
                             </div>
