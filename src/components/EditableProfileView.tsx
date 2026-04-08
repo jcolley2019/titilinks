@@ -28,6 +28,7 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
+  Camera,
   MousePointer,
   Share2,
   FileText,
@@ -1913,6 +1914,14 @@ export function EditableProfileView({
         ) : (
           <div className="h-full w-full bg-[#0e0c09]" />
         )}
+        {editMode && (
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            className="absolute top-3 right-3 z-[15] bg-black/40 backdrop-blur-sm rounded-full p-2"
+          >
+            <Camera className="h-5 w-5 text-white opacity-80 hover:opacity-100" />
+          </button>
+        )}
       </div>
 
       {/* Content panel */}
@@ -2010,12 +2019,7 @@ export function EditableProfileView({
           })}
           {editMode && (
             <>
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                className="text-xs text-[#C9A55C] mt-0.5 underline underline-offset-2 opacity-80 hover:opacity-100"
-              >
-                {t('editor.changePhoto')}
-              </button>
+
               {photoPreview && photoStep !== 'idle' && (
                 <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
 
