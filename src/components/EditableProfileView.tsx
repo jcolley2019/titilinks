@@ -1890,7 +1890,7 @@ export function EditableProfileView({
                       </div>
 
                       {/* Bottom buttons */}
-                      <div className="flex gap-3 px-4 items-center border-t border-white/10" style={{ height: '72px', flexShrink: 0 }}>
+                      <div className="flex gap-3 px-4 items-center border-t border-white/10" style={{ minHeight: '72px', flexShrink: 0, paddingBottom: '80px' }}>
                         <button
                           onClick={() => setPhotoStep('choose')}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
