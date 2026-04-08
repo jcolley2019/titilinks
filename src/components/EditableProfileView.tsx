@@ -1166,7 +1166,7 @@ function NameHandleCard({
     >
       {/* Grip handle — free drag */}
       <button
-        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/20 touch-none z-10"
+        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/50 touch-none z-10"
         onPointerDown={(e) => {
           dragStart.current = { y: e.clientY, cardY: nameCardY };
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -1185,7 +1185,7 @@ function NameHandleCard({
 
       {/* Content — matches profile display */}
       <div
-        className="cursor-pointer"
+        className="cursor-pointer relative"
         style={{ paddingTop: localNamePadTop, paddingBottom: localNamePadBottom, textAlign: 'center' }}
         onClick={onToggleExpand}
       >
@@ -1204,6 +1204,10 @@ function NameHandleCard({
             @{page.handle}
           </p>
         </div>
+        <ChevronRight className={cn(
+          "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 transition-transform duration-200",
+          expanded && "rotate-90"
+        )} />
       </div>
 
       {/* Compact settings row */}
@@ -1296,7 +1300,7 @@ function SocialIconsCard({
     >
       {/* Grip handle — free drag */}
       <button
-        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/20 touch-none z-10"
+        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/50 touch-none z-10"
         onPointerDown={(e) => {
           dragStart.current = { y: e.clientY, cardY: iconsCardY };
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -1315,7 +1319,7 @@ function SocialIconsCard({
 
       {/* Content — matches profile display */}
       <div
-        className="cursor-pointer"
+        className="cursor-pointer relative"
         style={{ paddingTop: localIconsPaddingY, paddingBottom: localIconsPaddingY }}
         onClick={onToggleExpand}
       >
@@ -1334,6 +1338,10 @@ function SocialIconsCard({
             <p className="text-xs text-white/30">{t('editor.editSocial')}</p>
           )}
         </div>
+        <ChevronRight className={cn(
+          "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 transition-transform duration-200",
+          expanded && "rotate-90"
+        )} />
       </div>
 
       {/* Compact settings row */}
