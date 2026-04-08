@@ -1496,8 +1496,16 @@ export function EditableProfileView({
       const blob = await res.blob();
       const file = new File([blob], 'ai-cropped.jpg', { type: 'image/jpeg' });
       setPhotoFile(file);
-      await handlePhotoSave(file);
+      try {
+        await handlePhotoSave(file);
+      } catch (saveErr) {
+        console.error('Photo save error in AI crop:', saveErr);
+        toast.error('Failed to save photo');
+        setPhotoStep('choose');
+      }
+      return;
     } catch (err) {
+      console.error('AI crop outer catch:', err);
       console.error('AI crop error:', err);
       toast.error(t('editor.aiCropFailed'));
       setPhotoStep('manual');
