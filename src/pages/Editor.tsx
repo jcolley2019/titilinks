@@ -248,7 +248,9 @@ export default function Editor() {
     const reordered = blockIds
       .map((id) => allBlocks.find((b) => b.id === id))
       .filter(Boolean) as BlockWithItems[];
-    setAllBlocks(reordered);
+    // Preserve blocks not in the reorder list (e.g. social_links used in header)
+    const preserved = allBlocks.filter(b => !blockIds.includes(b.id));
+    setAllBlocks([...reordered, ...preserved]);
 
     try {
       for (let i = 0; i < blockIds.length; i++) {
