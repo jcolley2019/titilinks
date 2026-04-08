@@ -1898,12 +1898,16 @@ export function EditableProfileView({
                           Back
                         </button>
                         <button
-                          onClick={() => {
-                            const cropped = getCroppedCanvas();
-                            setPhotoPreview(cropped);
+                          onClick={async () => {
+                            const dataUrl = getCroppedCanvas();
+                            setPhotoPreview(dataUrl);
                             setCropZoom(1);
                             setCropPosition({ x: 0, y: 0 });
-                            setPhotoStep('preview');
+                            const res = await fetch(dataUrl);
+                            const blob = await res.blob();
+                            const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
+                            setPhotoFile(file);
+                            await handlePhotoSave();
                           }}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
                         >
