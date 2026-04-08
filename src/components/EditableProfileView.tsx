@@ -1476,7 +1476,7 @@ export function EditableProfileView({
 
       // Center crop on face, shift up slightly to include hair
       let sx = faceCX - cropW / 2;
-      let sy = faceCY - finalH * 0.40;
+      let sy = faceCY - finalH * 0.32;
 
       // Clamp to image bounds
       sx = Math.max(0, Math.min(sx, natW - cropW));
