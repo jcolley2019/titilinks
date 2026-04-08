@@ -2410,7 +2410,7 @@ export function EditableProfileView({
         {editMode ? (
           /* Preview block cards for edit mode */
           <div className="pb-32 pt-0">
-            <div className="flex items-center justify-between px-4 pt-1 pb-2">
+            <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
               <p className="text-xs font-bold uppercase tracking-widest text-white/40">
                 {t('editor.blocksLabel')}
               </p>
