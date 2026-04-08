@@ -1676,10 +1676,10 @@ export function EditableProfileView({
 
                   {/* MANUAL CROP STEP */}
                   {photoStep === 'manual' && (
-                    <div className="fixed inset-0 z-[100] flex flex-col bg-[#0e0c09]">
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', backgroundColor: '#0e0c09' }}>
 
                       {/* Header */}
-                      <div className="flex items-center justify-between px-4 h-14 border-b border-white/10 flex-shrink-0">
+                      <div className="flex items-center justify-between px-4 border-b border-white/10" style={{ height: '56px', flexShrink: 0 }}>
                         <div className="w-10" />
                         <p className="text-white font-semibold text-base">{t('editor.cropImage')}</p>
                         <button
@@ -1691,7 +1691,7 @@ export function EditableProfileView({
                       </div>
 
                       {/* Aspect ratio pills */}
-                      <div className="grid grid-cols-6 gap-1.5 px-3 py-2 flex-shrink-0">
+                      <div className="grid grid-cols-6 gap-1.5 px-3" style={{ height: '48px', flexShrink: 0, alignItems: 'center' }}>
                         {(['preferred','free','square','16:9','4:3','3:2'] as const).map((asp) => (
                           <button
                             key={asp}
@@ -1714,7 +1714,7 @@ export function EditableProfileView({
                       </div>
 
                       {/* Zoom slider */}
-                      <div className="flex items-center gap-3 px-4 pb-3 flex-shrink-0">
+                      <div className="flex items-center gap-3 px-4" style={{ height: '44px', flexShrink: 0 }}>
                         <span className="text-white/50 text-xs font-medium flex-shrink-0">Zoom:</span>
                         <input
                           type="range"
@@ -1733,8 +1733,8 @@ export function EditableProfileView({
                       {/* Crop area */}
                       <div
                         ref={cropContainerRef}
-                        className="relative overflow-hidden bg-black flex items-center justify-center"
-                        style={{ touchAction: 'none', height: 'calc(100vh - 200px)' }}
+                        className="flex items-center justify-center"
+                        style={{ flexGrow: 1, flexShrink: 1, minHeight: 0, overflow: 'hidden', position: 'relative', backgroundColor: '#000', touchAction: 'none' }}
                         onPointerDown={(e) => {
                           e.preventDefault();
                           if (isResizingCrop) return;
@@ -1890,7 +1890,7 @@ export function EditableProfileView({
                       </div>
 
                       {/* Bottom buttons */}
-                      <div className="flex gap-3 px-4 py-4 border-t border-white/10 flex-shrink-0">
+                      <div className="flex gap-3 px-4 items-center border-t border-white/10" style={{ height: '72px', flexShrink: 0 }}>
                         <button
                           onClick={() => setPhotoStep('choose')}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
