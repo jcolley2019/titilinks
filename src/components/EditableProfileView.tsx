@@ -1414,8 +1414,8 @@ export function EditableProfileView({
     return canvas.toDataURL('image/jpeg', 0.95);
   };
 
-  const handlePhotoSave = async () => {
-    let fileToUpload = photoFile;
+  const handlePhotoSave = async (overrideFile?: File) => {
+    let fileToUpload = overrideFile || photoFile;
     if (!fileToUpload && photoPreview) {
       const res = await fetch(photoPreview);
       const blob = await res.blob();
@@ -1956,7 +1956,7 @@ export function EditableProfileView({
                             const blob = await res.blob();
                             const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
                             setPhotoFile(file);
-                            await handlePhotoSave();
+                            await handlePhotoSave(file);
                           }}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
                         >
