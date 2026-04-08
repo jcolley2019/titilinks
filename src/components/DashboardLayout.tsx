@@ -351,7 +351,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
             onClick={onAddContent}
             className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
           >
-            + Add
+            Edit Profile
           </button>
         ) : !isEditorPage ? (
           <Button
