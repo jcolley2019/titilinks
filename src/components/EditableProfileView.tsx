@@ -1917,9 +1917,9 @@ export function EditableProfileView({
         {editMode && (
           <button
             onClick={() => photoInputRef.current?.click()}
-            className="absolute top-3 right-3 z-[15] bg-black/40 backdrop-blur-sm rounded-full p-2"
+            className="absolute top-3 right-3 z-[15] bg-black/40 backdrop-blur-sm rounded-full p-3"
           >
-            <Camera className="h-5 w-5 text-white opacity-80 hover:opacity-100" />
+            <Camera className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
           </button>
         )}
       </div>
