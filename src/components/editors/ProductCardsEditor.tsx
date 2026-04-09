@@ -348,9 +348,10 @@ interface ProductCardsEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: ProductCardsEditorProps) {
+export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelMode }: ProductCardsEditorProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -621,6 +622,160 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
     }
   };
 
+  const innerContent = (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Layout Selector */}
+          <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
+            <Label className="text-xs font-medium mb-2 block">Card Layout</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={config.layout === 'stacked' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setConfig({ ...config, layout: 'stacked' })}
+                className="flex-1 gap-2"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Stacked
+              </Button>
+              <Button
+                type="button"
+                variant={config.layout === 'split' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setConfig({ ...config, layout: 'split' })}
+                className="flex-1 gap-2"
+              >
+                <LayoutList className="h-4 w-4" />
+                Split
+              </Button>
+            </div>
+          </div>
+
+          {/* Add Product Button */}
+          <div className="mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProduct}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Product
+            </Button>
+          </div>
+
+          {/* Items List */}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {items.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No products yet.</p>
+                <p className="text-sm">Click "Add Product" to get started.</p>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <SortableProductItem
+                        key={item.id}
+                        item={item}
+                        onUpdate={updateItem}
+                        onDelete={deleteItem}
+                        onImageChange={handleImageChange}
+                        errors={errors}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </ScrollArea>
+
+          {/* Preview Grid */}
+          {items.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2">Preview</p>
+              <div className="grid grid-cols-3 gap-2">
+                {items.slice(0, 6).map((item) => (
+                  <div key={item.id} className="aspect-square rounded-lg bg-secondary/50 overflow-hidden relative">
+                    {(item.imagePreview || item.image_url) ? (
+                      <img
+                        src={item.imagePreview || item.image_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    {item.badge && (
+                      <span className="absolute top-1 right-1 text-[8px] bg-primary text-primary-foreground px-1 rounded">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {items.length > 6 && (
+                <p className="text-xs text-muted-foreground mt-1 text-center">
+                  +{items.length - 6} more
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 mt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 gradient-primary text-primary-foreground"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
@@ -633,148 +788,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave }: Prod
             Showcase products with links to external stores.
           </DialogDescription>
         </DialogHeader>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0">
-            {/* Layout Selector */}
-            <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
-              <Label className="text-xs font-medium mb-2 block">Card Layout</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={config.layout === 'stacked' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setConfig({ ...config, layout: 'stacked' })}
-                  className="flex-1 gap-2"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  Stacked
-                </Button>
-                <Button
-                  type="button"
-                  variant={config.layout === 'split' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setConfig({ ...config, layout: 'split' })}
-                  className="flex-1 gap-2"
-                >
-                  <LayoutList className="h-4 w-4" />
-                  Split
-                </Button>
-              </div>
-            </div>
-
-            {/* Add Product Button */}
-            <div className="mb-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addProduct}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Product
-              </Button>
-            </div>
-
-            {/* Items List */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {items.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No products yet.</p>
-                  <p className="text-sm">Click "Add Product" to get started.</p>
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                      {items.map((item) => (
-                        <SortableProductItem
-                          key={item.id}
-                          item={item}
-                          onUpdate={updateItem}
-                          onDelete={deleteItem}
-                          onImageChange={handleImageChange}
-                          errors={errors}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </ScrollArea>
-
-            {/* Preview Grid */}
-            {items.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">Preview</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {items.slice(0, 6).map((item) => (
-                    <div key={item.id} className="aspect-square rounded-lg bg-secondary/50 overflow-hidden relative">
-                      {(item.imagePreview || item.image_url) ? (
-                        <img 
-                          src={item.imagePreview || item.image_url} 
-                          alt="" 
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center">
-                          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      {item.badge && (
-                        <span className="absolute top-1 right-1 text-[8px] bg-primary text-primary-foreground px-1 rounded">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {items.length > 6 && (
-                  <p className="text-xs text-muted-foreground mt-1 text-center">
-                    +{items.length - 6} more
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-4 mt-4 border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 gradient-primary text-primary-foreground"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

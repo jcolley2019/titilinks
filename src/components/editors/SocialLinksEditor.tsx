@@ -282,9 +282,10 @@ interface SocialLinksEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: SocialLinksEditorProps) {
+export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: SocialLinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<SocialItem[]>([]);
@@ -484,6 +485,238 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
     }
   };
 
+  const innerContent = (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Platform Picker Toggle */}
+          <div className="mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPlatformPicker(!showPlatformPicker)}
+              className="gap-2 w-full justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Platform
+              </span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${showPlatformPicker ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
+
+          {showPlatformPicker && (
+            <div className="mb-4 border border-border rounded-xl overflow-hidden bg-card">
+              {/* Search */}
+              <div className="p-3 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search platforms..."
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+                {search && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                      p.label.toLowerCase().includes(search.toLowerCase())
+                    ).length} platforms found
+                  </p>
+                )}
+              </div>
+
+              {/* Categories or Search Results */}
+              <div className="max-h-72 overflow-y-auto">
+                {search ? (
+                  /* Search results - flat list */
+                  <div>
+                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms)
+                      .filter(p => p.label.toLowerCase().includes(search.toLowerCase()))
+                      .map((platform) => (
+                        <button
+                          key={platform.label}
+                          type="button"
+                          onClick={() => {
+                            addPreset(platform);
+                            setSearch('');
+                            setShowPlatformPicker(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
+                        >
+                          <span className="text-xl w-8 text-center">{platform.icon}</span>
+                          <div>
+                            <p className="text-sm font-medium">{platform.label}</p>
+                            <p className="text-xs text-muted-foreground">{platform.placeholder}</p>
+                          </div>
+                        </button>
+                      ))}
+                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                      p.label.toLowerCase().includes(search.toLowerCase())
+                    ).length === 0 && (
+                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                        No platforms found for &quot;{search}&quot;
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Categorized view */
+                  PLATFORM_CATEGORIES.map((category) => (
+                    <div key={category.label} className="border-b border-border last:border-0">
+                      {/* Category header */}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedCategory(
+                          expandedCategory === category.label ? null : category.label
+                        )}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex gap-1">
+                            {category.platforms.slice(0, 4).map((p) => (
+                              <span key={p.label} className="text-base">{p.icon}</span>
+                            ))}
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[#C9A55C]">
+                              {category.label}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {category.platforms.length} platforms
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${
+                          expandedCategory === category.label ? 'rotate-180' : ''
+                        }`} />
+                      </button>
+
+                      {/* Expanded platform list */}
+                      {expandedCategory === category.label && (
+                        <div className="bg-muted/20">
+                          {category.platforms.map((platform) => (
+                            <button
+                              key={platform.label}
+                              type="button"
+                              onClick={() => {
+                                addPreset(platform);
+                                setShowPlatformPicker(false);
+                                setExpandedCategory(null);
+                              }}
+                              className="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/50 transition-colors border-t border-border text-left"
+                            >
+                              <span className="text-xl w-8 text-center">{platform.icon}</span>
+                              <div>
+                                <p className="text-sm font-medium">{platform.label}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  + {platform.placeholder}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Custom link option at bottom */}
+              <div className="border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addCustom();
+                    setShowPlatformPicker(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <span className="text-xl w-8 text-center">🔗</span>
+                  <div>
+                    <p className="text-sm font-medium">Custom Link</p>
+                    <p className="text-xs text-muted-foreground">Add any URL</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Items List */}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {items.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No social links yet.</p>
+                <p className="text-sm">Use Quick Add above to get started.</p>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <SortableItem
+                        key={item.id}
+                        item={item}
+                        onUpdate={updateItem}
+                        onDelete={deleteItem}
+                        errors={errors}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </ScrollArea>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 mt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 gradient-primary text-primary-foreground"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col overflow-x-hidden">
@@ -496,226 +729,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
             Add your social media profiles and other links.
           </DialogDescription>
         </DialogHeader>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0">
-            {/* Platform Picker Toggle */}
-            <div className="mb-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPlatformPicker(!showPlatformPicker)}
-                className="gap-2 w-full justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Platform
-                </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showPlatformPicker ? 'rotate-180' : ''}`} />
-              </Button>
-            </div>
-
-            {showPlatformPicker && (
-              <div className="mb-4 border border-border rounded-xl overflow-hidden bg-card">
-                {/* Search */}
-                <div className="p-3 border-b border-border">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search platforms..."
-                      className="pl-9 h-9 text-sm"
-                    />
-                  </div>
-                  {search && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
-                        p.label.toLowerCase().includes(search.toLowerCase())
-                      ).length} platforms found
-                    </p>
-                  )}
-                </div>
-
-                {/* Categories or Search Results */}
-                <div className="max-h-72 overflow-y-auto">
-                  {search ? (
-                    /* Search results - flat list */
-                    <div>
-                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms)
-                        .filter(p => p.label.toLowerCase().includes(search.toLowerCase()))
-                        .map((platform) => (
-                          <button
-                            key={platform.label}
-                            type="button"
-                            onClick={() => {
-                              addPreset(platform);
-                              setSearch('');
-                              setShowPlatformPicker(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
-                          >
-                            <span className="text-xl w-8 text-center">{platform.icon}</span>
-                            <div>
-                              <p className="text-sm font-medium">{platform.label}</p>
-                              <p className="text-xs text-muted-foreground">{platform.placeholder}</p>
-                            </div>
-                          </button>
-                        ))}
-                      {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
-                        p.label.toLowerCase().includes(search.toLowerCase())
-                      ).length === 0 && (
-                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                          No platforms found for &quot;{search}&quot;
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Categorized view */
-                    PLATFORM_CATEGORIES.map((category) => (
-                      <div key={category.label} className="border-b border-border last:border-0">
-                        {/* Category header */}
-                        <button
-                          type="button"
-                          onClick={() => setExpandedCategory(
-                            expandedCategory === category.label ? null : category.label
-                          )}
-                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex gap-1">
-                              {category.platforms.slice(0, 4).map((p) => (
-                                <span key={p.label} className="text-base">{p.icon}</span>
-                              ))}
-                            </div>
-                            <div className="text-left">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-[#C9A55C]">
-                                {category.label}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {category.platforms.length} platforms
-                              </p>
-                            </div>
-                          </div>
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${
-                            expandedCategory === category.label ? 'rotate-180' : ''
-                          }`} />
-                        </button>
-
-                        {/* Expanded platform list */}
-                        {expandedCategory === category.label && (
-                          <div className="bg-muted/20">
-                            {category.platforms.map((platform) => (
-                              <button
-                                key={platform.label}
-                                type="button"
-                                onClick={() => {
-                                  addPreset(platform);
-                                  setShowPlatformPicker(false);
-                                  setExpandedCategory(null);
-                                }}
-                                className="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/50 transition-colors border-t border-border text-left"
-                              >
-                                <span className="text-xl w-8 text-center">{platform.icon}</span>
-                                <div>
-                                  <p className="text-sm font-medium">{platform.label}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    + {platform.placeholder}
-                                  </p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Custom link option at bottom */}
-                <div className="border-t border-border">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addCustom();
-                      setShowPlatformPicker(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <span className="text-xl w-8 text-center">🔗</span>
-                    <div>
-                      <p className="text-sm font-medium">Custom Link</p>
-                      <p className="text-xs text-muted-foreground">Add any URL</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Items List */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {items.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No social links yet.</p>
-                  <p className="text-sm">Use Quick Add above to get started.</p>
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                      {items.map((item) => (
-                        <SortableItem
-                          key={item.id}
-                          item={item}
-                          onUpdate={updateItem}
-                          onDelete={deleteItem}
-                          errors={errors}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </ScrollArea>
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-4 mt-4 border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 gradient-primary text-primary-foreground"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

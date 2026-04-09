@@ -20,9 +20,10 @@ interface BioEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function BioEditor({ blockId, open, onOpenChange, onSave }: BioEditorProps) {
+export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: BioEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -89,6 +90,53 @@ export function BioEditor({ blockId, open, onOpenChange, onSave }: BioEditorProp
     }
   };
 
+  const innerContent = (
+    <>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-white/40" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <textarea
+            value={bioText}
+            onChange={(e) => setBioText(e.target.value)}
+            maxLength={300}
+            rows={5}
+            placeholder="Write something about yourself..."
+            className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#C9A55C]/50 resize-none"
+          />
+          <p className="text-xs text-white/30 text-right">{bioText.length}/300</p>
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              className="text-white/60 hover:text-white hover:bg-white/10"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-[#C9A55C] text-black hover:bg-[#C9A55C]/90"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#1a1a1a] border-white/10 text-white max-w-md">
@@ -98,41 +146,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave }: BioEditorProp
             {t('blocks.bio.subtitle')}
           </DialogDescription>
         </DialogHeader>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-white/40" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <textarea
-              value={bioText}
-              onChange={(e) => setBioText(e.target.value)}
-              maxLength={300}
-              rows={5}
-              placeholder="Write something about yourself..."
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#C9A55C]/50 resize-none"
-            />
-            <p className="text-xs text-white/30 text-right">{bioText.length}/300</p>
-
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                className="text-white/60 hover:text-white hover:bg-white/10"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-[#C9A55C] text-black hover:bg-[#C9A55C]/90"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-              </Button>
-            </div>
-          </div>
-        )}
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

@@ -31,9 +31,10 @@ interface GalleryEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function GalleryEditor({ blockId, open, onOpenChange, onSave }: GalleryEditorProps) {
+export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }: GalleryEditorProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -195,6 +196,118 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave }: GalleryEd
     }
   };
 
+  const innerContent = (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Add Photo Button */}
+          <div className="mb-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="gap-2"
+              disabled={photos.length >= MAX_ITEMS}
+            >
+              <ImagePlus className="h-4 w-4" />
+              Add Photos
+            </Button>
+          </div>
+
+          {/* Photo Grid */}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {photos.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No photos yet.</p>
+                <p className="text-sm">Click "Add Photos" to get started.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {photos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="relative aspect-square rounded-xl overflow-hidden bg-secondary group"
+                  >
+                    <img
+                      src={photo.imagePreview || photo.image_url}
+                      alt="Gallery photo"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => deletePhoto(photo.id)}
+                      className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add more placeholder */}
+                {photos.length < MAX_ITEMS && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  >
+                    <Plus className="h-6 w-6 text-muted-foreground/50" />
+                  </button>
+                )}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 mt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 gradient-primary text-primary-foreground"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
@@ -207,106 +320,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave }: GalleryEd
             Upload photos to display on your page. ({photos.length}/{MAX_ITEMS})
           </DialogDescription>
         </DialogHeader>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0">
-            {/* Add Photo Button */}
-            <div className="mb-4">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                className="gap-2"
-                disabled={photos.length >= MAX_ITEMS}
-              >
-                <ImagePlus className="h-4 w-4" />
-                Add Photos
-              </Button>
-            </div>
-
-            {/* Photo Grid */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {photos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No photos yet.</p>
-                  <p className="text-sm">Click "Add Photos" to get started.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {photos.map((photo) => (
-                    <div
-                      key={photo.id}
-                      className="relative aspect-square rounded-xl overflow-hidden bg-secondary group"
-                    >
-                      <img
-                        src={photo.imagePreview || photo.image_url}
-                        alt="Gallery photo"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => deletePhoto(photo.id)}
-                        className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Add more placeholder */}
-                  {photos.length < MAX_ITEMS && (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                    >
-                      <Plus className="h-6 w-6 text-muted-foreground/50" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-4 mt-4 border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 gradient-primary text-primary-foreground"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

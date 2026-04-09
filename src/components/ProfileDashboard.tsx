@@ -283,6 +283,7 @@ export function ProfileDashboard({
       open: true as const,
       onOpenChange: handleEditorClose,
       onSave: handleEditorSave,
+      panelMode: true as const,
     };
 
     switch (activeBlockType) {
