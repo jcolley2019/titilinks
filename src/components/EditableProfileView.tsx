@@ -1925,7 +1925,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image */}
-      <div className="relative w-full" style={{ height: '75vh', maxHeight: '650px', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ height: '65vh', maxHeight: '580px', overflow: 'hidden' }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
@@ -1954,7 +1954,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          marginTop: '-18rem',
+          marginTop: '-14rem',
           paddingTop: '0',
         }}
       >
@@ -1962,11 +1962,11 @@ export function EditableProfileView({
         <div
           style={{
             position: 'absolute',
-            top: '-200px',
+            top: '-20px',
             left: 0,
             right: 0,
-            height: '200px',
-            background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
+            height: '20px',
+            background: 'linear-gradient(to bottom, transparent 60%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
