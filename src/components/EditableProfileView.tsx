@@ -1703,33 +1703,22 @@ export function EditableProfileView({
     const sw = frameRect.width * scaleToNatural;
     const sh = frameRect.height * scaleToNatural;
 
-    // Canvas = full crop frame size
+    // Draw to canvas
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(sw);
-    canvas.height = Math.round(sh);
+    canvas.width = Math.round(Math.min(sw, naturalW));
+    canvas.height = Math.round(Math.min(sh, naturalH));
     const ctx = canvas.getContext('2d');
     if (!ctx) return photoPreview || '';
 
-    // Fill with black for any area outside the image
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Clamp source rect to image bounds
-    const clampedSx = Math.max(0, sx);
-    const clampedSy = Math.max(0, sy);
-    const clampedSw = Math.min(sw - (clampedSx - sx), naturalW - clampedSx);
-    const clampedSh = Math.min(sh - (clampedSy - sy), naturalH - clampedSy);
-
-    // Dest offset: if frame started above/left of image, shift drawing right/down
-    const destX = Math.round(clampedSx - sx);
-    const destY = Math.round(clampedSy - sy);
-
     ctx.drawImage(
       img,
-      clampedSx, clampedSy,
-      clampedSw, clampedSh,
-      destX, destY,
-      Math.round(clampedSw), Math.round(clampedSh)
+      Math.max(0, sx),
+      Math.max(0, sy),
+      canvas.width,
+      canvas.height,
+      0, 0,
+      canvas.width,
+      canvas.height
     );
 
     return canvas.toDataURL('image/jpeg', 0.95);
@@ -1970,10 +1959,10 @@ export function EditableProfileView({
         <div
           style={{
             position: 'absolute',
-            top: '-75px',
+            top: '-150px',
             left: 0,
             right: 0,
-            height: '75px',
+            height: '150px',
             background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
