@@ -1966,7 +1966,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '20px',
-            background: 'linear-gradient(to bottom, transparent 50%, #000000 100%)',
+            background: 'linear-gradient(to bottom, transparent 75%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
