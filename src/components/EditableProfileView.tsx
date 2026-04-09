@@ -1959,11 +1959,11 @@ export function EditableProfileView({
         <div
           style={{
             position: 'absolute',
-            top: '-200px',
+            top: '-60px',
             left: 0,
             right: 0,
-            height: '200px',
-            background: 'linear-gradient(to bottom, transparent 40%, #000000 100%)',
+            height: '60px',
+            background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
