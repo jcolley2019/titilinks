@@ -1557,7 +1557,16 @@ export function EditableProfileView({
   // Header card sortable state
   const [headerCardOrder, setHeaderCardOrder] = useState<string[]>(() => {
     const saved = (page.theme_json as any)?.headerCardOrder;
-    return saved || ['__name_handle__', '__social_icons__'];
+    if (saved && Array.isArray(saved)) {
+      // Ensure both cards exist and name comes first
+      const hasName = saved.includes('__name_handle__');
+      const hasIcons = saved.includes('__social_icons__');
+      if (hasName && hasIcons) {
+        // Sort: name always before icons
+        return ['__name_handle__', '__social_icons__'];
+      }
+    }
+    return ['__name_handle__', '__social_icons__'];
   });
   const [expandedHeaderCard, setExpandedHeaderCard] = useState<string | null>(null);
   const [localNameSize, setLocalNameSize] = useState(headerConfig.nameSize ?? 28);
@@ -1942,9 +1951,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: editMode
-            ? `calc(1rem + ${contentStartY}px)`
-            : `calc(1rem + ${(page.theme_json as any)?.headerConfig?.contentStartY ?? 0}px)`,
+          paddingTop: '2rem',
         }}
       >
         {/* Gradient fade */}
