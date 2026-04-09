@@ -293,15 +293,6 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
   const [search, setSearch] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
-  const [headerConfig, setHeaderConfig] = useState({
-    nameSize: 28,
-    handleSize: 14,
-    nameColor: '#ffffff',
-    handleColor: '#ffffff99',
-    nameOffset: 0,
-    iconsOffset: 0,
-  });
-  const [pageId, setPageId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -336,36 +327,6 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
           image_url: item.image_url || null,
         }))
       );
-      // Load header config from page theme_json
-      const { data: blockData } = await supabase
-        .from('blocks')
-        .select('mode_id')
-        .eq('id', blockId)
-        .single();
-
-      if (blockData?.mode_id) {
-        const { data: modeData } = await supabase
-          .from('modes')
-          .select('page_id')
-          .eq('id', blockData.mode_id)
-          .single();
-
-        if (modeData?.page_id) {
-          setPageId(modeData.page_id);
-          const { data: pageData } = await supabase
-            .from('pages')
-            .select('theme_json')
-            .eq('id', modeData.page_id)
-            .single();
-
-          if (pageData?.theme_json) {
-            const theme = pageData.theme_json as any;
-            if (theme.headerConfig) {
-              setHeaderConfig(prev => ({ ...prev, ...theme.headerConfig }));
-            }
-          }
-        }
-      }
     } catch (error) {
       console.error('Error fetching items:', error);
       toast.error('Failed to load social links');
@@ -471,23 +432,6 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
 
     setSaving(true);
     try {
-      // Save header config to page theme_json
-      if (pageId) {
-        const { data: pageData } = await supabase
-          .from('pages')
-          .select('theme_json')
-          .eq('id', pageId)
-          .single();
-
-        const existingTheme = (pageData?.theme_json as any) || {};
-        await supabase
-          .from('pages')
-          .update({
-            theme_json: { ...existingTheme, headerConfig }
-          })
-          .eq('id', pageId);
-      }
-
       // Delete removed items
       const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
@@ -559,106 +503,6 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave }: Socia
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
-            {/* Header Settings */}
-            <div className="mb-4 p-4 rounded-xl border border-border bg-muted/20 space-y-4">
-              <p className="text-sm font-bold text-foreground">Header Settings</p>
-
-              {/* Name size + color */}
-              <div className="space-y-1">
-                <Label className="text-xs">Name Size ({headerConfig.nameSize}px)</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="16"
-                    max="48"
-                    value={headerConfig.nameSize}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, nameSize: parseInt(e.target.value)
-                    }))}
-                    className="flex-1 accent-[#C9A55C]"
-                  />
-                  <input
-                    type="color"
-                    value={headerConfig.nameColor}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, nameColor: e.target.value
-                    }))}
-                    className="w-8 h-8 rounded border border-border cursor-pointer p-0.5"
-                  />
-                </div>
-              </div>
-
-              {/* Handle size + color */}
-              <div className="space-y-1">
-                <Label className="text-xs">Handle Size ({headerConfig.handleSize}px)</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="10"
-                    max="24"
-                    value={headerConfig.handleSize}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, handleSize: parseInt(e.target.value)
-                    }))}
-                    className="flex-1 accent-[#C9A55C]"
-                  />
-                  <input
-                    type="color"
-                    value={headerConfig.handleColor}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, handleColor: e.target.value
-                    }))}
-                    className="w-8 h-8 rounded border border-border cursor-pointer p-0.5"
-                  />
-                </div>
-              </div>
-
-              {/* Position sliders */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <p className="text-xs font-semibold text-foreground">Position Controls</p>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    Name & Handle Position ({headerConfig.nameOffset > 0 ? '+' : ''}{headerConfig.nameOffset}px)
-                  </Label>
-                  <input
-                    type="range"
-                    min="-150"
-                    max="150"
-                    value={headerConfig.nameOffset}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, nameOffset: parseInt(e.target.value)
-                    }))}
-                    className="w-full accent-[#C9A55C]"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>↑ Higher</span>
-                    <span>↓ Lower</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    Social Icons Position ({headerConfig.iconsOffset > 0 ? '+' : ''}{headerConfig.iconsOffset}px)
-                  </Label>
-                  <input
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value={headerConfig.iconsOffset}
-                    onChange={(e) => setHeaderConfig(prev => ({
-                      ...prev, iconsOffset: parseInt(e.target.value)
-                    }))}
-                    className="w-full accent-[#C9A55C]"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>↑ Higher</span>
-                    <span>↓ Lower</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Platform Picker Toggle */}
             <div className="mb-4">
               <Button
