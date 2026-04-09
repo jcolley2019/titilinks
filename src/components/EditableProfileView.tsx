@@ -1703,22 +1703,25 @@ export function EditableProfileView({
     const sw = frameRect.width * scaleToNatural;
     const sh = frameRect.height * scaleToNatural;
 
+    // Clamp source coordinates to image bounds
+    const srcX = Math.max(0, sx);
+    const srcY = Math.max(0, sy);
+    const srcW = Math.min(sw, naturalW - srcX);
+    const srcH = Math.min(sh, naturalH - srcY);
+
     // Draw to canvas
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(Math.min(sw, naturalW));
-    canvas.height = Math.round(Math.min(sh, naturalH));
+    canvas.width = Math.round(srcW);
+    canvas.height = Math.round(srcH);
     const ctx = canvas.getContext('2d');
     if (!ctx) return photoPreview || '';
 
     ctx.drawImage(
       img,
-      Math.max(0, sx),
-      Math.max(0, sy),
-      canvas.width,
-      canvas.height,
+      srcX, srcY,
+      srcW, srcH,
       0, 0,
-      canvas.width,
-      canvas.height
+      canvas.width, canvas.height
     );
 
     return canvas.toDataURL('image/jpeg', 0.95);
