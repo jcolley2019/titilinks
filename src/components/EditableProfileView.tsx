@@ -1913,12 +1913,12 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image */}
-      <div className="relative w-full" style={{ height: '60vh', maxHeight: '500px', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ height: '70vh', maxHeight: '600px', overflow: 'hidden' }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
             alt={page.display_name || page.handle}
-            className="object-cover object-[center_20%] brightness-110"
+            className="object-cover object-top brightness-110"
             containerClassName="h-full w-full"
             skeletonClassName="bg-neutral-900"
           />
