@@ -348,6 +348,12 @@ export default function Editor() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-white/50">@{page.handle}</span>
             <button
+              onClick={() => setProfileDashboardOpen(true)}
+              className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
+            >
+              + Add Content
+            </button>
+            <button
               onClick={() => window.open(`/${page.handle}`, '_blank')}
               className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
             >
