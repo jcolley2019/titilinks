@@ -1951,7 +1951,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: '2rem',
+          paddingTop: '0rem',
         }}
       >
         {/* Gradient fade */}
