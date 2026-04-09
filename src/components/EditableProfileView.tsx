@@ -1270,7 +1270,6 @@ function SocialIconsCard({
   localIconsPaddingY, setLocalIconsPaddingY,
   localIconSize, setLocalIconSize,
   iconsCardY, onIconsCardYChange, onDragEnd,
-  contentStartY, setContentStartY,
   onEditSocial,
   onSave,
 }: {
@@ -1280,7 +1279,6 @@ function SocialIconsCard({
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
   localIconSize: 'small'|'medium'|'large'; setLocalIconSize: (v: 'small'|'medium'|'large') => void;
   iconsCardY: number; onIconsCardYChange: (v: number) => void; onDragEnd: () => void;
-  contentStartY: number; setContentStartY: (v: number) => void;
   onEditSocial: () => void;
   onSave: () => void;
 }) {
@@ -1379,12 +1377,6 @@ function SocialIconsCard({
                 </button>
               ))}
             </div>
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
-            <input type="range" min={-100} max={200} step={4} value={contentStartY}
-              onChange={(e) => { setContentStartY(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
           <button
             onClick={onEditSocial}
@@ -1575,9 +1567,7 @@ export function EditableProfileView({
   const [iconsCardY, setIconsCardY] = useState(
     (page.theme_json as any)?.headerConfig?.iconsCardY ?? 0
   );
-  const [contentStartY, setContentStartY] = useState(
-    (page.theme_json as any)?.headerConfig?.contentStartY ?? 0
-  );
+
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1942,9 +1932,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: editMode
-            ? `calc(1rem + ${contentStartY}px)`
-            : `calc(1rem + ${(page.theme_json as any)?.headerConfig?.contentStartY ?? 0}px)`,
+          paddingTop: '1rem',
         }}
       >
         {/* Gradient fade */}
@@ -1969,7 +1957,9 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
+            marginTop: editMode
+              ? `calc(-6rem + ${Math.min(0, nameCardY)}px)`
+              : `calc(-6rem + ${Math.min(0, headerConfig.nameCardY ?? 0)}px)`,
             paddingBottom: '1rem',
           }}
         >
@@ -2457,7 +2447,6 @@ export function EditableProfileView({
                     localIconSize={localIconSize} setLocalIconSize={setLocalIconSize}
                     iconsCardY={iconsCardY} onIconsCardYChange={setIconsCardY}
                     onDragEnd={() => saveHeaderConfig({ iconsCardY })}
-                    contentStartY={contentStartY} setContentStartY={setContentStartY}
                     onEditSocial={() => {
                       const socialBlock = socialBlocks[0];
                       if (socialBlock) onBlockEdit(socialBlock.id);
@@ -2465,7 +2454,6 @@ export function EditableProfileView({
                     onSave={() => saveHeaderConfig({
                       iconsPaddingY: localIconsPaddingY,
                       iconSize: localIconSize,
-                      contentStartY,
                     })}
                   />
                 );
