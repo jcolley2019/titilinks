@@ -1703,25 +1703,33 @@ export function EditableProfileView({
     const sw = frameRect.width * scaleToNatural;
     const sh = frameRect.height * scaleToNatural;
 
+    // Canvas = full crop frame size
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return photoPreview || '';
+
+    // Fill with black for any area outside the image
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     // Clamp source rect to image bounds
     const clampedSx = Math.max(0, sx);
     const clampedSy = Math.max(0, sy);
-    const clampedSw = Math.min(sw, naturalW - clampedSx);
-    const clampedSh = Math.min(sh, naturalH - clampedSy);
+    const clampedSw = Math.min(sw - (clampedSx - sx), naturalW - clampedSx);
+    const clampedSh = Math.min(sh - (clampedSy - sy), naturalH - clampedSy);
 
-    // Draw to canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(clampedSw);
-    canvas.height = Math.round(clampedSh);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return photoPreview || '';
+    // Dest offset: if frame started above/left of image, shift drawing right/down
+    const destX = Math.round(clampedSx - sx);
+    const destY = Math.round(clampedSy - sy);
 
     ctx.drawImage(
       img,
       clampedSx, clampedSy,
       clampedSw, clampedSh,
-      0, 0,
-      canvas.width, canvas.height
+      destX, destY,
+      Math.round(clampedSw), Math.round(clampedSh)
     );
 
     return canvas.toDataURL('image/jpeg', 0.95);
@@ -1925,7 +1933,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image */}
-      <div className="relative w-full" style={{ height: '65vh', maxHeight: '580px', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ height: '75vh', maxHeight: '650px', overflow: 'hidden' }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
@@ -1954,7 +1962,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          marginTop: '-14rem',
+          marginTop: '-18rem',
           paddingTop: '0',
         }}
       >
@@ -1962,11 +1970,11 @@ export function EditableProfileView({
         <div
           style={{
             position: 'absolute',
-            top: '-20px',
+            top: '-150px',
             left: 0,
             right: 0,
-            height: '20px',
-            background: 'linear-gradient(to bottom, transparent 75%, #000000 100%)',
+            height: '150px',
+            background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
