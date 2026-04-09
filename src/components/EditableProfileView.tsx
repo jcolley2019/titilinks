@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import * as faceapi from '@vladmandic/face-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
@@ -1192,31 +1193,48 @@ function NameHandleCard({
         <GripVertical className="h-4 w-4" />
       </button>
 
-      {/* Content — matches profile display */}
+      {/* Content — tap name to edit inline, tap handle area to expand settings */}
       <div
-        className="cursor-pointer relative"
+        className="relative"
         style={{ paddingTop: localNamePadTop, paddingBottom: localNamePadBottom, textAlign: 'center' }}
-        onClick={onToggleExpand}
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h1
-            className="font-bold mb-0"
+          <input
+            type="text"
+            value={localDisplayName}
+            onChange={(e) => {
+              setLocalDisplayName(e.target.value);
+              debouncedNameSave(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+                onDisplayNameChange(localDisplayName);
+              }
+            }}
+            onBlur={() => onDisplayNameChange(localDisplayName)}
+            placeholder={`@${page.handle}`}
+            className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
             style={{
               fontSize: localNameSize,
               color: localNameColor,
               textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+              caretColor: '#C9A55C',
             }}
-          >
-            {page.display_name || `@${page.handle}`}
-          </h1>
+          />
           <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
             @{page.handle}
           </p>
         </div>
-        <ChevronRight className={cn(
-          "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 transition-transform duration-200",
-          expanded && "rotate-90"
-        )} />
+        <button
+          onClick={onToggleExpand}
+          className="absolute right-2 top-1/2 -translate-y-1/2"
+        >
+          <ChevronRight className={cn(
+            "h-4 w-4 text-white/30 transition-transform duration-200",
+            expanded && "rotate-90"
+          )} />
+        </button>
       </div>
 
       {/* Compact settings row */}
@@ -1229,19 +1247,6 @@ function NameHandleCard({
         <div className="px-6 pb-2 space-y-1.5">
           <div className="flex gap-3 items-center">
             <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Name</label>
-            <input
-              type="text"
-              value={localDisplayName}
-              onChange={(e) => {
-                setLocalDisplayName(e.target.value);
-                debouncedNameSave(e.target.value);
-              }}
-              placeholder="Display name"
-              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2.5 py-1.5 text-white text-xs outline-none focus:border-[#C9A55C]/50"
-            />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Size</label>
             <input type="range" min={16} max={48} step={1} value={localNameSize}
               onChange={(e) => { setLocalNameSize(Number(e.target.value)); debouncedSave(); }}
               className="flex-1 accent-[#C9A55C] h-1" />
@@ -1823,74 +1828,132 @@ export function EditableProfileView({
     }
   };
 
+  // Detect face using face-api.js TinyFaceDetector (works in all browsers, 190KB model)
+  const detectFace = async (img: HTMLImageElement): Promise<{ x: number; y: number; w: number; h: number } | null> => {
+    try {
+      // Load model on first use (cached after that)
+      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
+        console.log('[AI CROP] Loading face detection model...');
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+      }
+
+      const detection = await faceapi.detectSingleFace(
+        img,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 })
+      );
+
+      if (detection) {
+        const { x, y, width, height } = detection.box;
+        console.log('[AI CROP] Face detected:', { x: Math.round(x), y: Math.round(y), w: Math.round(width), h: Math.round(height), score: detection.score.toFixed(2) });
+        return { x, y, w: width, h: height };
+      }
+
+      console.log('[AI CROP] No face detected by TinyFaceDetector');
+    } catch (e) {
+      console.error('[AI CROP] face-api.js error:', e);
+    }
+
+    return null; // no face detected
+  };
+
   const handleAiCrop = async (mode: 'headshot' | 'shoulders' | 'fullbody') => {
     if (!photoPreview) return;
     setAiProcessing(true);
     setPhotoStep('ai');
     try {
-      const base64 = photoPreview.split(',')[1];
-      const mediaType = photoPreview.split(';')[0].split(':')[1] || 'image/jpeg';
-      const { data, error } = await supabase.functions.invoke('ai-crop', {
-        body: { base64, mediaType },
-      });
-      if (error) throw error;
-
-      // Load image to get natural dimensions
+      // Load image
       const img = new Image();
       img.src = photoPreview;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Image load failed'));
+      });
 
       const natW = img.naturalWidth;
       const natH = img.naturalHeight;
 
-      // Face detection results
-      const faceCX = (data.faceLeft ?? 0.5) * natW;
-      const faceCY = (data.faceTop ?? 0.3) * natH;
-      const faceH = (data.faceSize ?? 0.3) * natH;
+      // Detect face
+      const face = await detectFace(img);
+      if (!face) {
+        toast.error('No face detected — try manual crop');
+        setPhotoStep('manual');
+        return;
+      }
 
-      // Crop size depends on mode — all use 1:1 square to match display
-      // faceMultiplier: how many face-heights the crop region should be
-      // verticalShift: how far above face center to place crop center (fraction of crop size)
-      let faceMultiplier: number;
-      let verticalShift: number;
+      // Face bounding box (exact pixels from FaceDetector)
+      const faceX = face.x;           // face left edge
+      const faceY = face.y;           // face top edge
+      const faceW = face.w;           // face width
+      const faceH = face.h;           // face height
+      const faceCX = faceX + faceW / 2; // face center X
+      const faceCY = faceY + faceH / 2; // face center Y
+
+      // Padding multipliers per mode — how much space around the face
+      // topPad: space above face (for hair, hats, headroom)
+      // sidePad: space to left/right of face
+      // bottomPad: space below face (neck, shoulders, body)
+      let topPad: number, sidePad: number, bottomPad: number;
       switch (mode) {
         case 'headshot':
-          faceMultiplier = 1.8;   // tight on face + hair
-          verticalShift = 0.15;   // slight shift up for hair
+          topPad = 0.9;     // generous above for hair/hats
+          sidePad = 0.6;    // some breathing room on sides
+          bottomPad = 0.5;  // chin + bit of neck
           break;
         case 'shoulders':
-          faceMultiplier = 3.0;   // face + neck + shoulders
-          verticalShift = 0.2;    // shift up to include hair, show shoulders below
+          topPad = 0.8;     // hair/hat space
+          sidePad = 1.0;    // wider for shoulders
+          bottomPad = 2.0;  // neck + full shoulders
           break;
         case 'fullbody':
-          faceMultiplier = 5.5;   // face + torso + more
-          verticalShift = 0.25;   // shift up more to show body below
+          topPad = 0.8;     // hair/hat space
+          sidePad = 1.5;    // wider framing
+          bottomPad = 8.0;  // extend down for full body
           break;
       }
 
-      // 1:1 square crop — size based on face multiplier
-      let cropSize = Math.min(faceH * faceMultiplier, natW, natH);
+      // Calculate the content rectangle (face + padding)
+      const contentL = faceX - faceW * sidePad;
+      const contentR = faceX + faceW + faceW * sidePad;
+      const contentT = faceY - faceH * topPad;
+      const contentB = faceY + faceH + faceH * bottomPad;
+      const contentW = contentR - contentL;
+      const contentH = contentB - contentT;
 
-      // For fullbody, try to use as much of the image as possible
+      // Make it square (1:1) — use the LARGER dimension so nothing gets cut
+      let cropSize = Math.max(contentW, contentH);
+      cropSize = Math.min(cropSize, natW, natH); // can't exceed image
+
+      // For fullbody, use as much of the image as possible
       if (mode === 'fullbody') {
-        cropSize = Math.min(natW, natH); // use the full shorter dimension
+        cropSize = Math.max(cropSize, Math.min(natW, natH) * 0.95);
+        cropSize = Math.min(cropSize, natW, natH);
       }
 
-      // Center on face, shifted up to account for hair/head above face center
-      let sx = faceCX - cropSize / 2;
-      let sy = faceCY - cropSize * verticalShift - cropSize / 2 + cropSize * verticalShift;
-      // Simplified: place face center at (verticalShift) from top of crop
-      sy = faceCY - cropSize * (0.5 - verticalShift);
+      // Center the square crop on the content center
+      const contentCX = (contentL + contentR) / 2;
+      const contentCY = (contentT + contentB) / 2;
+      let sx = contentCX - cropSize / 2;
+      let sy = contentCY - cropSize / 2;
+
+      // For headshot/shoulders, bias upward slightly so face sits in upper third
+      if (mode === 'headshot') {
+        sy = faceCY - cropSize * 0.38; // face at ~38% from top
+      } else if (mode === 'shoulders') {
+        sy = faceCY - cropSize * 0.30; // face at ~30% from top
+      } else {
+        sy = faceCY - cropSize * 0.20; // face at ~20% from top (lots of body below)
+      }
 
       // Clamp to image bounds
       sx = Math.max(0, Math.min(sx, natW - cropSize));
       sy = Math.max(0, Math.min(sy, natH - cropSize));
 
-      // Pull crop toward horizontal center (30% influence)
-      const imageCenterX = natW / 2;
-      const cropCenterX = sx + cropSize / 2;
-      const horizontalPull = (imageCenterX - cropCenterX) * 0.3;
-      sx = Math.max(0, Math.min(sx + horizontalPull, natW - cropSize));
+      // Gently pull toward horizontal center (avoid extreme side crops)
+      const pullStrength = 0.3;
+      const idealCX = natW / 2;
+      const currentCX = sx + cropSize / 2;
+      sx += (idealCX - currentCX) * pullStrength;
+      sx = Math.max(0, Math.min(sx, natW - cropSize));
 
       // Draw to canvas (square)
       const canvas = document.createElement('canvas');
