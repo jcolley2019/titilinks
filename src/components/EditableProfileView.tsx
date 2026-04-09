@@ -1270,6 +1270,7 @@ function SocialIconsCard({
   localIconsPaddingY, setLocalIconsPaddingY,
   localIconSize, setLocalIconSize,
   iconsCardY, onIconsCardYChange, onDragEnd,
+  contentStartY, setContentStartY,
   onEditSocial,
   onSave,
 }: {
@@ -1279,6 +1280,7 @@ function SocialIconsCard({
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
   localIconSize: 'small'|'medium'|'large'; setLocalIconSize: (v: 'small'|'medium'|'large') => void;
   iconsCardY: number; onIconsCardYChange: (v: number) => void; onDragEnd: () => void;
+  contentStartY: number; setContentStartY: (v: number) => void;
   onEditSocial: () => void;
   onSave: () => void;
 }) {
@@ -1349,7 +1351,7 @@ function SocialIconsCard({
       <div
         className={cn(
           'overflow-hidden transition-all duration-200 ease-out',
-          expanded ? 'max-h-[120px] opacity-100' : 'max-h-0 opacity-0'
+          expanded ? 'max-h-[160px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
         <div className="px-6 pb-2 space-y-1.5">
@@ -1377,6 +1379,12 @@ function SocialIconsCard({
                 </button>
               ))}
             </div>
+          </div>
+          <div className="flex gap-3 items-center">
+            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
+            <input type="range" min={-100} max={200} step={4} value={contentStartY}
+              onChange={(e) => { setContentStartY(Number(e.target.value)); debouncedSave(); }}
+              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
           <button
             onClick={onEditSocial}
@@ -1566,6 +1574,9 @@ export function EditableProfileView({
   );
   const [iconsCardY, setIconsCardY] = useState(
     (page.theme_json as any)?.headerConfig?.iconsCardY ?? 0
+  );
+  const [contentStartY, setContentStartY] = useState(
+    (page.theme_json as any)?.headerConfig?.contentStartY ?? 0
   );
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1902,12 +1913,12 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image */}
-      <div className="relative w-full" style={{ height: '50vh', maxHeight: '400px', overflow: 'hidden' }}>
+      <div className="relative w-full" style={{ height: '60vh', maxHeight: '500px', overflow: 'hidden' }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
             alt={page.display_name || page.handle}
-            className="object-cover object-top brightness-110"
+            className="object-cover object-[center_20%] brightness-110"
             containerClassName="h-full w-full"
             skeletonClassName="bg-neutral-900"
           />
@@ -1931,7 +1942,9 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: '1rem',
+          paddingTop: editMode
+            ? `calc(1rem + ${contentStartY}px)`
+            : `calc(1rem + ${(page.theme_json as any)?.headerConfig?.contentStartY ?? 0}px)`,
         }}
       >
         {/* Gradient fade */}
@@ -2390,33 +2403,6 @@ export function EditableProfileView({
           {/* Social icons in non-edit mode are rendered via headerCardOrder above */}
         </div>
 
-        {/* Page 1 / Page 2 tabs — only show when NOT in edit mode */}
-        {!editMode && (
-          <div className="flex justify-center gap-2 px-4 pb-4">
-            <button
-              onClick={() => onModeChange('shop')}
-              className={cn(
-                'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-                selectedMode === 'shop'
-                  ? 'bg-[#C9A55C] text-[#0e0c09]'
-                  : 'bg-white/10 text-white/60 hover:text-white'
-              )}
-            >
-              {page1Label}
-            </button>
-            <button
-              onClick={() => onModeChange('recruit')}
-              className={cn(
-                'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-                selectedMode === 'recruit'
-                  ? 'bg-[#C9A55C] text-[#0e0c09]'
-                  : 'bg-white/10 text-white/60 hover:text-white'
-              )}
-            >
-              {page2Label}
-            </button>
-          </div>
-        )}
 
         {/* Blocks */}
         {editMode ? (
@@ -2471,6 +2457,7 @@ export function EditableProfileView({
                     localIconSize={localIconSize} setLocalIconSize={setLocalIconSize}
                     iconsCardY={iconsCardY} onIconsCardYChange={setIconsCardY}
                     onDragEnd={() => saveHeaderConfig({ iconsCardY })}
+                    contentStartY={contentStartY} setContentStartY={setContentStartY}
                     onEditSocial={() => {
                       const socialBlock = socialBlocks[0];
                       if (socialBlock) onBlockEdit(socialBlock.id);
@@ -2478,6 +2465,7 @@ export function EditableProfileView({
                     onSave={() => saveHeaderConfig({
                       iconsPaddingY: localIconsPaddingY,
                       iconSize: localIconSize,
+                      contentStartY,
                     })}
                   />
                 );
