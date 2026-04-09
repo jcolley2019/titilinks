@@ -10,6 +10,8 @@ import {
   Menu,
   X,
   Cog,
+  Eye,
+  ArrowLeft,
   UserCircle,
   CheckCircle2,
   Crown,
@@ -60,9 +62,11 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isEditorPage = location.pathname === '/dashboard/editor';
   const [hasPage, setHasPage] = useState<boolean | null>(null);
+  const [pageHandle, setPageHandle] = useState<string | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
   const [userPlan, setUserPlan] = useState<UserPlan>('Free');
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const [showLivePreview, setShowLivePreview] = useState(false);
 
   // TODO: Fetch actual plan from subscription data when Stripe is enabled
   // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
@@ -129,6 +133,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
         .maybeSingle();
 
       setHasPage(!!page);
+      setPageHandle(page?.handle || null);
 
       if (page) {
         // Fetch blocks count for this page
@@ -415,6 +420,27 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
         </motion.aside>
       )}
 
+      {/* Mobile Live Preview Overlay */}
+      {showLivePreview && pageHandle && (
+        <div className="lg:hidden fixed inset-0 z-[200] bg-black flex flex-col">
+          <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border">
+            <button
+              onClick={() => setShowLivePreview(false)}
+              className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              Back
+            </button>
+            <span className="text-xs text-muted-foreground ml-auto">/{pageHandle}</span>
+          </div>
+          <iframe
+            src={`/${pageHandle}`}
+            className="flex-1 w-full border-0"
+            title="Live Preview"
+          />
+        </div>
+      )}
+
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
         <div className="flex items-center justify-around py-2">
@@ -433,6 +459,15 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               </Link>
             );
           })}
+          {pageHandle && (
+            <button
+              onClick={() => setShowLivePreview(true)}
+              className="flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-muted-foreground hover:text-primary"
+            >
+              <Eye className="h-5 w-5" />
+              <span className="text-xs font-medium">Live</span>
+            </button>
+          )}
         </div>
       </nav>
 
