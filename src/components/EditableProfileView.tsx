@@ -1951,7 +1951,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          marginTop: '-12rem',
+          marginTop: '-18rem',
           paddingTop: '0',
         }}
       >
