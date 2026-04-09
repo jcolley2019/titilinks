@@ -1930,7 +1930,7 @@ export function EditableProfileView({
           <SmoothImage
             src={heroImage}
             alt={page.display_name || page.handle}
-            className="object-cover brightness-110"
+            className="object-cover object-top brightness-110"
             containerClassName="h-full w-full"
             skeletonClassName="bg-neutral-900"
           />
