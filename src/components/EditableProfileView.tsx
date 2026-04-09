@@ -1951,7 +1951,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: '0rem',
+          paddingTop: '2rem',
         }}
       >
         {/* Gradient fade */}
@@ -2414,7 +2414,7 @@ export function EditableProfileView({
         {/* Blocks */}
         {editMode ? (
           /* Preview block cards for edit mode */
-          <div className="pb-32 pt-0">
+          <div className="pb-32 pt-0" style={{ marginTop: '-4rem' }}>
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
             </div>
             {/* Free-drag header cards (outside DndContext) */}
@@ -2502,7 +2502,7 @@ export function EditableProfileView({
           </div>
         ) : (
           /* Full block content for view mode */
-          <div className="px-4 space-y-6 pb-20">
+          <div className="px-4 space-y-6 pb-20" style={{ marginTop: '-4rem' }}>
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
             ) : (
