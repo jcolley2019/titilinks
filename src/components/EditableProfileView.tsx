@@ -1930,7 +1930,7 @@ export function EditableProfileView({
           <SmoothImage
             src={heroImage}
             alt={page.display_name || page.handle}
-            className="object-cover object-top brightness-110"
+            className="object-cover brightness-110"
             containerClassName="h-full w-full"
             skeletonClassName="bg-neutral-900"
           />
@@ -1966,7 +1966,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '20px',
-            background: 'linear-gradient(to bottom, transparent 60%, #000000 100%)',
+            background: 'linear-gradient(to bottom, transparent 50%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
