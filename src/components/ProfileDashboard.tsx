@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -17,10 +18,18 @@ import {
   LayoutGrid,
   Image as ImageIcon,
   User,
+  ChevronLeft,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
+import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
+import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
+import { LinksEditor } from '@/components/editors/LinksEditor';
+import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
+import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
+import { GalleryEditor } from '@/components/editors/GalleryEditor';
+import { BioEditor } from '@/components/editors/BioEditor';
 
 interface ProfileDashboardProps {
   open: boolean;
@@ -189,6 +198,16 @@ export function ProfileDashboard({
   onRefresh,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
+  const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
+
+  const handleClose = () => {
+    setActiveBlockId(null);
+    setActiveBlockType(null);
+    setActiveBlockTitle('');
+    onClose();
+  };
 
   const handleRowTap = async (row: DashboardRow) => {
     if (!row.blockType) {
@@ -212,7 +231,6 @@ export function ProfileDashboard({
       if (error) throw error;
 
       if (!block) {
-        // Block doesn't exist yet — create it
         const { data: newBlock, error: insertError } = await supabase
           .from('blocks')
           .insert({
@@ -226,17 +244,64 @@ export function ProfileDashboard({
           .single();
 
         if (insertError) throw insertError;
-        onClose();
-        onBlockEdit(newBlock.id);
         onRefresh();
+        setActiveBlockId(newBlock.id);
+        setActiveBlockType(row.blockType);
+        setActiveBlockTitle(t(row.titleKey));
         return;
       }
 
-      onClose();
-      onBlockEdit(block.id);
+      setActiveBlockId(block.id);
+      setActiveBlockType(row.blockType);
+      setActiveBlockTitle(t(row.titleKey));
     } catch (err) {
       console.error('Error finding block:', err);
       toast.error(t('dashboard.failedOpen'));
+    }
+  };
+
+  const handleEditorClose = (editorOpen: boolean) => {
+    if (!editorOpen) {
+      setActiveBlockId(null);
+      setActiveBlockType(null);
+      setActiveBlockTitle('');
+    }
+  };
+
+  const handleEditorSave = () => {
+    setActiveBlockId(null);
+    setActiveBlockType(null);
+    setActiveBlockTitle('');
+    onRefresh();
+  };
+
+  const renderEditor = () => {
+    if (!activeBlockId || !activeBlockType) return null;
+
+    const editorProps = {
+      blockId: activeBlockId,
+      open: true as const,
+      onOpenChange: handleEditorClose,
+      onSave: handleEditorSave,
+    };
+
+    switch (activeBlockType) {
+      case 'primary_cta':
+        return <PrimaryCtaEditor {...editorProps} />;
+      case 'social_links':
+        return <SocialLinksEditor {...editorProps} />;
+      case 'links':
+        return <LinksEditor {...editorProps} />;
+      case 'product_cards':
+        return <ProductCardsEditor {...editorProps} />;
+      case 'email_subscribe':
+        return <EmailSubscribeEditor {...editorProps} />;
+      case 'gallery':
+        return <GalleryEditor {...editorProps} />;
+      case 'bio':
+        return <BioEditor {...editorProps} />;
+      default:
+        return null;
     }
   };
 
@@ -250,22 +315,34 @@ export function ProfileDashboard({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 z-40"
-            onClick={onClose}
+            onClick={handleClose}
           />
 
-          {/* Panel — mobile: slides up, desktop: slides from right */}
+          {/* Panel — slides from right on all screen sizes */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 lg:left-auto lg:top-0 lg:w-[420px] lg:bottom-0 bg-[#0e0c09] border-t border-white/10 lg:border-t-0 lg:border-l rounded-t-3xl lg:rounded-t-none max-h-[85vh] lg:max-h-none overflow-hidden flex flex-col"
+            className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              <h2 className="text-lg font-bold text-white">{t('dashboard.addContent')}</h2>
+              {activeBlockId ? (
+                <>
+                  <button
+                    onClick={() => { setActiveBlockId(null); setActiveBlockType(null); setActiveBlockTitle(''); }}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{activeBlockTitle}</h2>
+                </>
+              ) : (
+                <h2 className="text-lg font-bold text-white">{t('dashboard.addContent')}</h2>
+              )}
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="text-white/60 hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -274,30 +351,34 @@ export function ProfileDashboard({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
-              {sections.map((section) => (
-                <div key={section.labelKey}>
-                  <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
-                    {t(section.labelKey)}
-                  </p>
-                  {section.rows.map((row) => (
-                    <button
-                      key={row.titleKey}
-                      onClick={() => handleRowTap(row)}
-                      className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
-                      style={{ width: 'calc(100% - 2rem)' }}
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                        {row.icon}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-sm font-bold text-white">{t(row.titleKey)}</p>
-                        <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
-                      </div>
-                      <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              ))}
+              {activeBlockId ? (
+                renderEditor()
+              ) : (
+                sections.map((section) => (
+                  <div key={section.labelKey}>
+                    <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
+                      {t(section.labelKey)}
+                    </p>
+                    {section.rows.map((row) => (
+                      <button
+                        key={row.titleKey}
+                        onClick={() => handleRowTap(row)}
+                        className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
+                        style={{ width: 'calc(100% - 2rem)' }}
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                          {row.icon}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-bold text-white">{t(row.titleKey)}</p>
+                          <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
+                        </div>
+                        <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
           </motion.div>
         </>
