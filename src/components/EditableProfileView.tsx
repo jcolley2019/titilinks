@@ -1976,7 +1976,7 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
+            marginTop: '-8rem',
             paddingBottom: '1rem',
           }}
         >
