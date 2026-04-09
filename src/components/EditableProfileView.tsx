@@ -1835,20 +1835,38 @@ export function EditableProfileView({
       if (!faceapi.nets.tinyFaceDetector.isLoaded) {
         console.log('[AI CROP] Loading face detection model...');
         await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        console.log('[AI CROP] Model loaded successfully');
       }
 
-      const detection = await faceapi.detectSingleFace(
-        img,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 })
-      );
+      // Draw image to canvas first — ensures pixels are fully decoded
+      // (data URL images may not be decoded when passed directly)
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+      ctx.drawImage(img, 0, 0);
 
-      if (detection) {
-        const { x, y, width, height } = detection.box;
-        console.log('[AI CROP] Face detected:', { x: Math.round(x), y: Math.round(y), w: Math.round(width), h: Math.round(height), score: detection.score.toFixed(2) });
-        return { x, y, w: width, h: height };
+      console.log('[AI CROP] Running detection on', img.naturalWidth, 'x', img.naturalHeight, 'image...');
+
+      // Try multiple input sizes for best results (larger = more accurate but slower)
+      for (const inputSize of [512, 416, 320] as const) {
+        const detection = await faceapi.detectSingleFace(
+          canvas as any,
+          new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.15 })
+        );
+
+        if (detection) {
+          const { x, y, width, height } = detection.box;
+          console.log('[AI CROP] Face detected (inputSize=%d, score=%.2f):', inputSize, detection.score, {
+            x: Math.round(x), y: Math.round(y), w: Math.round(width), h: Math.round(height)
+          });
+          return { x, y, w: width, h: height };
+        }
+        console.log('[AI CROP] No face at inputSize', inputSize, '— trying next...');
       }
 
-      console.log('[AI CROP] No face detected by TinyFaceDetector');
+      console.log('[AI CROP] No face detected at any input size');
     } catch (e) {
       console.error('[AI CROP] face-api.js error:', e);
     }
@@ -1981,6 +1999,58 @@ export function EditableProfileView({
       console.error('AI crop error:', err);
       toast.error(t('editor.aiCropFailed'));
       setPhotoStep('manual');
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  const handleAiEnhance = async (mode: 'upscale' | 'face_restore', fromCrop?: boolean) => {
+    setAiProcessing(true);
+    setPhotoStep('ai');
+    try {
+      let sourceDataUrl = photoPreview;
+
+      // If called from manual crop, crop first then enhance
+      if (fromCrop && sourceDataUrl) {
+        sourceDataUrl = getCroppedCanvas();
+      }
+
+      if (!sourceDataUrl) throw new Error('No image');
+
+      const [header, base64] = sourceDataUrl.split(',');
+      const mediaType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+
+      const { data, error } = await supabase.functions.invoke('ai-enhance', {
+        body: { base64, mediaType, mode, scale: 2 },
+      });
+
+      if (error || !data?.output) throw new Error(error?.message || 'Enhancement failed');
+
+      // Fetch enhanced image from Replicate's URL
+      const response = await fetch(data.output);
+      const blob = await response.blob();
+      const enhancedDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      setPhotoPreview(enhancedDataUrl);
+      const file = new File([blob], 'enhanced.jpg', { type: 'image/jpeg' });
+      setPhotoFile(file);
+
+      if (fromCrop) {
+        // Crop + enhance → save directly
+        await handlePhotoSave(file);
+      } else {
+        // Enhance before crop → go back to choose so user can crop or save
+        setPhotoStep('choose');
+        toast.success(mode === 'upscale' ? 'Photo upscaled!' : 'Face enhanced!');
+      }
+    } catch (err) {
+      console.error('AI enhance error:', err);
+      toast.error('Enhancement failed — try again');
+      setPhotoStep('choose');
     } finally {
       setAiProcessing(false);
     }
@@ -2229,6 +2299,29 @@ export function EditableProfileView({
                         </div>
                       </div>
 
+                      {/* AI Enhance */}
+                      <div className="w-full max-w-xs">
+                        <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wider mb-2 text-center">AI Enhance</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleAiEnhance('upscale')}
+                            disabled={aiProcessing}
+                            className="py-3 rounded-xl bg-white/5 border border-white/15 text-white/80 font-semibold text-xs flex flex-col items-center gap-1 hover:bg-white/10 transition-colors"
+                          >
+                            <span className="text-base">✨</span>
+                            HD Upscale
+                          </button>
+                          <button
+                            onClick={() => handleAiEnhance('face_restore')}
+                            disabled={aiProcessing}
+                            className="py-3 rounded-xl bg-white/5 border border-white/15 text-white/80 font-semibold text-xs flex flex-col items-center gap-1 hover:bg-white/10 transition-colors"
+                          >
+                            <span className="text-base">💎</span>
+                            Face Restore
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Manual crop & original */}
                       <div className="flex flex-col gap-2.5 w-full max-w-xs">
                         <button
@@ -2393,28 +2486,37 @@ export function EditableProfileView({
                       </div>
 
                       {/* Bottom buttons */}
-                      <div className="flex gap-3 px-4 items-center border-t border-white/10" style={{ minHeight: '72px', flexShrink: 0, paddingBottom: '80px' }}>
+                      <div className="flex flex-col gap-2 px-4 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '12px', paddingBottom: '80px' }}>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setPhotoStep('choose')}
+                            className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const dataUrl = getCroppedCanvas();
+                              setPhotoPreview(dataUrl);
+                              setCropZoom(1);
+                              setCropPosition({ x: 0, y: 0 });
+                              const res = await fetch(dataUrl);
+                              const blob = await res.blob();
+                              const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
+                              setPhotoFile(file);
+                              await handlePhotoSave(file);
+                            }}
+                            className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                          >
+                            Apply Crop
+                          </button>
+                        </div>
                         <button
-                          onClick={() => setPhotoStep('choose')}
-                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                          onClick={() => handleAiEnhance('face_restore', true)}
+                          disabled={aiProcessing}
+                          className="w-full py-2.5 rounded-2xl bg-white/5 border border-white/15 text-white/70 font-medium text-xs flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
                         >
-                          Back
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const dataUrl = getCroppedCanvas();
-                            setPhotoPreview(dataUrl);
-                            setCropZoom(1);
-                            setCropPosition({ x: 0, y: 0 });
-                            const res = await fetch(dataUrl);
-                            const blob = await res.blob();
-                            const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
-                            setPhotoFile(file);
-                            await handlePhotoSave(file);
-                          }}
-                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
-                        >
-                          Apply Crop
+                          ✨ Enhance & Save (HD + Face Restore)
                         </button>
                       </div>
 
