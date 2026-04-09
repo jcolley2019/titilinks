@@ -1951,17 +1951,18 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#000000',
           minHeight: '60vh',
-          paddingTop: '2rem',
+          marginTop: '-12rem',
+          paddingTop: '0',
         }}
       >
         {/* Gradient fade */}
         <div
           style={{
             position: 'absolute',
-            top: '-150px',
+            top: '-200px',
             left: 0,
             right: 0,
-            height: '150px',
+            height: '200px',
             background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
             pointerEvents: 'none',
             zIndex: 1,
@@ -1976,7 +1977,7 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `calc(-6rem + ${headerConfig.nameOffset}px)`,
+            marginTop: `${headerConfig.nameOffset ?? 0}px`,
             paddingBottom: '1rem',
           }}
         >
@@ -2414,7 +2415,7 @@ export function EditableProfileView({
         {/* Blocks */}
         {editMode ? (
           /* Preview block cards for edit mode */
-          <div className="pb-32 pt-0" style={{ marginTop: '-6rem' }}>
+          <div className="pb-32 pt-0">
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
             </div>
             {/* Free-drag header cards (outside DndContext) */}
@@ -2502,7 +2503,7 @@ export function EditableProfileView({
           </div>
         ) : (
           /* Full block content for view mode */
-          <div className="px-4 space-y-6 pb-20" style={{ marginTop: '-6rem' }}>
+          <div className="px-4 space-y-6 pb-20">
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
             ) : (
