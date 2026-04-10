@@ -1562,6 +1562,14 @@ export function EditableProfileView({
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const [, setCropImgLoaded] = useState(0); // triggers re-render on img load
 
+  // Lock body scroll when photo overlay is open
+  useEffect(() => {
+    if (photoStep !== 'idle' && photoPreview) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [photoStep, photoPreview]);
+
   // Header config (must be before state that depends on it)
   const headerConfig = (page.theme_json as any)?.headerConfig || {
     nameSize: 28,
@@ -2274,7 +2282,19 @@ export function EditableProfileView({
             <>
 
               {photoPreview && photoStep !== 'idle' && (
-                <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
+                <div
+                  className="fixed inset-0 z-[100] flex flex-col bg-black/95"
+                  style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}
+                  onTouchMove={(e) => {
+                    // Prevent background scroll on touch devices
+                    // (manual crop step handles its own touch events)
+                    if (photoStep !== 'manual') e.preventDefault();
+                  }}
+                  onWheel={(e) => {
+                    // Prevent background scroll on mouse wheel
+                    if (photoStep !== 'manual') e.preventDefault();
+                  }}
+                >
 
                   {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
