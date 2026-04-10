@@ -1550,6 +1550,7 @@ export function EditableProfileView({
   const [localHeroImage, setLocalHeroImage] = useState<string | null>(null);
   const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
   const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
+  const [aiPreviewEnhanced, setAiPreviewEnhanced] = useState(false); // true = AI ran, false = crop only fallback
   const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
   const [photoScale, setPhotoScale] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -1562,11 +1563,17 @@ export function EditableProfileView({
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const [, setCropImgLoaded] = useState(0); // triggers re-render on img load
 
-  // Lock body scroll when photo overlay is open
+  // Lock body + inner container scroll when photo overlay is open
   useEffect(() => {
     if (photoStep !== 'idle' && photoPreview) {
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
+      // Also lock all scrollable containers inside the device frame
+      const scrollables = document.querySelectorAll<HTMLElement>('.overflow-y-auto, .overflow-auto');
+      scrollables.forEach(el => { el.style.overflow = 'hidden'; });
+      return () => {
+        document.body.style.overflow = '';
+        scrollables.forEach(el => { el.style.overflow = ''; });
+      };
     }
   }, [photoStep, photoPreview]);
 
@@ -1678,6 +1685,72 @@ export function EditableProfileView({
     };
     reader.readAsDataURL(file);
     if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  // Choose Replicate scale + mode based on actual face size in source image.
+  // Face_restore (GFPGAN) tends to soften faces — only use it when face is so tiny
+  // the algorithm legitimately needs to hallucinate detail. Otherwise plain upscale.
+  const getPortraitEnhancePlan = (
+    faceWidthPx: number,
+    mode: 'headshot' | 'shoulders' | 'fullbody'
+  ): { scale: number; mode: 'upscale' | 'face_restore' } => {
+    if (mode === 'fullbody') return { scale: 2, mode: 'upscale' };
+    if (faceWidthPx < 110) return { scale: 4, mode: 'face_restore' }; // tiny face — needs help
+    if (faceWidthPx < 180) return { scale: 4, mode: 'upscale' };       // small face
+    if (faceWidthPx < 260) return { scale: 3, mode: 'upscale' };       // medium face
+    return { scale: 2, mode: 'upscale' };                               // large face
+  };
+
+  // Post-enhancement sharpening + contrast boost
+  const applySharpen = (dataUrl: string, strength: 'light' | 'medium' | 'heavy' = 'medium'): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.width;
+        const h = img.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(dataUrl); return; }
+
+        // Step 1: Apply CSS filter sharpening via contrast + saturate boost
+        const contrastMap = { light: 1.05, medium: 1.12, heavy: 1.18 };
+        const saturateMap = { light: 1.05, medium: 1.1, heavy: 1.15 };
+        ctx.filter = `contrast(${contrastMap[strength]}) saturate(${saturateMap[strength]})`;
+        ctx.drawImage(img, 0, 0);
+
+        // Step 2: Unsharp mask — blur radius and amount scale with strength
+        const blurMap = { light: 1.5, medium: 2.5, heavy: 3.5 };
+        const amountMap = { light: 0.5, medium: 1.0, heavy: 1.5 };
+        const blurRadius = blurMap[strength];
+        const amount = amountMap[strength];
+
+        const original = ctx.getImageData(0, 0, w, h);
+        const pixels = original.data;
+
+        const blurCanvas = document.createElement('canvas');
+        blurCanvas.width = w;
+        blurCanvas.height = h;
+        const blurCtx = blurCanvas.getContext('2d');
+        if (!blurCtx) { resolve(dataUrl); return; }
+        blurCtx.filter = `blur(${blurRadius}px)`;
+        blurCtx.drawImage(canvas, 0, 0);
+        const blurred = blurCtx.getImageData(0, 0, w, h);
+        const blurPixels = blurred.data;
+
+        for (let i = 0; i < pixels.length; i += 4) {
+          pixels[i]     = Math.min(255, Math.max(0, pixels[i]     + amount * (pixels[i]     - blurPixels[i])));
+          pixels[i + 1] = Math.min(255, Math.max(0, pixels[i + 1] + amount * (pixels[i + 1] - blurPixels[i + 1])));
+          pixels[i + 2] = Math.min(255, Math.max(0, pixels[i + 2] + amount * (pixels[i + 2] - blurPixels[i + 2])));
+        }
+
+        ctx.putImageData(original, 0, 0);
+        console.log(`[AI Enhance] Sharpening applied: ${strength} (blur=${blurRadius}px, amount=${amount}, contrast=${contrastMap[strength]})`);
+        resolve(canvas.toDataURL('image/jpeg', 0.98));
+      };
+      img.src = dataUrl;
+    });
   };
 
   // Compute crop frame size (fixed 3:4 aspect, fits within container with padding)
@@ -1915,74 +1988,29 @@ export function EditableProfileView({
       const faceCX = faceX + faceW / 2; // face center X
       const faceCY = faceY + faceH / 2; // face center Y
 
-      // Padding multipliers per mode — how much space around the face
-      // topPad: space above face (for hair, hats, headroom)
-      // sidePad: space to left/right of face
-      // bottomPad: space below face (neck, shoulders, body)
-      let topPad: number, sidePad: number, bottomPad: number;
-      switch (mode) {
-        case 'headshot':
-          topPad = 0.9;     // generous above for hair/hats
-          sidePad = 0.6;    // some breathing room on sides
-          bottomPad = 0.5;  // chin + bit of neck
-          break;
-        case 'shoulders':
-          topPad = 0.8;     // hair/hat space
-          sidePad = 1.0;    // wider for shoulders
-          bottomPad = 2.0;  // neck + full shoulders
-          break;
-        case 'fullbody':
-          topPad = 0.8;     // hair/hat space
-          sidePad = 1.5;    // wider framing
-          bottomPad = 8.0;  // extend down for full body
-          break;
-      }
+      // --- CROP SIZING BY FACE OCCUPANCY ---
+      // Target: face takes up X% of crop width. More stable than padding multipliers.
+      // headshot: face = ~58% of width
+      // shoulders: face = ~40% of width
+      // fullbody: face = ~18% of width
+      const targetFaceRatio = mode === 'headshot' ? 0.58 : mode === 'shoulders' ? 0.40 : 0.18;
+      let cropSize = faceW / targetFaceRatio;
+      cropSize = Math.min(cropSize, natW, natH);
 
-      // Calculate the content rectangle (face + padding)
-      const contentL = faceX - faceW * sidePad;
-      const contentR = faceX + faceW + faceW * sidePad;
-      const contentT = faceY - faceH * topPad;
-      const contentB = faceY + faceH + faceH * bottomPad;
-      const contentW = contentR - contentL;
-      const contentH = contentB - contentT;
+      // Center horizontally on face
+      let sx = faceCX - cropSize / 2;
 
-      // Make it square (1:1) — use the LARGER dimension so nothing gets cut
-      let cropSize = Math.max(contentW, contentH);
-      cropSize = Math.min(cropSize, natW, natH); // can't exceed image
-
-      // For fullbody, use as much of the image as possible
-      if (mode === 'fullbody') {
-        cropSize = Math.max(cropSize, Math.min(natW, natH) * 0.95);
-        cropSize = Math.min(cropSize, natW, natH);
-      }
-
-      // Center the square crop on the content center
-      const contentCX = (contentL + contentR) / 2;
-      const contentCY = (contentT + contentB) / 2;
-      let sx = contentCX - cropSize / 2;
-      let sy = contentCY - cropSize / 2;
-
-      // For headshot/shoulders, bias upward slightly so face sits in upper third
-      if (mode === 'headshot') {
-        sy = faceCY - cropSize * 0.38; // face at ~38% from top
-      } else if (mode === 'shoulders') {
-        sy = faceCY - cropSize * 0.30; // face at ~30% from top
-      } else {
-        sy = faceCY - cropSize * 0.20; // face at ~20% from top (lots of body below)
-      }
+      // Vertical placement: face higher in frame for portraits
+      const faceTopRatio = mode === 'headshot' ? 0.36 : mode === 'shoulders' ? 0.30 : 0.22;
+      let sy = faceCY - cropSize * faceTopRatio;
 
       // Clamp to image bounds
       sx = Math.max(0, Math.min(sx, natW - cropSize));
       sy = Math.max(0, Math.min(sy, natH - cropSize));
 
-      // Gently pull toward horizontal center (avoid extreme side crops)
-      const pullStrength = 0.3;
-      const idealCX = natW / 2;
-      const currentCX = sx + cropSize / 2;
-      sx += (idealCX - currentCX) * pullStrength;
-      sx = Math.max(0, Math.min(sx, natW - cropSize));
+      console.log(`[AI Crop] Face: ${Math.round(faceW)}px wide @ (${Math.round(faceCX)}, ${Math.round(faceCY)}). Crop: ${Math.round(cropSize)}px square @ (${Math.round(sx)}, ${Math.round(sy)})`);
 
-      // Draw to canvas (square)
+      // Crop the headshot square
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(cropSize);
       canvas.height = Math.round(cropSize);
@@ -1990,32 +2018,76 @@ export function EditableProfileView({
       if (!ctx) throw new Error('No canvas context');
       ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, canvas.width, canvas.height);
 
-      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      // JPEG at high quality — much smaller payload than PNG (avoids 6MB request limit)
+      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      console.log(`[AI Crop] Cropped data URL size: ${(croppedDataUrl.length / 1024).toFixed(0)}KB`);
 
-      // Auto-enhance: upscale + face restore via ESRGAN+GFPGAN
+      // --- AI ENHANCEMENT — face-width-based plan, real error handling ---
+      const plan = getPortraitEnhancePlan(faceW, mode);
+      console.log(`[AI Enhance] Plan: scale=${plan.scale}x, mode=${plan.mode} (face=${Math.round(faceW)}px)`);
+
       let finalDataUrl = croppedDataUrl;
+      let aiSucceeded = false;
+      let aiErrorMsg = '';
+
       try {
         const [hdr, b64] = croppedDataUrl.split(',');
         const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+        console.log(`[AI Enhance] Sending ${(b64.length / 1024).toFixed(0)}KB base64 payload to ai-enhance function...`);
+
         const { data: enhData, error: enhErr } = await supabase.functions.invoke('ai-enhance', {
-          body: { base64: b64, mediaType: mt, mode: 'face_restore', scale: 2 },
+          body: { base64: b64, mediaType: mt, mode: plan.mode, scale: plan.scale },
         });
-        if (!enhErr && enhData?.output) {
-          const enhResp = await fetch(enhData.output);
-          const enhBlob = await enhResp.blob();
-          finalDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(enhBlob);
-          });
+
+        if (enhErr) {
+          // Try to get the raw response from the FunctionsHttpError
+          let extra = '';
+          try {
+            // @ts-ignore - context is on FunctionsHttpError
+            const ctx = (enhErr as any).context;
+            if (ctx && typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              extra = ` — ${JSON.stringify(body)}`;
+            } else if (ctx && typeof ctx.text === 'function') {
+              extra = ` — ${await ctx.text()}`;
+            }
+          } catch (_) { /* ignore */ }
+          aiErrorMsg = `${enhErr.message || enhErr.name || 'unknown'}${extra}`;
+          console.error('[AI Enhance] Supabase function error:', enhErr, 'extra:', extra);
+          throw new Error(aiErrorMsg);
         }
+        if (!enhData?.output) {
+          aiErrorMsg = `Empty output (response: ${JSON.stringify(enhData)})`;
+          console.error('[AI Enhance] No output:', enhData);
+          throw new Error(aiErrorMsg);
+        }
+
+        // Fetch the enhanced image
+        const enhResp = await fetch(enhData.output);
+        if (!enhResp.ok) {
+          aiErrorMsg = `Fetch enhanced image failed: ${enhResp.status}`;
+          throw new Error(aiErrorMsg);
+        }
+        const enhBlob = await enhResp.blob();
+        const enhDataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(enhBlob);
+        });
+
+        // Client-side polish
+        const sharpenStrength: 'light' | 'medium' | 'heavy' = plan.scale >= 4 ? 'heavy' : plan.scale >= 3 ? 'medium' : 'light';
+        finalDataUrl = await applySharpen(enhDataUrl, sharpenStrength);
+        aiSucceeded = true;
+        console.log(`[AI Enhance] ✓ Success — sharpening: ${sharpenStrength}`);
       } catch (enhanceErr) {
-        console.warn('Auto-enhance failed, using unenhanced crop:', enhanceErr);
-        // Continue with unenhanced crop — still usable
+        console.error('[AI Enhance] FAILED — showing crop-only fallback:', enhanceErr);
+        toast.error(`AI enhancement failed${aiErrorMsg ? `: ${aiErrorMsg.slice(0, 80)}` : ''}`, { duration: 5000 });
       }
 
-      // Show preview for user to accept or go back
+      // Show preview for user to accept or go back — with badge if AI didn't run
       setAiPreviewData(finalDataUrl);
+      setAiPreviewEnhanced(aiSucceeded);
       setPhotoStep('ai-preview');
       return;
     } catch (err) {
@@ -2040,11 +2112,21 @@ export function EditableProfileView({
 
       if (!sourceDataUrl) throw new Error('No image');
 
+      // Measure source image to pick scale (smaller image = bigger upscale)
+      const srcImg = await new Promise<HTMLImageElement>((resolve) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.src = sourceDataUrl!;
+      });
+      const minDim = Math.min(srcImg.width, srcImg.height);
+      const smartScale = minDim < 512 ? 4 : minDim < 1024 ? 3 : 2;
+      console.log(`[AI Enhance] Source: ${srcImg.width}x${srcImg.height}, scale: ${smartScale}x, mode: ${mode}`);
+
       const [header, base64] = sourceDataUrl.split(',');
       const mediaType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
 
       const { data, error } = await supabase.functions.invoke('ai-enhance', {
-        body: { base64, mediaType, mode, scale: 2 },
+        body: { base64, mediaType, mode, scale: smartScale },
       });
 
       if (error || !data?.output) throw new Error(error?.message || 'Enhancement failed');
@@ -2052,14 +2134,22 @@ export function EditableProfileView({
       // Fetch enhanced image from Replicate's URL
       const response = await fetch(data.output);
       const blob = await response.blob();
-      const enhancedDataUrl = await new Promise<string>((resolve) => {
+      let enhancedDataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
 
+      // Apply post-enhancement sharpening
+      const sharpenStrength: 'light' | 'medium' | 'heavy' = smartScale >= 4 ? 'heavy' : smartScale >= 3 ? 'medium' : 'light';
+      enhancedDataUrl = await applySharpen(enhancedDataUrl, sharpenStrength);
+
+      // Convert sharpened data URL back to blob/file
+      const sharpenedResp = await fetch(enhancedDataUrl);
+      const sharpenedBlob = await sharpenedResp.blob();
+
       setPhotoPreview(enhancedDataUrl);
-      const file = new File([blob], 'enhanced.jpg', { type: 'image/jpeg' });
+      const file = new File([sharpenedBlob], 'enhanced.jpg', { type: 'image/jpeg' });
       setPhotoFile(file);
 
       if (fromCrop) {
@@ -2174,7 +2264,7 @@ export function EditableProfileView({
         ) : (
           <div className="h-full w-full bg-[#0e0c09]" />
         )}
-        {editMode && (
+        {editMode && photoStep === 'idle' && (
           <button
             onClick={() => photoInputRef.current?.click()}
             className="absolute top-3 right-3 z-[15] bg-black/40 backdrop-blur-sm rounded-full p-3"
@@ -2329,9 +2419,21 @@ export function EditableProfileView({
                   {/* AI PREVIEW STEP — shows result, accept or go back */}
                   {photoStep === 'ai-preview' && aiPreviewData && (
                     <div className="flex flex-col items-center justify-center flex-1 p-6 gap-5">
-                      <p className="text-white font-bold text-lg">AI Result</p>
-                      <div className="w-64 h-64 rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50">
-                        <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-cover" />
+                      <p className="text-white font-bold text-lg">
+                        {aiPreviewEnhanced ? 'AI Result' : 'Crop Preview'}
+                      </p>
+                      <div className="relative">
+                        <div className={`w-64 h-64 rounded-2xl overflow-hidden border-2 ${aiPreviewEnhanced ? 'border-[#C9A55C]/50' : 'border-amber-500/40'}`}>
+                          <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-cover" />
+                        </div>
+                        {/* Status badge */}
+                        <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-md ${
+                          aiPreviewEnhanced
+                            ? 'bg-[#C9A55C]/90 text-[#0e0c09]'
+                            : 'bg-amber-500/90 text-[#0e0c09]'
+                        }`}>
+                          {aiPreviewEnhanced ? '✓ AI ENHANCED' : '⚠ CROP ONLY — AI FAILED'}
+                        </div>
                       </div>
                       <div className="flex gap-3 w-full max-w-xs">
                         <button
