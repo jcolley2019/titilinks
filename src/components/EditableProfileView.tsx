@@ -1687,72 +1687,6 @@ export function EditableProfileView({
     if (photoInputRef.current) photoInputRef.current.value = '';
   };
 
-  // Choose Replicate scale + mode based on actual face size in source image.
-  // Face_restore (GFPGAN) tends to soften faces — only use it when face is so tiny
-  // the algorithm legitimately needs to hallucinate detail. Otherwise plain upscale.
-  const getPortraitEnhancePlan = (
-    faceWidthPx: number,
-    mode: 'headshot' | 'shoulders' | 'fullbody'
-  ): { scale: number; mode: 'upscale' | 'face_restore' } => {
-    if (mode === 'fullbody') return { scale: 2, mode: 'upscale' };
-    if (faceWidthPx < 110) return { scale: 4, mode: 'face_restore' }; // tiny face — needs help
-    if (faceWidthPx < 180) return { scale: 4, mode: 'upscale' };       // small face
-    if (faceWidthPx < 260) return { scale: 3, mode: 'upscale' };       // medium face
-    return { scale: 2, mode: 'upscale' };                               // large face
-  };
-
-  // Post-enhancement sharpening + contrast boost
-  const applySharpen = (dataUrl: string, strength: 'light' | 'medium' | 'heavy' = 'medium'): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const w = img.width;
-        const h = img.height;
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(dataUrl); return; }
-
-        // Step 1: Apply CSS filter sharpening via contrast + saturate boost
-        const contrastMap = { light: 1.05, medium: 1.12, heavy: 1.18 };
-        const saturateMap = { light: 1.05, medium: 1.1, heavy: 1.15 };
-        ctx.filter = `contrast(${contrastMap[strength]}) saturate(${saturateMap[strength]})`;
-        ctx.drawImage(img, 0, 0);
-
-        // Step 2: Unsharp mask — blur radius and amount scale with strength
-        const blurMap = { light: 1.5, medium: 2.5, heavy: 3.5 };
-        const amountMap = { light: 0.5, medium: 1.0, heavy: 1.5 };
-        const blurRadius = blurMap[strength];
-        const amount = amountMap[strength];
-
-        const original = ctx.getImageData(0, 0, w, h);
-        const pixels = original.data;
-
-        const blurCanvas = document.createElement('canvas');
-        blurCanvas.width = w;
-        blurCanvas.height = h;
-        const blurCtx = blurCanvas.getContext('2d');
-        if (!blurCtx) { resolve(dataUrl); return; }
-        blurCtx.filter = `blur(${blurRadius}px)`;
-        blurCtx.drawImage(canvas, 0, 0);
-        const blurred = blurCtx.getImageData(0, 0, w, h);
-        const blurPixels = blurred.data;
-
-        for (let i = 0; i < pixels.length; i += 4) {
-          pixels[i]     = Math.min(255, Math.max(0, pixels[i]     + amount * (pixels[i]     - blurPixels[i])));
-          pixels[i + 1] = Math.min(255, Math.max(0, pixels[i + 1] + amount * (pixels[i + 1] - blurPixels[i + 1])));
-          pixels[i + 2] = Math.min(255, Math.max(0, pixels[i + 2] + amount * (pixels[i + 2] - blurPixels[i + 2])));
-        }
-
-        ctx.putImageData(original, 0, 0);
-        console.log(`[AI Enhance] Sharpening applied: ${strength} (blur=${blurRadius}px, amount=${amount}, contrast=${contrastMap[strength]})`);
-        resolve(canvas.toDataURL('image/jpeg', 0.98));
-      };
-      img.src = dataUrl;
-    });
-  };
-
   // Compute crop frame size (fixed 3:4 aspect, fits within container with padding)
   const getCropFrameSize = () => {
     const container = cropContainerRef.current;
@@ -2022,10 +1956,7 @@ export function EditableProfileView({
       const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
       console.log(`[AI Crop] Cropped data URL size: ${(croppedDataUrl.length / 1024).toFixed(0)}KB`);
 
-      // --- AI ENHANCEMENT — face-width-based plan, real error handling ---
-      const plan = getPortraitEnhancePlan(faceW, mode);
-      console.log(`[AI Enhance] Plan: scale=${plan.scale}x, mode=${plan.mode} (face=${Math.round(faceW)}px)`);
-
+      // --- AI ENHANCEMENT — crystal-upscaler (portrait-optimized, no plastic skin) ---
       let finalDataUrl = croppedDataUrl;
       let aiSucceeded = false;
       let aiErrorMsg = '';
@@ -2033,10 +1964,10 @@ export function EditableProfileView({
       try {
         const [hdr, b64] = croppedDataUrl.split(',');
         const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-        console.log(`[AI Enhance] Sending ${(b64.length / 1024).toFixed(0)}KB base64 payload to ai-enhance function...`);
+        console.log(`[AI Enhance] Sending ${(b64.length / 1024).toFixed(0)}KB to crystal-upscaler...`);
 
         const { data: enhData, error: enhErr } = await supabase.functions.invoke('ai-enhance', {
-          body: { base64: b64, mediaType: mt, mode: plan.mode, scale: plan.scale },
+          body: { base64: b64, mediaType: mt },
         });
 
         if (enhErr) {
@@ -2062,24 +1993,21 @@ export function EditableProfileView({
           throw new Error(aiErrorMsg);
         }
 
-        // Fetch the enhanced image
+        // Fetch the enhanced image — crystal-upscaler returns natural-looking
+        // results, no client-side sharpening needed.
         const enhResp = await fetch(enhData.output);
         if (!enhResp.ok) {
           aiErrorMsg = `Fetch enhanced image failed: ${enhResp.status}`;
           throw new Error(aiErrorMsg);
         }
         const enhBlob = await enhResp.blob();
-        const enhDataUrl = await new Promise<string>((resolve) => {
+        finalDataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.readAsDataURL(enhBlob);
         });
-
-        // Client-side polish
-        const sharpenStrength: 'light' | 'medium' | 'heavy' = plan.scale >= 4 ? 'heavy' : plan.scale >= 3 ? 'medium' : 'light';
-        finalDataUrl = await applySharpen(enhDataUrl, sharpenStrength);
         aiSucceeded = true;
-        console.log(`[AI Enhance] ✓ Success — sharpening: ${sharpenStrength}`);
+        console.log('[AI Enhance] ✓ Success');
       } catch (enhanceErr) {
         console.error('[AI Enhance] FAILED — showing crop-only fallback:', enhanceErr);
         toast.error(`AI enhancement failed${aiErrorMsg ? `: ${aiErrorMsg.slice(0, 80)}` : ''}`, { duration: 5000 });
@@ -2112,21 +2040,12 @@ export function EditableProfileView({
 
       if (!sourceDataUrl) throw new Error('No image');
 
-      // Measure source image to pick scale (smaller image = bigger upscale)
-      const srcImg = await new Promise<HTMLImageElement>((resolve) => {
-        const i = new Image();
-        i.onload = () => resolve(i);
-        i.src = sourceDataUrl!;
-      });
-      const minDim = Math.min(srcImg.width, srcImg.height);
-      const smartScale = minDim < 512 ? 4 : minDim < 1024 ? 3 : 2;
-      console.log(`[AI Enhance] Source: ${srcImg.width}x${srcImg.height}, scale: ${smartScale}x, mode: ${mode}`);
-
       const [header, base64] = sourceDataUrl.split(',');
       const mediaType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+      console.log(`[AI Enhance] Sending ${(base64.length / 1024).toFixed(0)}KB to crystal-upscaler...`);
 
       const { data, error } = await supabase.functions.invoke('ai-enhance', {
-        body: { base64, mediaType, mode, scale: smartScale },
+        body: { base64, mediaType },
       });
 
       if (error || !data?.output) throw new Error(error?.message || 'Enhancement failed');
@@ -2134,22 +2053,14 @@ export function EditableProfileView({
       // Fetch enhanced image from Replicate's URL
       const response = await fetch(data.output);
       const blob = await response.blob();
-      let enhancedDataUrl = await new Promise<string>((resolve) => {
+      const enhancedDataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
 
-      // Apply post-enhancement sharpening
-      const sharpenStrength: 'light' | 'medium' | 'heavy' = smartScale >= 4 ? 'heavy' : smartScale >= 3 ? 'medium' : 'light';
-      enhancedDataUrl = await applySharpen(enhancedDataUrl, sharpenStrength);
-
-      // Convert sharpened data URL back to blob/file
-      const sharpenedResp = await fetch(enhancedDataUrl);
-      const sharpenedBlob = await sharpenedResp.blob();
-
       setPhotoPreview(enhancedDataUrl);
-      const file = new File([sharpenedBlob], 'enhanced.jpg', { type: 'image/jpeg' });
+      const file = new File([blob], 'enhanced.jpg', { type: 'image/jpeg' });
       setPhotoFile(file);
 
       if (fromCrop) {

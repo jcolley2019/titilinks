@@ -8,7 +8,9 @@ const corsHeaders = {
 interface EnhanceRequest {
   base64: string;
   mediaType: string;
-  mode: "upscale" | "face_restore";
+  // Legacy fields from old client — accepted but ignored. Crystal-upscaler
+  // doesn't use a mode flag, and we always upscale at 2x for portraits.
+  mode?: string;
   scale?: number;
 }
 
@@ -18,10 +20,10 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json() as EnhanceRequest;
-    const { base64, mediaType, mode, scale = 2 } = body;
+    const body = (await req.json()) as EnhanceRequest;
+    const { base64, mediaType } = body;
 
-    console.log(`[ai-enhance] Request received: mode=${mode}, scale=${scale}, payload size=${base64?.length || 0} chars`);
+    console.log(`[ai-enhance] Request received: payload size=${base64?.length || 0} chars, media=${mediaType}`);
 
     if (!base64) {
       return new Response(
@@ -39,25 +41,28 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[ai-enhance] Calling Replicate Real-ESRGAN (scale=${scale}, face_enhance=${mode === "face_restore"})...`);
+    console.log("[ai-enhance] Calling philz1337x/crystal-upscaler (scale_factor=2)...");
 
-    // Real-ESRGAN with optional face enhancement (GFPGAN built-in)
-    const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-        Prefer: "wait",
-      },
-      body: JSON.stringify({
-        version: "f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa",
-        input: {
-          image: `data:${mediaType};base64,${base64}`,
-          scale: Math.min(Math.max(scale, 2), 4),
-          face_enhance: mode === "face_restore",
+    // Crystal-upscaler — portrait/face-optimized upscaler. Preserves natural
+    // skin texture (no plastic GFPGAN look). Modern endpoint = no version hash
+    // to maintain; Replicate always runs the latest version.
+    const createResponse = await fetch(
+      "https://api.replicate.com/v1/models/philz1337x/crystal-upscaler/predictions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+          Prefer: "wait",
         },
-      }),
-    });
+        body: JSON.stringify({
+          input: {
+            image: `data:${mediaType};base64,${base64}`,
+            scale_factor: 2,
+          },
+        }),
+      }
+    );
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
@@ -104,9 +109,12 @@ serve(async (req) => {
       );
     }
 
+    // Crystal-upscaler returns a single URL string in `output` (not an array).
+    // Normalize: if it's an array, take the first element.
+    const outputUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
     console.log("[ai-enhance] Success! Returning output URL");
     return new Response(
-      JSON.stringify({ output: prediction.output }),
+      JSON.stringify({ output: outputUrl }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
