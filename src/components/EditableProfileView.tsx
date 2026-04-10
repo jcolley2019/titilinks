@@ -1548,7 +1548,8 @@ export function EditableProfileView({
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [localHeroImage, setLocalHeroImage] = useState<string | null>(null);
-  const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'preview'>('idle');
+  const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
+  const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
   const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
   const [photoScale, setPhotoScale] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -1981,19 +1982,33 @@ export function EditableProfileView({
       if (!ctx) throw new Error('No canvas context');
       ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      setPhotoPreview(dataUrl);
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], 'ai-cropped.jpg', { type: 'image/jpeg' });
-      setPhotoFile(file);
+      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+      // Auto-enhance: upscale + face restore via ESRGAN+GFPGAN
+      let finalDataUrl = croppedDataUrl;
       try {
-        await handlePhotoSave(file);
-      } catch (saveErr) {
-        console.error('Photo save error in AI crop:', saveErr);
-        toast.error('Failed to save photo');
-        setPhotoStep('choose');
+        const [hdr, b64] = croppedDataUrl.split(',');
+        const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+        const { data: enhData, error: enhErr } = await supabase.functions.invoke('ai-enhance', {
+          body: { base64: b64, mediaType: mt, mode: 'face_restore', scale: 2 },
+        });
+        if (!enhErr && enhData?.output) {
+          const enhResp = await fetch(enhData.output);
+          const enhBlob = await enhResp.blob();
+          finalDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(enhBlob);
+          });
+        }
+      } catch (enhanceErr) {
+        console.warn('Auto-enhance failed, using unenhanced crop:', enhanceErr);
+        // Continue with unenhanced crop — still usable
       }
+
+      // Show preview for user to accept or go back
+      setAiPreviewData(finalDataUrl);
+      setPhotoStep('ai-preview');
       return;
     } catch (err) {
       console.error('AI crop error:', err);
@@ -2261,83 +2276,21 @@ export function EditableProfileView({
               {photoPreview && photoStep !== 'idle' && (
                 <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
 
-                  {/* CHOOSE STEP */}
+                  {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-5">
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-6">
                       <p className="text-white font-bold text-xl">
                         {t('editor.editPhoto')}
                       </p>
-                      <div className="w-44 h-44 rounded-2xl overflow-hidden border-2 border-white/20">
+                      <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-white/20">
                         <img src={photoPreview} alt="Selected" className="w-full h-full object-cover object-top" />
                       </div>
-
-                      {/* AI Crop options */}
-                      <div className="w-full max-w-xs">
-                        <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wider mb-2 text-center">AI Auto-Crop</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            onClick={() => handleAiCrop('headshot')}
-                            className="py-3 rounded-xl bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] font-semibold text-xs flex flex-col items-center gap-1 hover:bg-[#C9A55C]/25 transition-colors"
-                          >
-                            <span className="text-lg">👤</span>
-                            Headshot
-                          </button>
-                          <button
-                            onClick={() => handleAiCrop('shoulders')}
-                            className="py-3 rounded-xl bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] font-semibold text-xs flex flex-col items-center gap-1 hover:bg-[#C9A55C]/25 transition-colors"
-                          >
-                            <span className="text-lg">🧑</span>
-                            Shoulders
-                          </button>
-                          <button
-                            onClick={() => handleAiCrop('fullbody')}
-                            className="py-3 rounded-xl bg-[#C9A55C]/15 border border-[#C9A55C]/40 text-[#C9A55C] font-semibold text-xs flex flex-col items-center gap-1 hover:bg-[#C9A55C]/25 transition-colors"
-                          >
-                            <span className="text-lg">🧍</span>
-                            Full Body
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* AI Enhance */}
-                      <div className="w-full max-w-xs">
-                        <p className="text-white/50 text-[11px] font-semibold uppercase tracking-wider mb-2 text-center">AI Enhance</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleAiEnhance('upscale')}
-                            disabled={aiProcessing}
-                            className="py-3 rounded-xl bg-white/5 border border-white/15 text-white/80 font-semibold text-xs flex flex-col items-center gap-1 hover:bg-white/10 transition-colors"
-                          >
-                            <span className="text-base">✨</span>
-                            HD Upscale
-                          </button>
-                          <button
-                            onClick={() => handleAiEnhance('face_restore')}
-                            disabled={aiProcessing}
-                            className="py-3 rounded-xl bg-white/5 border border-white/15 text-white/80 font-semibold text-xs flex flex-col items-center gap-1 hover:bg-white/10 transition-colors"
-                          >
-                            <span className="text-base">💎</span>
-                            Face Restore
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Manual crop & original */}
-                      <div className="flex flex-col gap-2.5 w-full max-w-xs">
-                        <button
-                          onClick={() => setPhotoStep('manual')}
-                          className="w-full py-3.5 rounded-2xl bg-white/10 border border-white/20 text-white font-semibold flex items-center justify-center gap-2 text-sm"
-                        >
-                          {t('editor.cropImage')}
-                        </button>
-                        <button
-                          onClick={handlePhotoSave}
-                          disabled={photoSaving}
-                          className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-white/50 font-medium flex items-center justify-center gap-2 text-xs"
-                        >
-                          {t('editor.useOriginal')}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setPhotoStep('manual')}
+                        className="w-full max-w-xs py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold flex items-center justify-center gap-2 text-sm"
+                      >
+                        {t('editor.cropImage')}
+                      </button>
                       <button onClick={resetPhoto} className="text-white/40 text-xs">
                         {t('editor.cancel')}
                       </button>
@@ -2348,11 +2301,48 @@ export function EditableProfileView({
                   {photoStep === 'ai' && (
                     <div className="flex flex-col items-center justify-center flex-1 gap-4">
                       <div className="w-12 h-12 border-2 border-[#C9A55C] border-t-transparent rounded-full animate-spin" />
-                      <p className="text-white font-semibold">{t('editor.aiAnalyzing')}</p>
+                      <p className="text-white font-semibold">AI processing...</p>
+                      <p className="text-white/40 text-xs">Detecting face, cropping & enhancing</p>
                     </div>
                   )}
 
-                  {/* MANUAL CROP STEP — fixed 3:4 frame, user moves image */}
+                  {/* AI PREVIEW STEP — shows result, accept or go back */}
+                  {photoStep === 'ai-preview' && aiPreviewData && (
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-5">
+                      <p className="text-white font-bold text-lg">AI Result</p>
+                      <div className="w-64 h-64 rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50">
+                        <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex gap-3 w-full max-w-xs">
+                        <button
+                          onClick={() => {
+                            setAiPreviewData(null);
+                            setPhotoStep('manual');
+                          }}
+                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                        >
+                          ← Back
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!aiPreviewData) return;
+                            setPhotoPreview(aiPreviewData);
+                            const res = await fetch(aiPreviewData);
+                            const blob = await res.blob();
+                            const file = new File([blob], 'ai-enhanced.jpg', { type: 'image/jpeg' });
+                            setPhotoFile(file);
+                            setAiPreviewData(null);
+                            await handlePhotoSave(file);
+                          }}
+                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                        >
+                          Accept ✓
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MANUAL CROP STEP — fixed 1:1 frame, user moves image */}
                   {photoStep === 'manual' && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', backgroundColor: '#0e0c09' }}>
 
@@ -2485,38 +2475,57 @@ export function EditableProfileView({
                         })()}
                       </div>
 
-                      {/* Bottom buttons */}
-                      <div className="flex flex-col gap-2 px-4 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '12px', paddingBottom: '80px' }}>
-                        <div className="flex gap-3">
+                      {/* AI Auto-Crop row */}
+                      <div className="px-4 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '8px' }}>
+                        <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-center">AI Auto-Crop + Enhance</p>
+                        <div className="grid grid-cols-3 gap-2">
                           <button
-                            onClick={() => setPhotoStep('choose')}
-                            className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                            onClick={() => handleAiCrop('headshot')}
+                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
                           >
-                            Back
+                            <span className="text-sm">👤</span>
+                            Headshot
                           </button>
                           <button
-                            onClick={async () => {
-                              const dataUrl = getCroppedCanvas();
-                              setPhotoPreview(dataUrl);
-                              setCropZoom(1);
-                              setCropPosition({ x: 0, y: 0 });
-                              const res = await fetch(dataUrl);
-                              const blob = await res.blob();
-                              const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
-                              setPhotoFile(file);
-                              await handlePhotoSave(file);
-                            }}
-                            className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                            onClick={() => handleAiCrop('shoulders')}
+                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
                           >
-                            Apply Crop
+                            <span className="text-sm">🧑</span>
+                            Shoulders
+                          </button>
+                          <button
+                            onClick={() => handleAiCrop('fullbody')}
+                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
+                          >
+                            <span className="text-sm">🧍</span>
+                            Full Body
                           </button>
                         </div>
+                      </div>
+
+                      {/* Bottom buttons */}
+                      <div className="flex gap-3 px-4" style={{ flexShrink: 0, paddingTop: '8px', paddingBottom: '80px' }}>
                         <button
-                          onClick={() => handleAiEnhance('face_restore', true)}
-                          disabled={aiProcessing}
-                          className="w-full py-2.5 rounded-2xl bg-white/5 border border-white/15 text-white/70 font-medium text-xs flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
+                          onClick={() => setPhotoStep('choose')}
+                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
                         >
-                          ✨ Enhance & Save (HD + Face Restore)
+                          Back
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const dataUrl = getCroppedCanvas();
+                            setPhotoPreview(dataUrl);
+                            setCropZoom(1);
+                            setCropPosition({ x: 0, y: 0 });
+                            const res = await fetch(dataUrl);
+                            const blob = await res.blob();
+                            const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
+                            setPhotoFile(file);
+                            await handlePhotoSave(file);
+                          }}
+                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                        >
+                          Apply Crop
                         </button>
                       </div>
 
