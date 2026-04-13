@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Camera,
   Pencil,
+  Trash2,
   MousePointer,
   Share2,
   FileText,
@@ -1029,7 +1030,7 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
   );
 }
 
-function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void }) {
+function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void; onDelete?: (itemId: string) => void }) {
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
@@ -1066,7 +1067,7 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
           {block.items.map((item) => (
             <div
               key={item.id}
-              className="flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
+              className="relative flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
               style={{ minWidth: '100%', aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
@@ -1081,6 +1082,14 @@ function GalleryBlock({ block, theme, onEdit }: Omit<ThemedBlockProps, 'onOutbou
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
                 </div>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                  className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-red-400 hover:bg-black/80 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               )}
             </div>
           ))}
@@ -1433,6 +1442,7 @@ function SortablePreviewCard({
   onEdit,
   onToggle,
   onGalleryAdd,
+  onGalleryDelete,
   isDragActive,
   theme,
 }: {
@@ -1440,6 +1450,7 @@ function SortablePreviewCard({
   onEdit: () => void;
   onToggle: (enabled: boolean) => void;
   onGalleryAdd: (blockId: string) => void;
+  onGalleryDelete: (itemId: string) => void;
   isDragActive: boolean;
   theme: ThemeJson;
 }) {
@@ -1506,7 +1517,7 @@ function SortablePreviewCard({
       >
         <div className="p-4">
           {block.type === 'gallery' ? (
-            <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} />
+            <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
           ) : block.items.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
@@ -1669,6 +1680,17 @@ export function EditableProfileView({
   const openGalleryPicker = (blockId: string) => {
     setActiveGalleryBlockId(blockId);
     setTimeout(() => galleryFileInputRef.current?.click(), 50);
+  };
+
+  const handleGalleryDelete = async (itemId: string) => {
+    const { error } = await supabase.from('block_items').delete().eq('id', itemId);
+    if (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete photo');
+      return;
+    }
+    toast.success('Photo removed');
+    onRefresh();
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2745,6 +2767,7 @@ export function EditableProfileView({
                       onEdit={() => onBlockEdit(block.id)}
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
                       onGalleryAdd={openGalleryPicker}
+                      onGalleryDelete={handleGalleryDelete}
                       isDragActive={isDragActive}
                       theme={theme}
                     />
