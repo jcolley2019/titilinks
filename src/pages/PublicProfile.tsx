@@ -262,7 +262,10 @@ export default function PublicProfile() {
   const profileUrl = typeof window !== 'undefined' ? window.location.href : '';
   const ogTitle = page ? `${page.display_name || page.handle} | TitiLinks` : 'TitiLinks';
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
-  const ogImage = page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg';
+  const page2AvatarUrl = (page?.theme_json as any)?.avatar_url_page2 || null;
+  const ogImage = (selectedMode === 'recruit' && page2AvatarUrl)
+    ? page2AvatarUrl
+    : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
 
   return (
     <>

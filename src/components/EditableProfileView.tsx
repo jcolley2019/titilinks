@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
+  Pencil,
   MousePointer,
   Share2,
   FileText,
@@ -1547,7 +1548,7 @@ export function EditableProfileView({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [localHeroImage, setLocalHeroImage] = useState<string | null>(null);
+  const [localHeroImages, setLocalHeroImages] = useState<{ shop: string | null; recruit: string | null }>({ shop: null, recruit: null });
   const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
   const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
   const [aiPreviewEnhanced, setAiPreviewEnhanced] = useState(false); // true = AI ran, false = crop only fallback
@@ -1824,12 +1825,21 @@ export function EditableProfileView({
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
-      await supabase
-        .from('pages')
-        .update({ avatar_url: urlData.publicUrl })
-        .eq('id', page.id);
+      if (selectedMode === 'recruit') {
+        // Save page 2 avatar into theme_json
+        const existingTheme = (page.theme_json as any) || {};
+        await supabase
+          .from('pages')
+          .update({ theme_json: { ...existingTheme, avatar_url_page2: urlData.publicUrl } })
+          .eq('id', page.id);
+      } else {
+        await supabase
+          .from('pages')
+          .update({ avatar_url: urlData.publicUrl })
+          .eq('id', page.id);
+      }
       toast.success('Profile photo updated!');
-      setLocalHeroImage(urlData.publicUrl);
+      setLocalHeroImages(prev => ({ ...prev, [selectedMode]: urlData.publicUrl }));
       setPhotoStep('idle');
       setPhotoPreview(null);
       setPhotoFile(null);
@@ -2111,8 +2121,11 @@ export function EditableProfileView({
     onRefresh();
   };
 
-  // Hero image
-  const heroImage = localHeroImage || (theme.header?.image_url) || page.avatar_url || '';
+  // Hero image — per-page avatar support (no cross-page fallback)
+  const page2AvatarUrl = (page.theme_json as any)?.avatar_url_page2 || null;
+  const heroImage = selectedMode === 'recruit'
+    ? (localHeroImages.recruit || page2AvatarUrl || '')
+    : (localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '');
 
   // Page labels from theme
   const themePages = (page.theme_json as any)?.pages;
@@ -2162,8 +2175,8 @@ export function EditableProfileView({
       className="relative max-w-[640px] mx-auto"
       style={{ fontFamily, color: theme.typography.text_color }}
     >
-      {/* Fixed hero image */}
-      <div className="relative w-full" style={{ height: '81vh', maxHeight: '710px', overflow: 'hidden' }}>
+      {/* Fixed hero image — stays pinned while content scrolls over it */}
+      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '81vh', maxHeight: '710px', overflow: 'hidden', zIndex: 1 }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
@@ -2173,15 +2186,46 @@ export function EditableProfileView({
             skeletonClassName="bg-neutral-900"
           />
         ) : (
-          <div className="h-full w-full bg-[#0e0c09]" />
+          <div className="h-full w-full bg-[#0e0c09] flex flex-col items-center justify-center gap-3">
+            {editMode && selectedMode === 'recruit' && (
+              <>
+                <Camera className="h-12 w-12 text-white/20" />
+                <p className="text-white/40 text-sm font-medium text-center px-6">
+                  {t('editor.choosePage2Photo')}
+                </p>
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  className="mt-1 px-5 py-2 rounded-full bg-[#C9A55C] text-[#0e0c09] font-bold text-xs"
+                >
+                  {t('editor.uploadPhoto')}
+                </button>
+              </>
+            )}
+          </div>
         )}
-        {editMode && photoStep === 'idle' && (
-          <button
-            onClick={() => photoInputRef.current?.click()}
-            className="absolute top-3 right-3 z-[15] bg-black/40 backdrop-blur-sm rounded-full p-3"
-          >
-            <Camera className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
-          </button>
+        {editMode && photoStep === 'idle' && heroImage && (
+          <div className="absolute top-3 right-3 z-[15] flex flex-col gap-2">
+            <button
+              onClick={() => {
+                setPhotoPreview(heroImage);
+                setPhotoFile(null);
+                setCropZoom(1);
+                setCropPosition({ x: 0, y: 0 });
+                setPhotoStep('choose');
+              }}
+              className="bg-black/40 backdrop-blur-sm rounded-full p-3"
+              title={t('editor.editCurrentPhoto')}
+            >
+              <Pencil className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
+            </button>
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              className="bg-black/40 backdrop-blur-sm rounded-full p-3"
+              title={t('editor.newPhoto')}
+            >
+              <Camera className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -2190,21 +2234,21 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          backgroundColor: '#000000',
+          backgroundColor: '#0e0c09',
           minHeight: '60vh',
-          marginTop: '-18rem',
+          marginTop: '-21rem',
           paddingTop: '0',
         }}
       >
-        {/* Gradient fade */}
+        {/* Gradient fade — scrolls over the sticky hero photo */}
         <div
           style={{
             position: 'absolute',
-            top: '-50px',
+            top: '-60px',
             left: 0,
             right: 0,
-            height: '50px',
-            background: 'linear-gradient(to bottom, transparent 0%, #000000 100%)',
+            height: '60px',
+            background: 'linear-gradient(to bottom, transparent 0%, #0e0c09 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -2380,20 +2424,20 @@ export function EditableProfileView({
                     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', backgroundColor: '#0e0c09' }}>
 
                       {/* Header */}
-                      <div className="flex items-center justify-between px-4 border-b border-white/10" style={{ height: '56px', flexShrink: 0 }}>
-                        <div className="w-10" />
-                        <p className="text-white font-semibold text-base">{t('editor.cropImage')}</p>
+                      <div className="flex items-center justify-between px-3 border-b border-white/10" style={{ height: '44px', flexShrink: 0 }}>
+                        <div className="w-8" />
+                        <p className="text-white font-semibold text-sm">{t('editor.cropImage')}</p>
                         <button
                           onClick={() => setPhotoStep('choose')}
-                          className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white"
+                          className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white"
                         >
                           ✕
                         </button>
                       </div>
 
                       {/* Zoom slider */}
-                      <div className="flex items-center gap-3 px-4" style={{ height: '48px', flexShrink: 0 }}>
-                        <span className="text-white/50 text-xs font-medium flex-shrink-0">Zoom</span>
+                      <div className="flex items-center gap-2 px-3" style={{ height: '36px', flexShrink: 0 }}>
+                        <span className="text-white/50 text-[10px] font-medium flex-shrink-0">Zoom</span>
                         <input
                           type="range"
                           min={getCropMinZoom()}
@@ -2405,9 +2449,9 @@ export function EditableProfileView({
                             setCropZoom(newZoom);
                             setCropPosition(prev => clampCropPosition(prev.x, prev.y, newZoom));
                           }}
-                          className="flex-1 accent-[#C9A55C] h-1.5"
+                          className="flex-1 accent-[#C9A55C] h-1"
                         />
-                        <span className="text-white/70 text-xs font-mono w-10 text-right flex-shrink-0">
+                        <span className="text-white/70 text-[10px] font-mono w-8 text-right flex-shrink-0">
                           {Math.max(cropZoom, getCropMinZoom()).toFixed(1)}x
                         </span>
                       </div>
@@ -2509,38 +2553,38 @@ export function EditableProfileView({
                       </div>
 
                       {/* AI Auto-Crop row */}
-                      <div className="px-4 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '8px' }}>
-                        <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-center">AI Auto-Crop + Enhance</p>
-                        <div className="grid grid-cols-3 gap-2">
+                      <div className="px-3 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '6px' }}>
+                        <p className="text-white/40 text-[9px] font-semibold uppercase tracking-wider mb-1 text-center">AI Auto-Crop + Enhance</p>
+                        <div className="grid grid-cols-3 gap-1.5">
                           <button
                             onClick={() => handleAiCrop('headshot')}
-                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
+                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
                           >
-                            <span className="text-sm">👤</span>
+                            <span className="text-xs leading-tight">👤</span>
                             Headshot
                           </button>
                           <button
                             onClick={() => handleAiCrop('shoulders')}
-                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
+                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
                           >
-                            <span className="text-sm">🧑</span>
+                            <span className="text-xs leading-tight">🧑</span>
                             Shoulders
                           </button>
                           <button
                             onClick={() => handleAiCrop('fullbody')}
-                            className="py-2 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[11px] flex flex-col items-center gap-0.5 hover:bg-[#C9A55C]/20 transition-colors"
+                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
                           >
-                            <span className="text-sm">🧍</span>
+                            <span className="text-xs leading-tight">🧍</span>
                             Full Body
                           </button>
                         </div>
                       </div>
 
                       {/* Bottom buttons */}
-                      <div className="flex gap-3 px-4" style={{ flexShrink: 0, paddingTop: '8px', paddingBottom: '80px' }}>
+                      <div className="flex gap-2 px-3" style={{ flexShrink: 0, paddingTop: '6px', paddingBottom: '12px' }}>
                         <button
                           onClick={() => setPhotoStep('choose')}
-                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
+                          className="flex-1 py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs"
                         >
                           Back
                         </button>
@@ -2556,7 +2600,7 @@ export function EditableProfileView({
                             setPhotoFile(file);
                             await handlePhotoSave(file);
                           }}
-                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                          className="flex-1 py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs"
                         >
                           Apply Crop
                         </button>
