@@ -206,19 +206,14 @@ function PrimaryCtaBlock({ block, theme }: ThemedBlockProps) {
   return (
     <div data-block-type="primary_cta">
       <div className="block">
-        <LinkButton theme={theme} blockStyle={blockStyle}>
-          <div className="relative">
-            {item.is_adult && (
-              <div className="absolute -top-2 -right-2">
-                <ShieldAlert className="h-4 w-4 opacity-70" />
-              </div>
-            )}
-            <p className="font-semibold text-lg">{tc(item.label)}</p>
-            {item.subtitle && (
-              <p className="text-sm opacity-80 mt-1">{tc(item.subtitle)}</p>
-            )}
-          </div>
-        </LinkButton>
+        <LinkButton
+          theme={theme}
+          blockStyle={blockStyle}
+          title={tc(item.label)}
+          subtitle={item.subtitle ? tc(item.subtitle) : undefined}
+          meta={item.is_adult ? '18+' : undefined}
+          size={item.subtitle ? 'medium' : 'button'}
+        />
       </div>
     </div>
   );
@@ -273,33 +268,20 @@ function LinksBlock({ block, theme }: ThemedBlockProps) {
           <LinkButton
             theme={theme}
             blockStyle={blockStyle}
-            leftThumbnail={item.image_url || undefined}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium truncate">{tc(item.label)}</p>
-                  {item.is_adult && (
-                    <span className="text-[10px] font-semibold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded flex items-center gap-0.5 flex-shrink-0">
-                      <ShieldAlert className="h-3 w-3" />
-                      18+
-                    </span>
-                  )}
-                  {item.badge && (
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
-                      style={{ backgroundColor: `${theme.buttons.fill_color}20`, color: theme.buttons.fill_color }}
-                    >
-                      {tc(item.badge)}
-                    </span>
-                  )}
-                </div>
-                {item.subtitle && (
-                  <p className="text-xs truncate mt-0.5 opacity-60">{tc(item.subtitle)}</p>
-                )}
-              </div>
-            </div>
-          </LinkButton>
+            title={tc(item.label)}
+            subtitle={item.subtitle ? tc(item.subtitle) : undefined}
+            media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
+            meta={
+              item.is_adult && item.badge
+                ? `18+ · ${tc(item.badge)}`
+                : item.is_adult
+                ? '18+'
+                : item.badge
+                ? tc(item.badge)
+                : undefined
+            }
+            size="medium"
+          />
         </div>
       ))}
     </div>

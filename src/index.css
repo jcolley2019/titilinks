@@ -54,6 +54,16 @@
     --gold-dark: 43 70% 40%;
     --cream: 40 30% 92%;
     --warm-black: 30 15% 6%;
+
+    /* Velvet link button tokens (Phase 2) */
+    --fg: hsl(40 20% 90%);
+    --gold-60: hsl(43 65% 55% / 0.6);
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --dur-fast: 100ms;
+    --dur-med: 200ms;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark {
@@ -343,5 +353,259 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@layer components {
+  /* ==========================================================================
+     VELVET LINK BUTTON — dark-luxury link/button/card system
+     Ported from design-system/ui_kits/profile/profile.css
+     Consumed by src/components/LinkButton.tsx
+     ========================================================================== */
+
+  /* Row wrapper for two half-span cards side-by-side */
+  .lb-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Universal reset — button and anchor */
+  button.lb-reset, a.lb-reset {
+    background: none;
+    border: 0; margin: 0; padding: 0;
+    font: inherit; color: inherit; text-align: inherit;
+    cursor: pointer; text-decoration: none;
+    display: block;
+  }
+  button.lb-reset:focus-visible, a.lb-reset:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--warm-black)), 0 0 0 4px var(--gold-60);
+  }
+
+  /* Shared thumb visuals */
+  .lb-thumb {
+    overflow: hidden; flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.05);
+    display: grid; place-items: center;
+    color: var(--lb-accent, hsl(var(--gold)));
+    position: relative;
+  }
+  .lb-thumb img,
+  .lb-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .lb-thumb-video .lb-play {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    color: #fff;
+    filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.7));
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.35) 100%);
+  }
+
+  .lb-social {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: grid; place-items: center; flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .lb-social svg { width: 22px; height: 22px; }
+
+  .ico {
+    width: 18px; height: 18px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  /* --- Velvet base --- */
+  .lb-velvet {
+    width: 100%;
+    color: var(--fg);
+    cursor: pointer;
+    position: relative;
+    transition: background var(--dur-med) var(--ease-out),
+                border-color var(--dur-med) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .lb-velvet:hover {
+    transform: translateY(-1px);
+    border-color: var(--lb-accent-soft, rgba(255, 255, 255, 0.22)) !important;
+  }
+  .lb-velvet:active { transform: scale(0.99); }
+
+  /* Velvet: MEDIUM */
+  .lb-velvet.lb-size-medium {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px 12px 12px;
+  }
+  .lb-velvet.lb-size-medium .lb-thumb,
+  .lb-velvet.lb-size-medium .lb-social {
+    width: 48px; height: 48px; border-radius: 10px;
+  }
+  .lb-velvet.lb-size-medium .lb-text {
+    flex: 1; min-width: 0;
+    text-align: left; padding-left: 6px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .lb-velvet.lb-size-medium .lb-title {
+    font-family: var(--font-body);
+    font-weight: 600; font-size: 15px;
+    color: var(--fg); line-height: 1.2;
+  }
+  .lb-velvet.lb-size-medium .lb-subtitle {
+    font-family: var(--font-body);
+    font-size: 12px; color: rgba(255, 255, 255, 0.55);
+    line-height: 1.2;
+  }
+  .lb-velvet.lb-size-medium.no-thumb { padding: 14px 16px; }
+  .lb-velvet.lb-size-medium.no-thumb .lb-text {
+    padding-left: 0; text-align: center; align-items: center;
+  }
+
+  /* Velvet: Left gold hairline ribbon on hover (medium + small) */
+  .lb-velvet.lb-size-medium::before,
+  .lb-velvet.lb-size-small::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 14px; bottom: 14px;
+    width: 2px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--lb-accent, hsl(var(--gold))) 20%,
+      var(--lb-accent, hsl(var(--gold))) 80%,
+      transparent 100%
+    );
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity var(--dur-med) var(--ease-out);
+  }
+  .lb-velvet.lb-size-medium:hover::before,
+  .lb-velvet.lb-size-small:hover::before { opacity: 1; }
+
+  /* Velvet: SMALL */
+  .lb-velvet.lb-size-small {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px 8px 8px;
+  }
+  .lb-velvet.lb-size-small .lb-thumb,
+  .lb-velvet.lb-size-small .lb-social {
+    width: 32px; height: 32px; border-radius: 8px;
+  }
+  .lb-velvet.lb-size-small .lb-social svg { width: 16px; height: 16px; }
+  .lb-velvet.lb-size-small .lb-text { flex: 1; min-width: 0; padding-left: 4px; }
+  .lb-velvet.lb-size-small .lb-title {
+    font-family: var(--font-body);
+    font-weight: 600; font-size: 13px; line-height: 1.2;
+  }
+  .lb-velvet.lb-size-small .lb-subtitle { display: none; }
+  .lb-velvet.lb-size-small.no-thumb { padding: 10px 14px; }
+  .lb-velvet.lb-size-small.no-thumb .lb-text {
+    text-align: center; padding-left: 0;
+  }
+
+  /* Velvet: BUTTON */
+  .lb-velvet.lb-size-button {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 12px 18px;
+    min-height: 44px;
+  }
+  .lb-velvet.lb-size-button .lb-text { text-align: center; }
+  .lb-velvet.lb-size-button .lb-title {
+    font-family: var(--font-body);
+    font-weight: 600; font-size: 14px; letter-spacing: 0.01em;
+  }
+  .lb-velvet.lb-size-button .lb-social {
+    width: 20px; height: 20px; background: transparent;
+  }
+  .lb-velvet.lb-size-button .lb-social svg { width: 18px; height: 18px; }
+
+  /* Velvet: BIG */
+  .lb-velvet.lb-size-big {
+    display: flex; flex-direction: column;
+    padding: 0;
+    align-items: stretch;
+    overflow: hidden;
+    position: relative;
+  }
+  .lb-velvet.lb-size-big .lb-cover {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 0;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .lb-velvet.lb-size-big.lb-span-half .lb-cover { aspect-ratio: 1 / 1; }
+  .lb-velvet.lb-size-big .lb-text {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 16px 16px 14px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.75) 70%,
+      rgba(0, 0, 0, 0.85) 100%
+    );
+    color: #fff;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .lb-velvet.lb-size-big .lb-title {
+    font-family: var(--font-body);
+    font-weight: 700; font-size: 17px;
+    line-height: 1.2; letter-spacing: -0.005em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+  .lb-velvet.lb-size-big.lb-span-half .lb-title { font-size: 15px; }
+  .lb-velvet.lb-size-big .lb-subtitle {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .lb-velvet.lb-size-big .lb-arrow {
+    position: absolute; right: 12px; top: 12px;
+    width: 32px; height: 32px; border-radius: 9999px;
+    background: rgba(14, 12, 9, 0.55);
+    backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    color: hsl(var(--gold));
+    transition: transform var(--dur-med) var(--ease-out),
+                background var(--dur-med) var(--ease-out);
+  }
+  .lb-velvet.lb-size-big:hover .lb-arrow {
+    background: rgba(14, 12, 9, 0.85);
+    transform: translateX(2px);
+  }
+
+  /* Velvet: meta chip (right side, medium/small only) */
+  .lb-velvet .lb-meta {
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 4px 10px; border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+  }
+
+  /* Velvet: arrow (medium/small) */
+  .lb-velvet .lb-arrow {
+    width: 20px; height: 20px;
+    display: grid; place-items: center;
+    color: rgba(255, 255, 255, 0.4);
+    flex-shrink: 0;
+    transition: transform var(--dur-med) var(--ease-out),
+                color var(--dur-med) var(--ease-out);
+  }
+  .lb-velvet.lb-size-medium:hover .lb-arrow,
+  .lb-velvet.lb-size-small:hover .lb-arrow {
+    color: var(--lb-accent, hsl(var(--gold)));
+    transform: translateX(2px);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .lb-velvet,
+    .lb-velvet:hover,
+    .lb-velvet:active,
+    .lb-velvet .lb-arrow,
+    .lb-velvet::before {
+      transition: none !important;
+      transform: none !important;
+    }
   }
 }

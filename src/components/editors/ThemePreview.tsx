@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { type ThemeJson, applyAutoContrast } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
-import { LinkButton } from '@/components/LinkButton';
 import { SmoothImage } from '@/components/SmoothImage';
 import { DeviceFrame, DeviceSelector, type DeviceType } from '@/components/DeviceFrame';
 
@@ -12,9 +11,29 @@ interface ThemePreviewProps {
   avatarUrl?: string;
 }
 
+function getPreviewTileStyle(theme: ThemeJson): CSSProperties {
+  const b = theme.buttons;
+  const radius = b.shape === 'pill' ? '9999px' : b.shape === 'square' ? '6px' : '16px';
+  const border = b.border_enabled ? `2px solid ${b.border_color}` : 'none';
+  return {
+    backgroundColor: b.fill_color,
+    color: b.text_color,
+    borderRadius: radius,
+    border,
+    boxShadow: b.shadow_enabled ? '0 4px 14px rgba(0,0,0,0.15)' : undefined,
+    padding: '12px 16px',
+    textAlign: 'center',
+    fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+  };
+}
+
 export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: ThemePreviewProps) {
   const [deviceType, setDeviceType] = useState<DeviceType>('iphone');
-  
+
   // Apply auto-contrast adjustments if enabled
   const theme = applyAutoContrast(rawTheme);
 
@@ -58,7 +77,7 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
                     skeletonClassName="rounded-full"
                   />
                 ) : (
-                  <div 
+                  <div
                     className="w-full h-full flex items-center justify-center text-2xl font-bold"
                     style={{
                       backgroundColor: theme.buttons.fill_color,
@@ -83,17 +102,18 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
                 {bio || 'Your bio goes here'}
               </p>
 
-              {/* Sample Buttons using LinkButton */}
+              {/* Sample preview tiles — visual swatches, not actionable */}
               <div className="w-full space-y-3 max-w-[280px]">
-                <LinkButton theme={theme}>
-                  <p className="font-medium">Primary Link</p>
-                </LinkButton>
-                <LinkButton theme={theme} leftThumbnail="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=80&h=80&fit=crop">
-                  <p className="font-medium">Shop My Store</p>
-                </LinkButton>
-                <LinkButton theme={theme}>
-                  <p className="font-medium">Follow Me</p>
-                </LinkButton>
+                <div style={getPreviewTileStyle(theme)}>Primary Link</div>
+                <div style={getPreviewTileStyle(theme)}>
+                  <img
+                    src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=80&h=80&fit=crop"
+                    alt=""
+                    style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                  Shop My Store
+                </div>
+                <div style={getPreviewTileStyle(theme)}>Follow Me</div>
               </div>
 
               {/* Footer label */}

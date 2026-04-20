@@ -76,17 +76,16 @@ export function StickyCtaBar({
       )}
     >
       <div className="max-w-[640px] mx-auto">
-        <a
+        <LinkButton
+          as="a"
           href={ctaUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="block"
+          theme={theme}
+          title={ctaLabel}
+          size="button"
           onClick={handleClick}
-        >
-          <LinkButton theme={theme}>
-            <p className="font-semibold text-center">{ctaLabel}</p>
-          </LinkButton>
-        </a>
+        />
       </div>
     </div>
   );
