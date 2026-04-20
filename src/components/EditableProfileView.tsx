@@ -2685,7 +2685,10 @@ export function EditableProfileView({
         {/* Blocks */}
         {editMode ? (
           /* Preview block cards for edit mode */
-          <div className="pb-32 pt-0">
+          <div
+            className="pb-32 flex flex-col gap-[6px]"
+            style={{ paddingTop: `${contentStartY ?? 0}px` }}
+          >
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
             </div>
             {/* Free-drag header cards (outside DndContext) — hidden during photo crop/edit */}
@@ -2778,7 +2781,10 @@ export function EditableProfileView({
           </div>
         ) : (
           /* Full block content for view mode */
-          <div className="px-4 space-y-6 pb-20">
+          <div
+            className="px-4 pb-20 flex flex-col gap-[6px]"
+            style={{ paddingTop: `${contentStartY ?? 0}px` }}
+          >
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
             ) : (
