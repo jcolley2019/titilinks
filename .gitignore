@@ -32,3 +32,6 @@ dist-ssr
 tests/results/
 tests/screenshots/*.png
 playwright-report/
+
+# Claude Code local session state — do not commit
+.claude/
