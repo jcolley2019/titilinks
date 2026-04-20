@@ -35,6 +35,9 @@ export interface ThemeButtons {
   border_color: string;
   shadow_enabled: boolean;
   density: 'compact' | 'normal' | 'roomy';
+  // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
+  // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
+  variant_style?: 'velvet';
 }
 
 export interface ThemeTypography {
@@ -57,6 +60,11 @@ export interface BlockStyleConfig {
   background_opacity: number;
   font_style: 'normal' | 'mono' | 'serif';
   letter_spacing: number;
+  // Velvet Link.me-style size + row layout (Phase 2 wires these up in LinkButton).
+  // 'size' is per-block and distinct from ThemeButtons.density (which is global spacing).
+  // When either is undefined, LinkButton renders at its current default (full-width, default height).
+  size?: 'big' | 'medium' | 'small' | 'button';
+  span?: 'full' | 'half';
 }
 
 export const DEFAULT_BLOCK_STYLE: BlockStyleConfig = {
