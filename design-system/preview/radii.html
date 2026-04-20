@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Radii &amp; Shapes</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--warm-black); padding: 24px; min-height: 100vh; box-sizing: border-box; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tile { height: 110px; background: var(--warm-black-2); border: 1px solid var(--warm-black-4); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; }
+  .name { font-family: var(--font-body); font-weight: 600; font-size: 13px; color: var(--fg); }
+  .hex  { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="tile" style="border-radius: var(--radius-xs);"><div class="name">XS · 4px</div><div class="hex">inputs</div></div>
+    <div class="tile" style="border-radius: var(--radius-sm);"><div class="name">SM · 8px</div><div class="hex">chips</div></div>
+    <div class="tile" style="border-radius: var(--radius-md);"><div class="name">MD · 12px</div><div class="hex">cards</div></div>
+    <div class="tile" style="border-radius: var(--radius-lg);"><div class="name">LG · 16px</div><div class="hex">block "rounded"</div></div>
+    <div class="tile" style="border-radius: var(--radius-2xl);"><div class="name">2XL · 24px</div><div class="hex">hero cards</div></div>
+    <div class="tile" style="border-radius: var(--radius-pill);"><div class="name">Pill · 9999</div><div class="hex">default button</div></div>
+  </div>
+</body>
+</html>

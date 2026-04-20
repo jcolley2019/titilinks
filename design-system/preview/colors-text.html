@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Colors — Text on dark</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--warm-black); padding: 24px; min-height: 100vh; box-sizing: border-box; }
+  .row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--warm-black-4); }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .chip { width: 72px; height: 32px; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.08); }
+  .meta { flex: 0 0 180px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+  .example { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="chip" style="background: hsl(40 20% 90%);"></div>
+    <div class="meta">--fg (primary)<br/>hsl(40 20% 90%)</div>
+    <div class="example" style="color: var(--fg); font-family: var(--font-body);">The primary label for content on the profile canvas.</div>
+  </div>
+  <div class="row">
+    <div class="chip" style="background: hsl(35 10% 50%);"></div>
+    <div class="meta">--fg-muted<br/>hsl(35 10% 50%)</div>
+    <div class="example" style="color: var(--fg-muted); font-family: var(--font-body);">Subtitles, usernames, timestamps.</div>
+  </div>
+  <div class="row">
+    <div class="chip" style="background: var(--gold);"></div>
+    <div class="meta">--gold (accent)<br/>hsl(43 65% 55%)</div>
+    <div class="example" style="color: var(--gold); font-family: var(--font-display); font-style: italic; font-size: 22px;">Beautifully.</div>
+  </div>
+  <div class="row">
+    <div class="chip" style="background: hsl(40 30% 92%);"></div>
+    <div class="meta">--cream<br/>hsl(40 30% 92%)</div>
+    <div class="example" style="color: var(--cream); font-family: var(--font-body);">Used on gold buttons as text color (warm white).</div>
+  </div>
+</body>
+</html>

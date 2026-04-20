@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Type — Display</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--warm-black); padding: 28px 32px; min-height: 100vh; box-sizing: border-box; }
+  .row { display: flex; align-items: baseline; gap: 16px; border-top: 1px solid var(--warm-black-4); padding: 16px 0; }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .meta { flex: 0 0 100px; color: var(--fg-muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; }
+  .spec { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="meta">56 / 700<br/>−0.02em</div>
+    <div class="spec display-xl">Profile <span class="display-italic">beautifully</span></div>
+  </div>
+  <div class="row">
+    <div class="meta">40 / 600<br/>−0.02em</div>
+    <div class="spec display-lg">A boutique bio page</div>
+  </div>
+  <div class="row">
+    <div class="meta">32 / 600<br/>−0.02em</div>
+    <div class="spec display-md">Share <span class="display-italic">everything</span> you make</div>
+  </div>
+</body>
+</html>

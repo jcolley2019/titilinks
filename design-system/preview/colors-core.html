@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Colors — Core</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--warm-black); padding: 24px; min-height: 100vh; box-sizing: border-box; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .swatch { border-radius: 12px; padding: 14px; min-height: 100px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--warm-black-4); }
+  .name { font-family: var(--font-body); font-weight: 600; font-size: 13px; }
+  .hex { font-family: var(--font-mono); font-size: 11px; opacity: 0.75; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="swatch" style="background: var(--warm-black); color: var(--cream);">
+      <div class="name">Warm Black</div><div class="hex">hsl(30 15% 6%) · #0e0c09</div>
+    </div>
+    <div class="swatch" style="background: var(--warm-black-2); color: var(--cream);">
+      <div class="name">Warm Black 2</div><div class="hex">hsl(30 12% 10%)</div>
+    </div>
+    <div class="swatch" style="background: var(--warm-black-4); color: var(--cream);">
+      <div class="name">Border Dark</div><div class="hex">hsl(30 10% 15%)</div>
+    </div>
+    <div class="swatch" style="background: var(--gold); color: var(--warm-black);">
+      <div class="name">Gold</div><div class="hex">hsl(43 65% 55%) · #C9A55C</div>
+    </div>
+    <div class="swatch" style="background: var(--gold-light); color: var(--warm-black);">
+      <div class="name">Gold Light</div><div class="hex">hsl(43 60% 70%)</div>
+    </div>
+    <div class="swatch" style="background: var(--gold-dark); color: var(--cream);">
+      <div class="name">Gold Dark</div><div class="hex">hsl(43 70% 40%)</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Shadow &amp; Glow</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--warm-black); padding: 32px 24px; min-height: 100vh; box-sizing: border-box; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .tile { height: 120px; background: var(--warm-black-2); border-radius: 16px; border: 1px solid var(--warm-black-4); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
+  .name { font-family: var(--font-body); font-weight: 600; font-size: 13px; color: var(--fg); }
+  .hex  { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+  .glow { background: var(--gold); color: var(--warm-black); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="tile" style="box-shadow: var(--shadow-sm);"><div class="name">sm</div><div class="hex">0 2 8 · .30</div></div>
+    <div class="tile" style="box-shadow: var(--shadow-md);"><div class="name">md</div><div class="hex">0 4 14 · .35</div></div>
+    <div class="tile" style="box-shadow: var(--shadow-lg);"><div class="name">lg</div><div class="hex">0 12 36 · .45</div></div>
+    <div class="tile glow" style="box-shadow: var(--shadow-gold);"><div class="name">gold glow</div><div class="hex" style="color: rgba(0,0,0,.6)">signature</div></div>
+    <div class="tile" style="box-shadow: var(--inset-hairline);"><div class="name">inset hairline</div><div class="hex">top 1px white/6</div></div>
+    <div class="tile" style="box-shadow: var(--shadow-md), var(--inset-hairline);"><div class="name">combo</div><div class="hex">card default</div></div>
+  </div>
+</body>
+</html>

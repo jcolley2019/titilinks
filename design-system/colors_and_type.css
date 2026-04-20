@@ -1,0 +1,190 @@
+/* ============================================================
+   TitiLinks — Colors & Type
+   Dark-luxury profile builder for creators. Gold on warm black.
+   ============================================================ */
+
+/* Fonts: Playfair Display (display serif) + DM Sans (body) */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400;1,9..40,500&display=swap');
+
+:root {
+  /* -------- Core palette (dark is default for TitiLinks profile) -------- */
+  --warm-black:      hsl(30 15% 6%);   /* #0e0c09-ish — profile bg */
+  --warm-black-2:    hsl(30 12% 10%);  /* cards on dark */
+  --warm-black-3:    hsl(30 10% 12%);  /* muted layer */
+  --warm-black-4:    hsl(30 10% 15%);  /* borders on dark */
+
+  --cream:           hsl(40 30% 92%);  /* soft warm off-white */
+  --foreground-dark: hsl(40 20% 90%);  /* primary text on dark */
+  --muted-dark:      hsl(35 10% 50%);  /* muted text on dark */
+
+  /* -------- Gold (the signature accent) -------- */
+  --gold:            hsl(43 65% 55%);  /* #C9A55C — primary gold */
+  --gold-light:      hsl(43 60% 70%);  /* highlight / hover */
+  --gold-dark:       hsl(43 70% 40%);  /* pressed / deep */
+  --gold-05:         hsl(43 65% 55% / 0.05);
+  --gold-10:         hsl(43 65% 55% / 0.10);
+  --gold-20:         hsl(43 65% 55% / 0.20);
+  --gold-30:         hsl(43 65% 55% / 0.30);
+  --gold-60:         hsl(43 65% 55% / 0.60);
+
+  /* -------- Light-mode (dashboard) surfaces -------- */
+  --background-light:  hsl(30 10% 96%);
+  --foreground-light:  hsl(30 5% 15%);
+  --card-light:        hsl(30 10% 100%);
+  --border-light:      hsl(30 10% 85%);
+  --muted-light:       hsl(30 5% 45%);
+
+  /* -------- Semantic tokens (dark-first, the profile experience) -------- */
+  --bg:           var(--warm-black);
+  --bg-elevated: var(--warm-black-2);
+  --surface:      var(--warm-black-3);
+  --border:       var(--warm-black-4);
+  --fg:           var(--foreground-dark);
+  --fg-muted:     var(--muted-dark);
+  --accent:       var(--gold);
+  --accent-fg:    var(--warm-black);
+  --ring:         var(--gold);
+
+  /* -------- Type scale -------- */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Sizes (mobile-first, 1.125 minor-third for body, 1.25 for display) */
+  --fs-xs:   0.75rem;   /* 12px */
+  --fs-sm:   0.875rem;  /* 14px */
+  --fs-base: 1rem;      /* 16px */
+  --fs-md:   1.125rem;  /* 18px */
+  --fs-lg:   1.25rem;   /* 20px */
+  --fs-xl:   1.5rem;    /* 24px */
+  --fs-2xl:  2rem;      /* 32px */
+  --fs-3xl:  2.5rem;    /* 40px */
+  --fs-4xl:  3.5rem;    /* 56px */
+
+  /* Line-heights */
+  --lh-tight:  1.1;
+  --lh-snug:   1.25;
+  --lh-normal: 1.5;
+
+  /* Tracking (Playfair likes tight; DM Sans likes neutral; labels like wide) */
+  --tr-tight:  -0.02em;
+  --tr-normal: 0;
+  --tr-wide:   0.08em;
+  --tr-label:  0.15em;   /* uppercase luxury labels */
+
+  /* -------- Radii -------- */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;    /* card/block shape="rounded" */
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-pill: 9999px;  /* shape="pill" */
+
+  /* -------- Spacing (4pt grid) -------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* -------- Elevation / shadow -------- */
+  --shadow-xs:   0 1px 2px hsl(0 0% 0% / 0.25);
+  --shadow-sm:   0 2px 8px hsl(0 0% 0% / 0.30);
+  --shadow-md:   0 4px 14px hsl(0 0% 0% / 0.35);
+  --shadow-lg:   0 12px 36px hsl(0 0% 0% / 0.45);
+  --shadow-gold: 0 0 60px -15px hsl(43 65% 55% / 0.35);  /* gold glow */
+  --inset-hairline: inset 0 1px 0 0 hsl(0 0% 100% / 0.06);
+
+  /* -------- Motion -------- */
+  --ease-out-smooth: cubic-bezier(0.16, 1, 0.3, 1);  /* luxurious settle */
+  --ease-out:        ease-out;
+  --dur-fast:   100ms;
+  --dur-med:    200ms;
+  --dur-slow:   400ms;
+}
+
+/* ========================================================
+   Base elements
+   ======================================================== */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-tight);
+  color: var(--fg);
+}
+
+h4, h5, h6 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+}
+
+/* ========================================================
+   Semantic typography classes
+   ======================================================== */
+.display-xl { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-4xl); line-height: var(--lh-tight); letter-spacing: var(--tr-tight); }
+.display-lg { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-3xl); line-height: var(--lh-tight); letter-spacing: var(--tr-tight); }
+.display-md { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-2xl); line-height: var(--lh-snug); letter-spacing: var(--tr-tight); }
+
+.display-italic { font-family: var(--font-display); font-style: italic; color: var(--gold); }
+
+.h1 { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-2xl); line-height: var(--lh-tight); letter-spacing: var(--tr-tight); }
+.h2 { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-xl); line-height: var(--lh-snug); letter-spacing: var(--tr-tight); }
+.h3 { font-family: var(--font-body);    font-weight: 600; font-size: var(--fs-md); line-height: var(--lh-snug); }
+
+.body   { font-family: var(--font-body); font-weight: 400; font-size: var(--fs-base); line-height: var(--lh-normal); }
+.body-sm{ font-family: var(--font-body); font-weight: 400; font-size: var(--fs-sm);   line-height: var(--lh-normal); color: var(--fg-muted); }
+.caption{ font-family: var(--font-body); font-weight: 400; font-size: var(--fs-xs);   line-height: var(--lh-normal); color: var(--fg-muted); }
+
+.label  { font-family: var(--font-body); font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--gold); }
+
+.mono   { font-family: var(--font-mono); font-size: 0.9em; }
+
+/* ========================================================
+   Utilities
+   ======================================================== */
+.text-gold       { color: var(--gold); }
+.text-muted      { color: var(--fg-muted); }
+.bg-warm-black   { background: var(--warm-black); }
+.bg-elevated     { background: var(--bg-elevated); }
+
+.gold-gradient {
+  background: linear-gradient(135deg, hsl(43 70% 60%), hsl(35 60% 45%));
+}
+.gold-gradient-text {
+  background: linear-gradient(135deg, hsl(43 70% 60%), hsl(43 50% 45%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.gold-glow { box-shadow: var(--shadow-gold); }
+
+.glass {
+  background: hsl(0 0% 100% / 0.06);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid hsl(0 0% 100% / 0.10);
+}
+
+.section-glow-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-30), transparent);
+}
