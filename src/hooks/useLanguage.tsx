@@ -497,6 +497,11 @@ const translations: Record<Language, Record<string, string>> = {
     'emailSubscribe.defaultButton': 'Subscribe',
     'emailSubscribe.defaultSuccess': 'Thanks for subscribing!',
     'emailSubscribe.defaultName': 'Your name',
+    'emailSubscribe.errorUnable': 'Unable to subscribe',
+    'emailSubscribe.errorInvalidEmail': 'Please enter a valid email',
+    'emailSubscribe.errorGeneric': 'Failed to subscribe',
+    'emailSubscribe.errorRetry': 'Failed to subscribe. Please try again.',
+    'contentSection.viewAll': 'View all',
     'editor.changePhotoToast': 'Go to Settings to change your profile photo',
 
     // Default block content (placeholders created during onboarding)
@@ -1401,6 +1406,11 @@ const translations: Record<Language, Record<string, string>> = {
     'emailSubscribe.defaultButton': 'Suscribirse',
     'emailSubscribe.defaultSuccess': '¡Gracias por suscribirte!',
     'emailSubscribe.defaultName': 'Tu nombre',
+    'emailSubscribe.errorUnable': 'No se puede suscribir',
+    'emailSubscribe.errorInvalidEmail': 'Por favor ingresa un correo válido',
+    'emailSubscribe.errorGeneric': 'Error al suscribirse',
+    'emailSubscribe.errorRetry': 'Error al suscribirse. Por favor intenta de nuevo.',
+    'contentSection.viewAll': 'Ver todo',
     'editor.changePhotoToast': 'Ve a Ajustes para cambiar tu foto de perfil',
 
     // Default block content (placeholders created during onboarding)
