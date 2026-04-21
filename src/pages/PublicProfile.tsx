@@ -1,31 +1,20 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Link as LinkIcon, 
-  ExternalLink, 
-  ShoppingBag, 
-  Users,
-  Image as ImageIcon,
+import {
+  Link as LinkIcon,
+  ExternalLink,
   Share2,
-  ShieldAlert,
-  ArrowUp,
-  Check,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
-import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
-import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, applyAutoContrast, type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
-import { LinkButton } from '@/components/LinkButton';
-import { ThumbnailImage } from '@/components/ThumbnailImage';
-import { SmoothImage } from '@/components/SmoothImage';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
 import { EditableProfileView } from '@/components/EditableProfileView';
