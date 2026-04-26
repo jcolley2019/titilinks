@@ -1572,7 +1572,7 @@ export function EditableProfileView({
               {photoPreview && photoStep !== 'idle' && (
                 <div
                   className="fixed inset-0 z-[100] flex flex-col bg-black/95"
-                  style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}
+                  style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                   onTouchMove={(e) => {
                     // Prevent background scroll on touch devices
                     // (manual crop step handles its own touch events)
@@ -1664,7 +1664,7 @@ export function EditableProfileView({
 
                   {/* MANUAL CROP STEP — fixed 1:1 frame, user moves image */}
                   {photoStep === 'manual' && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', backgroundColor: '#0e0c09' }}>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', flexDirection: 'column', backgroundColor: '#0e0c09', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
 
                       {/* Header */}
                       <div className="flex items-center justify-between px-3 border-b border-white/10" style={{ height: '44px', flexShrink: 0 }}>
