@@ -281,6 +281,7 @@ export type Database = {
       }
       pages: {
         Row: {
+          avatar_original_url: string | null
           avatar_url: string | null
           bio: string | null
           created_at: string
@@ -294,6 +295,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_original_url?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
@@ -307,6 +309,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_original_url?: string | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string

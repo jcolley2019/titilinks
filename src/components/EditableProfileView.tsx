@@ -742,6 +742,7 @@ export function EditableProfileView({
   const [activeGalleryBlockId, setActiveGalleryBlockId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoOriginalFile, setPhotoOriginalFile] = useState<File | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [localHeroImages, setLocalHeroImages] = useState<{ shop: string | null; recruit: string | null }>({ shop: null, recruit: null });
@@ -885,6 +886,7 @@ export function EditableProfileView({
     reader.onload = () => {
       setPhotoPreview(reader.result as string);
       setPhotoFile(file);
+      setPhotoOriginalFile(file);
       setPhotoStep('choose');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
@@ -1032,6 +1034,25 @@ export function EditableProfileView({
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
+
+      // If this is a fresh upload (user picked a new file), also store the
+      // original full-size photo so they can re-crop later with full
+      // flexibility. Skipped on re-crop (photoOriginalFile is null) and on
+      // recruit-mode page 2 (its schema is JSON-based).
+      let originalUrl: string | null = null;
+      if (photoOriginalFile && selectedMode !== 'recruit') {
+        const origExt = photoOriginalFile.name.split('.').pop() || 'jpg';
+        const origFileName = `${user.id}/${crypto.randomUUID()}-original.${origExt}`;
+        const { error: origUploadError } = await supabase.storage
+          .from('avatars')
+          .upload(origFileName, photoOriginalFile, { upsert: true });
+        if (origUploadError) {
+          console.error('Original photo upload failed (non-fatal):', origUploadError);
+        } else {
+          originalUrl = supabase.storage.from('avatars').getPublicUrl(origFileName).data.publicUrl;
+        }
+      }
+
       if (selectedMode === 'recruit') {
         // Save page 2 avatar into theme_json
         const existingTheme = (page.theme_json as any) || {};
@@ -1040,9 +1061,15 @@ export function EditableProfileView({
           .update({ theme_json: { ...existingTheme, avatar_url_page2: urlData.publicUrl } })
           .eq('id', page.id);
       } else {
+        const updates: { avatar_url: string; avatar_original_url?: string } = {
+          avatar_url: urlData.publicUrl,
+        };
+        if (originalUrl) {
+          updates.avatar_original_url = originalUrl;
+        }
         await supabase
           .from('pages')
-          .update({ avatar_url: urlData.publicUrl })
+          .update(updates)
           .eq('id', page.id);
       }
       toast.success('Profile photo updated!');
@@ -1050,6 +1077,7 @@ export function EditableProfileView({
       setPhotoStep('idle');
       setPhotoPreview(null);
       setPhotoFile(null);
+      setPhotoOriginalFile(null);
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
       onRefresh();
@@ -1301,6 +1329,7 @@ export function EditableProfileView({
   const resetPhoto = () => {
     setPhotoPreview(null);
     setPhotoFile(null);
+    setPhotoOriginalFile(null);
     setPhotoStep('idle');
     setPhotoOffset({ x: 50, y: 30 });
     setPhotoScale(1);
@@ -1416,8 +1445,13 @@ export function EditableProfileView({
           <div className="absolute top-3 right-3 z-[15] flex flex-col gap-2">
             <button
               onClick={() => {
-                setPhotoPreview(heroImage);
+                // Prefer the saved original (full-size) so the cropper has the
+                // unrestricted source. Falls back to the cropped hero for
+                // legacy photos uploaded before avatar_original_url existed.
+                const editSource = page.avatar_original_url || heroImage;
+                setPhotoPreview(editSource);
                 setPhotoFile(null);
+                setPhotoOriginalFile(null);
                 setCropZoom(1);
                 setCropPosition({ x: 0, y: 0 });
                 setPhotoStep('choose');
