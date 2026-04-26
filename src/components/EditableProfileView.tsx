@@ -1384,7 +1384,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image — stays pinned while content scrolls over it */}
-      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '81vh', maxHeight: '710px', overflow: 'hidden', zIndex: 1 }}>
+      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '81dvh', maxHeight: '710px', overflow: 'hidden', zIndex: 1 }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
