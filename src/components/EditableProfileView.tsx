@@ -1621,11 +1621,8 @@ export function EditableProfileView({
                         {aiPreviewEnhanced ? 'AI Result' : 'Crop Preview'}
                       </p>
                       <div className="relative">
-                        <div
-                          className={`rounded-2xl overflow-hidden border-2 ${aiPreviewEnhanced ? 'border-[#C9A55C]/50' : 'border-amber-500/40'}`}
-                          style={{ width: 256, aspectRatio: '430 / 710', backgroundColor: '#0e0c09' }}
-                        >
-                          <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-contain object-top brightness-110" />
+                        <div className={`w-64 h-64 rounded-2xl overflow-hidden border-2 ${aiPreviewEnhanced ? 'border-[#C9A55C]/50' : 'border-amber-500/40'}`}>
+                          <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-cover" />
                         </div>
                         {/* Status badge */}
                         <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-md ${
