@@ -1173,7 +1173,7 @@ export function EditableProfileView({
       // headshot: face = ~58% of width
       // shoulders: face = ~40% of width
       // fullbody: face = ~18% of width
-      const targetFaceRatio = mode === 'headshot' ? 0.45 : mode === 'shoulders' ? 0.40 : 0.18;
+      const targetFaceRatio = mode === 'headshot' ? 0.60 : mode === 'shoulders' ? 0.40 : 0.18;
       let cropSize = faceW / targetFaceRatio;
       cropSize = Math.min(cropSize, natW, natH);
 
@@ -1181,7 +1181,7 @@ export function EditableProfileView({
       let sx = faceCX - cropSize / 2;
 
       // Vertical placement: face higher in frame for portraits
-      const faceTopRatio = mode === 'headshot' ? 0.42 : mode === 'shoulders' ? 0.30 : 0.22;
+      const faceTopRatio = mode === 'headshot' ? 0.48 : mode === 'shoulders' ? 0.30 : 0.22;
       let sy = faceCY - cropSize * faceTopRatio;
 
       // Clamp to image bounds
