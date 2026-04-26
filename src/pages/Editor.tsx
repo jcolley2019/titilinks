@@ -146,6 +146,25 @@ export default function Editor() {
     return true;
   };
 
+  // Re-fetch the page row only (no modes / placeholder side-effects).
+  // Used after photo saves so `page.avatar_original_url` stays in sync.
+  const refreshPage = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!error && data) setPage(data);
+  };
+
+  // Combined refresh: page + blocks. Pass to children that may save data
+  // affecting either.
+  const refresh = async () => {
+    await refreshPage();
+    await fetchBlocks();
+  };
+
   const fetchBlocks = async () => {
     const mode = modes.find((m) => m.type === selectedMode);
     if (!mode) {
@@ -382,7 +401,7 @@ export default function Editor() {
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
               onBlockReorder={handleBlockReorder}
-              onRefresh={fetchBlocks}
+              onRefresh={refresh}
               selectedMode={selectedMode}
               onModeChange={setSelectedMode}
               onAddContent={() => setProfileDashboardOpen(true)}
@@ -400,7 +419,7 @@ export default function Editor() {
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
           onBlockReorder={handleBlockReorder}
-          onRefresh={fetchBlocks}
+          onRefresh={refresh}
           selectedMode={selectedMode}
           onModeChange={setSelectedMode}
           onAddContent={() => setProfileDashboardOpen(true)}
@@ -414,7 +433,7 @@ export default function Editor() {
         pageId={page.id}
         modeId={currentMode?.id || null}
         onBlockEdit={handleEditBlock}
-        onRefresh={fetchBlocks}
+        onRefresh={refresh}
       />
 
       {/* ═══ Block editor dialog ═══ */}
