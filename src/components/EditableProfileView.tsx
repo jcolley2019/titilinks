@@ -1114,6 +1114,7 @@ export function EditableProfileView({
     try {
       // Load image
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.src = photoPreview;
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
