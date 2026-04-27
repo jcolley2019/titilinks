@@ -1414,7 +1414,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image — stays pinned while content scrolls over it */}
-      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '81dvh', maxHeight: '710px', overflow: 'hidden', zIndex: 1 }}>
+      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
         {heroImage ? (
           <SmoothImage
             src={heroImage}
@@ -1479,7 +1479,7 @@ export function EditableProfileView({
           zIndex: 10,
           backgroundColor: '#0e0c09',
           minHeight: '60vh',
-          marginTop: '-21rem',
+          marginTop: '-2rem',
           paddingTop: '0',
         }}
       >
@@ -1678,27 +1678,6 @@ export function EditableProfileView({
                         </button>
                       </div>
 
-                      {/* Zoom slider */}
-                      <div className="flex items-center gap-2 px-3" style={{ height: '36px', flexShrink: 0 }}>
-                        <span className="text-white/50 text-[10px] font-medium flex-shrink-0">Zoom</span>
-                        <input
-                          type="range"
-                          min={getCropMinZoom()}
-                          max={Math.max(getCropMinZoom() * 4, 3)}
-                          step={0.01}
-                          value={Math.max(cropZoom, getCropMinZoom())}
-                          onChange={(e) => {
-                            const newZoom = Number(e.target.value);
-                            setCropZoom(newZoom);
-                            setCropPosition(prev => clampCropPosition(prev.x, prev.y, newZoom));
-                          }}
-                          className="flex-1 accent-[#C9A55C] h-1"
-                        />
-                        <span className="text-white/70 text-[10px] font-mono w-8 text-right flex-shrink-0">
-                          {Math.max(cropZoom, getCropMinZoom()).toFixed(1)}x
-                        </span>
-                      </div>
-
                       {/* Crop area — user drags image behind fixed frame */}
                       <div
                         ref={cropContainerRef}
@@ -1795,8 +1774,29 @@ export function EditableProfileView({
                         })()}
                       </div>
 
+                      {/* Zoom slider — positioned below the photo, above the AI row, so it isn't clipped by the iOS dynamic island/status bar */}
+                      <div className="flex items-center gap-2 px-3 border-t border-white/10" style={{ height: '40px', flexShrink: 0, paddingTop: '4px' }}>
+                        <span className="text-white/50 text-[10px] font-medium flex-shrink-0">Zoom</span>
+                        <input
+                          type="range"
+                          min={getCropMinZoom()}
+                          max={Math.max(getCropMinZoom() * 4, 3)}
+                          step={0.01}
+                          value={Math.max(cropZoom, getCropMinZoom())}
+                          onChange={(e) => {
+                            const newZoom = Number(e.target.value);
+                            setCropZoom(newZoom);
+                            setCropPosition(prev => clampCropPosition(prev.x, prev.y, newZoom));
+                          }}
+                          className="flex-1 accent-[#C9A55C] h-1"
+                        />
+                        <span className="text-white/70 text-[10px] font-mono w-8 text-right flex-shrink-0">
+                          {Math.max(cropZoom, getCropMinZoom()).toFixed(1)}x
+                        </span>
+                      </div>
+
                       {/* AI Auto-Crop row */}
-                      <div className="px-3 border-t border-white/10" style={{ flexShrink: 0, paddingTop: '6px' }}>
+                      <div className="px-3" style={{ flexShrink: 0, paddingTop: '6px' }}>
                         <p className="text-white/40 text-[9px] font-semibold uppercase tracking-wider mb-1 text-center">AI Auto-Crop + Enhance</p>
                         <div className="grid grid-cols-3 gap-1.5">
                           <button
