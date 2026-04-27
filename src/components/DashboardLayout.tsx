@@ -351,14 +351,15 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
             </Badge>
           )}
         </div>
-        {isEditorPage && onAddContent ? (
-          <button
-            onClick={onAddContent}
-            className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
-          >
-            Edit Profile
-          </button>
-        ) : !isEditorPage ? (
+        <div className="flex items-center gap-2">
+          {isEditorPage && onAddContent && (
+            <button
+              onClick={onAddContent}
+              className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
+            >
+              Edit Profile
+            </button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -366,7 +367,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
-        ) : null}
+        </div>
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -441,54 +442,58 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
-        <div className="flex items-center justify-around py-2">
-          {navItems.slice(0, 5).map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}
+      {/* Mobile Bottom Navigation — hidden on editor page (use top-bar hamburger instead, link.me-style) */}
+      {!isEditorPage && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
+          <div className="flex items-center justify-around py-2">
+            {navItems.slice(0, 5).map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                    isActive ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-xs font-medium">{t(item.labelKey).split(' ')[0]}</span>
+                </Link>
+              );
+            })}
+            {pageHandle && (
+              <button
+                onClick={() => setShowLivePreview(true)}
+                className="flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-muted-foreground hover:text-primary"
               >
-                <item.icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{t(item.labelKey).split(' ')[0]}</span>
-              </Link>
-            );
-          })}
-          {pageHandle && (
-            <button
-              onClick={() => setShowLivePreview(true)}
-              className="flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-muted-foreground hover:text-primary"
-            >
-              <Eye className="h-5 w-5" />
-              <span className="text-xs font-medium">Live</span>
-            </button>
-          )}
-        </div>
-      </nav>
+                <Eye className="h-5 w-5" />
+                <span className="text-xs font-medium">Live</span>
+              </button>
+            )}
+          </div>
+        </nav>
+      )}
 
       {/* Main Content */}
-      <main className="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen scrollbar-hide-mobile overflow-x-hidden">
+      <main className={`lg:pl-64 pt-16 lg:pt-0 ${isEditorPage ? '' : 'pb-20'} lg:pb-0 min-h-screen scrollbar-hide-mobile overflow-x-hidden`}>
         <div className="p-4 lg:p-8 overflow-x-hidden">
           {children}
         </div>
       </main>
 
-      {/* Mobile scroll indicator shadow with animated chevron */}
-      <div
-        className={`lg:hidden fixed bottom-16 left-0 right-0 h-16 pointer-events-none transition-opacity duration-300 flex flex-col items-center justify-end pb-1 ${
-          showScrollIndicator ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{
-          background: 'linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%)'
-        }}
-      >
-        <ChevronDown className="w-5 h-5 text-muted-foreground animate-bounce" />
-      </div>
+      {/* Mobile scroll indicator shadow with animated chevron — hidden on editor page (no bottom nav above which to anchor) */}
+      {!isEditorPage && (
+        <div
+          className={`lg:hidden fixed bottom-16 left-0 right-0 h-16 pointer-events-none transition-opacity duration-300 flex flex-col items-center justify-end pb-1 ${
+            showScrollIndicator ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{
+            background: 'linear-gradient(to top, hsl(var(--background)) 0%, transparent 100%)'
+          }}
+        >
+          <ChevronDown className="w-5 h-5 text-muted-foreground animate-bounce" />
+        </div>
+      )}
     </div>
   );
 }
