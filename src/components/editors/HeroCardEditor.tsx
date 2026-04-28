@@ -258,7 +258,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
               <Label>Hero Image</Label>
               <div 
                 className={cn(
-                  "relative w-full aspect-[16/9] rounded-xl border-2 border-dashed border-border",
+                  "relative w-full aspect-square rounded-xl border-2 border-dashed border-border",
                   "flex items-center justify-center overflow-hidden cursor-pointer",
                   "hover:border-primary/50 transition-colors bg-muted/30"
                 )}
@@ -292,7 +292,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
                   <div className="text-center text-muted-foreground">
                     <ImagePlus className="h-10 w-10 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Click to upload hero image</p>
-                    <p className="text-xs opacity-75">Recommended: 1200x675px (16:9)</p>
+                    <p className="text-xs opacity-75">Recommended: 1200x1200px (1:1)</p>
                   </div>
                 )}
               </div>
@@ -431,7 +431,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
                 <Label>Preview</Label>
                 <div 
                   className={cn(
-                    "relative w-full aspect-[16/9] overflow-hidden",
+                    "relative w-full aspect-square overflow-hidden",
                     config.card_radius === 'sm' && 'rounded-lg',
                     config.card_radius === 'md' && 'rounded-xl',
                     config.card_radius === 'lg' && 'rounded-2xl'

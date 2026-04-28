@@ -67,7 +67,7 @@ export function HeroCardBlock({ block }: HeroCardBlockProps) {
       className="relative overflow-hidden w-full"
       style={{ borderRadius: getRadius() }}
     >
-      <div className="aspect-[16/9] relative">
+      <div className="aspect-square relative">
         <img
           src={item.image_url}
           alt={item.label || 'Hero'}
