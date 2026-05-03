@@ -5,9 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { OnboardingForm } from '@/components/OnboardingForm';
-import { BlockEditorContent } from '@/components/BlockEditorContent';
 import { EditableProfileView } from '@/components/EditableProfileView';
-import { ProfileDashboard } from '@/components/ProfileDashboard';
+import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -38,8 +37,7 @@ export default function Editor() {
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
   const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<EditingBlockTarget | null>(null);
   const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
 
@@ -233,16 +231,19 @@ export default function Editor() {
   // ── Block Actions ──
 
   const handleEditBlock = (blockId: string) => {
-    setEditingBlockId(blockId);
-    setEditorOpen(true);
+    const block = allBlocks.find((b) => b.id === blockId);
+    if (!block) return;
+    // The block.title field is overloaded for some block types (it stores a
+    // JSON config blob). For the panel header we want the localized type name.
+    const title = t(`blocks.${block.type}.title`) || block.type;
+    setEditingBlock({ id: block.id, type: block.type, title });
+    setProfileDashboardOpen(true);
   };
 
-  const handleEditorClose = (open: boolean) => {
-    setEditorOpen(open);
-    if (!open) {
-      setEditingBlockId(null);
-      fetchBlocks();
-    }
+  const handleProfileDashboardClose = () => {
+    setProfileDashboardOpen(false);
+    setEditingBlock(null);
+    fetchBlocks();
   };
 
   const handleBlockToggle = async (blockId: string, enabled: boolean) => {
@@ -426,22 +427,16 @@ export default function Editor() {
         />
       </div>
 
-      {/* ═══ ProfileDashboard panel ═══ */}
+      {/* ═══ ProfileDashboard panel — handles both add-content (section list) ═══ */}
+      {/* ═══ and edit-existing (direct-to-editor) flows.                    ═══ */}
       <ProfileDashboard
         open={profileDashboardOpen}
-        onClose={() => setProfileDashboardOpen(false)}
+        onClose={handleProfileDashboardClose}
         pageId={page.id}
         modeId={currentMode?.id || null}
         onBlockEdit={handleEditBlock}
         onRefresh={refresh}
-      />
-
-      {/* ═══ Block editor dialog ═══ */}
-      <BlockEditorContent
-        blockId={editingBlockId}
-        open={editorOpen}
-        onOpenChange={handleEditorClose}
-        onSave={fetchBlocks}
+        editingBlock={editingBlock}
       />
     </DashboardLayout>
   );

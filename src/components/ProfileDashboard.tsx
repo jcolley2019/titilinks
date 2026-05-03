@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -30,6 +30,16 @@ import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
+import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
+import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
+import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
+import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
+
+export interface EditingBlockTarget {
+  id: string;
+  type: string;
+  title: string;
+}
 
 interface ProfileDashboardProps {
   open: boolean;
@@ -38,6 +48,13 @@ interface ProfileDashboardProps {
   modeId: string | null;
   onBlockEdit: (blockId: string) => void;
   onRefresh: () => void;
+  /**
+   * When set together with `open`, the panel skips the section-list view and
+   * opens directly into the editor for this block. Pressing back closes the
+   * whole panel rather than falling back to the section list — the user came
+   * from tapping a live block, not from the add-content menu.
+   */
+  editingBlock?: EditingBlockTarget | null;
 }
 
 interface DashboardRow {
@@ -196,16 +213,31 @@ export function ProfileDashboard({
   modeId,
   onBlockEdit,
   onRefresh,
+  editingBlock,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
+  // 'add' = entered via section list. 'edit' = opened directly via editingBlock prop.
+  // Drives whether back-button / save closes the panel or returns to the list.
+  const [entryMode, setEntryMode] = useState<'add' | 'edit'>('add');
+
+  // When opened with an editingBlock target, jump straight to the editor.
+  useEffect(() => {
+    if (open && editingBlock) {
+      setActiveBlockId(editingBlock.id);
+      setActiveBlockType(editingBlock.type);
+      setActiveBlockTitle(editingBlock.title);
+      setEntryMode('edit');
+    }
+  }, [open, editingBlock]);
 
   const handleClose = () => {
     setActiveBlockId(null);
     setActiveBlockType(null);
     setActiveBlockTitle('');
+    setEntryMode('add');
     onClose();
   };
 
@@ -262,6 +294,12 @@ export function ProfileDashboard({
 
   const handleEditorClose = (editorOpen: boolean) => {
     if (!editorOpen) {
+      // In edit mode, closing the editor closes the whole panel (the user
+      // came from the live preview, not from the section list).
+      if (entryMode === 'edit') {
+        handleClose();
+        return;
+      }
       setActiveBlockId(null);
       setActiveBlockType(null);
       setActiveBlockTitle('');
@@ -269,10 +307,14 @@ export function ProfileDashboard({
   };
 
   const handleEditorSave = () => {
+    onRefresh();
+    if (entryMode === 'edit') {
+      handleClose();
+      return;
+    }
     setActiveBlockId(null);
     setActiveBlockType(null);
     setActiveBlockTitle('');
-    onRefresh();
   };
 
   const renderEditor = () => {
@@ -301,6 +343,14 @@ export function ProfileDashboard({
         return <GalleryEditor {...editorProps} />;
       case 'bio':
         return <BioEditor {...editorProps} />;
+      case 'featured_media':
+        return <FeaturedMediaEditor {...editorProps} />;
+      case 'hero_card':
+        return <HeroCardEditor {...editorProps} />;
+      case 'social_icon_row':
+        return <SocialIconRowEditor {...editorProps} />;
+      case 'content_section':
+        return <ContentSectionEditor {...editorProps} />;
       default:
         return null;
     }
@@ -332,7 +382,17 @@ export function ProfileDashboard({
               {activeBlockId ? (
                 <>
                   <button
-                    onClick={() => { setActiveBlockId(null); setActiveBlockType(null); setActiveBlockTitle(''); }}
+                    onClick={() => {
+                      // In edit mode, back closes the whole panel; in add mode
+                      // it returns to the section list.
+                      if (entryMode === 'edit') {
+                        handleClose();
+                      } else {
+                        setActiveBlockId(null);
+                        setActiveBlockType(null);
+                        setActiveBlockTitle('');
+                      }
+                    }}
                     className="text-white/60 hover:text-white transition-colors"
                   >
                     <ChevronLeft className="h-5 w-5" />

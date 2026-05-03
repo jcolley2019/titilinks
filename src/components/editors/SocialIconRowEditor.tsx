@@ -176,9 +176,10 @@ interface SocialIconRowEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave }: SocialIconRowEditorProps) {
+export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panelMode }: SocialIconRowEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<SocialIconItem[]>([]);
@@ -411,9 +412,9 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave }: Soc
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+  const innerContent = (
+    <>
+      {!panelMode && (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CircleDot className="h-5 w-5 text-primary" />
@@ -423,6 +424,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave }: Soc
             Display social icons in a clean, tappable row.
           </DialogDescription>
         </DialogHeader>
+      )}
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -626,6 +628,21 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave }: Soc
             </div>
           </div>
         )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

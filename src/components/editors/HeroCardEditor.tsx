@@ -51,9 +51,10 @@ interface HeroCardEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCardEditorProps) {
+export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode }: HeroCardEditorProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -234,9 +235,9 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
     { value: 'right', icon: AlignRight },
   ];
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+  const innerContent = (
+    <>
+      {!panelMode && (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-primary" />
@@ -246,6 +247,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
             Create a stunning hero section at the top of your page.
           </DialogDescription>
         </DialogHeader>
+      )}
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -484,6 +486,21 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave }: HeroCard
             )}
           </Button>
         </div>
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        {innerContent}
       </DialogContent>
     </Dialog>
   );

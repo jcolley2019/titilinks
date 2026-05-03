@@ -256,9 +256,10 @@ interface ContentSectionEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
+  panelMode?: boolean;
 }
 
-export function ContentSectionEditor({ blockId, open, onOpenChange, onSave }: ContentSectionEditorProps) {
+export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, panelMode }: ContentSectionEditorProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -500,9 +501,9 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave }: Co
     { value: 'list', icon: List, label: 'List' },
   ];
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+  const innerContent = (
+    <>
+      {!panelMode && (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary" />
@@ -512,6 +513,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave }: Co
             Create a section with cards in carousel, grid, or list layout.
           </DialogDescription>
         </DialogHeader>
+      )}
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -638,6 +640,21 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave }: Co
             </div>
           </div>
         )}
+    </>
+  );
+
+  if (panelMode) {
+    return (
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        {innerContent}
       </DialogContent>
     </Dialog>
   );
