@@ -999,12 +999,14 @@ export function EditableProfileView({
     const relX = frameL - imgL;
     const relY = frameT - imgT;
 
-    // Convert to natural pixels
+    // Convert to natural pixels. Keep the source rect at full frame size and
+    // slide its position back inside the image so the output stays square —
+    // truncating srcW/srcH at the edge would yield a non-square crop.
     const scale = nw / dispW;
-    const srcX = Math.max(0, Math.round(relX * scale));
-    const srcY = Math.max(0, Math.round(relY * scale));
-    const srcW = Math.min(Math.round(fw * scale), nw - srcX);
-    const srcH = Math.min(Math.round(fh * scale), nh - srcY);
+    const srcW = Math.min(Math.round(fw * scale), nw);
+    const srcH = Math.min(Math.round(fh * scale), nh);
+    const srcX = Math.max(0, Math.min(Math.round(relX * scale), nw - srcW));
+    const srcY = Math.max(0, Math.min(Math.round(relY * scale), nh - srcH));
 
     const canvas = document.createElement('canvas');
     canvas.width = srcW;
