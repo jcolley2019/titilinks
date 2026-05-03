@@ -40,33 +40,56 @@ export function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
     }
   };
 
+  const VALID_SIZES = ['big', 'medium', 'small', 'button'] as const;
+  type ItemSize = typeof VALID_SIZES[number];
+  const resolveSize = (raw: string | null | undefined): ItemSize => {
+    if (raw && (VALID_SIZES as readonly string[]).includes(raw)) return raw as ItemSize;
+    if (blockStyle.size && (VALID_SIZES as readonly string[]).includes(blockStyle.size)) return blockStyle.size as ItemSize;
+    return 'medium';
+  };
+
   return (
     <div className="space-y-3">
-      {block.items.map((item) => (
-        <LinkButton
-          key={item.id}
-          as="a"
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          theme={theme}
-          blockStyle={blockStyle}
-          title={tc(item.label)}
-          subtitle={item.subtitle ? tc(item.subtitle) : undefined}
-          media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
-          meta={
-            item.is_adult && item.badge
-              ? `18+ · ${tc(item.badge)}`
-              : item.is_adult
-              ? '18+'
-              : item.badge
-              ? tc(item.badge)
-              : undefined
-          }
-          size="medium"
-          onClick={(e) => handleClick(e, item)}
-        />
-      ))}
+      {block.items.map((item) => {
+        // Per-item color overrides synthesize a per-link theme — bg_color
+        // overrides theme.buttons.fill_color, title_color overrides text_color.
+        const itemTheme = (item.bg_color || item.title_color)
+          ? {
+              ...theme,
+              buttons: {
+                ...theme.buttons,
+                ...(item.bg_color ? { fill_color: item.bg_color } : {}),
+                ...(item.title_color ? { text_color: item.title_color } : {}),
+              },
+            }
+          : theme;
+
+        return (
+          <LinkButton
+            key={item.id}
+            as="a"
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            theme={itemTheme}
+            blockStyle={blockStyle}
+            title={tc(item.label)}
+            subtitle={item.subtitle ? tc(item.subtitle) : undefined}
+            media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
+            meta={
+              item.is_adult && item.badge
+                ? `18+ · ${tc(item.badge)}`
+                : item.is_adult
+                ? '18+'
+                : item.badge
+                ? tc(item.badge)
+                : undefined
+            }
+            size={resolveSize(item.size)}
+            onClick={(e) => handleClick(e, item)}
+          />
+        );
+      })}
     </div>
   );
 }

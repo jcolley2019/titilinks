@@ -17,6 +17,7 @@ export type Database = {
       block_items: {
         Row: {
           badge: string | null
+          bg_color: string | null
           block_id: string
           compare_at_price: number | null
           created_at: string
@@ -28,12 +29,16 @@ export type Database = {
           label: string
           order_index: number
           price: number | null
+          size: string | null
+          style_json: Json | null
           subtitle: string | null
+          title_color: string | null
           updated_at: string
           url: string
         }
         Insert: {
           badge?: string | null
+          bg_color?: string | null
           block_id: string
           compare_at_price?: number | null
           created_at?: string
@@ -45,12 +50,16 @@ export type Database = {
           label: string
           order_index?: number
           price?: number | null
+          size?: string | null
+          style_json?: Json | null
           subtitle?: string | null
+          title_color?: string | null
           updated_at?: string
           url: string
         }
         Update: {
           badge?: string | null
+          bg_color?: string | null
           block_id?: string
           compare_at_price?: number | null
           created_at?: string
@@ -62,7 +71,10 @@ export type Database = {
           label?: string
           order_index?: number
           price?: number | null
+          size?: string | null
+          style_json?: Json | null
           subtitle?: string | null
+          title_color?: string | null
           updated_at?: string
           url?: string
         }

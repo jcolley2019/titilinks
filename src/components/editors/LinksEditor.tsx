@@ -62,6 +62,15 @@ const MAX_ITEMS = ITEM_CAPS.links;
 
 type BlockItem = Tables<'block_items'>;
 
+const VALID_SIZES = ['big', 'medium', 'small', 'button'] as const;
+type ItemSize = typeof VALID_SIZES[number];
+
+function parseSize(value: string | null | undefined): ItemSize {
+  return (VALID_SIZES as readonly string[]).includes(value || '')
+    ? (value as ItemSize)
+    : 'big';
+}
+
 interface LinksBlockConfig {
   style: BlockStyleConfig;
 }
@@ -432,9 +441,9 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
           badge: item.badge || '',
           is_adult: item.is_adult || false,
           image_url: item.image_url || null,
-          size: 'big' as const,
-          bg_color: null,
-          title_color: null,
+          size: parseSize(item.size),
+          bg_color: item.bg_color ?? null,
+          title_color: item.title_color ?? null,
         }))
       );
     } catch (error) {
@@ -560,30 +569,28 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
         const item = items[i];
         const isNew = item.id.startsWith('new-');
 
+        const payload = {
+          label: item.label,
+          url: item.url,
+          subtitle: item.subtitle || null,
+          badge: item.badge || null,
+          is_adult: item.is_adult || false,
+          image_url: item.image_url || null,
+          size: item.size || null,
+          bg_color: item.bg_color || null,
+          title_color: item.title_color || null,
+          order_index: i,
+        };
+
         if (isNew) {
-          const { error } = await supabase.from('block_items').insert({
-            block_id: blockId,
-            label: item.label,
-            url: item.url,
-            subtitle: item.subtitle || null,
-            badge: item.badge || null,
-            is_adult: item.is_adult || false,
-            image_url: item.image_url || null,
-            order_index: i,
-          });
+          const { error } = await supabase
+            .from('block_items')
+            .insert({ block_id: blockId, ...payload });
           if (error) throw error;
         } else {
           const { error } = await supabase
             .from('block_items')
-            .update({
-              label: item.label,
-              url: item.url,
-              subtitle: item.subtitle || null,
-              badge: item.badge || null,
-              is_adult: item.is_adult || false,
-              image_url: item.image_url || null,
-              order_index: i,
-            })
+            .update(payload)
             .eq('id', item.id);
           if (error) throw error;
         }
