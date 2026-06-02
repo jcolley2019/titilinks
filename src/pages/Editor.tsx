@@ -383,10 +383,13 @@ export default function Editor() {
         </div>
 
         {/* Phone frame */}
-        <div className="relative z-10 flex items-start justify-center pt-6 pb-8 h-[calc(100vh-52px)] overflow-hidden">
+        <div className="relative z-10 flex items-center justify-center pt-6 pb-8 h-[calc(100vh-52px)] overflow-hidden">
           <div
-            className="w-[390px] h-full overflow-y-auto scrollbar-hide"
+            className="overflow-y-auto scrollbar-hide"
             style={{
+              aspectRatio: '390 / 844',
+              height: 'min(100%, 844px)',
+              maxWidth: '100%',
               borderRadius: '44px',
               border: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
