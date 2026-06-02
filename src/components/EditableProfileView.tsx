@@ -365,7 +365,7 @@ function NameHandleCard({
 
   return (
     <div
-      style={{ transform: `translateY(${nameCardY}px)`, position: 'relative', zIndex: 20, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
+      style={{ transform: `translateY(${nameCardY}px)`, position: 'relative', zIndex: 20 }}
       className="mx-4 mb-2 relative"
     >
       {/* Content — tap name to edit inline, tap handle area to expand settings */}
@@ -499,7 +499,7 @@ function SocialIconsCard({
 
   return (
     <div
-      style={{ transform: `translateY(${iconsCardY}px)`, position: 'relative', zIndex: 20, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
+      style={{ transform: `translateY(${iconsCardY}px)`, position: 'relative', zIndex: 20 }}
       className="mx-4 mb-2 relative"
     >
       {/* Content — matches profile display */}
