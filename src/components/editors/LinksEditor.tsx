@@ -51,12 +51,15 @@ import {
   ShieldAlert,
   Palette,
   Settings2,
+  Camera,
+  Lock,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
-import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
+import { LinkButton } from '@/components/LinkButton';
+import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 
 const MAX_ITEMS = ITEM_CAPS.links;
 
@@ -69,6 +72,19 @@ function parseSize(value: string | null | undefined): ItemSize {
   return (VALID_SIZES as readonly string[]).includes(value || '')
     ? (value as ItemSize)
     : 'big';
+}
+
+// Title is optional — when empty, fall back to the URL's hostname so the card
+// is not blank (FL.11). Tolerates a missing protocol; strips a leading "www.".
+function labelFromUrl(url: string | null | undefined): string {
+  const raw = (url || '').trim();
+  if (!raw) return 'Link';
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return u.hostname.replace(/^www\./, '');
+  } catch {
+    return raw;
+  }
 }
 
 interface LinksBlockConfig {
@@ -86,6 +102,7 @@ interface LinkItem {
   size?: 'big' | 'medium' | 'small' | 'button';
   bg_color?: string | null;
   title_color?: string | null;
+  style_json?: Record<string, any> | null;
 }
 
 interface SortableLinkRowProps {
@@ -140,7 +157,7 @@ function SortableLinkRow({ item, onEdit, onDelete }: SortableLinkRowProps) {
           <LinkIcon className="h-4 w-4 text-primary shrink-0" />
           <div className="min-w-0">
             <p className="font-medium text-sm truncate">{item.label || 'Untitled Link'}</p>
-            <p className="text-xs text-muted-foreground truncate">{item.url || 'No URL set'}</p>
+            <p className="text-sm text-muted-foreground truncate">{item.url || 'No URL set'}</p>
           </div>
         </div>
 
@@ -161,21 +178,57 @@ function SortableLinkRow({ item, onEdit, onDelete }: SortableLinkRowProps) {
 function LinkDetailPanel({
   item,
   isNew,
+  blockStyle,
   onBack,
   onSave,
   onDelete,
 }: {
   item: LinkItem;
   isNew: boolean;
+  blockStyle: BlockStyleConfig;
   onBack: () => void;
   onSave: (item: LinkItem) => void;
   onDelete: (id: string) => void;
 }) {
   const [local, setLocal] = useState<LinkItem>(item);
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
+  const [subtitleExpanded, setSubtitleExpanded] = useState<boolean>(!!item.subtitle);
 
   const update = (field: keyof LinkItem, value: any) => {
     setLocal(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Per-link style overrides live on block_items.style_json (additive — any
+  // future keys are preserved). Writing null removes the key; empty → null.
+  const setStyleField = (key: string, value: string | number | null) => {
+    setLocal(prev => {
+      const next: Record<string, any> = { ...(prev.style_json || {}) };
+      if (value === null) delete next[key];
+      else next[key] = value;
+      return { ...prev, style_json: Object.keys(next).length ? next : null };
+    });
+  };
+
+  // Live preview theme — mirror LinksBlock's per-item color override so the
+  // preview card matches the live profile: bg_color → fill, title_color → text.
+  const previewTheme = (local.bg_color || local.title_color)
+    ? {
+        ...DEFAULT_THEME,
+        buttons: {
+          ...DEFAULT_THEME.buttons,
+          ...(local.bg_color ? { fill_color: local.bg_color } : {}),
+          ...(local.title_color ? { text_color: local.title_color } : {}),
+        },
+      }
+    : DEFAULT_THEME;
+
+  // Merge per-link border (style_json) over the block-level style so the
+  // preview reflects per-item-first precedence; falls back to block border.
+  const sj = local.style_json || {};
+  const previewBlockStyle: Partial<BlockStyleConfig> = {
+    ...blockStyle,
+    ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
+    ...(sj.border_color ? { border_color: sj.border_color } : {}),
   };
 
   const sizes = [
@@ -192,7 +245,7 @@ function LinkDetailPanel({
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <h3 className="font-semibold text-sm">
+        <h3 className="font-semibold text-base">
           {isNew ? 'Add Link' : 'Edit Link'}
         </h3>
         {!isNew && (
@@ -207,12 +260,133 @@ function LinkDetailPanel({
 
       <ScrollArea className="flex-1 -mx-6 px-6">
         <div className="space-y-4">
-          {/* Image Upload Area */}
+          {/* Live Preview — EMPTY big/medium/small show a TitiLinks-brand
+              placeholder (centered + corner camera, Link.me style); once an
+              image exists (or size=button) it renders the real LinkButton.
+              Editor-preview only — the live profile and FL.3 stay untouched.
+              ThumbnailUpload still owns the hidden input + upload via open(). */}
           <ThumbnailUpload
             value={local.image_url}
             onChange={(url) => update('image_url', url)}
+            renderTrigger={({ open, uploading }) => {
+              const noImage = !local.image_url;
+              const isCover = local.size === 'big' || local.size === 'small';
+              const camBtn = (px: number, small: boolean) => (
+                <button
+                  type="button"
+                  onClick={open}
+                  disabled={uploading}
+                  aria-label={noImage ? 'Add image' : 'Replace image'}
+                  style={{ height: px, width: px }}
+                  className="rounded-full bg-black/50 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/70 transition-colors disabled:opacity-60"
+                >
+                  {uploading
+                    ? <Loader2 className={small ? 'h-4 w-4 animate-spin' : 'h-5 w-5 animate-spin'} />
+                    : <Camera className={small ? 'h-4 w-4' : 'h-5 w-5'} />}
+                </button>
+              );
+              const placeholderBg =
+                'linear-gradient(180deg, rgba(201,165,92,0.10) 0%, rgba(255,255,255,0.02) 100%)';
+
+              let body: React.ReactNode;
+
+              if (noImage && isCover) {
+                // Empty Big/Small → cover-shaped brand placeholder
+                body = (
+                  <div
+                    className="relative w-full overflow-hidden border border-white/10"
+                    style={{
+                      aspectRatio: local.size === 'big' ? '16 / 10' : '16 / 7',
+                      borderRadius: local.size === 'big' ? 16 : 14,
+                      background: placeholderBg,
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {camBtn(48, false)}
+                    </div>
+                    <div
+                      className={local.size === 'big'
+                        ? 'absolute left-4 right-4 bottom-3 text-left'
+                        : 'absolute inset-x-0 bottom-3 px-4 text-center'}
+                    >
+                      <span
+                        className="font-bold text-white/90"
+                        style={{
+                          fontSize: local.size === 'big' ? 17 : 15,
+                          textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                        }}
+                      >
+                        {local.label || 'Title'}
+                      </span>
+                    </div>
+                    <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
+                  </div>
+                );
+              } else if (noImage && local.size === 'medium') {
+                // Empty Medium → row placeholder with a SQUARE (1:1) thumb slot
+                body = (
+                  <div
+                    className="w-full flex items-center gap-3 border border-white/10 px-3 py-3"
+                    style={{ borderRadius: 14, background: placeholderBg }}
+                  >
+                    <button
+                      type="button"
+                      onClick={open}
+                      disabled={uploading}
+                      aria-label="Add image"
+                      className="shrink-0 h-12 w-12 rounded-[10px] bg-black/40 border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors disabled:opacity-60"
+                    >
+                      {uploading
+                        ? <Loader2 className="h-5 w-5 animate-spin" />
+                        : <Camera className="h-5 w-5" />}
+                    </button>
+                    <span className="font-semibold text-white/90 text-[15px]">
+                      {local.label || 'Title'}
+                    </span>
+                  </div>
+                );
+              } else {
+                // Button (no image) or any size WITH image → real LinkButton + corner camera
+                body = (
+                  <div className="relative w-full flex items-center justify-center">
+                    <LinkButton
+                      as="button"
+                      type="button"
+                      theme={previewTheme}
+                      blockStyle={previewBlockStyle}
+                      title={local.label || 'Title'}
+                      subtitle={local.subtitle || undefined}
+                      media={local.image_url ? { kind: 'image', src: local.image_url } : undefined}
+                      meta={
+                        local.is_adult && local.badge
+                          ? `18+ · ${local.badge}`
+                          : local.is_adult
+                          ? '18+'
+                          : local.badge
+                          ? local.badge
+                          : undefined
+                      }
+                      size={local.size}
+                      onClick={(e) => e.preventDefault()}
+                    />
+                    <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
+                  </div>
+                );
+              }
+
+              // Fixed footprint: always reserve the Big placeholder's 16/10
+              // height so switching sizes never resizes the preview area; the
+              // active card/placeholder is centered inside it.
+              return (
+                <div className="relative w-full" style={{ aspectRatio: '16 / 10' }}>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {body}
+                  </div>
+                </div>
+              );
+            }}
           />
-          <p className="text-xs text-center text-muted-foreground">
+          <p className="text-sm text-center text-muted-foreground">
             Find the look that fits you best
           </p>
 
@@ -222,7 +396,7 @@ function LinkDetailPanel({
               <button
                 key={key}
                 onClick={() => update('size', key)}
-                className={`py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
+                className={`py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
                   local.size === key
                     ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
                     : 'border-border text-muted-foreground'
@@ -233,46 +407,77 @@ function LinkDetailPanel({
             ))}
           </div>
 
+          {/* Reserve constant height: always rendered, toggled invisible so
+              the fields below never shift when the warning appears/disappears. */}
+          <p
+            aria-hidden={!((local.size === 'big' || local.size === 'small') && !local.image_url)}
+            className={`text-sm text-[#C9A55C] ${
+              (local.size === 'big' || local.size === 'small') && !local.image_url
+                ? ''
+                : 'invisible'
+            }`}
+          >
+            This will display as a button because there's no image. Add an image to use the{' '}
+            {local.size === 'big' ? 'big' : 'small'} thumbnail.
+          </p>
+
           {/* URL Input */}
           <div className="space-y-1">
-            <Label className="text-xs">Link, phone number, or email</Label>
+            <Label className="text-sm">Link, phone number, or email</Label>
             <Input
               value={local.url}
               onChange={(e) => update('url', e.target.value)}
               placeholder="https://..."
-              className="h-10"
+              className="h-10 text-[#0e0c09]"
             />
           </div>
 
           {/* Title Input */}
           <div className="space-y-1">
-            <Label className="text-xs">Title</Label>
+            <Label className="text-sm">Title</Label>
             <Input
               value={local.label}
               onChange={(e) => update('label', e.target.value)}
               placeholder="My Link"
-              className="h-10"
+              className="h-10 text-[#0e0c09]"
             />
           </div>
 
-          {/* Subtitle Input */}
-          <div className="space-y-1">
-            <Label className="text-xs">Subtitle (optional)</Label>
-            <Input
-              value={local.subtitle || ''}
-              onChange={(e) => update('subtitle', e.target.value)}
-              placeholder="Check this out"
-              className="h-10"
-            />
-          </div>
+          {/* Subtitle Input — collapsed behind a chevron; value is preserved
+              when collapsed (field is only hidden, never cleared). */}
+          <Collapsible
+            open={subtitleExpanded}
+            onOpenChange={setSubtitleExpanded}
+            className="space-y-1"
+          >
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between py-1 text-sm font-medium text-foreground"
+              >
+                <span>Subtitle (optional)</span>
+                {subtitleExpanded
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <Input
+                value={local.subtitle || ''}
+                onChange={(e) => update('subtitle', e.target.value)}
+                placeholder="Check this out"
+                className="h-10 text-[#0e0c09]"
+              />
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Customize Color */}
           <div className="space-y-3">
-            <p className="text-sm font-semibold">Customize Color</p>
+            <p className="text-base font-semibold">Customize Color</p>
             <div className="flex rounded-lg overflow-hidden border border-border">
               <button
                 onClick={() => setColorTab('title')}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${
                   colorTab === 'title'
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground'
@@ -282,7 +487,7 @@ function LinkDetailPanel({
               </button>
               <button
                 onClick={() => setColorTab('background')}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${
                   colorTab === 'background'
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground'
@@ -308,10 +513,48 @@ function LinkDetailPanel({
                   colorTab === 'title' ? 'title_color' : 'bg_color',
                   null
                 )}
-                className="flex-1 py-2 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
               >
                 No color
               </button>
+            </div>
+          </div>
+
+          {/* Per-link Border — stored on block_items.style_json (additive;
+              takes precedence over the block-level Style Variants border) */}
+          <div className="space-y-3">
+            <p className="text-base font-semibold">Border</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">
+                  Width ({(local.style_json?.border_width as number | undefined) ?? 0}px)
+                </Label>
+                <Slider
+                  value={[(local.style_json?.border_width as number | undefined) ?? 0]}
+                  onValueChange={([v]) => setStyleField('border_width', v)}
+                  min={0}
+                  max={4}
+                  step={1}
+                  className="py-2"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Color</Label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="color"
+                    value={(local.style_json?.border_color as string | undefined) || '#C9A55C'}
+                    onChange={(e) => setStyleField('border_color', e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-border p-1 cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setStyleField('border_color', null)}
+                    className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -319,7 +562,7 @@ function LinkDetailPanel({
           <div className="flex items-center justify-between py-3 border-t border-border">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-xs font-normal text-muted-foreground">
+              <Label className="text-sm font-normal text-muted-foreground">
                 18+ Link
               </Label>
             </div>
@@ -329,23 +572,26 @@ function LinkDetailPanel({
             />
           </div>
 
-          {/* Animations PRO Upsell */}
-          <div className="rounded-xl border border-border overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          {/* Animations PRO Upsell — on-brand locked state (visual only) */}
+          <div className="rounded-xl border border-[#C9A55C]/30 bg-black/30 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#C9A55C]/20">
               <div>
-                <p className="text-sm font-semibold">Animations</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-[#C9A55C]" />
+                  <p className="text-base font-semibold text-white">Animations</p>
+                </div>
+                <p className="text-sm text-white/70">
                   Add motion to your link to draw attention.
                 </p>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-white/50" />
             </div>
-            <div className="p-4 bg-secondary/30">
-              <p className="text-xs text-muted-foreground mb-3">
+            <div className="p-4">
+              <p className="text-sm text-white/90 mb-3">
                 Animations are part of TitiLinks Pro. Upgrade to unlock
                 motion effects for your links.
               </p>
-              <button className="w-full py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-secondary transition-colors">
+              <button className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors">
                 Upgrade to Pro
               </button>
             </div>
@@ -444,6 +690,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
           size: parseSize(item.size),
           bg_color: item.bg_color ?? null,
           title_color: item.title_color ?? null,
+          style_json: (item.style_json as Record<string, any> | null) ?? null,
         }))
       );
     } catch (error) {
@@ -519,10 +766,9 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
     }
 
     items.forEach((item) => {
-      if (!item.label.trim()) {
-        newErrors[item.id] = 'Label is required';
-        valid = false;
-      } else if (item.label.length > 100) {
+      // Title (label) is optional (FL.11) — it falls back to the URL hostname
+      // at save time. Still cap its length and validate the URL.
+      if (item.label.length > 100) {
         newErrors[item.id] = 'Label must be less than 100 characters';
         valid = false;
       } else {
@@ -570,7 +816,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
         const isNew = item.id.startsWith('new-');
 
         const payload = {
-          label: item.label,
+          label: item.label.trim() || labelFromUrl(item.url),
           url: item.url,
           subtitle: item.subtitle || null,
           badge: item.badge || null,
@@ -579,6 +825,9 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
           size: item.size || null,
           bg_color: item.bg_color || null,
           title_color: item.title_color || null,
+          style_json: (item.style_json && Object.keys(item.style_json).length > 0
+            ? item.style_json
+            : null) as Tables<'block_items'>['style_json'],
           order_index: i,
         };
 
@@ -613,6 +862,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
         <LinkDetailPanel
           item={editingItem}
           isNew={isNewItem}
+          blockStyle={styleConfig}
           onBack={() => { setView('list'); setEditingItem(null); }}
           onSave={(updated) => {
             if (isNewItem) {
@@ -646,7 +896,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
               {/* Style Variants Section */}
               <Collapsible open={styleExpanded} onOpenChange={setStyleExpanded} className="mb-4">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                  <Button variant="outline" size="sm" className="w-full justify-between gap-2 text-foreground">
                     <div className="flex items-center gap-2">
                       <Palette className="h-4 w-4 text-primary" />
                       <span>Style Variants</span>
@@ -658,14 +908,14 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                   {/* Variant Select */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Button Variant</Label>
+                      <Label className="text-sm">Button Variant</Label>
                       <Select
                         value={styleConfig.variant}
                         onValueChange={(value: 'filled' | 'outline' | 'glass' | 'minimal') =>
                           setStyleConfig(prev => ({ ...prev, variant: value }))
                         }
                       >
-                        <SelectTrigger className="h-8 text-sm">
+                        <SelectTrigger className="h-8 text-sm text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -677,14 +927,14 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Font Style</Label>
+                      <Label className="text-sm">Font Style</Label>
                       <Select
                         value={styleConfig.font_style}
                         onValueChange={(value: 'normal' | 'mono' | 'serif') =>
                           setStyleConfig(prev => ({ ...prev, font_style: value }))
                         }
                       >
-                        <SelectTrigger className="h-8 text-sm">
+                        <SelectTrigger className="h-8 text-sm text-foreground">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -699,7 +949,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                   {/* Border Width & Color */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Border Width ({styleConfig.border_width}px)</Label>
+                      <Label className="text-sm">Border Width ({styleConfig.border_width}px)</Label>
                       <Slider
                         value={[styleConfig.border_width]}
                         onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, border_width: value }))}
@@ -710,7 +960,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Border Color</Label>
+                      <Label className="text-sm">Border Color</Label>
                       <Input
                         type="color"
                         value={styleConfig.border_color || '#ffffff'}
@@ -723,7 +973,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                   {/* Background Opacity & Letter Spacing */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Background Opacity ({Math.round(styleConfig.background_opacity * 100)}%)</Label>
+                      <Label className="text-sm">Background Opacity ({Math.round(styleConfig.background_opacity * 100)}%)</Label>
                       <Slider
                         value={[styleConfig.background_opacity]}
                         onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, background_opacity: value }))}
@@ -734,7 +984,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Letter Spacing ({styleConfig.letter_spacing.toFixed(2)}em)</Label>
+                      <Label className="text-sm">Letter Spacing ({styleConfig.letter_spacing.toFixed(2)}em)</Label>
                       <Slider
                         value={[styleConfig.letter_spacing]}
                         onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, letter_spacing: value }))}
@@ -755,7 +1005,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                   variant="outline"
                   size="sm"
                   onClick={addLink}
-                  className="gap-2"
+                  className="gap-2 text-foreground"
                 >
                   <Plus className="h-4 w-4" />
                   Add Link
@@ -798,7 +1048,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  className="flex-1"
+                  className="flex-1 text-foreground"
                 >
                   Cancel
                 </Button>

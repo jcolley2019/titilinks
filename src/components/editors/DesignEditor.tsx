@@ -1574,6 +1574,42 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               </Select>
             </div>
 
+            {/* Link Button Style (profile-level — applies to Featured Links) */}
+            <div className="space-y-2">
+              <Label>Link Button Style</Label>
+              <Select
+                value={(theme.buttons as any).variant ?? 'glass'}
+                onValueChange={(v) =>
+                  setTheme(prev => ({ ...prev, buttons: { ...prev.buttons, variant: v } as any }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="filled">Filled</SelectItem>
+                  <SelectItem value="outline">Outline</SelectItem>
+                  <SelectItem value="glass">Glass</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                Link Background Opacity ({Math.round(((theme.buttons as any).background_opacity ?? 1) * 100)}%)
+              </Label>
+              <Slider
+                value={[(theme.buttons as any).background_opacity ?? 1]}
+                onValueChange={([v]) =>
+                  setTheme(prev => ({ ...prev, buttons: { ...prev.buttons, background_opacity: v } as any }))
+                }
+                min={0}
+                max={1}
+                step={0.05}
+              />
+            </div>
+
             {/* Button Preview */}
             <div className="pt-4 border-t border-border">
               <Label className="text-muted-foreground mb-3 block">{t('design.preview')}</Label>
@@ -1657,6 +1693,41 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                   className="flex-1"
                 />
               </div>
+            </div>
+
+            {/* Link Font Style + Letter Spacing (profile-level — Featured Links) */}
+            <div className="space-y-2">
+              <Label>Link Font Style</Label>
+              <Select
+                value={(theme.typography as any).font_style ?? 'normal'}
+                onValueChange={(v) =>
+                  setTheme(prev => ({ ...prev, typography: { ...prev.typography, font_style: v } as any }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="mono">Monospace</SelectItem>
+                  <SelectItem value="serif">Serif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                Link Letter Spacing ({((theme.typography as any).letter_spacing ?? 0).toFixed(2)}em)
+              </Label>
+              <Slider
+                value={[(theme.typography as any).letter_spacing ?? 0]}
+                onValueChange={([v]) =>
+                  setTheme(prev => ({ ...prev, typography: { ...prev.typography, letter_spacing: v } as any }))
+                }
+                min={-0.05}
+                max={0.2}
+                step={0.01}
+              />
             </div>
 
             {/* Typography Preview */}

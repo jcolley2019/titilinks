@@ -499,7 +499,7 @@ function SocialIconsCard({
 
   return (
     <div
-      style={{ transform: `translateY(${iconsCardY}px)`, position: 'relative', zIndex: 20 }}
+      style={{ transform: `translateY(${iconsCardY}px)`, marginBottom: (iconsCardY < 0 ? iconsCardY : 0) + 8, position: 'relative', zIndex: 20 }}
       className="mx-4 mb-2 relative"
     >
       {/* Content — matches profile display */}
@@ -1514,7 +1514,7 @@ export function EditableProfileView({
               const sizeMap: Record<string, number> = { small: 14, medium: 18, large: 24 };
               const containerMap: Record<string, string> = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
               return (
-                <div key={id} style={{ paddingTop: headerConfig.iconsPaddingY ?? 8, paddingBottom: headerConfig.iconsPaddingY ?? 8, transform: `translateY(${headerConfig.iconsCardY ?? 0}px)` }} className="flex flex-wrap justify-center gap-3">
+                <div key={id} style={{ paddingTop: headerConfig.iconsPaddingY ?? 8, paddingBottom: headerConfig.iconsPaddingY ?? 8, transform: `translateY(${headerConfig.iconsCardY ?? 0}px)`, marginBottom: ((headerConfig.iconsCardY ?? 0) < 0 ? (headerConfig.iconsCardY ?? 0) : 0) + 8 }} className="flex flex-wrap justify-center gap-3">
                   {dedupedItems.map((item) => (
                     <span
                       key={item.id}

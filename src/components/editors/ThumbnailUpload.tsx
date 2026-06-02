@@ -11,9 +11,21 @@ interface ThumbnailUploadProps {
   onChange: (url: string | null) => void;
   label?: string;
   size?: 'sm' | 'md';
+  /**
+   * Optional custom trigger. When provided, ThumbnailUpload renders only the
+   * hidden file input plus this trigger — the consumer controls the trigger's
+   * look/placement (e.g. a camera icon overlaid on the preview). The upload
+   * flow stays owned internally; the consumer just calls `open()`.
+   */
+  renderTrigger?: (args: {
+    open: () => void;
+    uploading: boolean;
+    hasValue: boolean;
+    remove: () => void;
+  }) => React.ReactNode;
 }
 
-export function ThumbnailUpload({ value, onChange, label, size = 'sm' }: ThumbnailUploadProps) {
+export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTrigger }: ThumbnailUploadProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +79,26 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm' }: Thumbna
     onChange(null);
   };
 
+  const openPicker = () => fileInputRef.current?.click();
+
   const avatarSize = size === 'sm' ? 'h-10 w-10' : 'h-14 w-14';
+
+  // Custom-trigger mode: own the hidden input + upload flow, but delegate the
+  // trigger's look/placement to the consumer (e.g. camera icon on the preview).
+  if (renderTrigger) {
+    return (
+      <>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleUpload}
+          className="hidden"
+        />
+        {renderTrigger({ open: openPicker, uploading, hasValue: !!value, remove: handleRemove })}
+      </>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -78,7 +109,7 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm' }: Thumbna
         onChange={handleUpload}
         className="hidden"
       />
-      
+
       {value ? (
         <div className="relative group">
           <Avatar className={avatarSize}>
@@ -102,14 +133,14 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm' }: Thumbna
           size="sm"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="h-8 px-2 gap-1"
+          className="h-8 px-2 gap-1 text-foreground"
         >
           {uploading ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
             <Upload className="h-3 w-3" />
           )}
-          <span className="text-xs">{label || 'Thumb'}</span>
+          <span className="text-sm">{label || 'Thumb'}</span>
         </Button>
       )}
     </div>

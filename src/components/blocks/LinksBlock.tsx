@@ -64,6 +64,19 @@ export function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
             }
           : theme;
 
+        // Per-item border override (style_json) takes precedence over the
+        // block-level border; falls back to blockStyle when unset.
+        const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
+          ? (item.style_json as Record<string, any>)
+          : null;
+        const itemBlockStyle = sj
+          ? {
+              ...blockStyle,
+              ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
+              ...(sj.border_color ? { border_color: sj.border_color } : {}),
+            }
+          : blockStyle;
+
         return (
           <LinkButton
             key={item.id}
@@ -72,7 +85,7 @@ export function LinksBlock({ block, onOutboundClick, theme }: ThemedBlockProps) 
             target="_blank"
             rel="noopener noreferrer"
             theme={itemTheme}
-            blockStyle={blockStyle}
+            blockStyle={itemBlockStyle}
             title={tc(item.label)}
             subtitle={item.subtitle ? tc(item.subtitle) : undefined}
             media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}

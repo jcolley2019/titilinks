@@ -109,12 +109,24 @@ export function LinkButton(props: LinkButtonProps) {
   const effectiveMedia: Media | null =
     media || (thumbnail ? { kind: 'image', src: thumbnail } : null);
 
+  const hasImage = !!effectiveMedia;
+  const effectiveSize =
+    (size === 'big' || size === 'small') && !hasImage ? 'button' : size;
+
   const bs = { ...DEFAULT_BLOCK_STYLE, ...(blockStyle || {}) };
 
   const buttons = theme?.buttons;
+  // Profile-level (1b): font_style/letter_spacing/background_opacity/variant
+  // can live on the page theme (stashed in theme.buttons / theme.typography).
+  // Read theme FIRST, fall back to the block-level blockStyle so existing
+  // profiles (no theme-level values) render identically.
+  const themeButtons = buttons as Record<string, any> | undefined;
+  const themeTypography = theme?.typography as Record<string, any> | undefined;
   const shape = buttons?.shape || 'rounded';
-  const variant = bs.variant || 'glass';
-  const opacity = bs.background_opacity ?? 1;
+  const variant = themeButtons?.variant ?? bs.variant ?? 'glass';
+  const opacity = themeButtons?.background_opacity ?? bs.background_opacity ?? 1;
+  const fontStyle = themeTypography?.font_style ?? bs.font_style;
+  const letterSpacing = themeTypography?.letter_spacing ?? bs.letter_spacing;
   const fillColor = buttons?.fill_color || '#ffffff';
   const textColor = buttons?.text_color || '#ffffff';
   const borderEnabled = buttons?.border_enabled ?? false;
@@ -123,9 +135,9 @@ export function LinkButton(props: LinkButtonProps) {
   const shadowEnabled = buttons?.shadow_enabled ?? false;
 
   const style: CSSVarStyle = {
-    borderRadius: radiusFor(shape, size === 'big' ? '16px' : '14px'),
-    fontFamily: fontFamilyFor(bs.font_style),
-    letterSpacing: bs.letter_spacing ? `${bs.letter_spacing}em` : undefined,
+    borderRadius: radiusFor(shape, effectiveSize === 'big' ? '16px' : '14px'),
+    fontFamily: fontFamilyFor(fontStyle),
+    letterSpacing: letterSpacing ? `${letterSpacing}em` : undefined,
     color: textColor,
     '--lb-accent': fillColor,
     '--lb-accent-soft': rgbaStr(fillColor, 0.22),
@@ -159,7 +171,7 @@ export function LinkButton(props: LinkButtonProps) {
   const cls = [
     'lb-reset',
     'lb-velvet',
-    `lb-size-${size}`,
+    `lb-size-${effectiveSize}`,
     `lb-span-${span}`,
     effectiveMedia ? 'has-media' : socialIcon ? 'has-social' : 'no-thumb',
     className,
@@ -173,12 +185,14 @@ export function LinkButton(props: LinkButtonProps) {
 
   const content = (
     <>
-      {size === 'big' && effectiveMedia && (
+      {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && (
         <MediaThumb media={effectiveMedia} className="lb-cover" />
       )}
 
-      {size !== 'big' && effectiveMedia && <MediaThumb media={effectiveMedia} />}
-      {size !== 'big' && !effectiveMedia && socialIcon && (
+      {effectiveSize !== 'big' && effectiveSize !== 'small' && effectiveMedia && (
+        <MediaThumb media={effectiveMedia} />
+      )}
+      {effectiveSize !== 'big' && !effectiveMedia && socialIcon && (
         <span className="lb-social" aria-hidden="true" style={{ color: fillColor }}>
           {socialIcon}
         </span>
@@ -186,15 +200,15 @@ export function LinkButton(props: LinkButtonProps) {
 
       <span className="lb-text">
         <span className="lb-title">{title}</span>
-        {subtitle && size !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
+        {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
       </span>
 
-      {meta && size !== 'big' && size !== 'button' && <span className="lb-meta">{meta}</span>}
-      {size !== 'button' && (
+      {meta && effectiveSize !== 'big' && effectiveSize !== 'button' && <span className="lb-meta">{meta}</span>}
+      {effectiveSize !== 'button' && (
         <span
           className="lb-arrow"
           aria-hidden="true"
-          style={size === 'big' ? { color: fillColor } : undefined}
+          style={effectiveSize === 'big' ? { color: fillColor } : undefined}
         >
           <Arrow />
         </span>
