@@ -368,25 +368,6 @@ function NameHandleCard({
       style={{ transform: `translateY(${nameCardY}px)`, position: 'relative', zIndex: 20, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
       className="mx-4 mb-2 relative"
     >
-      {/* Grip handle — free drag */}
-      <button
-        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/50 touch-none z-10"
-        onPointerDown={(e) => {
-          dragStart.current = { y: e.clientY, cardY: nameCardY };
-          (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          if (!(e.target as HTMLElement).hasPointerCapture(e.pointerId)) return;
-          onNameCardYChange(dragStart.current.cardY + (e.clientY - dragStart.current.y));
-        }}
-        onPointerUp={(e) => {
-          (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-          onDragEnd();
-        }}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-
       {/* Content — tap name to edit inline, tap handle area to expand settings */}
       <div
         className="relative"
@@ -521,25 +502,6 @@ function SocialIconsCard({
       style={{ transform: `translateY(${iconsCardY}px)`, position: 'relative', zIndex: 20, borderLeft: '2px solid rgba(201,165,92,0.19)' }}
       className="mx-4 mb-2 relative"
     >
-      {/* Grip handle — free drag */}
-      <button
-        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-white/50 touch-none z-10"
-        onPointerDown={(e) => {
-          dragStart.current = { y: e.clientY, cardY: iconsCardY };
-          (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          if (!(e.target as HTMLElement).hasPointerCapture(e.pointerId)) return;
-          onIconsCardYChange(dragStart.current.cardY + (e.clientY - dragStart.current.y));
-        }}
-        onPointerUp={(e) => {
-          (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-          onDragEnd();
-        }}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-
       {/* Content — matches profile display */}
       <div
         className="cursor-pointer relative"
