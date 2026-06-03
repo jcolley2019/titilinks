@@ -87,6 +87,11 @@ interface EditableProfileViewProps {
   onModeChange: (mode: 'shop' | 'recruit') => void;
   onOutboundClick?: ClickHandler;
   onAddContent?: () => void;
+  // Per-item edit affordances for links blocks (G2). Optional — absent on the
+  // public/live render.
+  onItemEdit?: (blockId: string, itemId: string) => void;
+  onItemDelete?: (itemId: string) => void;
+  onItemAdd?: (blockId: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -167,7 +172,22 @@ function SocialSvgIcon({ label, size = 20, color = 'currentColor' }: { label: st
 
 // ─── Block Renderers ─────────────────────────────────────────────────────────
 
-function BlockRenderer({ block, onOutboundClick, theme, pageId }: ThemedBlockProps & { pageId?: string }) {
+function BlockRenderer({
+  block,
+  onOutboundClick,
+  theme,
+  pageId,
+  editMode,
+  onItemEdit,
+  onItemDelete,
+  onItemAdd,
+}: ThemedBlockProps & {
+  pageId?: string;
+  editMode?: boolean;
+  onItemEdit?: (id: string) => void;
+  onItemDelete?: (id: string) => void;
+  onItemAdd?: () => void;
+}) {
   const blockProps = { block, onOutboundClick, theme };
 
   switch (block.type) {
@@ -176,7 +196,15 @@ function BlockRenderer({ block, onOutboundClick, theme, pageId }: ThemedBlockPro
     case 'social_links':
       return <SocialLinksBlock {...blockProps} />;
     case 'links':
-      return <LinksBlock {...blockProps} />;
+      return (
+        <LinksBlock
+          {...blockProps}
+          editMode={editMode}
+          onItemEdit={onItemEdit}
+          onItemDelete={onItemDelete}
+          onItemAdd={onItemAdd}
+        />
+      );
     case 'product_cards':
       return <ProductCardsBlock {...blockProps} />;
     case 'featured_media':
@@ -589,6 +617,9 @@ function SortablePreviewCard({
   onToggle,
   onGalleryAdd,
   onGalleryDelete,
+  onItemEdit,
+  onItemDelete,
+  onItemAdd,
   isDragActive,
   theme,
 }: {
@@ -597,6 +628,9 @@ function SortablePreviewCard({
   onToggle: (enabled: boolean) => void;
   onGalleryAdd: (blockId: string) => void;
   onGalleryDelete: (itemId: string) => void;
+  onItemEdit?: (blockId: string, itemId: string) => void;
+  onItemDelete?: (itemId: string) => void;
+  onItemAdd?: (blockId: string) => void;
   isDragActive: boolean;
   theme: ThemeJson;
 }) {
@@ -653,13 +687,16 @@ function SortablePreviewCard({
         </button>
       </div>
 
-      {/* Full-size block content preview — smooth collapse during drag */}
+      {/* Full-size block content preview — smooth collapse during drag.
+          For links blocks the per-item taps own the body, so we suppress the
+          body-level onEdit (the control-bar chevron remains the list fallback). */}
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200 ease-out cursor-pointer',
+          'overflow-hidden transition-all duration-200 ease-out',
+          block.type !== 'links' && 'cursor-pointer',
           isDragActive ? 'max-h-0' : 'max-h-[2000px]'
         )}
-        onClick={!isDragActive ? onEdit : undefined}
+        onClick={block.type !== 'links' && !isDragActive ? onEdit : undefined}
       >
         <div className="p-4">
           {block.type === 'gallery' ? (
@@ -668,12 +705,26 @@ function SortablePreviewCard({
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
               <button
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (block.type === 'links' && onItemAdd) onItemAdd(block.id);
+                  else onEdit();
+                }}
                 className="mt-3 text-xs font-semibold text-[#C9A55C] border border-[#C9A55C]/40 rounded-full px-4 py-1.5 hover:bg-[#C9A55C]/10 transition-colors"
               >
                 + {t('editor.addContent')}
               </button>
             </div>
+          ) : block.type === 'links' ? (
+            <BlockRenderer
+              block={block}
+              onOutboundClick={() => false}
+              theme={theme}
+              editMode
+              onItemEdit={(itemId) => onItemEdit?.(block.id, itemId)}
+              onItemDelete={onItemDelete}
+              onItemAdd={() => onItemAdd?.(block.id)}
+            />
           ) : (
             <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
           )}
@@ -697,6 +748,9 @@ export function EditableProfileView({
   onModeChange,
   onOutboundClick,
   onAddContent,
+  onItemEdit,
+  onItemDelete,
+  onItemAdd,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -1956,6 +2010,9 @@ export function EditableProfileView({
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
                       onGalleryAdd={openGalleryPicker}
                       onGalleryDelete={handleGalleryDelete}
+                      onItemEdit={onItemEdit}
+                      onItemDelete={onItemDelete}
+                      onItemAdd={onItemAdd}
                       isDragActive={isDragActive}
                       theme={theme}
                     />

@@ -39,6 +39,11 @@ export interface EditingBlockTarget {
   id: string;
   type: string;
   title: string;
+  // G2 single-item entry (links only). When set, the LinksEditor opens straight
+  // into the detail panel for that item (directItemId) or a blank new item
+  // (directNew) instead of the list.
+  directItemId?: string | null;
+  directNew?: boolean;
 }
 
 interface ProfileDashboardProps {
@@ -219,6 +224,9 @@ export function ProfileDashboard({
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
+  // G2 direct single-item entry (links only). Null/false => normal list view.
+  const [directItemId, setDirectItemId] = useState<string | null>(null);
+  const [directNew, setDirectNew] = useState<boolean>(false);
   // 'add' = entered via section list. 'edit' = opened directly via editingBlock prop.
   // Drives whether back-button / save closes the panel or returns to the list.
   const [entryMode, setEntryMode] = useState<'add' | 'edit'>('add');
@@ -229,6 +237,8 @@ export function ProfileDashboard({
       setActiveBlockId(editingBlock.id);
       setActiveBlockType(editingBlock.type);
       setActiveBlockTitle(editingBlock.title);
+      setDirectItemId(editingBlock.directItemId ?? null);
+      setDirectNew(editingBlock.directNew ?? false);
       setEntryMode('edit');
     }
   }, [open, editingBlock]);
@@ -237,11 +247,16 @@ export function ProfileDashboard({
     setActiveBlockId(null);
     setActiveBlockType(null);
     setActiveBlockTitle('');
+    setDirectItemId(null);
+    setDirectNew(false);
     setEntryMode('add');
     onClose();
   };
 
   const handleRowTap = async (row: DashboardRow) => {
+    // List-entry path always opens the batch list view, never direct item mode.
+    setDirectItemId(null);
+    setDirectNew(false);
     if (!row.blockType) {
       toast(t(row.toastKey || 'dashboard.comingSoon'));
       return;
@@ -280,12 +295,16 @@ export function ProfileDashboard({
         setActiveBlockId(newBlock.id);
         setActiveBlockType(row.blockType);
         setActiveBlockTitle(t(row.titleKey));
+        // Featured Links opens a blank add-link detail (create-on-save),
+        // matching the preview "+", instead of the legacy list view.
+        if (row.blockType === 'links') setDirectNew(true);
         return;
       }
 
       setActiveBlockId(block.id);
       setActiveBlockType(row.blockType);
       setActiveBlockTitle(t(row.titleKey));
+      if (row.blockType === 'links') setDirectNew(true);
     } catch (err) {
       console.error('Error finding block:', err);
       toast.error(t('dashboard.failedOpen'));
@@ -303,6 +322,8 @@ export function ProfileDashboard({
       setActiveBlockId(null);
       setActiveBlockType(null);
       setActiveBlockTitle('');
+      setDirectItemId(null);
+      setDirectNew(false);
     }
   };
 
@@ -315,6 +336,8 @@ export function ProfileDashboard({
     setActiveBlockId(null);
     setActiveBlockType(null);
     setActiveBlockTitle('');
+    setDirectItemId(null);
+    setDirectNew(false);
   };
 
   const renderEditor = () => {
@@ -334,7 +357,7 @@ export function ProfileDashboard({
       case 'social_links':
         return <SocialLinksEditor {...editorProps} />;
       case 'links':
-        return <LinksEditor {...editorProps} />;
+        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} />;
       case 'product_cards':
         return <ProductCardsEditor {...editorProps} />;
       case 'email_subscribe':

@@ -74,6 +74,21 @@ function parseSize(value: string | null | undefined): ItemSize {
     : 'big';
 }
 
+// Accept bare web domains (FL.12). When the input looks like a web URL/domain
+// WITHOUT a protocol, prepend "https://" so users need not type it. Leaves
+// already-schemed URLs, emails, and phone numbers untouched — phone/email
+// handling is unchanged. The scheme class excludes "." so a bare domain with a
+// port ("x.com:8080") is still normalized rather than mistaken for a scheme.
+function normalizeUrl(raw: string | null | undefined): string {
+  const v = (raw || '').trim();
+  if (!v) return v;
+  if (/^[a-z][a-z0-9+-]*:/i.test(v)) return v; // already has a scheme (https://, mailto:, tel:)
+  if (v.includes('@')) return v;               // email
+  if (/^[\d+\-\s()]+$/.test(v)) return v;       // phone (digits / + / - / spaces / parens)
+  if (v.includes('.')) return `https://${v}`;   // bare web domain
+  return v;
+}
+
 // Title is optional — when empty, fall back to the URL's hostname so the card
 // is not blank (FL.11). Tolerates a missing protocol; strips a leading "www.".
 function labelFromUrl(url: string | null | undefined): string {
@@ -250,7 +265,7 @@ function LinkDetailPanel({
         </h3>
         {!isNew && (
           <button
-            onClick={() => { onDelete(local.id); onBack(); }}
+            onClick={() => onDelete(local.id)}
             className="ml-auto text-destructive hover:text-destructive/80"
           >
             <Trash2 className="h-4 w-4" />
@@ -602,7 +617,7 @@ function LinkDetailPanel({
       {/* Save button */}
       <div className="pt-4 mt-4 border-t border-border">
         <Button
-          onClick={() => { onSave(local); onBack(); }}
+          onClick={() => onSave(local)}
           className="w-full gradient-primary text-primary-foreground"
         >
           {isNew ? 'Add' : 'Update'}
@@ -618,9 +633,17 @@ interface LinksEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  /**
+   * Direct single-item entry (grouped-model G1). When set, the editor opens
+   * straight into LinkDetailPanel for ONE item and persists just that item
+   * on Save (create-on-save for new). Dormant until a caller passes them
+   * (e.g. preview taps in G2); the list view is unaffected when unset.
+   */
+  directItemId?: string | null;
+  directNew?: boolean;
 }
 
-export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: LinksEditorProps) {
+export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew }: LinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -637,13 +660,18 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Direct single-item mode (G1): open straight into the detail panel.
+  const directMode = directItemId != null || directNew === true;
+
   useEffect(() => {
     if (open) {
       fetchItems();
-      setView('list');
-      setEditingItem(null);
+      if (!directMode) {
+        setView('list');
+        setEditingItem(null);
+      }
     }
-  }, [open, blockId]);
+  }, [open, blockId, directItemId, directNew]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -678,21 +706,48 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
-        (data || []).map((item) => ({
-          id: item.id,
-          label: item.label,
-          url: item.url,
-          subtitle: item.subtitle || '',
-          badge: item.badge || '',
-          is_adult: item.is_adult || false,
-          image_url: item.image_url || null,
-          size: parseSize(item.size),
-          bg_color: item.bg_color ?? null,
-          title_color: item.title_color ?? null,
-          style_json: (item.style_json as Record<string, any> | null) ?? null,
-        }))
-      );
+      const mapped: LinkItem[] = (data || []).map((item) => ({
+        id: item.id,
+        label: item.label,
+        url: item.url,
+        subtitle: item.subtitle || '',
+        badge: item.badge || '',
+        is_adult: item.is_adult || false,
+        image_url: item.image_url || null,
+        size: parseSize(item.size),
+        bg_color: item.bg_color ?? null,
+        title_color: item.title_color ?? null,
+        style_json: (item.style_json as Record<string, any> | null) ?? null,
+      }));
+      setItems(mapped);
+
+      // Direct single-item entry (G1): jump straight to the detail panel.
+      if (directNew) {
+        setEditingItem({
+          id: `new-${Date.now()}-${Math.random()}`,
+          label: '',
+          url: '',
+          subtitle: '',
+          badge: '',
+          is_adult: false,
+          image_url: null,
+          size: 'big',
+          bg_color: null,
+          title_color: null,
+          style_json: null,
+        });
+        setIsNewItem(true);
+        setView('detail');
+      } else if (directItemId) {
+        const found = mapped.find((i) => i.id === directItemId);
+        if (found) {
+          setEditingItem({ ...found });
+          setIsNewItem(false);
+          setView('detail');
+        } else {
+          setView('list');
+        }
+      }
     } catch (error) {
       console.error('Error fetching items:', error);
       toast.error('Failed to load links');
@@ -772,7 +827,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
         newErrors[item.id] = 'Label must be less than 100 characters';
         valid = false;
       } else {
-        const urlError = validateUrl(item.url);
+        const urlError = validateUrl(normalizeUrl(item.url));
         if (urlError) {
           newErrors[item.id] = urlError;
           valid = false;
@@ -782,6 +837,89 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
 
     setErrors(newErrors);
     return valid;
+  };
+
+  // Shared payload shape for a single block_items row (used by both the
+  // batched list Save and the direct single-item Save).
+  const buildItemPayload = (item: LinkItem, orderIndex: number) => ({
+    label: item.label.trim() || labelFromUrl(item.url),
+    url: normalizeUrl(item.url),
+    subtitle: item.subtitle || null,
+    badge: item.badge || null,
+    is_adult: item.is_adult || false,
+    image_url: item.image_url || null,
+    size: item.size || null,
+    bg_color: item.bg_color || null,
+    title_color: item.title_color || null,
+    style_json: (item.style_json && Object.keys(item.style_json).length > 0
+      ? item.style_json
+      : null) as Tables<'block_items'>['style_json'],
+    order_index: orderIndex,
+  });
+
+  // Direct single-item Save (G1): persist ONLY this item. New → insert
+  // (append); existing → update preserving its order_index. Validates just
+  // this item; does not touch block.title style or sibling rows.
+  const saveSingleItem = async (item: LinkItem) => {
+    if (item.label.length > 100) {
+      toast.error('Title must be less than 100 characters');
+      return;
+    }
+    const urlError = validateUrl(normalizeUrl(item.url));
+    if (urlError) {
+      toast.error(urlError);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (item.id.startsWith('new-')) {
+        const payload = buildItemPayload(item, items.length);
+        const { error } = await supabase
+          .from('block_items')
+          .insert({ block_id: blockId, ...payload });
+        if (error) throw error;
+      } else {
+        const existing = existingItems.find((ei) => ei.id === item.id);
+        const orderIndex = existing ? existing.order_index : items.length;
+        const payload = buildItemPayload(item, orderIndex);
+        const { error } = await supabase
+          .from('block_items')
+          .update(payload)
+          .eq('id', item.id);
+        if (error) throw error;
+      }
+      toast.success('Link saved');
+      onSave?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error saving link:', error);
+      toast.error(error.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Direct single-item Delete (G1): a never-persisted new item just closes;
+  // an existing item is removed from block_items.
+  const deleteSingleItem = async (itemId: string) => {
+    if (itemId.startsWith('new-')) {
+      onOpenChange(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('block_items').delete().eq('id', itemId);
+      if (error) throw error;
+      toast.success('Link deleted');
+      onSave?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error deleting link:', error);
+      toast.error(error.message || 'Failed to delete');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -815,21 +953,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
         const item = items[i];
         const isNew = item.id.startsWith('new-');
 
-        const payload = {
-          label: item.label.trim() || labelFromUrl(item.url),
-          url: item.url,
-          subtitle: item.subtitle || null,
-          badge: item.badge || null,
-          is_adult: item.is_adult || false,
-          image_url: item.image_url || null,
-          size: item.size || null,
-          bg_color: item.bg_color || null,
-          title_color: item.title_color || null,
-          style_json: (item.style_json && Object.keys(item.style_json).length > 0
-            ? item.style_json
-            : null) as Tables<'block_items'>['style_json'],
-          order_index: i,
-        };
+        const payload = buildItemPayload(item, i);
 
         if (isNew) {
           const { error } = await supabase
@@ -863,15 +987,23 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: 
           item={editingItem}
           isNew={isNewItem}
           blockStyle={styleConfig}
-          onBack={() => { setView('list'); setEditingItem(null); }}
-          onSave={(updated) => {
-            if (isNewItem) {
-              setItems(prev => [...prev, updated]);
-            } else {
-              setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
-            }
-          }}
-          onDelete={deleteItem}
+          onBack={directMode
+            ? () => onOpenChange(false)
+            : () => { setView('list'); setEditingItem(null); }}
+          onSave={directMode
+            ? (updated) => { saveSingleItem(updated); }
+            : (updated) => {
+                if (isNewItem) {
+                  setItems(prev => [...prev, updated]);
+                } else {
+                  setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+                }
+                setView('list');
+                setEditingItem(null);
+              }}
+          onDelete={directMode
+            ? (id) => { deleteSingleItem(id); }
+            : (id) => { deleteItem(id); setView('list'); setEditingItem(null); }}
         />
       ) : (
         <>

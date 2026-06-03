@@ -246,6 +246,42 @@ export default function Editor() {
     fetchBlocks();
   };
 
+  // ── Per-item actions (G2: edit-aware preview cards, links blocks) ──
+
+  const handleItemEdit = (blockId: string, itemId: string) => {
+    const block = allBlocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const title = t(`blocks.${block.type}.title`) || block.type;
+    setEditingBlock({ id: block.id, type: block.type, title, directItemId: itemId });
+    setProfileDashboardOpen(true);
+  };
+
+  const handleItemAdd = (blockId: string) => {
+    const block = allBlocks.find((b) => b.id === blockId);
+    if (!block) return;
+    const title = t(`blocks.${block.type}.title`) || block.type;
+    setEditingBlock({ id: block.id, type: block.type, title, directNew: true });
+    setProfileDashboardOpen(true);
+  };
+
+  const handleItemDelete = async (itemId: string) => {
+    // Optimistic: strip the item from its block immediately.
+    const prev = allBlocks;
+    setAllBlocks((bs) =>
+      bs.map((b) => ({ ...b, items: b.items.filter((i) => i.id !== itemId) }))
+    );
+    try {
+      const { error } = await supabase.from('block_items').delete().eq('id', itemId);
+      if (error) throw error;
+      toast.success(t('editor.linkRemoved') || 'Link removed');
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast.error(t('editor.failedDelete') || 'Failed to remove link');
+      setAllBlocks(prev);
+      fetchBlocks();
+    }
+  };
+
   const handleBlockToggle = async (blockId: string, enabled: boolean) => {
     try {
       const { error } = await supabase
@@ -409,6 +445,9 @@ export default function Editor() {
               selectedMode={selectedMode}
               onModeChange={setSelectedMode}
               onAddContent={() => setProfileDashboardOpen(true)}
+              onItemEdit={handleItemEdit}
+              onItemDelete={handleItemDelete}
+              onItemAdd={handleItemAdd}
             />
           </div>
         </div>
@@ -427,6 +466,9 @@ export default function Editor() {
           selectedMode={selectedMode}
           onModeChange={setSelectedMode}
           onAddContent={() => setProfileDashboardOpen(true)}
+          onItemEdit={handleItemEdit}
+          onItemDelete={handleItemDelete}
+          onItemAdd={handleItemAdd}
         />
       </div>
 
