@@ -78,14 +78,6 @@ function rgbaStr(hex: string, a: number): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
-function Arrow() {
-  return (
-    <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
 export function LinkRow({ children }: { children: React.ReactNode }) {
   return <div className="lb-row">{children}</div>;
 }
@@ -204,15 +196,6 @@ export function LinkButton(props: LinkButtonProps) {
       </span>
 
       {meta && effectiveSize !== 'big' && effectiveSize !== 'button' && <span className="lb-meta">{meta}</span>}
-      {effectiveSize !== 'button' && (
-        <span
-          className="lb-arrow"
-          aria-hidden="true"
-          style={effectiveSize === 'big' ? { color: fillColor } : undefined}
-        >
-          <Arrow />
-        </span>
-      )}
     </>
   );
 

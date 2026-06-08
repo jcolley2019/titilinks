@@ -262,6 +262,7 @@ a.lb-reset:focus-visible, button.lb-reset:focus-visible {
   background: rgba(0,0,0,0.25);
 }
 .lb-velvet.lb-size-big.lb-span-half .lb-cover { aspect-ratio: 1 / 1; }
+.lb-velvet.lb-size-big .lb-cover img { object-fit: contain; }
 .lb-velvet.lb-size-big .lb-text {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 16px 16px 14px;
