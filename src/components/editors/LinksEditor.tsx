@@ -106,7 +106,7 @@ interface LinksBlockConfig {
   style: BlockStyleConfig;
 }
 
-interface LinkItem {
+export interface LinkItem {
   id: string;
   label: string;
   url: string;
@@ -197,6 +197,7 @@ function LinkDetailPanel({
   onBack,
   onSave,
   onDelete,
+  onDraftChange,
 }: {
   item: LinkItem;
   isNew: boolean;
@@ -204,10 +205,16 @@ function LinkDetailPanel({
   onBack: () => void;
   onSave: (item: LinkItem) => void;
   onDelete: (id: string) => void;
+  onDraftChange?: (item: LinkItem | null) => void;
 }) {
   const [local, setLocal] = useState<LinkItem>(item);
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
   const [subtitleExpanded, setSubtitleExpanded] = useState<boolean>(!!item.subtitle);
+
+  // Live-mirror the draft up to the preview (L2): emit on every change, and
+  // clear (null) when the panel unmounts so a cancelled edit doesn't linger.
+  useEffect(() => { onDraftChange?.(local); }, [local]);
+  useEffect(() => () => { onDraftChange?.(null); }, []);
 
   const update = (field: keyof LinkItem, value: any) => {
     setLocal(prev => ({ ...prev, [field]: value }));
@@ -684,9 +691,15 @@ interface LinksEditorProps {
    */
   directItemId?: string | null;
   directNew?: boolean;
+  /**
+   * Live-mirror channel (L2): fires with the in-progress draft on every edit
+   * and with null on panel unmount, so the parent can reflect unsaved changes
+   * in the preview before Save.
+   */
+  onDraftChange?: (item: LinkItem | null) => void;
 }
 
-export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew }: LinksEditorProps) {
+export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange }: LinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -1030,6 +1043,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           item={editingItem}
           isNew={isNewItem}
           blockStyle={styleConfig}
+          onDraftChange={onDraftChange}
           onBack={directMode
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}

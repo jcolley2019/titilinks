@@ -26,6 +26,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
 import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { LinksEditor } from '@/components/editors/LinksEditor';
+import type { LinkItem } from '@/components/editors/LinksEditor';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
@@ -60,6 +61,9 @@ interface ProfileDashboardProps {
    * from tapping a live block, not from the add-content menu.
    */
   editingBlock?: EditingBlockTarget | null;
+  /** Live-mirror channel (L2): forwarded to LinksEditor so the in-progress
+   *  draft reaches the preview before Save. */
+  onDraftChange?: (item: LinkItem | null) => void;
 }
 
 interface DashboardRow {
@@ -219,6 +223,7 @@ export function ProfileDashboard({
   onBlockEdit,
   onRefresh,
   editingBlock,
+  onDraftChange,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -357,7 +362,7 @@ export function ProfileDashboard({
       case 'social_links':
         return <SocialLinksEditor {...editorProps} />;
       case 'links':
-        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} />;
+        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} />;
       case 'product_cards':
         return <ProductCardsEditor {...editorProps} />;
       case 'email_subscribe':

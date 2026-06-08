@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { OnboardingForm } from '@/components/OnboardingForm';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
+import type { LinkItem } from '@/components/editors/LinksEditor';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -40,6 +41,8 @@ export default function Editor() {
   const [editingBlock, setEditingBlock] = useState<EditingBlockTarget | null>(null);
   const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
+  // Live-mirror (L2): the editor panel's in-progress draft, scoped to its block.
+  const [draftItem, setDraftItem] = useState<{ blockId: string; item: LinkItem } | null>(null);
 
   // Page labels from theme
   const themeJson = (page?.theme_json as ThemeJson) || {};
@@ -243,6 +246,7 @@ export default function Editor() {
   const handleProfileDashboardClose = () => {
     setProfileDashboardOpen(false);
     setEditingBlock(null);
+    setDraftItem(null);
     fetchBlocks();
   };
 
@@ -281,6 +285,28 @@ export default function Editor() {
       fetchBlocks();
     }
   };
+
+  // Live-mirror (L2): receive the editor's draft and pin it to the block being
+  // edited. Null clears the mirror (panel unmount / cancel).
+  const handleDraftChange = useCallback((item: LinkItem | null) => {
+    setDraftItem(item && editingBlock ? { blockId: editingBlock.id, item } : null);
+  }, [editingBlock]);
+
+  // Merge the draft into the preview's blocks: replace the matching item by id,
+  // or append it when it's a not-yet-persisted new- item. Cast bridges the
+  // editor's LinkItem onto the preview's BlockItem row — preview reads only the
+  // shared fields, so the missing DB columns are inert here.
+  const previewBlocks = useMemo(() => {
+    if (!draftItem) return allBlocks;
+    return allBlocks.map(b => {
+      if (b.id !== draftItem.blockId) return b;
+      const items = b.items ? [...b.items] : [];
+      const idx = items.findIndex(it => it.id === draftItem.item.id);
+      if (idx >= 0) items[idx] = { ...items[idx], ...draftItem.item } as BlockItem;
+      else items.push({ ...draftItem.item } as BlockItem);
+      return { ...b, items };
+    });
+  }, [allBlocks, draftItem]);
 
   const handleBlockToggle = async (blockId: string, enabled: boolean) => {
     try {
@@ -436,7 +462,7 @@ export default function Editor() {
           >
             <EditableProfileView
               page={page}
-              blocks={allBlocks}
+              blocks={previewBlocks}
               editMode={true}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
@@ -457,7 +483,7 @@ export default function Editor() {
       <div className="lg:hidden -mx-4 -mt-6 min-h-screen bg-[#0e0c09]">
         <EditableProfileView
           page={page}
-          blocks={allBlocks}
+          blocks={previewBlocks}
           editMode={true}
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
@@ -482,6 +508,7 @@ export default function Editor() {
         onBlockEdit={handleEditBlock}
         onRefresh={refresh}
         editingBlock={editingBlock}
+        onDraftChange={handleDraftChange}
       />
     </DashboardLayout>
   );
