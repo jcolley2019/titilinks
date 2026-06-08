@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -213,6 +213,42 @@ function LinkDetailPanel({
     setLocal(prev => ({ ...prev, [field]: value }));
   };
 
+  // --- unfurl: auto-fill title + image from the URL's metadata (best-effort) ---
+  const [unfurling, setUnfurling] = useState(false);
+  // Treat the item's existing URL as already-seen so merely opening a saved link
+  // and blurring its unchanged URL does not re-unfurl. A NEW/changed URL fires it.
+  const lastUnfurledRef = useRef<string>(normalizeUrl(item.url || ''));
+  // Auto-fill stops overwriting a field once the USER edits it this session.
+  const titleEditedRef = useRef(false);
+  const imageEditedRef = useRef(false);
+
+  const handleUnfurl = async () => {
+    const normalized = normalizeUrl(local.url);
+    if (!/^https?:\/\//i.test(normalized)) return;            // only real web URLs
+    if (titleEditedRef.current && imageEditedRef.current) return; // user set both → nothing to auto-fill
+    if (lastUnfurledRef.current === normalized) return;       // already tried this exact URL
+    lastUnfurledRef.current = normalized;
+
+    setUnfurling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('unfurl', {
+        body: { url: normalized },
+      });
+      if (error || !data) return;
+      const meta = data as { title?: string | null; image?: string | null };
+      setLocal(prev => {
+        const next = { ...prev };
+        if (!titleEditedRef.current && meta.title && meta.title.trim()) next.label = meta.title.trim();
+        if (!imageEditedRef.current && meta.image) next.image_url = meta.image;
+        return next;
+      });
+    } catch {
+      /* silent — autofill is best-effort, never blocks the user */
+    } finally {
+      setUnfurling(false);
+    }
+  };
+
   // Per-link style overrides live on block_items.style_json (additive — any
   // future keys are preserved). Writing null removes the key; empty → null.
   const setStyleField = (key: string, value: string | number | null) => {
@@ -282,7 +318,7 @@ function LinkDetailPanel({
               ThumbnailUpload still owns the hidden input + upload via open(). */}
           <ThumbnailUpload
             value={local.image_url}
-            onChange={(url) => update('image_url', url)}
+            onChange={(url) => { imageEditedRef.current = true; update('image_url', url); }}
             renderTrigger={({ open, uploading }) => {
               const noImage = !local.image_url;
               const isCover = local.size === 'big' || local.size === 'small';
@@ -442,9 +478,16 @@ function LinkDetailPanel({
             <Input
               value={local.url}
               onChange={(e) => update('url', e.target.value)}
+              onBlur={handleUnfurl}
               placeholder="https://..."
               className="h-10 text-[#0e0c09]"
             />
+            {unfurling && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Fetching link details…</span>
+              </div>
+            )}
           </div>
 
           {/* Title Input */}
@@ -452,7 +495,7 @@ function LinkDetailPanel({
             <Label className="text-sm">Title</Label>
             <Input
               value={local.label}
-              onChange={(e) => update('label', e.target.value)}
+              onChange={(e) => { titleEditedRef.current = true; update('label', e.target.value); }}
               placeholder="My Link"
               className="h-10 text-[#0e0c09]"
             />
