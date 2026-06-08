@@ -5,7 +5,25 @@
 // strings.
 
 import { useState, Fragment } from 'react';
-import { X } from 'lucide-react';
+import { X, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
@@ -19,7 +37,92 @@ type LinksBlockEditProps = {
   onItemEdit?: (id: string) => void;
   onItemDelete?: (id: string) => void;
   onItemAdd?: () => void;
+  onItemsReorder?: (orderedItemIds: string[]) => void;
 };
+
+// Edit-mode per-item shell: drag handle (top-left), tap-to-edit body, and the
+// delete (X) badge + inline confirm overlay (top-right). Self-contained sortable
+// node mirroring SortablePreviewCard. Never rendered on the public path.
+function SortableLinkItem({
+  item,
+  onItemEdit,
+  onItemDelete,
+  children,
+}: {
+  item: BlockItem;
+  onItemEdit?: (id: string) => void;
+  onItemDelete?: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? 'none' : transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+      className="relative"
+    >
+      {/* Drag handle — top-left, mirrors the X badge in the opposite corner.
+          Handle-only activation (listeners live here), so a card tap still edits. */}
+      <button
+        type="button"
+        aria-label="Reorder link"
+        {...attributes}
+        {...listeners}
+        className="absolute -top-2 -left-2 z-10 h-6 w-6 rounded-full bg-black/70 text-white/80 ring-1 ring-white/15 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+
+      <div onClick={() => onItemEdit?.(item.id)} className="cursor-pointer">
+        {children}
+      </div>
+
+      {/* Delete (X) — opens inline confirm */}
+      <button
+        type="button"
+        aria-label="Remove link"
+        onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
+        className="absolute -top-2 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/80 shadow-md ring-1 ring-white/15 hover:bg-black/90 hover:text-white transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+
+      {/* Inline confirm overlay — its controls stopPropagation so neither
+          tap reaches the card's onItemEdit. */}
+      {confirming && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl bg-black/85 backdrop-blur-sm px-4 text-center"
+        >
+          <p className="text-xs font-semibold text-white">Remove this link?</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onItemDelete?.(item.id); setConfirming(false); }}
+              className="rounded-full bg-red-500/90 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
+            >
+              Remove
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
+              className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white/80 hover:text-white hover:border-white/50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function LinksBlock({
   block,
@@ -29,10 +132,17 @@ export function LinksBlock({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onItemsReorder,
 }: ThemedBlockProps & LinksBlockEditProps) {
   const { t } = useLanguage();
   const tc = (text: string | null | undefined) => translateContent(text, t);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  // Item-level drag sensors — nested inside the block-level DndContext. Handle-
+  // only activation with an 8px threshold so a stationary press still taps.
+  const itemSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   if (block.items.length === 0) return null;
 
@@ -60,6 +170,16 @@ export function LinksBlock({
     }
   };
 
+  const handleItemDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = block.items.map((i) => i.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onItemsReorder?.(arrayMove(ids, oldIndex, newIndex));
+  };
+
   const VALID_SIZES = ['big', 'medium', 'small', 'button'] as const;
   type ItemSize = typeof VALID_SIZES[number];
   const resolveSize = (raw: string | null | undefined): ItemSize => {
@@ -68,123 +188,106 @@ export function LinksBlock({
     return 'medium';
   };
 
+  const renderedItems = block.items.map((item) => {
+    // Per-item color overrides synthesize a per-link theme — bg_color
+    // overrides theme.buttons.fill_color, title_color overrides text_color.
+    const itemTheme = (item.bg_color || item.title_color)
+      ? {
+          ...theme,
+          buttons: {
+            ...theme.buttons,
+            ...(item.bg_color ? { fill_color: item.bg_color } : {}),
+            ...(item.title_color ? { text_color: item.title_color } : {}),
+          },
+        }
+      : theme;
+
+    // Per-item border override (style_json) takes precedence over the
+    // block-level border; falls back to blockStyle when unset.
+    const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
+      ? (item.style_json as Record<string, any>)
+      : null;
+    const itemBlockStyle = sj
+      ? {
+          ...blockStyle,
+          ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
+          ...(sj.border_color ? { border_color: sj.border_color } : {}),
+        }
+      : blockStyle;
+
+    const linkButton = (
+      <LinkButton
+        as="a"
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        theme={itemTheme}
+        blockStyle={itemBlockStyle}
+        title={tc(item.label)}
+        subtitle={item.subtitle ? tc(item.subtitle) : undefined}
+        media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
+        meta={
+          item.is_adult && item.badge
+            ? `18+ · ${tc(item.badge)}`
+            : item.is_adult
+            ? '18+'
+            : item.badge
+            ? tc(item.badge)
+            : undefined
+        }
+        size={resolveSize(item.size)}
+        onClick={(e) => handleClick(e, item)}
+      />
+    );
+
+    // Public profile (editMode absent): render exactly as before.
+    if (!editMode) {
+      return <Fragment key={item.id}>{linkButton}</Fragment>;
+    }
+
+    // Edit preview: drag to reorder; tap card -> edit; X -> inline confirm -> delete.
+    return (
+      <SortableLinkItem
+        key={item.id}
+        item={item}
+        onItemEdit={onItemEdit}
+        onItemDelete={onItemDelete}
+      >
+        {linkButton}
+      </SortableLinkItem>
+    );
+  });
+
+  // Public render: no DnD — byte-identical to the pre-G3 output.
+  if (!editMode) {
+    return <div className="space-y-3">{renderedItems}</div>;
+  }
+
+  // Edit render: nested item-level DnD (handle-only) + trailing add button.
   return (
     <div className="space-y-3">
-      {block.items.map((item) => {
-        // Per-item color overrides synthesize a per-link theme — bg_color
-        // overrides theme.buttons.fill_color, title_color overrides text_color.
-        const itemTheme = (item.bg_color || item.title_color)
-          ? {
-              ...theme,
-              buttons: {
-                ...theme.buttons,
-                ...(item.bg_color ? { fill_color: item.bg_color } : {}),
-                ...(item.title_color ? { text_color: item.title_color } : {}),
-              },
-            }
-          : theme;
-
-        // Per-item border override (style_json) takes precedence over the
-        // block-level border; falls back to blockStyle when unset.
-        const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
-          ? (item.style_json as Record<string, any>)
-          : null;
-        const itemBlockStyle = sj
-          ? {
-              ...blockStyle,
-              ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
-              ...(sj.border_color ? { border_color: sj.border_color } : {}),
-            }
-          : blockStyle;
-
-        const linkButton = (
-          <LinkButton
-            as="a"
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            theme={itemTheme}
-            blockStyle={itemBlockStyle}
-            title={tc(item.label)}
-            subtitle={item.subtitle ? tc(item.subtitle) : undefined}
-            media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
-            meta={
-              item.is_adult && item.badge
-                ? `18+ · ${tc(item.badge)}`
-                : item.is_adult
-                ? '18+'
-                : item.badge
-                ? tc(item.badge)
-                : undefined
-            }
-            size={resolveSize(item.size)}
-            onClick={(e) => handleClick(e, item)}
-          />
-        );
-
-        // Public profile (editMode absent): render exactly as before.
-        if (!editMode) {
-          return <Fragment key={item.id}>{linkButton}</Fragment>;
-        }
-
-        // Edit preview: tap card -> edit; X -> inline confirm -> delete.
-        const confirming = confirmingId === item.id;
-        return (
-          <div key={item.id} className="relative">
-            <div onClick={() => onItemEdit?.(item.id)} className="cursor-pointer">
-              {linkButton}
-            </div>
-
-            {/* Delete (X) — opens inline confirm */}
-            <button
-              type="button"
-              aria-label="Remove link"
-              onClick={(e) => { e.stopPropagation(); setConfirmingId(item.id); }}
-              className="absolute -top-2 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/80 shadow-md ring-1 ring-white/15 hover:bg-black/90 hover:text-white transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-
-            {/* Inline confirm overlay — its controls stopPropagation so neither
-                tap reaches the card's onItemEdit. */}
-            {confirming && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl bg-black/85 backdrop-blur-sm px-4 text-center"
-              >
-                <p className="text-xs font-semibold text-white">Remove this link?</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onItemDelete?.(item.id); setConfirmingId(null); }}
-                    className="rounded-full bg-red-500/90 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
-                  >
-                    Remove
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setConfirmingId(null); }}
-                    className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white/80 hover:text-white hover:border-white/50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <DndContext
+        sensors={itemSensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleItemDragEnd}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+      >
+        <SortableContext
+          items={block.items.map((i) => i.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {renderedItems}
+        </SortableContext>
+      </DndContext>
 
       {/* Trailing "+" card — add another link (edit preview only) */}
-      {editMode && (
-        <button
-          type="button"
-          onClick={() => onItemAdd?.()}
-          className="w-full rounded-2xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
-        >
-          + Add link
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onItemAdd?.()}
+        className="w-full rounded-2xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
+      >
+        + Add link
+      </button>
     </div>
   );
 }

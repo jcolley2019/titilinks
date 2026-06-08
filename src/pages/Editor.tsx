@@ -348,6 +348,26 @@ export default function Editor() {
     }
   };
 
+  // Item reorder (G3): mirrors handleBlockReorder but on block_items, scoped to
+  // one block. Optimistic reorder of that block's items, then per-row order_index
+  // writes; refetch on failure.
+  const handleItemsReorder = async (blockId: string, orderedItemIds: string[]) => {
+    setAllBlocks(prev => prev.map(b => {
+      if (b.id !== blockId) return b;
+      const byId = new Map((b.items ?? []).map(i => [i.id, i]));
+      const reordered = orderedItemIds.map(id => byId.get(id)).filter(Boolean) as BlockItem[];
+      return { ...b, items: reordered };
+    }));
+    try {
+      for (let i = 0; i < orderedItemIds.length; i++) {
+        await supabase.from('block_items').update({ order_index: i }).eq('id', orderedItemIds[i]);
+      }
+    } catch (e) {
+      toast.error('Failed to reorder links');
+      fetchBlocks();
+    }
+  };
+
   const handleOnboardingComplete = () => {
     fetchPageData();
   };
@@ -474,6 +494,7 @@ export default function Editor() {
               onItemEdit={handleItemEdit}
               onItemDelete={handleItemDelete}
               onItemAdd={handleItemAdd}
+              onItemsReorder={handleItemsReorder}
             />
           </div>
         </div>
@@ -495,6 +516,7 @@ export default function Editor() {
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
+          onItemsReorder={handleItemsReorder}
         />
       </div>
 

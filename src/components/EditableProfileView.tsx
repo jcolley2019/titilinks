@@ -92,6 +92,7 @@ interface EditableProfileViewProps {
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
+  onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -181,12 +182,14 @@ function BlockRenderer({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onItemsReorder,
 }: ThemedBlockProps & {
   pageId?: string;
   editMode?: boolean;
   onItemEdit?: (id: string) => void;
   onItemDelete?: (id: string) => void;
   onItemAdd?: () => void;
+  onItemsReorder?: (orderedItemIds: string[]) => void;
 }) {
   const blockProps = { block, onOutboundClick, theme };
 
@@ -203,6 +206,7 @@ function BlockRenderer({
           onItemEdit={onItemEdit}
           onItemDelete={onItemDelete}
           onItemAdd={onItemAdd}
+          onItemsReorder={onItemsReorder}
         />
       );
     case 'product_cards':
@@ -620,6 +624,7 @@ function SortablePreviewCard({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onItemsReorder,
   isDragActive,
   theme,
 }: {
@@ -631,6 +636,7 @@ function SortablePreviewCard({
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
+  onItemsReorder?: (orderedItemIds: string[]) => void;
   isDragActive: boolean;
   theme: ThemeJson;
 }) {
@@ -724,6 +730,7 @@ function SortablePreviewCard({
               onItemEdit={(itemId) => onItemEdit?.(block.id, itemId)}
               onItemDelete={onItemDelete}
               onItemAdd={() => onItemAdd?.(block.id)}
+              onItemsReorder={onItemsReorder}
             />
           ) : (
             <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
@@ -751,6 +758,7 @@ export function EditableProfileView({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onItemsReorder,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -2013,6 +2021,7 @@ export function EditableProfileView({
                       onItemEdit={onItemEdit}
                       onItemDelete={onItemDelete}
                       onItemAdd={onItemAdd}
+                      onItemsReorder={(ids) => onItemsReorder?.(block.id, ids)}
                       isDragActive={isDragActive}
                       theme={theme}
                     />
