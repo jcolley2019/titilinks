@@ -688,9 +688,15 @@ function SortablePreviewCard({
             )}
           />
         </button>
-        <button onClick={onEdit} className="text-white/30 hover:text-white/80">
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        {/* Links blocks are edited entirely in the live preview (tap a card,
+            "+ Add link", grip to reorder, X to delete) — no block-level list
+            view — so the control-bar chevron is hidden for them (G5). Every
+            other block type keeps its chevron. */}
+        {block.type !== 'links' && (
+          <button onClick={onEdit} className="text-white/30 hover:text-white/80">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Full-size block content preview — smooth collapse during drag.

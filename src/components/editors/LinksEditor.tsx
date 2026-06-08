@@ -1,21 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -28,28 +11,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import {
   Loader2,
   Link as LinkIcon,
-  Plus,
-  GripVertical,
   Trash2,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  Palette,
   Settings2,
   Camera,
   Lock,
@@ -118,76 +91,6 @@ export interface LinkItem {
   bg_color?: string | null;
   title_color?: string | null;
   style_json?: Record<string, any> | null;
-}
-
-interface SortableLinkRowProps {
-  item: LinkItem;
-  onEdit: (item: LinkItem) => void;
-  onDelete: (id: string) => void;
-}
-
-function SortableLinkRow({ item, onEdit, onDelete }: SortableLinkRowProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isOver,
-  } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={[
-        'border rounded-lg bg-card',
-        'transition-all duration-150 ease-out',
-        'motion-reduce:transition-none motion-reduce:transform-none',
-        isDragging
-          ? 'opacity-90 shadow-lg scale-[1.01] border-primary/50 z-10 relative'
-          : 'border-border',
-        isOver && !isDragging ? 'border-primary/40 bg-primary/5' : '',
-      ].filter(Boolean).join(' ')}
-    >
-      <div className="flex items-center gap-2 p-3">
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-
-        <div
-          className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer"
-          onClick={() => onEdit(item)}
-        >
-          <LinkIcon className="h-4 w-4 text-primary shrink-0" />
-          <div className="min-w-0">
-            <p className="font-medium text-sm truncate">{item.label || 'Untitled Link'}</p>
-            <p className="text-sm text-muted-foreground truncate">{item.url || 'No URL set'}</p>
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(item.id)}
-          className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
 }
 
 function LinkDetailPanel({
@@ -704,17 +607,10 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [styleConfig, setStyleConfig] = useState<BlockStyleConfig>(DEFAULT_BLOCK_STYLE);
-  const [styleExpanded, setStyleExpanded] = useState(false);
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [editingItem, setEditingItem] = useState<LinkItem | null>(null);
   const [isNewItem, setIsNewItem] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
 
   // Direct single-item mode (G1): open straight into the detail panel.
   const directMode = directItemId != null || directNew === true;
@@ -812,91 +708,14 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => item.id === active.id);
-      const newIndex = items.findIndex((item) => item.id === over.id);
-      setItems(arrayMove(items, oldIndex, newIndex));
-    }
-  };
-
-  const addLink = () => {
-    if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} links allowed`);
-      return;
-    }
-    const newItem: LinkItem = {
-      id: `new-${Date.now()}-${Math.random()}`,
-      label: '',
-      url: '',
-      subtitle: '',
-      badge: '',
-      is_adult: false,
-      image_url: null,
-      size: 'big',
-      bg_color: null,
-      title_color: null,
-    };
-    setEditingItem(newItem);
-    setIsNewItem(true);
-    setView('detail');
-  };
-
-  const editLink = (item: LinkItem) => {
-    setEditingItem({ ...item });
-    setIsNewItem(false);
-    setView('detail');
-  };
-
-  const updateItem = (id: string, field: keyof LinkItem, value: string | boolean | null) => {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    );
-    if (errors[id]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    }
-  };
-
+  // Direct single-item Delete (G1) closes the panel; this helper is retained
+  // only for LinkDetailPanel's now-unreachable non-direct onDelete branch.
   const deleteItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    let valid = true;
-
-    // Enforce item cap
-    if (items.length > MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} links allowed`);
-      return false;
-    }
-
-    items.forEach((item) => {
-      // Title (label) is optional (FL.11) — it falls back to the URL hostname
-      // at save time. Still cap its length and validate the URL.
-      if (item.label.length > 100) {
-        newErrors[item.id] = 'Label must be less than 100 characters';
-        valid = false;
-      } else {
-        const urlError = validateUrl(normalizeUrl(item.url));
-        if (urlError) {
-          newErrors[item.id] = urlError;
-          valid = false;
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return valid;
-  };
-
-  // Shared payload shape for a single block_items row (used by both the
-  // batched list Save and the direct single-item Save).
+  // Shared payload shape for a single block_items row (used by the direct
+  // single-item Save).
   const buildItemPayload = (item: LinkItem, orderIndex: number) => ({
     label: item.label.trim() || labelFromUrl(item.url),
     url: normalizeUrl(item.url),
@@ -978,64 +797,6 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
     }
   };
 
-  const handleSave = async () => {
-    if (!validate()) {
-      toast.error('Please fix the errors before saving');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      // Save style config to block title
-      const configJson: LinksBlockConfig = { style: styleConfig };
-      const { error: blockError } = await supabase
-        .from('blocks')
-        .update({ title: JSON.stringify(configJson) })
-        .eq('id', blockId);
-
-      if (blockError) throw blockError;
-
-      // Delete removed items
-      const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
-      const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
-
-      for (const item of toDelete) {
-        const { error } = await supabase.from('block_items').delete().eq('id', item.id);
-        if (error) throw error;
-      }
-
-      // Update or create items
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const isNew = item.id.startsWith('new-');
-
-        const payload = buildItemPayload(item, i);
-
-        if (isNew) {
-          const { error } = await supabase
-            .from('block_items')
-            .insert({ block_id: blockId, ...payload });
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from('block_items')
-            .update(payload)
-            .eq('id', item.id);
-          if (error) throw error;
-        }
-      }
-
-      toast.success('Links saved');
-      onSave?.();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error('Error saving links:', error);
-      toast.error(error.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const innerContent = (
     <>
       {view === 'detail' && editingItem ? (
@@ -1081,183 +842,13 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="flex flex-col flex-1 min-h-0">
-              {/* Style Variants Section */}
-              <Collapsible open={styleExpanded} onOpenChange={setStyleExpanded} className="mb-4">
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full justify-between gap-2 text-foreground">
-                    <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-primary" />
-                      <span>Style Variants</span>
-                    </div>
-                    {styleExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 space-y-4">
-                  {/* Variant Select */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Button Variant</Label>
-                      <Select
-                        value={styleConfig.variant}
-                        onValueChange={(value: 'filled' | 'outline' | 'glass' | 'minimal') =>
-                          setStyleConfig(prev => ({ ...prev, variant: value }))
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-sm text-foreground">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="filled">Filled</SelectItem>
-                          <SelectItem value="outline">Outline</SelectItem>
-                          <SelectItem value="glass">Glass</SelectItem>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Font Style</Label>
-                      <Select
-                        value={styleConfig.font_style}
-                        onValueChange={(value: 'normal' | 'mono' | 'serif') =>
-                          setStyleConfig(prev => ({ ...prev, font_style: value }))
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-sm text-foreground">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="mono">Monospace</SelectItem>
-                          <SelectItem value="serif">Serif</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Border Width & Color */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Border Width ({styleConfig.border_width}px)</Label>
-                      <Slider
-                        value={[styleConfig.border_width]}
-                        onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, border_width: value }))}
-                        min={0}
-                        max={4}
-                        step={1}
-                        className="py-2"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Border Color</Label>
-                      <Input
-                        type="color"
-                        value={styleConfig.border_color || '#ffffff'}
-                        onChange={(e) => setStyleConfig(prev => ({ ...prev, border_color: e.target.value }))}
-                        className="h-8 p-1 w-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Background Opacity & Letter Spacing */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Background Opacity ({Math.round(styleConfig.background_opacity * 100)}%)</Label>
-                      <Slider
-                        value={[styleConfig.background_opacity]}
-                        onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, background_opacity: value }))}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        className="py-2"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Letter Spacing ({styleConfig.letter_spacing.toFixed(2)}em)</Label>
-                      <Slider
-                        value={[styleConfig.letter_spacing]}
-                        onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, letter_spacing: value }))}
-                        min={-0.05}
-                        max={0.2}
-                        step={0.01}
-                        className="py-2"
-                      />
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Add Link Button */}
-              <div className="mb-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLink}
-                  className="gap-2 text-foreground"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Link
-                </Button>
-              </div>
-
-              {/* Items List */}
-              <ScrollArea className="flex-1 -mx-6 px-6">
-                {items.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <LinkIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No links yet.</p>
-                    <p className="text-sm">Click "Add Link" to get started.</p>
-                  </div>
-                ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2">
-                        {items.map((item) => (
-                          <SortableLinkRow
-                            key={item.id}
-                            item={item}
-                            onEdit={editLink}
-                            onDelete={deleteItem}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                )}
-              </ScrollArea>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4 mt-4 border-t border-border">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1 text-foreground"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 gradient-primary text-primary-foreground"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-              </div>
-            </div>
+            // Links are edited entirely in the live preview now (tap a card,
+            // "+ Add link", grip to reorder, X to delete). The block-level list
+            // view and Style Variants editor were retired (G5); links always
+            // open straight into LinkDetailPanel via directMode, so this branch
+            // is only briefly reachable during the initial load and renders
+            // nothing. styleConfig is still parsed/passed to the detail panel.
+            <div className="flex flex-col flex-1 min-h-0" />
           )}
         </>
       )}
