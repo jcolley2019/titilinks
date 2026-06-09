@@ -27,9 +27,10 @@ interface BioEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  onTitleDraftChange?: (title: string | null) => void;
 }
 
-export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: BioEditorProps) {
+export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTitleDraftChange }: BioEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +41,14 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
   useEffect(() => {
     if (open) fetchBio();
   }, [open, blockId]);
+
+  // Live-mirror (L3): push the in-progress style to the preview on every change (after load).
+  useEffect(() => {
+    if (loading) return;
+    onTitleDraftChange?.(JSON.stringify(style));
+  }, [style, loading]);
+  // Clear the mirror when the editor unmounts (cancel / close).
+  useEffect(() => () => { onTitleDraftChange?.(null); }, []);
 
   const fetchBio = async () => {
     setLoading(true);

@@ -43,6 +43,8 @@ export default function Editor() {
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
   // Live-mirror (L2): the editor panel's in-progress draft, scoped to its block.
   const [draftItem, setDraftItem] = useState<{ blockId: string; item: LinkItem } | null>(null);
+  // Live-mirror (L3): the editor's in-progress block.title config (Text/Bio), scoped to its block.
+  const [draftTitle, setDraftTitle] = useState<{ blockId: string; title: string } | null>(null);
 
   // Page labels from theme
   const themeJson = (page?.theme_json as ThemeJson) || {};
@@ -247,6 +249,7 @@ export default function Editor() {
     setProfileDashboardOpen(false);
     setEditingBlock(null);
     setDraftItem(null);
+    setDraftTitle(null);
     fetchBlocks();
   };
 
@@ -292,21 +295,32 @@ export default function Editor() {
     setDraftItem(item && editingBlock ? { blockId: editingBlock.id, item } : null);
   }, [editingBlock]);
 
+  // Live-mirror (L3): receive the editor's draft block.title (JSON) and pin it to the edited block.
+  const handleTitleDraftChange = useCallback((title: string | null) => {
+    setDraftTitle(title != null && editingBlock ? { blockId: editingBlock.id, title } : null);
+  }, [editingBlock]);
+
   // Merge the draft into the preview's blocks: replace the matching item by id,
   // or append it when it's a not-yet-persisted new- item. Cast bridges the
   // editor's LinkItem onto the preview's BlockItem row — preview reads only the
   // shared fields, so the missing DB columns are inert here.
   const previewBlocks = useMemo(() => {
-    if (!draftItem) return allBlocks;
+    if (!draftItem && !draftTitle) return allBlocks;
     return allBlocks.map(b => {
-      if (b.id !== draftItem.blockId) return b;
-      const items = b.items ? [...b.items] : [];
-      const idx = items.findIndex(it => it.id === draftItem.item.id);
-      if (idx >= 0) items[idx] = { ...items[idx], ...draftItem.item } as BlockItem;
-      else items.push({ ...draftItem.item } as BlockItem);
-      return { ...b, items };
+      let nb = b;
+      if (draftItem && b.id === draftItem.blockId) {
+        const items = b.items ? [...b.items] : [];
+        const idx = items.findIndex(it => it.id === draftItem.item.id);
+        if (idx >= 0) items[idx] = { ...items[idx], ...draftItem.item } as BlockItem;
+        else items.push({ ...draftItem.item } as BlockItem);
+        nb = { ...nb, items };
+      }
+      if (draftTitle && b.id === draftTitle.blockId) {
+        nb = { ...nb, title: draftTitle.title };
+      }
+      return nb;
     });
-  }, [allBlocks, draftItem]);
+  }, [allBlocks, draftItem, draftTitle]);
 
   const handleBlockToggle = async (blockId: string, enabled: boolean) => {
     try {
@@ -531,6 +545,7 @@ export default function Editor() {
         onRefresh={refresh}
         editingBlock={editingBlock}
         onDraftChange={handleDraftChange}
+        onTitleDraftChange={handleTitleDraftChange}
       />
     </DashboardLayout>
   );

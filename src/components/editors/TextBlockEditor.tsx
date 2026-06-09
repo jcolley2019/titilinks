@@ -33,9 +33,10 @@ interface TextBlockEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  onTitleDraftChange?: (title: string | null) => void;
 }
 
-export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode }: TextBlockEditorProps) {
+export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode, onTitleDraftChange }: TextBlockEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,6 +46,14 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
   useEffect(() => {
     if (open) fetchText();
   }, [open, blockId]);
+
+  // Live-mirror (L3): push the in-progress config to the preview on every change (after load).
+  useEffect(() => {
+    if (loading) return;
+    onTitleDraftChange?.(JSON.stringify(config));
+  }, [config, loading]);
+  // Clear the mirror when the editor unmounts (cancel / close).
+  useEffect(() => () => { onTitleDraftChange?.(null); }, []);
 
   const fetchText = async () => {
     setLoading(true);

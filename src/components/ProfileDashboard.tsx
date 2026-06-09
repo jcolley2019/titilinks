@@ -67,6 +67,9 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L2): forwarded to LinksEditor so the in-progress
    *  draft reaches the preview before Save. */
   onDraftChange?: (item: LinkItem | null) => void;
+  /** Live-mirror channel (L3): forwarded to Text/Bio editors so the in-progress
+   *  block.title config reaches the preview before Save. */
+  onTitleDraftChange?: (title: string | null) => void;
 }
 
 interface DashboardRow {
@@ -232,6 +235,7 @@ export function ProfileDashboard({
   onRefresh,
   editingBlock,
   onDraftChange,
+  onTitleDraftChange,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -378,7 +382,7 @@ export function ProfileDashboard({
       case 'gallery':
         return <GalleryEditor {...editorProps} />;
       case 'bio':
-        return <BioEditor {...editorProps} />;
+        return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} />;
       case 'featured_media':
         return <FeaturedMediaEditor {...editorProps} />;
       case 'video_feed':
@@ -390,7 +394,7 @@ export function ProfileDashboard({
       case 'content_section':
         return <ContentSectionEditor {...editorProps} />;
       case 'text':
-        return <TextBlockEditor {...editorProps} />;
+        return <TextBlockEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} />;
       default:
         return null;
     }
