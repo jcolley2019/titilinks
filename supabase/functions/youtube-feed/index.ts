@@ -88,37 +88,47 @@ async function resolveChannelId(pageUrl: string): Promise<string | null> {
   return null;
 }
 
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
-}
-
-function parseFeed(xml: string, limit: number) {
-  const channelTitleMatch = xml.match(/<title>([^<]*)<\/title>/);
-  const channelTitle = channelTitleMatch ? decodeEntities(channelTitleMatch[1]) : null;
-  const entries = xml.split("<entry>").slice(1);
-  const videos: Array<Record<string, unknown>> = [];
-  for (const e of entries) {
-    if (videos.length >= limit) break;
-    const idM = e.match(/<yt:videoId>([^<]+)<\/yt:videoId>/);
-    if (!idM) continue;
-    const videoId = idM[1];
-    const titleM = e.match(/<title>([^<]*)<\/title>/);
-    const pubM = e.match(/<published>([^<]+)<\/published>/);
-    const thumbM = e.match(/<media:thumbnail[^>]+url="([^"]+)"/);
-    videos.push({
-      video_id: videoId,
-      title: titleM ? decodeEntities(titleM[1]) : "",
-      published: pubM ? pubM[1] : null,
-      thumbnail: thumbM ? thumbM[1] : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-    });
+async function fetchFeedViaDataApi(
+  channelId: string,
+  limit: number,
+  apiKey: string,
+): Promise<{ channelTitle: string | null; videos: Array<Record<string, unknown>> } | null> {
+  // A channel's uploads playlist id is the channel id with "UC" -> "UU",
+  // so we skip a channels.list call (1 quota unit total per refresh).
+  const uploadsPlaylist = "UU" + channelId.slice(2);
+  const url =
+    `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet` +
+    `&maxResults=${limit}&playlistId=${uploadsPlaylist}&key=${apiKey}`;
+  const raw = await fetchText(url);
+  if (!raw) return null;
+  let json: any;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return null;
   }
+  if (!json || !Array.isArray(json.items)) return null;
+  const videos = json.items
+    .map((it: any) => {
+      const sn = it?.snippet ?? {};
+      const videoId = sn?.resourceId?.videoId;
+      if (!videoId) return null;
+      const thumbs = sn?.thumbnails ?? {};
+      const thumb =
+        (thumbs.high || thumbs.medium || thumbs.default || {}).url ||
+        `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      return {
+        video_id: videoId,
+        title: sn?.title ?? "",
+        published: sn?.publishedAt ?? null,
+        thumbnail: thumb,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+  const first = json.items[0]?.snippet ?? {};
+  const channelTitle = first.videoOwnerChannelTitle ?? first.channelTitle ?? null;
   return { channelTitle, videos };
 }
 
@@ -140,14 +150,16 @@ serve(async (req) => {
     return json200({ videos: [], error: "Could not resolve a YouTube channel from that input." });
   }
 
+  const apiKey = Deno.env.get("YOUTUBE_API_KEY");
+  if (!apiKey) return json200({ videos: [], channel_id: channelId, error: "Server missing YOUTUBE_API_KEY." });
+
   const cached = cache.get(channelId);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return json200(cached.data);
 
-  const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  if (!xml) return json200({ videos: [], channel_id: channelId, error: "Feed fetch failed." });
+  const result = await fetchFeedViaDataApi(channelId, limit, apiKey);
+  if (!result) return json200({ videos: [], channel_id: channelId, error: "Feed fetch failed." });
 
-  const { channelTitle, videos } = parseFeed(xml, limit);
-  const data = { channel_id: channelId, channel_title: channelTitle, videos };
+  const data = { channel_id: channelId, channel_title: result.channelTitle, videos: result.videos };
   cache.set(channelId, { at: Date.now(), data });
   return json200(data);
 });
