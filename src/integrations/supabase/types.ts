@@ -508,6 +508,7 @@ export type Database = {
         | "product_catalog"
         | "gallery"
         | "bio"
+        | "video_feed"
       event_type: "page_view" | "outbound_click" | "mode_routed"
       mode_type: "shop" | "recruit"
     }
@@ -650,6 +651,7 @@ export const Constants = {
         "product_catalog",
         "gallery",
         "bio",
+        "video_feed",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
       mode_type: ["shop", "recruit"],

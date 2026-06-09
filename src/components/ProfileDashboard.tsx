@@ -9,6 +9,7 @@ import {
   Type,
   Palette,
   Video,
+  Youtube,
   ShoppingBag,
   Download,
   Lock,
@@ -32,6 +33,7 @@ import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor'
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
+import { VideoFeedEditor } from '@/components/editors/VideoFeedEditor';
 import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
@@ -94,6 +96,12 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.featuredLinks',
         subtitleKey: 'dashboard.featuredLinksDesc',
         blockType: 'links',
+      },
+      {
+        icon: <Youtube className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.videoFeeds',
+        subtitleKey: 'dashboard.videoFeedsDesc',
+        blockType: 'video_feed',
       },
       {
         icon: <MousePointer className="h-6 w-6 text-white" />,
@@ -373,6 +381,8 @@ export function ProfileDashboard({
         return <BioEditor {...editorProps} />;
       case 'featured_media':
         return <FeaturedMediaEditor {...editorProps} />;
+      case 'video_feed':
+        return <VideoFeedEditor {...editorProps} />;
       case 'hero_card':
         return <HeroCardEditor {...editorProps} />;
       case 'social_icon_row':
