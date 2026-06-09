@@ -55,6 +55,7 @@ import { LinksBlock } from '@/components/blocks/LinksBlock';
 import { SocialLinksBlock } from '@/components/blocks/SocialLinksBlock';
 import { ProductCardsBlock } from '@/components/blocks/ProductCardsBlock';
 import { FeaturedMediaBlock } from '@/components/blocks/FeaturedMediaBlock';
+import { VideoFeedBlock } from '@/components/blocks/VideoFeedBlock';
 import { HeroCardBlock } from '@/components/blocks/HeroCardBlock';
 import { SocialIconRowBlock } from '@/components/blocks/SocialIconRowBlock';
 import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
@@ -213,6 +214,8 @@ function BlockRenderer({
       return <ProductCardsBlock {...blockProps} />;
     case 'featured_media':
       return <FeaturedMediaBlock {...blockProps} />;
+    case 'video_feed':
+      return <VideoFeedBlock {...blockProps} />;
     case 'hero_card':
       return <HeroCardBlock block={block} />;
     case 'social_icon_row':
@@ -713,7 +716,7 @@ function SortablePreviewCard({
         <div className="p-4">
           {block.type === 'gallery' ? (
             <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
-          ) : block.items.length === 0 ? (
+          ) : block.items.length === 0 && block.type !== 'video_feed' ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
               <button
