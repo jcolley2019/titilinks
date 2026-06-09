@@ -60,6 +60,8 @@ import { HeroCardBlock } from '@/components/blocks/HeroCardBlock';
 import { SocialIconRowBlock } from '@/components/blocks/SocialIconRowBlock';
 import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
+import { TextBlock } from '@/components/blocks/TextBlock';
+import { resolveFontFamily } from '@/lib/fonts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -216,6 +218,8 @@ function BlockRenderer({
       return <FeaturedMediaBlock {...blockProps} />;
     case 'video_feed':
       return <VideoFeedBlock {...blockProps} />;
+    case 'text':
+      return <TextBlock {...blockProps} />;
     case 'hero_card':
       return <HeroCardBlock block={block} />;
     case 'social_icon_row':
@@ -237,10 +241,30 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
   const bioText = block.items[0]?.label || '';
   if (!bioText) return null;
 
+  // Style config stored as JSON in block.title; the bio text lives in items[0].label.
+  let cfg: { align: 'left' | 'center' | 'right'; font: string; bold: boolean; size: 'sm' | 'base' | 'lg' } = {
+    align: 'center',
+    font: '',
+    bold: false,
+    size: 'base',
+  };
+  if (block.title) {
+    try {
+      cfg = { ...cfg, ...JSON.parse(block.title) };
+    } catch {
+      // No JSON config (legacy bio) — keep defaults.
+    }
+  }
+
+  const alignClass =
+    cfg.align === 'left' ? 'text-left' : cfg.align === 'right' ? 'text-right' : 'text-center';
+  const sizeClass = cfg.size === 'sm' ? 'text-sm' : cfg.size === 'lg' ? 'text-lg' : 'text-base';
+  const fontFamily = resolveFontFamily(cfg.font);
+
   return (
-    <div className="px-1">
+    <div className={cn('px-1 py-3', alignClass)} style={fontFamily ? { fontFamily } : undefined}>
       <p
-        className="text-sm leading-relaxed whitespace-pre-wrap"
+        className={cn('leading-relaxed whitespace-pre-wrap', sizeClass, cfg.bold ? 'font-bold' : 'font-normal')}
         style={{ color: theme.typography.text_color, opacity: 0.85 }}
       >
         {bioText}
@@ -716,7 +740,7 @@ function SortablePreviewCard({
         <div className="p-4">
           {block.type === 'gallery' ? (
             <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
-          ) : block.items.length === 0 && block.type !== 'video_feed' ? (
+          ) : block.items.length === 0 && block.type !== 'video_feed' && block.type !== 'text' ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
               <button

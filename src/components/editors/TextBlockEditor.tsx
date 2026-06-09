@@ -13,15 +13,21 @@ import { Loader2, AlignLeft, AlignCenter, AlignRight, Bold } from 'lucide-react'
 import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
-import type { ElementStyle, TextAlign, TextSize } from '@/lib/text-block-config';
-import type { Tables } from '@/integrations/supabase/types';
+import {
+  parseTextConfig,
+  defaultTextConfig,
+  type TextConfig,
+  type ElementStyle,
+  type TextAlign,
+  type TextSize,
+} from '@/lib/text-block-config';
 
-type BlockItem = Tables<'block_items'>;
+const BODY_MAX = 1000;
+const HEADING_MAX = 80;
 
-const BIO_MAX = 300;
-const DEFAULT_STYLE: ElementStyle = { font: '', bold: false, size: 'base', align: 'center' };
+type Target = 'heading' | 'body';
 
-interface BioEditorProps {
+interface TextBlockEditorProps {
   blockId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,52 +35,30 @@ interface BioEditorProps {
   panelMode?: boolean;
 }
 
-export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: BioEditorProps) {
+export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode }: TextBlockEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [bioText, setBioText] = useState('');
-  const [existingItem, setExistingItem] = useState<BlockItem | null>(null);
-  const [style, setStyle] = useState<ElementStyle>(DEFAULT_STYLE);
+  const [config, setConfig] = useState<TextConfig>(defaultTextConfig());
+  const [target, setTarget] = useState<Target>('heading');
 
   useEffect(() => {
-    if (open) fetchBio();
+    if (open) fetchText();
   }, [open, blockId]);
 
-  const fetchBio = async () => {
+  const fetchText = async () => {
     setLoading(true);
     try {
-      const { data: items, error: itemsError } = await supabase
-        .from('block_items')
-        .select('*')
-        .eq('block_id', blockId)
-        .order('order_index', { ascending: true })
-        .limit(1);
-      if (itemsError) throw itemsError;
-
-      const item = items?.[0] || null;
-      setExistingItem(item);
-      setBioText(item?.label || '');
-
-      const { data: blockData, error: blockError } = await supabase
+      const { data, error } = await supabase
         .from('blocks')
         .select('title')
         .eq('id', blockId)
         .single();
-      if (blockError) throw blockError;
-
-      let nextStyle: ElementStyle = { ...DEFAULT_STYLE };
-      if (blockData?.title) {
-        try {
-          nextStyle = { ...DEFAULT_STYLE, ...JSON.parse(blockData.title) };
-        } catch {
-          // No JSON config — keep defaults.
-        }
-      }
-      setStyle(nextStyle);
+      if (error) throw error;
+      setConfig(parseTextConfig(data?.title));
     } catch (error) {
-      console.error('Error fetching bio:', error);
-      toast.error(t('blockEditor.bioLoadError'));
+      console.error('Error fetching text block:', error);
+      toast.error(t('blockEditor.textLoadError'));
     } finally {
       setLoading(false);
     }
@@ -83,43 +67,36 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (existingItem) {
-        const { error } = await supabase
-          .from('block_items')
-          .update({ label: bioText.trim() })
-          .eq('id', existingItem.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('block_items')
-          .insert({
-            block_id: blockId,
-            label: bioText.trim(),
-            url: '',
-            image_url: '',
-            order_index: 0,
-          });
-        if (error) throw error;
-      }
-
-      const { error: styleError } = await supabase
+      const clean: TextConfig = {
+        ...config,
+        heading: config.heading.trim(),
+        body: config.body.trim(),
+      };
+      const { error } = await supabase
         .from('blocks')
-        .update({ title: JSON.stringify(style) })
+        .update({ title: JSON.stringify(clean) })
         .eq('id', blockId);
-      if (styleError) throw styleError;
+      if (error) throw error;
 
-      toast.success(t('blockEditor.bioSaved'));
+      toast.success(t('blockEditor.textSaved'));
       onSave?.();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error saving bio:', error);
-      toast.error(t('blockEditor.bioSaveError'));
+      console.error('Error saving text block:', error);
+      toast.error(t('blockEditor.textSaveError'));
     } finally {
       setSaving(false);
     }
   };
 
-  const update = (patch: Partial<ElementStyle>) => setStyle((prev) => ({ ...prev, ...patch }));
+  const activeStyle: ElementStyle = target === 'heading' ? config.headingStyle : config.bodyStyle;
+
+  const updateActive = (patch: Partial<ElementStyle>) =>
+    setConfig((prev) =>
+      target === 'heading'
+        ? { ...prev, headingStyle: { ...prev.headingStyle, ...patch } }
+        : { ...prev, bodyStyle: { ...prev.bodyStyle, ...patch } }
+    );
 
   const alignOptions: { value: TextAlign; icon: typeof AlignLeft; label: string }[] = [
     { value: 'left', icon: AlignLeft, label: t('blockEditor.left') },
@@ -132,6 +109,9 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
     { value: 'lg', label: t('blockEditor.large') },
   ];
 
+  const ringClass = (active: boolean) =>
+    active ? 'ring-1 ring-[#C9A55C]/70 border-[#C9A55C]/50' : 'border-white/10';
+
   const innerContent = (
     <>
       {loading ? (
@@ -141,26 +121,64 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
       ) : (
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-white/60">{t('blockEditor.bio')}</label>
-            <textarea
-              value={bioText}
-              onChange={(e) => setBioText(e.target.value)}
-              maxLength={BIO_MAX}
-              rows={4}
-              placeholder={t('blockEditor.bioPlaceholder')}
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#C9A55C]/50 resize-none"
+            <label className="text-xs text-white/60">{t('blockEditor.heading')}</label>
+            <input
+              value={config.heading}
+              onChange={(e) => setConfig({ ...config, heading: e.target.value })}
+              onFocus={() => setTarget('heading')}
+              maxLength={HEADING_MAX}
+              placeholder={t('blockEditor.headingPlaceholder')}
+              className={cn(
+                'w-full rounded-lg bg-white/5 border px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none',
+                ringClass(target === 'heading')
+              )}
             />
-            <p className="text-xs text-white/30 text-right">{bioText.length}/{BIO_MAX}</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-white/60">{t('blockEditor.text')}</label>
+            <textarea
+              value={config.body}
+              onChange={(e) => setConfig({ ...config, body: e.target.value })}
+              onFocus={() => setTarget('body')}
+              maxLength={BODY_MAX}
+              rows={5}
+              placeholder={t('blockEditor.textPlaceholder')}
+              className={cn(
+                'w-full rounded-lg bg-white/5 border px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none resize-none',
+                ringClass(target === 'body')
+              )}
+            />
+            <p className="text-xs text-white/30 text-right">{config.body.length}/{BODY_MAX}</p>
           </div>
 
           <div className="rounded-lg border border-white/10 p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/40">{t('blockEditor.styling')}</span>
+              <div className="flex gap-1">
+                {(['heading', 'body'] as Target[]).map((tg) => (
+                  <button
+                    key={tg}
+                    type="button"
+                    onClick={() => setTarget(tg)}
+                    className={cn(
+                      'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                      target === tg ? 'bg-[#C9A55C] text-black' : 'bg-white/5 text-white/60 hover:bg-white/10'
+                    )}
+                  >
+                    {tg === 'heading' ? t('blockEditor.headingTab') : t('blockEditor.textTab')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label className="text-xs text-white/60">{t('blockEditor.font')}</label>
               <select
-                value={style.font}
-                onChange={(e) => update({ font: e.target.value })}
+                value={activeStyle.font}
+                onChange={(e) => updateActive({ font: e.target.value })}
                 className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#C9A55C]/50"
-                style={{ fontFamily: resolveFontFamily(style.font) || undefined }}
+                style={{ fontFamily: resolveFontFamily(activeStyle.font) || undefined }}
               >
                 <option value="" style={{ fontFamily: 'inherit', color: '#111', backgroundColor: '#fff' }}>{t('blockEditor.defaultFont')}</option>
                 {FONT_OPTIONS.map((f) => (
@@ -176,10 +194,10 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
                 <label className="text-xs text-white/60">{t('blockEditor.weight')}</label>
                 <button
                   type="button"
-                  onClick={() => update({ bold: !style.bold })}
+                  onClick={() => updateActive({ bold: !activeStyle.bold })}
                   className={cn(
                     'w-full flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                    style.bold
+                    activeStyle.bold
                       ? 'bg-[#C9A55C] text-black border-[#C9A55C]'
                       : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
                   )}
@@ -195,10 +213,10 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => update({ size: opt.value })}
+                      onClick={() => updateActive({ size: opt.value })}
                       className={cn(
                         'flex-1 rounded-lg border px-2 py-2 text-xs transition-colors',
-                        style.size === opt.value
+                        activeStyle.size === opt.value
                           ? 'bg-[#C9A55C] text-black border-[#C9A55C]'
                           : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
                       )}
@@ -219,10 +237,10 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => update({ align: opt.value })}
+                      onClick={() => updateActive({ align: opt.value })}
                       className={cn(
                         'flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                        style.align === opt.value
+                        activeStyle.align === opt.value
                           ? 'bg-[#C9A55C] text-black border-[#C9A55C]'
                           : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
                       )}
@@ -236,7 +254,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-white/60 hover:text-white hover:bg-white/10">
               {t('blockEditor.cancel')}
             </Button>
@@ -261,9 +279,9 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode }: Bi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#1a1a1a] border-white/10 text-white max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white">{t('blocks.bio.title')}</DialogTitle>
+          <DialogTitle className="text-white">{t('blocks.text.title')}</DialogTitle>
           <DialogDescription className="text-white/50">
-            {t('blocks.bio.subtitle')}
+            {t('blocks.text.subtitle')}
           </DialogDescription>
         </DialogHeader>
         {innerContent}

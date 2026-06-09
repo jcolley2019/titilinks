@@ -37,6 +37,7 @@ import { VideoFeedEditor } from '@/components/editors/VideoFeedEditor';
 import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
+import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 
 export interface EditingBlockTarget {
   id: string;
@@ -122,10 +123,9 @@ const sections: DashboardSection[] = [
     rows: [
       {
         icon: <Type className="h-6 w-6 text-white" />,
-        titleKey: 'dashboard.addHeader',
-        subtitleKey: 'dashboard.addHeaderDesc',
-        blockType: null,
-        toastKey: 'dashboard.comingSoon',
+        titleKey: 'blocks.text.title',
+        subtitleKey: 'blocks.text.subtitle',
+        blockType: 'text',
       },
       {
         icon: <Palette className="h-6 w-6 text-white" />,
@@ -389,6 +389,8 @@ export function ProfileDashboard({
         return <SocialIconRowEditor {...editorProps} />;
       case 'content_section':
         return <ContentSectionEditor {...editorProps} />;
+      case 'text':
+        return <TextBlockEditor {...editorProps} />;
       default:
         return null;
     }
