@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const CHANNEL_ID_RE = /^UC[\w-]{22}$/;
+const PLAYLIST_ID_RE = /^(PL|UU|OL|FL|LL)[\w-]{10,}$/;
 const FETCH_TIMEOUT_MS = 8000;
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 15;
@@ -41,10 +42,11 @@ async function fetchText(url: string): Promise<string | null> {
   return null;
 }
 
-function normalizeInput(raw: string): { channelId?: string; pageUrl?: string } {
+function normalizeInput(raw: string): { channelId?: string; pageUrl?: string; playlistId?: string } {
   let s = (raw || "").trim();
   if (!s) return {};
   if (CHANNEL_ID_RE.test(s)) return { channelId: s };
+  if (PLAYLIST_ID_RE.test(s)) return { playlistId: s };
   if (!/^https?:\/\//i.test(s) && !s.startsWith("@") && !s.includes("/")) {
     s = "@" + s.replace(/^@/, "");
   }
@@ -52,6 +54,12 @@ function normalizeInput(raw: string): { channelId?: string; pageUrl?: string } {
   try {
     const u = new URL(s.startsWith("http") ? s : `https://${s}`);
     if (!/(^|\.)youtube\.com$/.test(u.hostname) && u.hostname !== "youtu.be") return {};
+    // Only an explicit /playlist URL is treated as a playlist — a /watch URL
+    // that merely carries &list= should still resolve to the video's channel.
+    if (u.pathname.startsWith("/playlist")) {
+      const list = u.searchParams.get("list");
+      if (list && PLAYLIST_ID_RE.test(list)) return { playlistId: list };
+    }
     const chMatch = u.pathname.match(/\/channel\/(UC[\w-]{22})/);
     if (chMatch) return { channelId: chMatch[1] };
     return { pageUrl: u.toString() };
@@ -69,9 +77,6 @@ async function resolveChannelId(pageUrl: string): Promise<string | null> {
   }
   const html = await fetchText(pageUrl);
   if (!html) return null;
-  // Video pages (watch / shorts / youtu.be): the owner's channelId is the
-  // reliable signal. Channel pages: use page-own metadata only (NOT the
-  // generic channelId, which on a channel page can match a featured channel).
   const isVideoPage = /\/watch|\/shorts\/|youtu\.be/.test(pageUrl);
   const patterns = isVideoPage
     ? [/"channelId":"(UC[\w-]{22})"/]
@@ -88,34 +93,45 @@ async function resolveChannelId(pageUrl: string): Promise<string | null> {
   return null;
 }
 
-async function fetchFeedViaDataApi(
-  channelId: string,
+function formatDuration(iso: string): string | null {
+  if (!iso) return null;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return null;
+  const h = Number(m[1] || 0), min = Number(m[2] || 0), s = Number(m[3] || 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(min)}:${pad(s)}` : `${min}:${pad(s)}`;
+}
+
+interface FeedItem {
+  video_id: string;
+  title: string;
+  published: string | null;
+  thumbnail: string;
+  url: string;
+}
+
+async function fetchPlaylistItems(
+  playlistId: string,
   limit: number,
   apiKey: string,
-): Promise<{ channelTitle: string | null; videos: Array<Record<string, unknown>> } | null> {
-  // A channel's uploads playlist id is the channel id with "UC" -> "UU",
-  // so we skip a channels.list call (1 quota unit total per refresh).
-  const uploadsPlaylist = "UU" + channelId.slice(2);
+): Promise<{ ownerChannelId: string | null; ownerTitle: string | null; items: FeedItem[] } | null> {
   const url =
     `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet` +
-    `&maxResults=${limit}&playlistId=${uploadsPlaylist}&key=${apiKey}`;
+    `&maxResults=${limit}&playlistId=${playlistId}&key=${apiKey}`;
   const raw = await fetchText(url);
   if (!raw) return null;
   let json: any;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  try { json = JSON.parse(raw); } catch { return null; }
   if (!json || !Array.isArray(json.items)) return null;
-  const videos = json.items
+  const items: FeedItem[] = json.items
     .map((it: any) => {
       const sn = it?.snippet ?? {};
       const videoId = sn?.resourceId?.videoId;
       if (!videoId) return null;
+      if (sn.title === "Private video" || sn.title === "Deleted video") return null;
       const thumbs = sn?.thumbnails ?? {};
       const thumb =
-        (thumbs.high || thumbs.medium || thumbs.default || {}).url ||
+        (thumbs.maxres || thumbs.high || thumbs.medium || thumbs.default || {}).url ||
         `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
       return {
         video_id: videoId,
@@ -128,8 +144,52 @@ async function fetchFeedViaDataApi(
     .filter(Boolean)
     .slice(0, limit);
   const first = json.items[0]?.snippet ?? {};
-  const channelTitle = first.videoOwnerChannelTitle ?? first.channelTitle ?? null;
-  return { channelTitle, videos };
+  const ownerChannelId = first.videoOwnerChannelId ?? first.channelId ?? null;
+  const ownerTitle = first.videoOwnerChannelTitle ?? first.channelTitle ?? null;
+  return { ownerChannelId, ownerTitle, items };
+}
+
+async function fetchVideoDetails(
+  ids: string[],
+  apiKey: string,
+): Promise<Record<string, { duration: string | null; views: number | null }>> {
+  const out: Record<string, { duration: string | null; views: number | null }> = {};
+  if (!ids.length) return out;
+  const url =
+    `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics` +
+    `&id=${ids.join(",")}&key=${apiKey}`;
+  const raw = await fetchText(url);
+  if (!raw) return out;
+  let json: any;
+  try { json = JSON.parse(raw); } catch { return out; }
+  if (!json || !Array.isArray(json.items)) return out;
+  for (const it of json.items) {
+    const id = it?.id;
+    if (!id) continue;
+    const views = Number(it?.statistics?.viewCount);
+    out[id] = {
+      duration: formatDuration(it?.contentDetails?.duration ?? ""),
+      views: Number.isFinite(views) ? views : null,
+    };
+  }
+  return out;
+}
+
+async function fetchChannelMeta(
+  channelId: string,
+  apiKey: string,
+): Promise<{ title: string | null; avatar: string | null } | null> {
+  const url =
+    `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${apiKey}`;
+  const raw = await fetchText(url);
+  if (!raw) return null;
+  let json: any;
+  try { json = JSON.parse(raw); } catch { return null; }
+  const sn = json?.items?.[0]?.snippet;
+  if (!sn) return null;
+  const thumbs = sn.thumbnails ?? {};
+  const avatar = (thumbs.medium || thumbs.default || thumbs.high || {}).url ?? null;
+  return { title: sn.title ?? null, avatar };
 }
 
 serve(async (req) => {
@@ -137,29 +197,62 @@ serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const limit = Math.min(Math.max(Number(body.limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
 
+  let source: "channel" | "playlist" = "channel";
   let channelId: string | null = null;
-  if (typeof body.channel_id === "string" && CHANNEL_ID_RE.test(body.channel_id.trim())) {
+  let playlistId: string | null = null;
+
+  if (typeof body.playlist_id === "string" && PLAYLIST_ID_RE.test(body.playlist_id.trim())) {
+    playlistId = body.playlist_id.trim();
+    source = "playlist";
+  } else if (typeof body.channel_id === "string" && CHANNEL_ID_RE.test(body.channel_id.trim())) {
     channelId = body.channel_id.trim();
+    source = "channel";
   } else if (typeof body.input === "string") {
     const norm = normalizeInput(body.input);
-    if (norm.channelId) channelId = norm.channelId;
-    else if (norm.pageUrl) channelId = await resolveChannelId(norm.pageUrl);
+    if (norm.playlistId) { playlistId = norm.playlistId; source = "playlist"; }
+    else if (norm.channelId) { channelId = norm.channelId; source = "channel"; }
+    else if (norm.pageUrl) { channelId = await resolveChannelId(norm.pageUrl); source = "channel"; }
   }
 
-  if (!channelId) {
-    return json200({ videos: [], error: "Could not resolve a YouTube channel from that input." });
+  const targetPlaylist = playlistId ?? (channelId ? "UU" + channelId.slice(2) : null);
+  if (!targetPlaylist) {
+    return json200({ videos: [], error: "Could not resolve a YouTube channel or playlist from that input." });
   }
 
   const apiKey = Deno.env.get("YOUTUBE_API_KEY");
-  if (!apiKey) return json200({ videos: [], channel_id: channelId, error: "Server missing YOUTUBE_API_KEY." });
+  if (!apiKey) return json200({ videos: [], error: "Server missing YOUTUBE_API_KEY." });
 
-  const cached = cache.get(channelId);
+  const cacheKey = `${source}:${targetPlaylist}:${limit}`;
+  const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return json200(cached.data);
 
-  const result = await fetchFeedViaDataApi(channelId, limit, apiKey);
-  if (!result) return json200({ videos: [], channel_id: channelId, error: "Feed fetch failed." });
+  const feed = await fetchPlaylistItems(targetPlaylist, limit, apiKey);
+  if (!feed || feed.items.length === 0) {
+    return json200({ videos: [], error: "Feed fetch failed." });
+  }
 
-  const data = { channel_id: channelId, channel_title: result.channelTitle, videos: result.videos };
-  cache.set(channelId, { at: Date.now(), data });
+  const ownerChannelId = channelId ?? feed.ownerChannelId;
+  const [details, meta] = await Promise.all([
+    fetchVideoDetails(feed.items.map((v) => v.video_id), apiKey),
+    ownerChannelId ? fetchChannelMeta(ownerChannelId, apiKey) : Promise.resolve(null),
+  ]);
+
+  const videos = feed.items.map((v) => ({
+    ...v,
+    duration: details[v.video_id]?.duration ?? null,
+    views: details[v.video_id]?.views ?? null,
+  }));
+
+  const data = {
+    source,
+    channel_id: ownerChannelId ?? null,
+    channel_title: meta?.title ?? feed.ownerTitle ?? null,
+    channel_avatar: meta?.avatar ?? null,
+    channel_url: ownerChannelId ? `https://www.youtube.com/channel/${ownerChannelId}` : null,
+    playlist_id: source === "playlist" ? targetPlaylist : null,
+    videos,
+  };
+
+  cache.set(cacheKey, { at: Date.now(), data });
   return json200(data);
 });
