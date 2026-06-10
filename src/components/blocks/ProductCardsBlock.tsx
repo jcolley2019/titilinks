@@ -85,9 +85,9 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
         transition={{ duration: 0.1 }}
         className="overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
         style={{
-          backgroundColor: `${theme.buttons.fill_color}08`,
+          backgroundColor: `${theme.buttons.fill_color}14`,
           borderRadius: getButtonRadius(),
-          border: `1px solid ${theme.buttons.fill_color}15`,
+          border: `1px solid ${theme.buttons.fill_color}33`,
         }}
       >
         <div className="aspect-square flex items-center justify-center overflow-hidden relative" style={{ backgroundColor: `${theme.buttons.fill_color}05` }}>
@@ -172,9 +172,9 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
         transition={{ duration: 0.1 }}
         className="flex overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
         style={{
-          backgroundColor: `${theme.buttons.fill_color}08`,
+          backgroundColor: `${theme.buttons.fill_color}14`,
           borderRadius: getButtonRadius(),
-          border: `1px solid ${theme.buttons.fill_color}15`,
+          border: `1px solid ${theme.buttons.fill_color}33`,
         }}
       >
         <div className="w-28 h-28 flex-shrink-0 flex items-center justify-center overflow-hidden relative" style={{ backgroundColor: `${theme.buttons.fill_color}05` }}>
