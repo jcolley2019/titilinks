@@ -546,6 +546,10 @@ export default function Editor() {
         editingBlock={editingBlock}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
+        themeJson={page.theme_json}
+        displayName={page.display_name ?? undefined}
+        bio={page.bio ?? undefined}
+        avatarUrl={page.avatar_url ?? undefined}
       />
     </DashboardLayout>
   );

@@ -21,7 +21,6 @@ import {
   User,
   ChevronLeft,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -39,6 +38,7 @@ import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
+import { DesignEditor } from '@/components/editors/DesignEditor';
 
 export interface EditingBlockTarget {
   id: string;
@@ -71,6 +71,10 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L3): forwarded to Text/Bio editors so the in-progress
    *  block.title config reaches the preview before Save. */
   onTitleDraftChange?: (title: string | null) => void;
+  themeJson: unknown;
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
 }
 
 interface DashboardRow {
@@ -237,9 +241,13 @@ export function ProfileDashboard({
   editingBlock,
   onDraftChange,
   onTitleDraftChange,
+  themeJson,
+  displayName,
+  bio,
+  avatarUrl,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
-  const navigate = useNavigate();
+  const [designOpen, setDesignOpen] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -269,6 +277,7 @@ export function ProfileDashboard({
     setDirectItemId(null);
     setDirectNew(false);
     setEntryMode('add');
+    setDesignOpen(false);
     onClose();
   };
 
@@ -278,8 +287,7 @@ export function ProfileDashboard({
     setDirectNew(false);
     if (!row.blockType) {
       if (row.toastKey === 'dashboard.openDesignTab') {
-        handleClose();
-        navigate('/dashboard/design');
+        setDesignOpen(true);
         return;
       }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
@@ -430,7 +438,17 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              {activeBlockId ? (
+              {designOpen ? (
+                <>
+                  <button
+                    onClick={() => setDesignOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashLayout.design')}</h2>
+                </>
+              ) : activeBlockId ? (
                 <>
                   <button
                     onClick={() => {
@@ -463,7 +481,16 @@ export function ProfileDashboard({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
-              {activeBlockId ? (
+              {designOpen ? (
+                <DesignEditor
+                  pageId={pageId}
+                  themeJson={themeJson}
+                  onUpdate={onRefresh}
+                  displayName={displayName}
+                  bio={bio}
+                  avatarUrl={avatarUrl}
+                />
+              ) : activeBlockId ? (
                 renderEditor()
               ) : (
                 sections.map((section) => (

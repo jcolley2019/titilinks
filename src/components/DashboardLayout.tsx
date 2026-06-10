@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   PenSquare,
-  Palette,
   BarChart3,
   Sparkles,
   LogOut,
@@ -50,7 +49,6 @@ const planBadgeStyles: Record<UserPlan, string> = {
 const baseNavItems = [
   { path: '/dashboard', labelKey: 'dashLayout.dashboard', icon: LayoutDashboard },
   { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
-  { path: '/dashboard/design', labelKey: 'dashLayout.design', icon: Palette },
   { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
   { path: '/dashboard/ai-setup', labelKey: 'dashLayout.aiSetup', icon: Sparkles },
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },

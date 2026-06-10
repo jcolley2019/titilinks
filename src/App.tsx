@@ -11,7 +11,6 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Editor from "./pages/Editor";
-import Design from "./pages/Design";
 import Analytics from "./pages/Analytics";
 import Setup from "./pages/Setup";
 import Settings from "./pages/Settings";
@@ -60,14 +59,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Editor />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/design"
-              element={
-                <ProtectedRoute>
-                  <Design />
                 </ProtectedRoute>
               }
             />
