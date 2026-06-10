@@ -785,6 +785,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Dashboard Layout
     'dashLayout.dashboard': 'Dashboard',
     'dashLayout.editor': 'Editor',
+    'dashLayout.design': 'Design',
     'dashLayout.analytics': 'Analytics',
     'dashLayout.aiSetup': 'AI Setup',
     'dashLayout.settings': 'Settings',
@@ -1731,6 +1732,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Dashboard Layout
     'dashLayout.dashboard': 'Panel',
     'dashLayout.editor': 'Editor',
+    'dashLayout.design': 'Diseño',
     'dashLayout.analytics': 'Analíticas',
     'dashLayout.aiSetup': 'IA Setup',
     'dashLayout.settings': 'Ajustes',
