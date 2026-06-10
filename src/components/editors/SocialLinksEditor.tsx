@@ -18,6 +18,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -185,7 +186,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <span className="text-lg">{preset?.icon || '🔗'}</span>
+        <PlatformIcon label={item.label} size={20} />
 
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{item.label}</p>
@@ -550,7 +551,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                           }}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
                         >
-                          <span className="text-xl w-8 text-center">{platform.icon}</span>
+                          <span className="w-8 flex items-center justify-center"><PlatformIcon label={platform.label} size={22} /></span>
                           <div>
                             <p className="text-sm font-medium">{platform.label}</p>
                             <p className="text-xs text-muted-foreground">{platform.placeholder}</p>
@@ -580,7 +581,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                         <div className="flex items-center gap-3">
                           <div className="flex gap-1">
                             {category.platforms.slice(0, 4).map((p) => (
-                              <span key={p.label} className="text-base">{p.icon}</span>
+                              <span key={p.label} className="flex items-center"><PlatformIcon label={p.label} size={16} /></span>
                             ))}
                           </div>
                           <div className="text-left">
@@ -611,7 +612,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                               }}
                               className="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/50 transition-colors border-t border-border text-left"
                             >
-                              <span className="text-xl w-8 text-center">{platform.icon}</span>
+                              <span className="w-8 flex items-center justify-center"><PlatformIcon label={platform.label} size={22} /></span>
                               <div>
                                 <p className="text-sm font-medium">{platform.label}</p>
                                 <p className="text-xs text-muted-foreground">

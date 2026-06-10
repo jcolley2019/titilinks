@@ -43,6 +43,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
 import { cn } from '@/lib/utils';
+import { PlatformIcon } from '@/components/PlatformIcon';
 
 const MAX_ITEMS = ITEM_CAPS.social_icon_row;
 
@@ -133,7 +134,7 @@ function SortableIconItem({ item, onUpdate, onDelete, error }: SortableIconItemP
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <span className="text-xl">{preset?.icon || '🔗'}</span>
+        <PlatformIcon label={item.label} size={22} />
 
         <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
           <Input
@@ -520,13 +521,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
                           backgroundColor: config.use_theme_color ? 'hsl(var(--primary) / 0.15)' : `${config.custom_color}20`,
                         }}
                       >
-                        <span className={cn(
-                          config.icon_size === 'sm' && 'text-base',
-                          config.icon_size === 'md' && 'text-lg',
-                          config.icon_size === 'lg' && 'text-xl'
-                        )}>
-                          {preset?.icon || '🔗'}
-                        </span>
+                        <PlatformIcon label={item.label} size={config.icon_size === 'lg' ? 26 : config.icon_size === 'sm' ? 18 : 22} color="currentColor" />
                       </div>
                     );
                   })}
@@ -571,7 +566,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
                       onClick={() => addPreset(preset)}
                       className="gap-1 h-8 text-xs"
                     >
-                      <span>{preset.icon}</span>
+                      <span className="w-6 flex items-center justify-center"><PlatformIcon label={preset.label} size={20} /></span>
                       {preset.label}
                     </Button>
                   ))}
