@@ -382,7 +382,7 @@ export function ProfileDashboard({
       case 'gallery':
         return <GalleryEditor {...editorProps} />;
       case 'bio':
-        return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} />;
+        return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} onDraftChange={onDraftChange} />;
       case 'featured_media':
         return <FeaturedMediaEditor {...editorProps} />;
       case 'video_feed':

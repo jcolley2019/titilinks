@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 import type { ElementStyle, TextAlign, TextSize } from '@/lib/text-block-config';
 import type { Tables } from '@/integrations/supabase/types';
+import type { LinkItem } from '@/components/editors/LinksEditor';
 
 type BlockItem = Tables<'block_items'>;
 
@@ -28,9 +29,10 @@ interface BioEditorProps {
   onSave?: () => void;
   panelMode?: boolean;
   onTitleDraftChange?: (title: string | null) => void;
+  onDraftChange?: (item: LinkItem | null) => void;
 }
 
-export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTitleDraftChange }: BioEditorProps) {
+export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTitleDraftChange, onDraftChange }: BioEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,14 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
   }, [style, loading]);
   // Clear the mirror when the editor unmounts (cancel / close).
   useEffect(() => () => { onTitleDraftChange?.(null); }, []);
+
+  // Live-mirror (L2): push the in-progress bio TEXT to the preview via the item channel
+  // (bio text lives in block_items[0].label, not block.title), after load.
+  useEffect(() => {
+    if (loading) return;
+    onDraftChange?.({ id: existingItem?.id ?? '__bio_draft__', label: bioText, url: existingItem?.url ?? '' });
+  }, [bioText, loading, existingItem]);
+  useEffect(() => () => { onDraftChange?.(null); }, []);
 
   const fetchBio = async () => {
     setLoading(true);
