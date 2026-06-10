@@ -21,6 +21,7 @@ import {
   User,
   ChevronLeft,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -238,6 +239,7 @@ export function ProfileDashboard({
   onTitleDraftChange,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -275,6 +277,11 @@ export function ProfileDashboard({
     setDirectItemId(null);
     setDirectNew(false);
     if (!row.blockType) {
+      if (row.toastKey === 'dashboard.openDesignTab') {
+        handleClose();
+        navigate('/dashboard/design');
+        return;
+      }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
       return;
     }
