@@ -39,6 +39,7 @@ import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
+import { TemplateGallery } from '@/components/editors/TemplateGallery';
 
 export interface EditingBlockTarget {
   id: string;
@@ -248,6 +249,7 @@ export function ProfileDashboard({
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const [designOpen, setDesignOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -278,6 +280,7 @@ export function ProfileDashboard({
     setDirectNew(false);
     setEntryMode('add');
     setDesignOpen(false);
+    setGalleryOpen(false);
     onClose();
   };
 
@@ -286,6 +289,10 @@ export function ProfileDashboard({
     setDirectItemId(null);
     setDirectNew(false);
     if (!row.blockType) {
+      if (row.titleKey === 'dashboard.templateGallery') {
+        setGalleryOpen(true);
+        return;
+      }
       if (row.toastKey === 'dashboard.openDesignTab') {
         setDesignOpen(true);
         return;
@@ -438,7 +445,17 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              {designOpen ? (
+              {galleryOpen ? (
+                <>
+                  <button
+                    onClick={() => setGalleryOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.templateGallery')}</h2>
+                </>
+              ) : designOpen ? (
                 <>
                   <button
                     onClick={() => setDesignOpen(false)}
@@ -481,15 +498,21 @@ export function ProfileDashboard({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
-              {designOpen ? (
-                <DesignEditor
-                  pageId={pageId}
-                  themeJson={themeJson}
-                  onUpdate={onRefresh}
-                  displayName={displayName}
-                  bio={bio}
-                  avatarUrl={avatarUrl}
-                />
+              {galleryOpen ? (
+                <div className="dark text-foreground">
+                  <TemplateGallery pageId={pageId} onApply={onRefresh} />
+                </div>
+              ) : designOpen ? (
+                <div className="dark text-foreground">
+                  <DesignEditor
+                    pageId={pageId}
+                    themeJson={themeJson}
+                    onUpdate={onRefresh}
+                    displayName={displayName}
+                    bio={bio}
+                    avatarUrl={avatarUrl}
+                  />
+                </div>
               ) : activeBlockId ? (
                 renderEditor()
               ) : (

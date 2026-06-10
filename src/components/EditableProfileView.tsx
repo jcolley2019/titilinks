@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { getChromeTokens, type ChromeTokens } from '@/lib/contrast';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -344,8 +345,10 @@ function NameHandleCard({
   localNameHandleGap, setLocalNameHandleGap,
   nameCardY, onNameCardYChange, onDragEnd,
   onSave,
+  chrome,
 }: {
   page: any;
+  chrome: ChromeTokens;
   expanded: boolean;
   onToggleExpand: () => void;
   localNameSize: number; setLocalNameSize: (v: number) => void;
@@ -404,12 +407,12 @@ function NameHandleCard({
             className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
             style={{
               fontSize: localNameSize,
-              color: localNameColor,
-              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+              color: localNameColor === '#ffffff' ? chrome.text : localNameColor,
+              textShadow: chrome.isLight ? 'none' : '0 2px 20px rgba(0,0,0,0.8)',
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: chrome.isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
             @{page.handle}
           </p>
         </div>
@@ -628,21 +631,22 @@ function SortablePreviewCard({
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? 'none' : transition,
   };
+  const chrome = getChromeTokens(theme);
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, background: chrome.surface, border: `1px solid ${chrome.border}` }}
       className={cn(
-        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
-        'bg-white/[0.03] transition-all duration-200 ease-out',
+        'mx-4 mb-4 rounded-2xl overflow-hidden',
+        'transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
         isDragActive && !isDragging && 'opacity-50',
         !block.is_enabled && 'opacity-40',
       )}
     >
       {/* Control bar */}
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
+      <div className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: `1px solid ${chrome.border}`, background: chrome.surfaceStrong }}>
         <button
           {...attributes}
           {...listeners}
@@ -650,7 +654,7 @@ function SortablePreviewCard({
         >
           <GripVertical className="h-5 w-5" />
         </button>
-        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
+        <span className="flex-1 text-xs font-semibold uppercase tracking-wider" style={{ color: chrome.textMuted }}>
           {t(`blocks.${block.type}.title`) || block.type}
         </span>
         {/* Toggle */}
@@ -1351,6 +1355,7 @@ export function EditableProfileView({
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
   const fontFamily = getFontFamily(theme);
+  const chrome = getChromeTokens(theme);
 
   const saveHeaderConfig = async (config: Record<string, unknown>) => {
     const existingTheme = (page.theme_json as any) || {};
@@ -1489,7 +1494,9 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          backgroundColor: theme.background?.solid_color || '#0e0c09',
+          background: theme.background?.type === 'gradient' && theme.background?.gradient_css
+            ? theme.background.gradient_css
+            : (theme.background?.solid_color || '#0e0c09'),
           minHeight: '60vh',
           marginTop: '-2rem',
           paddingTop: '0',
@@ -1938,6 +1945,7 @@ export function EditableProfileView({
                 if (cardId === '__name_handle__') return (
                   <NameHandleCard
                     key={cardId}
+                    chrome={chrome}
                     page={page}
                     expanded={expandedHeaderCard === '__name_handle__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}

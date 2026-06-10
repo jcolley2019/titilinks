@@ -127,7 +127,10 @@ export function LinkButton(props: LinkButtonProps) {
   const shadowEnabled = buttons?.shadow_enabled ?? false;
 
   const style: CSSVarStyle = {
-    borderRadius: radiusFor(shape, effectiveSize === 'big' ? '16px' : '14px'),
+    borderRadius:
+      shape === 'pill' && (effectiveSize === 'big' || effectiveSize === 'small')
+        ? '20px'
+        : radiusFor(shape, effectiveSize === 'big' ? '16px' : '14px'),
     fontFamily: fontFamilyFor(fontStyle),
     letterSpacing: letterSpacing ? `${letterSpacing}em` : undefined,
     color: textColor,

@@ -474,6 +474,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         </CardHeader>
         <CardContent>
           {/* Page Style Picker */}
+          {false && (
           <div className="mb-6 pb-6 border-b border-border">
             <Label className="text-sm font-medium mb-3 block flex items-center gap-2">
               <LayoutTemplate className="h-4 w-4 text-primary" />
@@ -539,8 +540,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               ))}
             </div>
           </div>
+          )}
 
           {/* Design Tools Section */}
+          {false && (
           <div className="mb-6 pb-6 border-b border-border">
             <Label className="text-sm font-medium mb-3 block">{t('design.designTools')}</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -687,7 +690,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </div>
 
             {/* Canva MFA Error - Show inline */}
-            {canvaError === 'mfa' && (
+            {false && (
               <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
@@ -710,9 +713,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               </div>
             )}
           </div>
+          )}
 
           {/* Canva Studio Section - Only show when connected and has content */}
-          {canvaConnected && (
+          {false && (
             (theme.background.source === 'canva' || theme.header?.source === 'canva' || theme.canva_last_import) && (
               <div className="mb-6 pb-6 border-b border-border">
                 <div className="flex items-center justify-between mb-3">
@@ -1049,7 +1053,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 <button
                   key={preset.id}
                   type="button"
-                  onClick={() => setTheme(preset.theme)}
+                  onClick={() => { setTheme(preset.theme); saveTheme(preset.theme); }}
                   className="relative p-3 rounded-lg border border-border hover:border-primary/50 transition-all text-left group"
                 >
                   {/* Mini preview */}
