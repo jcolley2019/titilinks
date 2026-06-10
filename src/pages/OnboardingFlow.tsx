@@ -11,6 +11,7 @@ import { StepPickYourVibe } from '@/components/onboarding/StepPickYourVibe';
 import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
+import type { ThemeTypography } from '@/lib/theme-defaults';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -315,15 +316,15 @@ export default function OnboardingFlow() {
           theme_json: {
             background: {
               type: 'solid' as const,
-              solid_color: state.backgroundColor || '#1a1a2e',
-              gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+              solid_color: state.backgroundColor || '#0e0c09',
+              gradient_css: '',
               image_url: '',
               overlay_color: '#000000',
               overlay_opacity: 0.5,
               source: null,
             },
             buttonStyle: state.buttonStyle,
-            font: state.fontChoice,
+            typography: { font: state.fontChoice as ThemeTypography['font'], text_color: '#ffffff' },
             pageStyle: state.pageStyle,
             linkLayout: state.linkLayout,
             linkCount: state.linkCount,
@@ -345,15 +346,15 @@ export default function OnboardingFlow() {
         theme_json: {
           background: {
             type: 'solid' as const,
-            solid_color: state.backgroundColor || '#1a1a2e',
-            gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+            solid_color: state.backgroundColor || '#0e0c09',
+            gradient_css: '',
             image_url: '',
             overlay_color: '#000000',
             overlay_opacity: 0.5,
             source: null,
           },
           buttonStyle: state.buttonStyle,
-          font: state.fontChoice,
+          typography: { font: state.fontChoice as ThemeTypography['font'], text_color: '#ffffff' },
           pageStyle: state.pageStyle,
           linkLayout: state.linkLayout,
           linkCount: state.linkCount,
