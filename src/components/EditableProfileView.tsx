@@ -1489,7 +1489,7 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          backgroundColor: '#0e0c09',
+          backgroundColor: theme.background?.solid_color || '#0e0c09',
           minHeight: '60vh',
           marginTop: '-2rem',
           paddingTop: '0',
@@ -1503,7 +1503,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '60px',
-            background: 'linear-gradient(to bottom, transparent 0%, #0e0c09 100%)',
+            background: `linear-gradient(to bottom, transparent 0%, ${theme.background?.solid_color || '#0e0c09'} 100%)`,
             pointerEvents: 'none',
             zIndex: 1,
           }}

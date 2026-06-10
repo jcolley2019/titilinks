@@ -97,7 +97,7 @@ export const DEFAULT_HEADER: ThemeHeader = {
 export const DEFAULT_THEME: ThemeJson = {
   background: {
     type: 'solid',
-    solid_color: '#1a1a2e',
+    solid_color: '#0e0c09',
     gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
     image_url: '',
     overlay_color: '#000000',
