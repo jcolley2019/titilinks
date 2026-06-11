@@ -124,7 +124,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       background: {
         type: 'gradient',
         solid_color: '#1a1a2e',
-        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 55%, #b85fd4 100%)',
+        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 55%, #9b4dca 100%)',
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.1,
