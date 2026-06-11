@@ -52,7 +52,10 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
 
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
-      case 'pill': return '9999px';
+      // Cards are tall rectangles — raw pill radius (9999px) renders them as
+      // ellipses and overflow-hidden clips badges/titles. Clamp like
+      // LinkButton does for big/small sizes.
+      case 'pill': return '20px';
       case 'rounded': return '16px';
       case 'square': return '6px';
       default: return '16px';
