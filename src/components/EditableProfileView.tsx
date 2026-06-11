@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
-import { getChromeTokens, type ChromeTokens } from '@/lib/contrast';
+import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -378,6 +378,11 @@ function NameHandleCard({
     nameSaveTimer.current = setTimeout(() => onDisplayNameChange(name), 500);
   };
 
+  // Dark glow lifts LIGHT text off the hero photo; on dark text (gold/light
+  // themes) it smudges. Key the shadow off the resolved text color, not bg.
+  const resolvedNameColor = localNameColor === '#ffffff' ? chrome.text : localNameColor;
+  const lightHeaderText = relativeLuminance(resolvedNameColor) > 0.5;
+
   return (
     <div
       style={{ transform: `translateY(${nameCardY}px)`, position: 'relative', zIndex: 20 }}
@@ -407,12 +412,12 @@ function NameHandleCard({
             className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
             style={{
               fontSize: localNameSize,
-              color: localNameColor === '#ffffff' ? chrome.text : localNameColor,
-              textShadow: chrome.isLight ? 'none' : '0 2px 20px rgba(0,0,0,0.8)',
+              color: resolvedNameColor,
+              textShadow: lightHeaderText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: chrome.isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: lightHeaderText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none', margin: 0, marginTop: localNameHandleGap }}>
             @{page.handle}
           </p>
         </div>
@@ -1530,14 +1535,17 @@ export function EditableProfileView({
         >
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
+            const headerNameColor = headerConfig.nameColor && headerConfig.nameColor !== '#ffffff' ? headerConfig.nameColor : chrome.text;
+            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : chrome.textMuted;
+            const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
               <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', transform: `translateY(${headerConfig.nameCardY ?? 0}px)` }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
                     fontSize: `${headerConfig.nameSize}px`,
-                    color: headerConfig.nameColor,
-                    textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+                    color: headerNameColor,
+                    textShadow: headerLightText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
                   }}
                 >
                   {page.display_name || `@${page.handle}`}
@@ -1545,8 +1553,8 @@ export function EditableProfileView({
                 <p
                   style={{
                     fontSize: `${headerConfig.handleSize}px`,
-                    color: headerConfig.handleColor,
-                    textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                    color: headerHandleColor,
+                    textShadow: headerLightText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
                     margin: 0,
                     marginTop: headerConfig.nameHandleGap ?? 2,
                   }}
@@ -1574,10 +1582,10 @@ export function EditableProfileView({
                     <span
                       key={item.id}
                       className={cn('flex items-center justify-center rounded-full', containerMap[iSize])}
-                      style={{ background: '#ffffff20' }}
+                      style={{ background: chrome.iconBg }}
                       title={item.label}
                     >
-                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color="#ffffff" />
+                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={chrome.iconColor} />
                     </span>
                   ))}
                 </div>
@@ -1913,7 +1921,7 @@ export function EditableProfileView({
             </>
           )}
           {page.bio && (
-            <p className="text-sm mt-2 max-w-xs mx-auto text-white/80" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+            <p className="text-sm mt-2 max-w-xs mx-auto" style={{ color: chrome.textMuted, textShadow: chrome.isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.3)' }}>
               {page.bio}
             </p>
           )}

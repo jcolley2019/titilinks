@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
+import { Palette, Pipette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
+import { HexColorPicker } from 'react-colorful';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
@@ -277,6 +278,19 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     setSaving(false);
   };
 
+  const handleReset = () => {
+    const d = THEME_PRESETS[0].theme; // Midnight Gold = brand default
+    setTheme((prev) => {
+      const newTheme: ThemeJson = {
+        ...prev,
+        background: { ...prev.background, type: 'solid', solid_color: d.background.solid_color },
+        typography: { ...prev.typography, text_color: d.typography.text_color, font: d.typography.font },
+      };
+      saveTheme(newTheme);
+      return newTheme;
+    });
+  };
+
   const updateBackground = (updates: Partial<ThemeJson['background']>, autoSave = false) => {
     setTheme((prev) => {
       const newTheme = {
@@ -462,16 +476,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     <div>
       {/* Controls Panel */}
       <Card className="bg-card border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
-            <Palette className="h-5 w-5 text-primary" />
-            {t('design.title')}
-          </CardTitle>
-          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {t('design.save')}
-          </Button>
-        </CardHeader>
         <CardContent>
           {/* Page Style Picker */}
           {false && (
@@ -1043,6 +1047,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             )
           )}
 
+          {false && (<>
           {/* Quick Start Presets Section */}
           <div className="mb-6 pb-6 border-b border-border">
             <div className="flex items-center justify-between mb-3">
@@ -1268,489 +1273,141 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
               {t('design.matchStylesNote')}
             </p>
           </div>
+          </>)}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="background" className="gap-2">
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('design.tabBackground')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="buttons" className="gap-2">
-              <MousePointer className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('design.tabButtons')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="typography" className="gap-2">
-              <Type className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('design.tabTypography')}</span>
-            </TabsTrigger>
+            <TabsTrigger value="background">{t('design.tabBackground')}</TabsTrigger>
+            <TabsTrigger value="title">{t('design.tabTitle')}</TabsTrigger>
+            <TabsTrigger value="font">{t('design.tabFont')}</TabsTrigger>
           </TabsList>
 
-          {/* Background Tab */}
+          {/* Background Tab — solid color */}
           <TabsContent value="background" className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('design.backgroundType')}</Label>
-              <Select
-                value={theme.background.type}
-                onValueChange={(v) => updateBackground({ type: v as 'solid' | 'gradient' | 'image' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="solid">{t('design.solidColor')}</SelectItem>
-                  <SelectItem value="gradient">{t('design.gradient')}</SelectItem>
-                  <SelectItem value="image">{t('design.image')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {theme.background.type === 'solid' && (
-              <div className="space-y-2">
-                <Label>{t('design.solidColor')}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="color"
-                    value={theme.background.solid_color}
-                    onChange={(e) => updateBackground({ solid_color: e.target.value })}
-                    className="w-16 h-10 p-1 cursor-pointer"
-                  />
-                  <Input
-                    value={theme.background.solid_color}
-                    onChange={(e) => updateBackground({ solid_color: e.target.value })}
-                    placeholder="#1a1a2e"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            )}
-
-            {theme.background.type === 'gradient' && (
-              <div className="space-y-3">
-                <Label>{t('design.choosePresetGradient')}</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {GRADIENT_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => updateBackground({ gradient_css: preset.css })}
-                      className={`relative h-16 rounded-md border-2 transition-all ${
-                        theme.background.gradient_css === preset.css
-                          ? 'border-primary ring-2 ring-primary/30'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      style={{ background: preset.css }}
-                    >
-                      {theme.background.gradient_css === preset.css && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
-                          <Check className="h-5 w-5 text-white" />
-                        </div>
-                      )}
-                      <span className="absolute bottom-1 left-1 text-xs text-white drop-shadow-md">
-                        {t(`design.gradient${preset.name}`)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div
-                  className="h-20 rounded-md border border-border"
-                  style={{ background: theme.background.gradient_css }}
-                />
-              </div>
-            )}
-
-            {theme.background.type === 'image' && (
-              <div className="space-y-3">
-                <Label>{t('design.backgroundImage')}</Label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                {theme.background.image_url ? (
-                  <div className="relative">
-                    <div
-                      className="h-32 rounded-md border border-border bg-cover bg-center"
-                      style={{ backgroundImage: `url(${theme.background.image_url})` }}
-                    />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-8 w-8"
-                      onClick={removeBackgroundImage}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full h-24 border-dashed gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Upload className="h-5 w-5" />
-                    )}
-                    {uploading ? t('design.uploading') : t('design.uploadImage')}
-                  </Button>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {t('design.uploadNote')}
-                </p>
-              </div>
-            )}
-
-            {/* Overlay Controls - shown for all background types */}
-            <div className="pt-4 border-t border-border space-y-3">
-              <Label className="text-muted-foreground">{t('design.overlaySettings')}</Label>
-              <div className="space-y-2">
-                <Label>{t('design.overlayColor')}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="color"
-                    value={theme.background.overlay_color}
-                    onChange={(e) => updateBackground({ overlay_color: e.target.value })}
-                    className="w-16 h-10 p-1 cursor-pointer"
-                  />
-                  <Input
-                    value={theme.background.overlay_color}
-                    onChange={(e) => updateBackground({ overlay_color: e.target.value })}
-                    placeholder="#000000"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>{t('design.overlayOpacity')} {Math.round(theme.background.overlay_opacity * 100)}%</Label>
-                <Slider
-                  value={[theme.background.overlay_opacity]}
-                  onValueChange={([v]) => updateBackground({ overlay_opacity: v })}
-                  min={0}
-                  max={0.8}
-                  step={0.05}
-                />
-              </div>
-
-              {/* Background Preview */}
-              <div className="pt-2">
-                <Label className="text-muted-foreground mb-2 block">{t('design.preview')}</Label>
-                <div
-                  className="relative h-24 rounded-md border border-border overflow-hidden"
-                  style={{
-                    background:
-                      theme.background.type === 'solid'
-                        ? theme.background.solid_color
-                        : theme.background.type === 'gradient'
-                        ? theme.background.gradient_css
-                        : theme.background.image_url
-                        ? `url(${theme.background.image_url})`
-                        : '#1a1a2e',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('design.backgroundColor')}</Label>
+              {'EyeDropper' in window && (
+                <button
+                  type="button"
+                  aria-label={t('design.eyedropper')}
+                  onClick={async () => {
+                    try {
+                      const ed = new (window as any).EyeDropper();
+                      const res = await ed.open();
+                      updateBackground({ type: 'solid', solid_color: res.sRGBHex });
+                    } catch { /* cancelled */ }
                   }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundColor: theme.background.overlay_color,
-                      opacity: theme.background.overlay_opacity,
-                    }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span
-                      className="text-sm font-medium px-3 py-1 rounded"
-                      style={{ color: theme.typography.text_color }}
-                    >
-                      {t('design.yourContentHere')}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                  <Pipette className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          </TabsContent>
-
-          {/* Buttons Tab */}
-          <TabsContent value="buttons" className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('design.buttonShape')}</Label>
-              <Select
-                value={theme.buttons.shape}
-                onValueChange={(v) => updateButtons({ shape: v as 'pill' | 'rounded' | 'square' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pill">{t('design.pill')}</SelectItem>
-                  <SelectItem value="rounded">{t('design.rounded')}</SelectItem>
-                  <SelectItem value="square">{t('design.square')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('design.fillColor')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={theme.buttons.fill_color}
-                  onChange={(e) => updateButtons({ fill_color: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={theme.buttons.fill_color}
-                  onChange={(e) => updateButtons({ fill_color: e.target.value })}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('design.textColor')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={theme.buttons.text_color}
-                  onChange={(e) => updateButtons({ text_color: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={theme.buttons.text_color}
-                  onChange={(e) => updateButtons({ text_color: e.target.value })}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label>{t('design.enableBorder')}</Label>
-              <Switch
-                checked={theme.buttons.border_enabled}
-                onCheckedChange={(v) => updateButtons({ border_enabled: v })}
-              />
-            </div>
-
-            {theme.buttons.border_enabled && (
-              <div className="space-y-2">
-                <Label>{t('design.borderColor')}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="color"
-                    value={theme.buttons.border_color}
-                    onChange={(e) => updateButtons({ border_color: e.target.value })}
-                    className="w-16 h-10 p-1 cursor-pointer"
-                  />
-                  <Input
-                    value={theme.buttons.border_color}
-                    onChange={(e) => updateButtons({ border_color: e.target.value })}
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <Label>{t('design.enableShadow')}</Label>
-              <Switch
-                checked={theme.buttons.shadow_enabled}
-                onCheckedChange={(v) => updateButtons({ shadow_enabled: v })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('design.density')}</Label>
-              <Select
-                value={theme.buttons.density}
-                onValueChange={(v) => updateButtons({ density: v as 'compact' | 'normal' | 'roomy' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="compact">{t('design.compact')}</SelectItem>
-                  <SelectItem value="normal">{t('design.normal')}</SelectItem>
-                  <SelectItem value="roomy">{t('design.roomy')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Link Button Style (profile-level — applies to Featured Links) */}
-            <div className="space-y-2">
-              <Label>Link Button Style</Label>
-              <Select
-                value={(theme.buttons as any).variant ?? 'glass'}
-                onValueChange={(v) =>
-                  setTheme(prev => ({ ...prev, buttons: { ...prev.buttons, variant: v } as any }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="filled">Filled</SelectItem>
-                  <SelectItem value="outline">Outline</SelectItem>
-                  <SelectItem value="glass">Glass</SelectItem>
-                  <SelectItem value="minimal">Minimal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>
-                Link Background Opacity ({Math.round(((theme.buttons as any).background_opacity ?? 1) * 100)}%)
-              </Label>
-              <Slider
-                value={[(theme.buttons as any).background_opacity ?? 1]}
-                onValueChange={([v]) =>
-                  setTheme(prev => ({ ...prev, buttons: { ...prev.buttons, background_opacity: v } as any }))
-                }
-                min={0}
-                max={1}
-                step={0.05}
-              />
-            </div>
-
-            {/* Button Preview */}
-            <div className="pt-4 border-t border-border">
-              <Label className="text-muted-foreground mb-3 block">{t('design.preview')}</Label>
-              <button
-                className="w-full py-3 font-medium transition-all"
-                style={{
-                  backgroundColor: theme.buttons.fill_color,
-                  color: theme.buttons.text_color,
-                  borderRadius:
-                    theme.buttons.shape === 'pill'
-                      ? '9999px'
-                      : theme.buttons.shape === 'rounded'
-                      ? '0.5rem'
-                      : '0',
-                  border: theme.buttons.border_enabled
-                    ? `2px solid ${theme.buttons.border_color}`
-                    : 'none',
-                  boxShadow: theme.buttons.shadow_enabled
-                    ? '0 4px 14px rgba(0,0,0,0.25)'
-                    : 'none',
-                  padding:
-                    theme.buttons.density === 'compact'
-                      ? '0.5rem 1rem'
-                      : theme.buttons.density === 'roomy'
-                      ? '1rem 1.5rem'
-                      : '0.75rem 1.25rem',
-                }}
-              >
-                {t('design.sampleButton')}
-              </button>
-            </div>
-          </TabsContent>
-
-          {/* Typography Tab */}
-          <TabsContent value="typography" className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('design.fontFamily')}</Label>
-              <div className="space-y-1 max-h-72 overflow-y-auto rounded-lg border border-border pr-1">
-                {FONT_OPTIONS.map((font) => (
-                  <button
-                    key={font.value}
-                    type="button"
-                    onClick={() => updateTypography({ font: font.value as ThemeTypography['font'] })}
-                    className={cn(
-                      'w-full text-left px-3 py-2.5 rounded-md',
-                      'transition-colors hover:bg-muted/50',
-                      theme.typography.font === font.value
-                        ? 'bg-[#C9A55C]/10 border border-[#C9A55C]/40'
-                        : 'border border-transparent'
-                    )}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{ fontFamily: font.fontFamily }}
-                    >
-                      {font.label}
-                    </p>
-                    <p
-                      className="text-xs text-muted-foreground mt-0.5"
-                      style={{ fontFamily: font.fontFamily }}
-                    >
-                      The quick brown fox jumps over the lazy dog
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t('design.textColor')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={theme.typography.text_color}
-                  onChange={(e) => updateTypography({ text_color: e.target.value })}
-                  className="w-16 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={theme.typography.text_color}
-                  onChange={(e) => updateTypography({ text_color: e.target.value })}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            {/* Link Font Style + Letter Spacing (profile-level — Featured Links) */}
-            <div className="space-y-2">
-              <Label>Link Font Style</Label>
-              <Select
-                value={(theme.typography as any).font_style ?? 'normal'}
-                onValueChange={(v) =>
-                  setTheme(prev => ({ ...prev, typography: { ...prev.typography, font_style: v } as any }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="mono">Monospace</SelectItem>
-                  <SelectItem value="serif">Serif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>
-                Link Letter Spacing ({((theme.typography as any).letter_spacing ?? 0).toFixed(2)}em)
-              </Label>
-              <Slider
-                value={[(theme.typography as any).letter_spacing ?? 0]}
-                onValueChange={([v]) =>
-                  setTheme(prev => ({ ...prev, typography: { ...prev.typography, letter_spacing: v } as any }))
-                }
-                min={-0.05}
-                max={0.2}
-                step={0.01}
-              />
-            </div>
-
-            {/* Typography Preview */}
-            <div className="pt-4 border-t border-border">
-              <Label className="text-muted-foreground mb-3 block">{t('design.preview')}</Label>
+            <HexColorPicker
+              color={theme.background.solid_color}
+              onChange={(c) => updateBackground({ type: 'solid', solid_color: c })}
+              style={{ width: '100%' }}
+            />
+            <div className="flex items-center gap-2">
               <div
-                className="p-4 rounded-md border border-border"
-                style={{
-                  color: theme.typography.text_color,
-                  fontFamily: FONT_OPTIONS.find(f => f.value === theme.typography.font)?.fontFamily ?? "'Inter', sans-serif",
-                  backgroundColor: theme.background.type === 'solid' ? theme.background.solid_color : 'transparent',
-                }}
-              >
-                <h3 className="text-xl font-bold mb-2">{t('design.sampleHeading')}</h3>
-                <p className="text-sm opacity-80">{t('design.sampleText')}</p>
-              </div>
+                className="w-10 h-10 rounded-md border border-border flex-shrink-0"
+                style={{ backgroundColor: theme.background.solid_color }}
+              />
+              <Input
+                value={theme.background.solid_color}
+                onChange={(e) => updateBackground({ type: 'solid', solid_color: e.target.value })}
+                placeholder="#000000"
+                className="flex-1 font-mono uppercase"
+              />
             </div>
           </TabsContent>
+
+          {/* Title Tab — main text color */}
+          <TabsContent value="title" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('design.mainTextColor')}</Label>
+              {'EyeDropper' in window && (
+                <button
+                  type="button"
+                  aria-label={t('design.eyedropper')}
+                  onClick={async () => {
+                    try {
+                      const ed = new (window as any).EyeDropper();
+                      const res = await ed.open();
+                      updateTypography({ text_color: res.sRGBHex });
+                    } catch { /* cancelled */ }
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pipette className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <HexColorPicker
+              color={theme.typography.text_color}
+              onChange={(c) => updateTypography({ text_color: c })}
+              style={{ width: '100%' }}
+            />
+            <div className="flex items-center gap-2">
+              <div
+                className="w-10 h-10 rounded-md border border-border flex-shrink-0"
+                style={{ backgroundColor: theme.typography.text_color }}
+              />
+              <Input
+                value={theme.typography.text_color}
+                onChange={(e) => updateTypography({ text_color: e.target.value })}
+                placeholder="#FFFFFF"
+                className="flex-1 font-mono uppercase"
+              />
+            </div>
+          </TabsContent>
+
+          {/* Font Tab — global font family */}
+          <TabsContent value="font" className="space-y-4">
+            <Label className="text-sm font-medium">{t('design.chooseFont')}</Label>
+            <div className="space-y-1">
+              {FONT_OPTIONS.map((font) => (
+                <button
+                  key={font.value}
+                  type="button"
+                  onClick={() => updateTypography({ font: font.value as ThemeTypography['font'] })}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 rounded-md transition-colors hover:bg-muted/50',
+                    theme.typography.font === font.value
+                      ? 'bg-[#C9A55C]/10 border border-[#C9A55C]/40'
+                      : 'border border-transparent'
+                  )}
+                >
+                  <p className="text-sm font-medium" style={{ fontFamily: font.fontFamily }}>
+                    {font.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: font.fontFamily }}>
+                    The quick brown fox jumps over the lazy dog
+                  </p>
+                </button>
+              ))}
+            </div>
+          </TabsContent>
+
         </Tabs>
+
+        {/* Update / Reset to Default */}
+        <div className="mt-8 space-y-3">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-12 rounded-full bg-white text-black hover:bg-white/90 font-semibold tracking-wide"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('design.update')}
+          </Button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="w-full text-center text-sm font-semibold tracking-wide text-foreground/80 hover:text-foreground transition-colors py-1"
+          >
+            {t('design.resetToDefault')}
+          </button>
+        </div>
         </CardContent>
       </Card>
 

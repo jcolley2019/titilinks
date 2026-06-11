@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { relativeLuminance } from '@/lib/contrast';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -126,6 +127,25 @@ export function LinkButton(props: LinkButtonProps) {
   const borderWidth = bs.border_width ?? 1;
   const shadowEnabled = buttons?.shadow_enabled ?? false;
 
+  // Contrast guard: if the stored label color is unreadable on the surface it
+  // actually sits on (filled => the fill; glass/outline/minimal => the page bg),
+  // flip it to whichever of dark/light measures better. Protects templates AND
+  // custom themes from invisible button text. Threshold 3.2 rescues the truly
+  // unreadable cases without overriding intentional white-on-saturated looks.
+  const pageBg = theme?.background?.solid_color || '#0e0c09';
+  const labelSurface = variant === 'filled' && opacity >= 0.5 ? fillColor : pageBg;
+  const wcagRatio = (a: string, b: string): number => {
+    const la = relativeLuminance(a);
+    const lb = relativeLuminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  };
+  const safeTextColor =
+    wcagRatio(textColor, labelSurface) >= 3.2
+      ? textColor
+      : wcagRatio('#0e0c09', labelSurface) >= wcagRatio('#ffffff', labelSurface)
+        ? '#0e0c09'
+        : '#ffffff';
+
   const style: CSSVarStyle = {
     borderRadius:
       shape === 'pill' && (effectiveSize === 'big' || effectiveSize === 'small')
@@ -133,7 +153,7 @@ export function LinkButton(props: LinkButtonProps) {
         : radiusFor(shape, effectiveSize === 'big' ? '16px' : '14px'),
     fontFamily: fontFamilyFor(fontStyle),
     letterSpacing: letterSpacing ? `${letterSpacing}em` : undefined,
-    color: textColor,
+    color: safeTextColor,
     '--lb-accent': fillColor,
     '--lb-accent-soft': rgbaStr(fillColor, 0.22),
   };
