@@ -261,7 +261,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           {block.items.map((item) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-[72%] rounded-xl overflow-hidden snap-center"
+              className="relative flex-shrink-0 w-[72%] rounded-xl overflow-hidden snap-center snap-always"
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
