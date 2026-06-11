@@ -227,8 +227,22 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         <div className="flex flex-col flex-1 min-h-0">
           {/* Layout picker */}
           <div className="mb-4">
-            <p className="text-xs text-muted-foreground mb-2">Layout</p>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground">Layout</p>
+              {layout === 'filmstrip' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Auto-scroll</span>
+                  <button
+                    type="button"
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
               {(['full', 'filmstrip'] as const).map((opt) => (
                 <button
                   key={opt}
@@ -243,22 +257,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                   {opt === 'full' ? 'Full' : 'Filmstrip'}
                 </button>
               ))}
-            </div>
-          </div>
-          {layout === 'filmstrip' && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground">Auto-scroll</p>
-                <button
-                  type="button"
-                  onClick={() => setAutoScroll(!autoScroll)}
-                  className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
-                </button>
-              </div>
-              {autoScroll && (
-                <div className="flex gap-2">
+              {layout === 'filmstrip' && autoScroll && (
+                <>
+                  <span className="w-px h-5 bg-white/10 mx-1" />
                   {(['slow', 'medium', 'fast'] as const).map((s) => (
                     <button
                       key={s}
@@ -271,10 +272,10 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                       {s}
                     </button>
                   ))}
-                </div>
+                </>
               )}
             </div>
-          )}
+          </div>
           {/* Add Photo Button */}
           <div className="mb-4">
             <input
