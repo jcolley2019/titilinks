@@ -107,8 +107,8 @@ export const DEFAULT_THEME: ThemeJson = {
   buttons: {
     shape: 'rounded',
     fill_color: '#C9A55C',
-    text_color: '#ffffff',
-    border_enabled: false,
+    text_color: '#0e0c09',
+    border_enabled: true,
     border_color: '#C9A55C',
     shadow_enabled: true,
     density: 'normal',
@@ -137,9 +137,9 @@ export const THEME_PRESETS: ThemePreset[] = [
     name: 'Midnight Gold',
     description: 'Premium near-black with gold buttons',
     theme: {
-      background: { type: 'solid', solid_color: '#0e0c09', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0.5, source: null },
-      buttons: { shape: 'rounded', fill_color: '#C9A55C', text_color: '#0e0c09', border_enabled: false, border_color: '#C9A55C', shadow_enabled: true, density: 'normal' },
-      typography: { font: 'inter', text_color: '#ffffff' },
+      background: { type: 'solid', solid_color: '#0e0c09', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'rounded', fill_color: '#C9A55C', text_color: '#0e0c09', border_enabled: true, border_color: '#C9A55C', shadow_enabled: true, density: 'normal' },
+      typography: { font: 'serif', text_color: '#ffffff' },
       motion: { enabled: true },
     },
   },
@@ -181,7 +181,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     name: 'Sunset',
     description: 'Warm gradient with glass buttons',
     theme: {
-      background: { type: 'gradient', solid_color: '#f7971e', gradient_css: 'linear-gradient(to bottom, #f7971e 0%, #ec5f7a 55%, #b24592 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0.15, source: null },
+      background: { type: 'gradient', solid_color: '#b45309', gradient_css: 'linear-gradient(to bottom, #b45309 0%, #d6336c 55%, #b24592 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0.15, source: null },
       buttons: { shape: 'pill', fill_color: '#ffffff', text_color: '#b24592', border_enabled: false, border_color: 'rgba(255,255,255,0.35)', shadow_enabled: false, density: 'normal' },
       typography: { font: 'space', text_color: '#ffffff' },
       motion: { enabled: true },

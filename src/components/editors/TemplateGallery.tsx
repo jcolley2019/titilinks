@@ -198,11 +198,11 @@ function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCard
           />
 
           {/* Phone Frame Overlay */}
-          <div className="absolute inset-0 flex flex-col items-center pt-6 px-3">
-            {/* Avatar mock */}
+          <div className="absolute inset-0 flex flex-col items-center">
+            {/* Hero photo mock — full-width half-screen hero, matches the real layout */}
             <div
-              className="w-10 h-10 rounded-full mb-2"
-              style={{ backgroundColor: template.theme.buttons.fill_color }}
+              className="w-full mb-2"
+              style={{ height: '42%', backgroundColor: template.theme.buttons.fill_color, opacity: 0.85 }}
             />
             {/* Name mock */}
             <div

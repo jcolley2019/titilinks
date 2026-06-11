@@ -124,7 +124,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       background: {
         type: 'gradient',
         solid_color: '#1a1a2e',
-        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 55%, #b85fd4 100%)',
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.1,
@@ -393,7 +393,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       background: {
         type: 'gradient',
         solid_color: '#fef3c7',
-        gradient_css: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 25%, #f97316 50%, #ec4899 75%, #8b5cf6 100%)',
+        gradient_css: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 30%, #f97316 65%, #ec4899 100%)',
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.2,
@@ -410,7 +410,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       },
       typography: {
         font: 'inter',
-        text_color: '#ffffff',
+        text_color: '#451a03',
       },
       motion: { enabled: true },
     },
@@ -420,7 +420,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       letter_spacing: 0,
       background_opacity: 0.25,
       border_width: 1,
-      border_color: 'rgba(255,255,255,0.4)',
+      border_color: 'rgba(69,26,3,0.35)',
     },
   },
 

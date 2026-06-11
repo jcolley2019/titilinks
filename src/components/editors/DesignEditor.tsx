@@ -236,9 +236,12 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   const saveTheme = async (newTheme: ThemeJson) => {
     try {
+      // Merge over the existing raw json so keys the theme editor doesn't
+      // manage (headerConfig, headerCardOrder, avatar_url_page2, pages) survive.
+      const extras = (themeJson && typeof themeJson === 'object') ? (themeJson as Record<string, unknown>) : {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: JSON.parse(JSON.stringify(newTheme)) })
+        .update({ theme_json: { ...extras, ...JSON.parse(JSON.stringify(newTheme)) } })
         .eq('id', pageId);
 
       if (error) throw error;
@@ -283,8 +286,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     setTheme((prev) => {
       const newTheme: ThemeJson = {
         ...prev,
-        background: { ...prev.background, type: 'solid', solid_color: d.background.solid_color },
-        typography: { ...prev.typography, text_color: d.typography.text_color, font: d.typography.font },
+        background: { ...d.background },
+        buttons: { ...d.buttons },
+        typography: { ...d.typography },
       };
       saveTheme(newTheme);
       return newTheme;
