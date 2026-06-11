@@ -243,7 +243,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {(['full', 'filmstrip'] as const).map((opt) => (
+              {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
                 <button
                   key={opt}
                   type="button"
@@ -254,7 +254,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                       : 'bg-white/5 text-foreground border border-white/10'
                   }`}
                 >
-                  {opt === 'full' ? 'Full' : 'Filmstrip'}
+                  {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
                 </button>
               ))}
               {layout === 'filmstrip' && autoScroll && (

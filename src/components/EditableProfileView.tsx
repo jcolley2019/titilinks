@@ -64,6 +64,7 @@ import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
 import { resolveFontFamily } from '@/lib/fonts';
+import { createPortal } from 'react-dom';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     const el = lightboxRef.current;
     if (el) el.scrollTo({ left: lightboxIndex * el.clientWidth });
   }, [lightboxIndex]);
-  const lightbox = lightboxIndex === null ? null : (
+  const lightbox = lightboxIndex === null ? null : createPortal(
     <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
@@ -299,7 +300,8 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 
   const scroll = (dir: 'left' | 'right') => {
@@ -328,6 +330,48 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               key={item.id}
               onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
               className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always cursor-pointer"
+              style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
+            >
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.label || 'Gallery photo'}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
+                </div>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {lightbox}
+      </div>
+    );
+  }
+
+  if (layout === 'grid' && count > 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+          {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {block.items.map((item, i) => (
+            <div
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative rounded-xl overflow-hidden cursor-pointer"
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
