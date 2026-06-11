@@ -40,6 +40,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const [saving, setSaving] = useState(false);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
+  const [layout, setLayout] = useState<'full' | 'filmstrip' | 'grid'>('full');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('slow');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +54,18 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const fetchPhotos = async () => {
     setLoading(true);
     try {
+      const { data: blockRow } = await supabase
+        .from('blocks')
+        .select('title')
+        .eq('id', blockId)
+        .maybeSingle();
+      try {
+        const parsed = JSON.parse(blockRow?.title || '');
+        setLayout(parsed?.layout === 'filmstrip' || parsed?.layout === 'grid' ? parsed.layout : 'full');
+        setAutoScroll(parsed?.autoScroll !== false);
+        setSpeed(parsed?.speed === 'fast' || parsed?.speed === 'medium' ? parsed.speed : 'slow');
+      } catch { setLayout('full'); }
+
       const { data, error } = await supabase
         .from('block_items')
         .select('*')
@@ -185,6 +200,12 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         }
       }
 
+      const { error: layoutError } = await supabase
+        .from('blocks')
+        .update({ title: JSON.stringify({ layout, autoScroll, speed }) })
+        .eq('id', blockId);
+      if (layoutError) throw layoutError;
+
       toast.success('Gallery saved');
       onSave?.();
       onOpenChange(false);
@@ -204,6 +225,57 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
+          {/* Layout picker */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground">Layout</p>
+              {layout === 'filmstrip' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Auto-scroll</span>
+                  <button
+                    type="button"
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setLayout(opt)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    layout === opt
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/5 text-foreground border border-white/10'
+                  }`}
+                >
+                  {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
+                </button>
+              ))}
+              {layout === 'filmstrip' && autoScroll && (
+                <>
+                  <span className="w-px h-5 bg-white/10 mx-1" />
+                  {(['slow', 'medium', 'fast'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSpeed(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                        speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
           {/* Add Photo Button */}
           <div className="mb-4">
             <input

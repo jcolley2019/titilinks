@@ -40,6 +40,7 @@ import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor'
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
+import type { BlockWithItems } from '@/components/blocks/types';
 
 export interface EditingBlockTarget {
   id: string;
@@ -82,7 +83,7 @@ interface DashboardRow {
   icon: React.ReactNode;
   titleKey: string;
   subtitleKey: string;
-  blockType: string | null;
+  blockType: BlockWithItems['type'] | null;
   toastKey?: string;
 }
 

@@ -64,6 +64,7 @@ import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
 import { resolveFontFamily } from '@/lib/fonts';
+import { createPortal } from 'react-dom';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -232,6 +233,77 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
+  // Layout config stored as JSON in block.title (same pattern as BioBlock).
+  // 'full' = current edge-to-edge carousel. Missing/invalid title => 'full' (no migration).
+  let layout: 'full' | 'filmstrip' | 'grid' = 'full';
+  let autoScroll = true;
+  let speedMs = 7000;
+  try {
+    const parsed = JSON.parse(block.title || '');
+    if (parsed && (parsed.layout === 'filmstrip' || parsed.layout === 'grid')) layout = parsed.layout;
+    if (parsed?.autoScroll === false) autoScroll = false;
+    speedMs = parsed?.speed === 'fast' ? 3000 : parsed?.speed === 'medium' ? 5000 : 7000;
+  } catch { /* legacy/plain title => full */ }
+
+  // Filmstrip auto-advance: one photo every 4s; any touch pauses it for 8s.
+  const stripRef = useRef<HTMLDivElement>(null);
+  const pausedUntil = useRef(0);
+  const pauseAutoScroll = () => { pausedUntil.current = Date.now() + 8000; };
+  useEffect(() => {
+    if (layout !== 'filmstrip' || count < 2 || !autoScroll) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => {
+      const el = stripRef.current;
+      if (!el || Date.now() < pausedUntil.current) return;
+      const step = el.clientWidth * 0.72 + 8;
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, speedMs);
+    return () => clearInterval(id);
+  }, [layout, count, autoScroll, speedMs]);
+
+  // Lightbox: tap a photo → fullscreen swipe viewer. Auto-scroll pauses while open.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const openLightbox = (i: number) => { pausedUntil.current = Date.now() + 1e9; setLightboxIndex(i); };
+  const closeLightbox = () => { pausedUntil.current = Date.now() + 5000; setLightboxIndex(null); };
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const el = lightboxRef.current;
+    if (el) el.scrollTo({ left: lightboxIndex * el.clientWidth });
+  }, [lightboxIndex]);
+  const lightbox = lightboxIndex === null ? null : createPortal(
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={closeLightbox}
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center text-2xl leading-none"
+      >
+        ×
+      </button>
+      <div
+        ref={lightboxRef}
+        className="flex-1 flex overflow-x-auto snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {block.items.map((item) => (
+          <div key={item.id} className="relative flex-shrink-0 w-full h-full snap-center snap-always flex items-center justify-center p-4">
+            {item.image_url && (
+              <img src={item.image_url} alt={item.label || 'Photo'} className="max-w-full max-h-full object-contain rounded-lg" />
+            )}
+            {item.label && item.label !== 'Photo' && (
+              <p className="absolute bottom-6 left-0 right-0 text-center text-white/80 text-sm px-6">{item.label}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>,
+    document.body
+  );
+
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollBy({
@@ -239,6 +311,96 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
       behavior: 'smooth',
     });
   };
+
+  if (layout === 'filmstrip' && count > 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+          {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
+        </p>
+        <div
+          ref={stripRef}
+          onPointerDown={pauseAutoScroll}
+          onTouchStart={pauseAutoScroll}
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {block.items.map((item, i) => (
+            <div
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always cursor-pointer"
+              style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
+            >
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.label || 'Gallery photo'}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
+                </div>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {lightbox}
+      </div>
+    );
+  }
+
+  if (layout === 'grid' && count > 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+          {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {block.items.map((item, i) => (
+            <div
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative rounded-xl overflow-hidden cursor-pointer"
+              style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
+            >
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.label || 'Gallery photo'}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
+                </div>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {lightbox}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -261,10 +423,11 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           className="flex overflow-x-auto snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {block.items.map((item) => (
+          {block.items.map((item, i) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative flex-shrink-0 w-full rounded-xl overflow-hidden snap-start cursor-pointer"
               style={{ minWidth: '100%', aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
@@ -313,6 +476,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
             <ChevronRight className="h-4 w-4" />
           </button>
         )}
+        {lightbox}
       </div>
     </div>
   );
@@ -345,6 +509,7 @@ function NameHandleCard({
   localNameHandleGap, setLocalNameHandleGap,
   nameCardY, onNameCardYChange, onDragEnd,
   onSave,
+  onDisplayNameChange,
   chrome,
 }: {
   page: any;
@@ -1908,7 +2073,7 @@ export function EditableProfileView({
                           {t('editor.cancel')}
                         </button>
                         <button
-                          onClick={handlePhotoSave}
+                          onClick={() => handlePhotoSave()}
                           disabled={photoSaving}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
                         >
