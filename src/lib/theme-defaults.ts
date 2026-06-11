@@ -35,6 +35,8 @@ export interface ThemeButtons {
   border_color: string;
   shadow_enabled: boolean;
   density: 'compact' | 'normal' | 'roomy';
+  // Link button style. When absent, LinkButton falls back to 'glass'.
+  variant?: 'filled' | 'outline' | 'glass' | 'minimal';
   // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
   // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
   variant_style?: 'velvet';
@@ -97,7 +99,7 @@ export const DEFAULT_HEADER: ThemeHeader = {
 export const DEFAULT_THEME: ThemeJson = {
   background: {
     type: 'solid',
-    solid_color: '#1a1a2e',
+    solid_color: '#0e0c09',
     gradient_css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
     image_url: '',
     overlay_color: '#000000',
@@ -107,8 +109,8 @@ export const DEFAULT_THEME: ThemeJson = {
   buttons: {
     shape: 'rounded',
     fill_color: '#C9A55C',
-    text_color: '#ffffff',
-    border_enabled: false,
+    text_color: '#0e0c09',
+    border_enabled: true,
     border_color: '#C9A55C',
     shadow_enabled: true,
     density: 'normal',
@@ -133,131 +135,80 @@ export interface ThemePreset {
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
-    id: 'clean-light',
-    name: 'Clean Light',
-    description: 'Minimal white background with subtle styling',
+    id: 'midnight-gold',
+    name: 'Midnight Gold',
+    description: 'Premium near-black with gold buttons',
     theme: {
-      background: {
-        type: 'solid',
-        solid_color: '#f8fafc',
-        gradient_css: '',
-        image_url: '',
-        overlay_color: '#000000',
-        overlay_opacity: 0,
-        source: null,
-      },
-      buttons: {
-        shape: 'rounded',
-        fill_color: '#0f172a',
-        text_color: '#ffffff',
-        border_enabled: false,
-        border_color: '#0f172a',
-        shadow_enabled: false,
-        density: 'normal',
-      },
-      typography: {
-        font: 'inter',
-        text_color: '#0f172a',
-      },
-      motion: {
-        enabled: true,
-      },
+      background: { type: 'solid', solid_color: '#0e0c09', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'rounded', fill_color: '#C9A55C', text_color: '#0e0c09', border_enabled: true, border_color: '#C9A55C', shadow_enabled: true, density: 'normal' },
+      typography: { font: 'serif', text_color: '#ffffff' },
+      motion: { enabled: true },
     },
   },
   {
-    id: 'clean-dark',
-    name: 'Clean Dark',
-    description: 'Sleek dark theme with high contrast',
+    id: 'ivory',
+    name: 'Ivory',
+    description: 'Minimalist warm white',
     theme: {
-      background: {
-        type: 'solid',
-        solid_color: '#0f0f0f',
-        gradient_css: '',
-        image_url: '',
-        overlay_color: '#000000',
-        overlay_opacity: 0,
-        source: null,
-      },
-      buttons: {
-        shape: 'pill',
-        fill_color: '#ffffff',
-        text_color: '#0f0f0f',
-        border_enabled: false,
-        border_color: '#ffffff',
-        shadow_enabled: false,
-        density: 'normal',
-      },
-      typography: {
-        font: 'inter',
-        text_color: '#ffffff',
-      },
-      motion: {
-        enabled: true,
-      },
+      background: { type: 'solid', solid_color: '#faf9f6', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'pill', fill_color: '#1a1a1a', text_color: '#ffffff', border_enabled: false, border_color: '#1a1a1a', shadow_enabled: false, density: 'normal' },
+      typography: { font: 'inter', text_color: '#1a1a1a' },
+      motion: { enabled: true },
     },
   },
   {
-    id: 'gradient-pop',
-    name: 'Gradient Pop',
-    description: 'Vibrant gradient with bold colors',
+    id: 'noir',
+    name: 'Noir',
+    description: 'High-contrast black with outline buttons',
     theme: {
-      background: {
-        type: 'gradient',
-        solid_color: '#1a1a2e',
-        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-        image_url: '',
-        overlay_color: '#000000',
-        overlay_opacity: 0.2,
-        source: null,
-      },
-      buttons: {
-        shape: 'pill',
-        fill_color: '#ffffff',
-        text_color: '#764ba2',
-        border_enabled: false,
-        border_color: '#ffffff',
-        shadow_enabled: true,
-        density: 'roomy',
-      },
-      typography: {
-        font: 'inter',
-        text_color: '#ffffff',
-      },
-      motion: {
-        enabled: true,
-      },
+      background: { type: 'solid', solid_color: '#000000', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'square', fill_color: '#ffffff', text_color: '#000000', border_enabled: false, border_color: '#ffffff', shadow_enabled: false, density: 'normal' },
+      typography: { font: 'bebas', text_color: '#ffffff' },
+      motion: { enabled: true },
     },
   },
   {
-    id: 'photo-background',
-    name: 'Photo Background',
-    description: 'Ready for your background image',
+    id: 'editorial',
+    name: 'Editorial',
+    description: 'Cream paper with serif type',
     theme: {
-      background: {
-        type: 'image',
-        solid_color: '#1a1a2e',
-        gradient_css: '',
-        image_url: '',
-        overlay_color: '#000000',
-        overlay_opacity: 0.5,
-        source: null,
-      },
-      buttons: {
-        shape: 'rounded',
-        fill_color: 'rgba(255,255,255,0.15)',
-        text_color: '#ffffff',
-        border_enabled: true,
-        border_color: 'rgba(255,255,255,0.3)',
-        shadow_enabled: false,
-        density: 'normal',
-      },
-      typography: {
-        font: 'inter',
-        text_color: '#ffffff',
-      },
-      motion: {
-        enabled: true,
-      },
+      background: { type: 'solid', solid_color: '#f3efe7', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'rounded', fill_color: '#2b2b2b', text_color: '#ffffff', border_enabled: false, border_color: '#2b2b2b', shadow_enabled: false, density: 'normal' },
+      typography: { font: 'playfair', text_color: '#2b2b2b' },
+      motion: { enabled: true },
+    },
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset',
+    description: 'Warm gradient with glass buttons',
+    theme: {
+      background: { type: 'gradient', solid_color: '#b45309', gradient_css: 'linear-gradient(to bottom, #b45309 0%, #d6336c 55%, #b24592 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0.15, source: null },
+      buttons: { shape: 'pill', fill_color: '#ffffff', text_color: '#b24592', border_enabled: false, border_color: 'rgba(255,255,255,0.35)', shadow_enabled: true, density: 'normal', variant: 'filled' },
+      typography: { font: 'space', text_color: '#ffffff' },
+      motion: { enabled: true },
+    },
+  },
+  {
+    id: 'velvet',
+    name: 'Velvet',
+    description: 'Deep plum with warm gold accents',
+    theme: {
+      background: { type: 'solid', solid_color: '#1a0f1f', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0.5, source: null },
+      buttons: { shape: 'rounded', fill_color: '#C9A55C', text_color: '#1a0f1f', border_enabled: false, border_color: '#C9A55C', shadow_enabled: true, density: 'normal' },
+      typography: { font: 'lora', text_color: '#f5e9d0' },
+      motion: { enabled: true },
+    },
+  },
+  {
+    id: 'studio',
+    name: 'Studio',
+    description: 'Your photo as a full background',
+    theme: {
+      background: { type: 'image', solid_color: '#1a1a1a', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0.4, source: null },
+      buttons: { shape: 'rounded', fill_color: '#ffffff', text_color: '#1a1a1a', border_enabled: true, border_color: 'rgba(255,255,255,0.3)', shadow_enabled: false, density: 'normal' },
+      typography: { font: 'inter', text_color: '#ffffff' },
+      motion: { enabled: true },
     },
   },
 ];

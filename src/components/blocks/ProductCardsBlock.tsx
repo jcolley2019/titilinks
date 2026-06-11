@@ -52,7 +52,10 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
 
   const getButtonRadius = () => {
     switch (theme.buttons.shape) {
-      case 'pill': return '9999px';
+      // Cards are tall rectangles — raw pill radius (9999px) renders them as
+      // ellipses and overflow-hidden clips badges/titles. Clamp like
+      // LinkButton does for big/small sizes.
+      case 'pill': return '20px';
       case 'rounded': return '16px';
       case 'square': return '6px';
       default: return '16px';
@@ -76,14 +79,14 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
       href={item.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block group"
+      className="block group h-full"
       onClick={(e) => handleClick(e, item)}
       onTouchStart={() => triggerHaptic('light')}
     >
       <motion.div
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.1 }}
-        className="overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
+        className="h-full flex flex-col overflow-hidden transform-gpu will-change-transform motion-reduce:transform-none"
         style={{
           backgroundColor: `${theme.buttons.fill_color}14`,
           borderRadius: getButtonRadius(),

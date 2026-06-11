@@ -411,7 +411,12 @@ export default function Editor() {
   return (
     <DashboardLayout onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}>
       {/* ═══ DESKTOP: Blurred hero bg + phone frame ═══ */}
-      <div className="hidden lg:block fixed inset-0 left-64 top-0 overflow-hidden">
+      <div
+        className={cn(
+          "hidden lg:block fixed top-0 bottom-0 left-64 overflow-hidden transition-all duration-300 ease-out",
+          profileDashboardOpen ? "right-[420px]" : "right-0"
+        )}
+      >
         {/* Blurred hero background */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           <div
@@ -546,6 +551,10 @@ export default function Editor() {
         editingBlock={editingBlock}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
+        themeJson={page.theme_json}
+        displayName={page.display_name ?? undefined}
+        bio={page.bio ?? undefined}
+        avatarUrl={page.avatar_url ?? undefined}
       />
     </DashboardLayout>
   );

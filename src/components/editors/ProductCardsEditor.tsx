@@ -246,6 +246,15 @@ function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }
               />
             </div>
           </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Subtitle (optional)</Label>
+            <Input
+              value={item.subtitle || ''}
+              onChange={(e) => onUpdate(item.id, 'subtitle', e.target.value)}
+              placeholder="Your best seller"
+              className="h-8 text-sm"
+            />
+          </div>
           {errors[item.id] && (
             <p className="text-xs text-destructive">{errors[item.id]}</p>
           )}

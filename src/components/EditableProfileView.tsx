@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -344,8 +345,10 @@ function NameHandleCard({
   localNameHandleGap, setLocalNameHandleGap,
   nameCardY, onNameCardYChange, onDragEnd,
   onSave,
+  chrome,
 }: {
   page: any;
+  chrome: ChromeTokens;
   expanded: boolean;
   onToggleExpand: () => void;
   localNameSize: number; setLocalNameSize: (v: number) => void;
@@ -374,6 +377,11 @@ function NameHandleCard({
     clearTimeout(nameSaveTimer.current);
     nameSaveTimer.current = setTimeout(() => onDisplayNameChange(name), 500);
   };
+
+  // Dark glow lifts LIGHT text off the hero photo; on dark text (gold/light
+  // themes) it smudges. Key the shadow off the resolved text color, not bg.
+  const resolvedNameColor = localNameColor === '#ffffff' ? chrome.text : localNameColor;
+  const lightHeaderText = relativeLuminance(resolvedNameColor) > 0.5;
 
   return (
     <div
@@ -404,12 +412,12 @@ function NameHandleCard({
             className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
             style={{
               fontSize: localNameSize,
-              color: localNameColor,
-              textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+              color: resolvedNameColor,
+              textShadow: lightHeaderText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor, textShadow: '0 1px 4px rgba(0,0,0,0.4)', margin: 0, marginTop: localNameHandleGap }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: lightHeaderText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none', margin: 0, marginTop: localNameHandleGap }}>
             @{page.handle}
           </p>
         </div>
@@ -478,6 +486,7 @@ function NameHandleCard({
 
 function SocialIconsCard({
   socialItems,
+  chrome,
   expanded,
   onToggleExpand,
   localIconsPaddingY, setLocalIconsPaddingY,
@@ -488,6 +497,7 @@ function SocialIconsCard({
   onSave,
 }: {
   socialItems: any[];
+  chrome: ChromeTokens;
   expanded: boolean;
   onToggleExpand: () => void;
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
@@ -525,10 +535,10 @@ function SocialIconsCard({
             <span
               key={item.id}
               className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
-              style={{ background: '#ffffff20' }}
+              style={{ background: chrome.iconBg }}
               title={item.label}
             >
-              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color="#ffffff" />
+              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={chrome.iconColor} />
             </span>
           ))}
           {socialItems.length === 0 && (
@@ -628,21 +638,22 @@ function SortablePreviewCard({
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? 'none' : transition,
   };
+  const chrome = getChromeTokens(theme);
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, background: chrome.surface, border: `1px solid ${chrome.border}` }}
       className={cn(
-        'mx-4 mb-4 rounded-2xl overflow-hidden border border-white/10',
-        'bg-white/[0.03] transition-all duration-200 ease-out',
+        'mx-4 mb-4 rounded-2xl overflow-hidden',
+        'transition-all duration-200 ease-out',
         isDragging && 'shadow-2xl ring-1 ring-[#C9A55C]/60 scale-[1.01] z-50',
         isDragActive && !isDragging && 'opacity-50',
         !block.is_enabled && 'opacity-40',
       )}
     >
       {/* Control bar */}
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-white/10 bg-white/5">
+      <div className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: `1px solid ${chrome.border}`, background: chrome.surfaceStrong }}>
         <button
           {...attributes}
           {...listeners}
@@ -650,7 +661,7 @@ function SortablePreviewCard({
         >
           <GripVertical className="h-5 w-5" />
         </button>
-        <span className="flex-1 text-xs font-semibold text-white/60 uppercase tracking-wider">
+        <span className="flex-1 text-xs font-semibold uppercase tracking-wider" style={{ color: chrome.textMuted }}>
           {t(`blocks.${block.type}.title`) || block.type}
         </span>
         {/* Toggle */}
@@ -1351,6 +1362,7 @@ export function EditableProfileView({
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
   const fontFamily = getFontFamily(theme);
+  const chrome = getChromeTokens(theme);
 
   const saveHeaderConfig = async (config: Record<string, unknown>) => {
     const existingTheme = (page.theme_json as any) || {};
@@ -1489,7 +1501,9 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          backgroundColor: '#0e0c09',
+          background: theme.background?.type === 'gradient' && theme.background?.gradient_css
+            ? theme.background.gradient_css
+            : (theme.background?.solid_color || '#0e0c09'),
           minHeight: '60vh',
           marginTop: '-2rem',
           paddingTop: '0',
@@ -1503,7 +1517,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '60px',
-            background: 'linear-gradient(to bottom, transparent 0%, #0e0c09 100%)',
+            background: `linear-gradient(to bottom, transparent 0%, ${theme.background?.solid_color || '#0e0c09'} 100%)`,
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -1523,14 +1537,17 @@ export function EditableProfileView({
         >
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
+            const headerNameColor = headerConfig.nameColor && headerConfig.nameColor !== '#ffffff' ? headerConfig.nameColor : chrome.text;
+            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : chrome.textMuted;
+            const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
               <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', transform: `translateY(${headerConfig.nameCardY ?? 0}px)` }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
                     fontSize: `${headerConfig.nameSize}px`,
-                    color: headerConfig.nameColor,
-                    textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+                    color: headerNameColor,
+                    textShadow: headerLightText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
                   }}
                 >
                   {page.display_name || `@${page.handle}`}
@@ -1538,8 +1555,8 @@ export function EditableProfileView({
                 <p
                   style={{
                     fontSize: `${headerConfig.handleSize}px`,
-                    color: headerConfig.handleColor,
-                    textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+                    color: headerHandleColor,
+                    textShadow: headerLightText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
                     margin: 0,
                     marginTop: headerConfig.nameHandleGap ?? 2,
                   }}
@@ -1567,10 +1584,10 @@ export function EditableProfileView({
                     <span
                       key={item.id}
                       className={cn('flex items-center justify-center rounded-full', containerMap[iSize])}
-                      style={{ background: '#ffffff20' }}
+                      style={{ background: chrome.iconBg }}
                       title={item.label}
                     >
-                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color="#ffffff" />
+                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={chrome.iconColor} />
                     </span>
                   ))}
                 </div>
@@ -1906,7 +1923,7 @@ export function EditableProfileView({
             </>
           )}
           {page.bio && (
-            <p className="text-sm mt-2 max-w-xs mx-auto text-white/80" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+            <p className="text-sm mt-2 max-w-xs mx-auto" style={{ color: chrome.textMuted, textShadow: chrome.isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.3)' }}>
               {page.bio}
             </p>
           )}
@@ -1920,7 +1937,6 @@ export function EditableProfileView({
           /* Preview block cards for edit mode */
           <div
             className="pb-32 flex flex-col gap-[6px]"
-            style={{ paddingTop: `${contentStartY ?? 0}px` }}
           >
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
             </div>
@@ -1938,6 +1954,7 @@ export function EditableProfileView({
                 if (cardId === '__name_handle__') return (
                   <NameHandleCard
                     key={cardId}
+                    chrome={chrome}
                     page={page}
                     expanded={expandedHeaderCard === '__name_handle__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}
@@ -1968,6 +1985,7 @@ export function EditableProfileView({
                 if (cardId === '__social_icons__') return (
                   <SocialIconsCard
                     key={cardId}
+                    chrome={chrome}
                     socialItems={dedupedSocialItems}
                     expanded={expandedHeaderCard === '__social_icons__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
@@ -1991,6 +2009,7 @@ export function EditableProfileView({
               });
             })()}
             {/* Block cards (sortable via DndContext) */}
+            <div className="flex flex-col gap-[6px]" style={{ paddingTop: `${contentStartY ?? 0}px` }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
               <SortableContext items={allSortableItems} strategy={verticalListSortingStrategy}>
                 {allSortableItems.map((itemId) => {
@@ -2015,6 +2034,7 @@ export function EditableProfileView({
                 })}
               </SortableContext>
             </DndContext>
+            </div>
           </div>
         ) : (
           /* Full block content for view mode */
