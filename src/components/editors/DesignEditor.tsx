@@ -1400,7 +1400,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="w-full h-12 rounded-full bg-white text-black hover:bg-white/90 font-semibold tracking-wide"
+            className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold tracking-wide"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('design.update')}
           </Button>

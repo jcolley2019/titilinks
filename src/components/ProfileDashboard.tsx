@@ -514,7 +514,7 @@ export function ProfileDashboard({
                   />
                 </div>
               ) : activeBlockId ? (
-                renderEditor()
+                <div className="dark text-foreground">{renderEditor()}</div>
               ) : (
                 sections.map((section) => (
                   <div key={section.labelKey}>
