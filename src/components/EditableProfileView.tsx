@@ -235,10 +235,34 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   // Layout config stored as JSON in block.title (same pattern as BioBlock).
   // 'full' = current edge-to-edge carousel. Missing/invalid title => 'full' (no migration).
   let layout: 'full' | 'filmstrip' | 'grid' = 'full';
+  let autoScroll = true;
+  let speedMs = 7000;
   try {
     const parsed = JSON.parse(block.title || '');
     if (parsed && (parsed.layout === 'filmstrip' || parsed.layout === 'grid')) layout = parsed.layout;
+    if (parsed?.autoScroll === false) autoScroll = false;
+    speedMs = parsed?.speed === 'fast' ? 3000 : parsed?.speed === 'medium' ? 5000 : 7000;
   } catch { /* legacy/plain title => full */ }
+
+  // Filmstrip auto-advance: one photo every 4s; any touch pauses it for 8s.
+  const stripRef = useRef<HTMLDivElement>(null);
+  const pausedUntil = useRef(0);
+  const pauseAutoScroll = () => { pausedUntil.current = Date.now() + 8000; };
+  useEffect(() => {
+    if (layout !== 'filmstrip' || count < 2 || !autoScroll) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => {
+      const el = stripRef.current;
+      if (!el || Date.now() < pausedUntil.current) return;
+      const step = el.clientWidth * 0.72 + 8;
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: step, behavior: 'smooth' });
+      }
+    }, speedMs);
+    return () => clearInterval(id);
+  }, [layout, count, autoScroll, speedMs]);
 
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -255,13 +279,16 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
         </p>
         <div
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory px-[14%] pb-1"
+          ref={stripRef}
+          onPointerDown={pauseAutoScroll}
+          onTouchStart={pauseAutoScroll}
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {block.items.map((item) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-[72%] rounded-xl overflow-hidden snap-center snap-always"
+              className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always"
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (

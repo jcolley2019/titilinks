@@ -41,6 +41,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [layout, setLayout] = useState<'full' | 'filmstrip' | 'grid'>('full');
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('slow');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
       try {
         const parsed = JSON.parse(blockRow?.title || '');
         setLayout(parsed?.layout === 'filmstrip' || parsed?.layout === 'grid' ? parsed.layout : 'full');
+        setAutoScroll(parsed?.autoScroll !== false);
+        setSpeed(parsed?.speed === 'fast' || parsed?.speed === 'medium' ? parsed.speed : 'slow');
       } catch { setLayout('full'); }
 
       const { data, error } = await supabase
@@ -198,7 +202,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
 
       const { error: layoutError } = await supabase
         .from('blocks')
-        .update({ title: JSON.stringify({ layout }) })
+        .update({ title: JSON.stringify({ layout, autoScroll, speed }) })
         .eq('id', blockId);
       if (layoutError) throw layoutError;
 
@@ -241,6 +245,36 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
               ))}
             </div>
           </div>
+          {layout === 'filmstrip' && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">Auto-scroll</p>
+                <button
+                  type="button"
+                  onClick={() => setAutoScroll(!autoScroll)}
+                  className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+              {autoScroll && (
+                <div className="flex gap-2">
+                  {(['slow', 'medium', 'fast'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSpeed(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                        speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* Add Photo Button */}
           <div className="mb-4">
             <input
