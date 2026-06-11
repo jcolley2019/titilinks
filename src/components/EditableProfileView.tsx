@@ -232,6 +232,14 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
+  // Layout config stored as JSON in block.title (same pattern as BioBlock).
+  // 'full' = current edge-to-edge carousel. Missing/invalid title => 'full' (no migration).
+  let layout: 'full' | 'filmstrip' | 'grid' = 'full';
+  try {
+    const parsed = JSON.parse(block.title || '');
+    if (parsed && (parsed.layout === 'filmstrip' || parsed.layout === 'grid')) layout = parsed.layout;
+  } catch { /* legacy/plain title => full */ }
+
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollBy({
@@ -239,6 +247,49 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
       behavior: 'smooth',
     });
   };
+
+  if (layout === 'filmstrip' && count > 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+          {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
+        </p>
+        <div
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory px-[34%] pb-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {block.items.map((item) => (
+            <div
+              key={item.id}
+              className="relative flex-shrink-0 w-[31%] rounded-xl overflow-hidden snap-center"
+              style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
+            >
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.label || 'Gallery photo'}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
+                </div>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -345,6 +396,7 @@ function NameHandleCard({
   localNameHandleGap, setLocalNameHandleGap,
   nameCardY, onNameCardYChange, onDragEnd,
   onSave,
+  onDisplayNameChange,
   chrome,
 }: {
   page: any;
@@ -1908,7 +1960,7 @@ export function EditableProfileView({
                           {t('editor.cancel')}
                         </button>
                         <button
-                          onClick={handlePhotoSave}
+                          onClick={() => handlePhotoSave()}
                           disabled={photoSaving}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
                         >

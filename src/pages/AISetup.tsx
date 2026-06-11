@@ -643,7 +643,7 @@ export default function AISetup() {
                                 setRegeneratingBio(true);
                                 try {
                                   const data = form.getValues();
-                                  const intake = formDataToIntake({ ...data, tone: preset.value });
+                                  const intake = formDataToIntake({ ...data, tone: preset.value as FormData['tone'] });
                                   const result = buildDraftPlan(intake);
                                   if (result.success) {
                                     const plan = await enhancePlanWithAIBios(result.plan);
