@@ -1935,7 +1935,6 @@ export function EditableProfileView({
           /* Preview block cards for edit mode */
           <div
             className="pb-32 flex flex-col gap-[6px]"
-            style={{ paddingTop: `${contentStartY ?? 0}px` }}
           >
             <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
             </div>
@@ -2007,6 +2006,7 @@ export function EditableProfileView({
               });
             })()}
             {/* Block cards (sortable via DndContext) */}
+            <div className="flex flex-col gap-[6px]" style={{ paddingTop: `${contentStartY ?? 0}px` }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
               <SortableContext items={allSortableItems} strategy={verticalListSortingStrategy}>
                 {allSortableItems.map((itemId) => {
@@ -2031,6 +2031,7 @@ export function EditableProfileView({
                 })}
               </SortableContext>
             </DndContext>
+            </div>
           </div>
         ) : (
           /* Full block content for view mode */
