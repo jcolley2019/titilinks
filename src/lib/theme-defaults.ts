@@ -35,6 +35,8 @@ export interface ThemeButtons {
   border_color: string;
   shadow_enabled: boolean;
   density: 'compact' | 'normal' | 'roomy';
+  // Link button style. When absent, LinkButton falls back to 'glass'.
+  variant?: 'filled' | 'outline' | 'glass' | 'minimal';
   // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
   // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
   variant_style?: 'velvet';
@@ -182,7 +184,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     description: 'Warm gradient with glass buttons',
     theme: {
       background: { type: 'gradient', solid_color: '#b45309', gradient_css: 'linear-gradient(to bottom, #b45309 0%, #d6336c 55%, #b24592 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0.15, source: null },
-      buttons: { shape: 'pill', fill_color: '#ffffff', text_color: '#b24592', border_enabled: false, border_color: 'rgba(255,255,255,0.35)', shadow_enabled: false, density: 'normal' },
+      buttons: { shape: 'pill', fill_color: '#ffffff', text_color: '#b24592', border_enabled: false, border_color: 'rgba(255,255,255,0.35)', shadow_enabled: true, density: 'normal', variant: 'filled' },
       typography: { font: 'space', text_color: '#ffffff' },
       motion: { enabled: true },
     },

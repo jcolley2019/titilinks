@@ -401,10 +401,10 @@ export const TEMPLATES: TemplateDefinition[] = [
       },
       buttons: {
         shape: 'pill',
-        fill_color: 'rgba(255,255,255,0.25)',
+        fill_color: '#451a03',
         text_color: '#ffffff',
         border_enabled: true,
-        border_color: 'rgba(255,255,255,0.4)',
+        border_color: '#451a03',
         shadow_enabled: false,
         density: 'normal',
       },

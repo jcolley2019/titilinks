@@ -486,6 +486,7 @@ function NameHandleCard({
 
 function SocialIconsCard({
   socialItems,
+  chrome,
   expanded,
   onToggleExpand,
   localIconsPaddingY, setLocalIconsPaddingY,
@@ -496,6 +497,7 @@ function SocialIconsCard({
   onSave,
 }: {
   socialItems: any[];
+  chrome: ChromeTokens;
   expanded: boolean;
   onToggleExpand: () => void;
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
@@ -533,10 +535,10 @@ function SocialIconsCard({
             <span
               key={item.id}
               className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
-              style={{ background: '#ffffff20' }}
+              style={{ background: chrome.iconBg }}
               title={item.label}
             >
-              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color="#ffffff" />
+              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={chrome.iconColor} />
             </span>
           ))}
           {socialItems.length === 0 && (
@@ -1983,6 +1985,7 @@ export function EditableProfileView({
                 if (cardId === '__social_icons__') return (
                   <SocialIconsCard
                     key={cardId}
+                    chrome={chrome}
                     socialItems={dedupedSocialItems}
                     expanded={expandedHeaderCard === '__social_icons__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
