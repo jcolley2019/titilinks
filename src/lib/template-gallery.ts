@@ -124,7 +124,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       background: {
         type: 'gradient',
         solid_color: '#1a1a2e',
-        gradient_css: 'linear-gradient(135deg, #667eea 0%, #764ba2 55%, #9b4dca 100%)',
+        gradient_css: 'linear-gradient(135deg, #5566cc 0%, #764ba2 55%, #9b4dca 100%)',
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.1,
@@ -286,7 +286,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       },
       buttons: {
         shape: 'rounded',
-        fill_color: '#3b82f6',
+        fill_color: '#2563eb',
         text_color: '#ffffff',
         border_enabled: false,
         border_color: '#3b82f6',
@@ -393,7 +393,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       background: {
         type: 'gradient',
         solid_color: '#fef3c7',
-        gradient_css: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 30%, #f97316 65%, #ec4899 100%)',
+        gradient_css: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 30%, #f97316 65%, #f472b6 100%)',
         image_url: '',
         overlay_color: '#000000',
         overlay_opacity: 0.2,
@@ -709,7 +709,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       },
       buttons: {
         shape: 'pill',
-        fill_color: '#f43f5e',
+        fill_color: '#e11d48',
         text_color: '#ffffff',
         border_enabled: false,
         border_color: '#f43f5e',
