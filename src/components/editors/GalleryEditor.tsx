@@ -40,6 +40,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const [saving, setSaving] = useState(false);
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
+  const [layout, setLayout] = useState<'full' | 'filmstrip' | 'grid'>('full');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +52,16 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const fetchPhotos = async () => {
     setLoading(true);
     try {
+      const { data: blockRow } = await supabase
+        .from('blocks')
+        .select('title')
+        .eq('id', blockId)
+        .maybeSingle();
+      try {
+        const parsed = JSON.parse(blockRow?.title || '');
+        setLayout(parsed?.layout === 'filmstrip' || parsed?.layout === 'grid' ? parsed.layout : 'full');
+      } catch { setLayout('full'); }
+
       const { data, error } = await supabase
         .from('block_items')
         .select('*')
@@ -185,6 +196,12 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         }
       }
 
+      const { error: layoutError } = await supabase
+        .from('blocks')
+        .update({ title: JSON.stringify({ layout }) })
+        .eq('id', blockId);
+      if (layoutError) throw layoutError;
+
       toast.success('Gallery saved');
       onSave?.();
       onOpenChange(false);
@@ -204,6 +221,26 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
+          {/* Layout picker */}
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground mb-2">Layout</p>
+            <div className="flex gap-2">
+              {(['full', 'filmstrip'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setLayout(opt)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    layout === opt
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/5 text-foreground border border-white/10'
+                  }`}
+                >
+                  {opt === 'full' ? 'Full' : 'Filmstrip'}
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Add Photo Button */}
           <div className="mb-4">
             <input

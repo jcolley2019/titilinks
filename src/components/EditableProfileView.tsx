@@ -255,13 +255,13 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
         </p>
         <div
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory px-[34%] pb-1"
+          className="flex gap-2 overflow-x-auto snap-x snap-mandatory px-[14%] pb-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {block.items.map((item) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-[31%] rounded-xl overflow-hidden snap-center"
+              className="relative flex-shrink-0 w-[72%] rounded-xl overflow-hidden snap-center"
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
