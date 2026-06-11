@@ -264,6 +264,44 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     return () => clearInterval(id);
   }, [layout, count, autoScroll, speedMs]);
 
+  // Lightbox: tap a photo → fullscreen swipe viewer. Auto-scroll pauses while open.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const openLightbox = (i: number) => { pausedUntil.current = Date.now() + 1e9; setLightboxIndex(i); };
+  const closeLightbox = () => { pausedUntil.current = Date.now() + 5000; setLightboxIndex(null); };
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const el = lightboxRef.current;
+    if (el) el.scrollTo({ left: lightboxIndex * el.clientWidth });
+  }, [lightboxIndex]);
+  const lightbox = lightboxIndex === null ? null : (
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={closeLightbox}
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center text-2xl leading-none"
+      >
+        ×
+      </button>
+      <div
+        ref={lightboxRef}
+        className="flex-1 flex overflow-x-auto snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {block.items.map((item) => (
+          <div key={item.id} className="relative flex-shrink-0 w-full h-full snap-center snap-always flex items-center justify-center p-4">
+            {item.image_url && (
+              <img src={item.image_url} alt={item.label || 'Photo'} className="max-w-full max-h-full object-contain rounded-lg" />
+            )}
+            {item.label && item.label !== 'Photo' && (
+              <p className="absolute bottom-6 left-0 right-0 text-center text-white/80 text-sm px-6">{item.label}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollBy({
@@ -285,10 +323,11 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {block.items.map((item) => (
+          {block.items.map((item, i) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always"
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always cursor-pointer"
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
@@ -314,6 +353,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
             </div>
           ))}
         </div>
+        {lightbox}
       </div>
     );
   }
@@ -339,10 +379,11 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           className="flex overflow-x-auto snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {block.items.map((item) => (
+          {block.items.map((item, i) => (
             <div
               key={item.id}
-              className="relative flex-shrink-0 w-full rounded-xl overflow-hidden snap-start"
+              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
+              className="relative flex-shrink-0 w-full rounded-xl overflow-hidden snap-start cursor-pointer"
               style={{ minWidth: '100%', aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
@@ -391,6 +432,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
             <ChevronRight className="h-4 w-4" />
           </button>
         )}
+        {lightbox}
       </div>
     </div>
   );
