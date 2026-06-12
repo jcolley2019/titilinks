@@ -135,7 +135,7 @@ function LinkDetailPanel({
   const handleUnfurl = async () => {
     const normalized = normalizeUrl(local.url);
     if (!/^https?:\/\//i.test(normalized)) return;            // only real web URLs
-    if (titleEditedRef.current && imageEditedRef.current) return; // user set both → nothing to auto-fill
+    if (titleEditedRef.current && imageEditedRef.current && local.label.trim() && local.image_url) return; // user set both → nothing to auto-fill
     if (lastUnfurledRef.current === normalized) return;       // already tried this exact URL
     lastUnfurledRef.current = normalized;
 
@@ -145,11 +145,12 @@ function LinkDetailPanel({
         body: { url: normalized },
       });
       if (error || !data) return;
-      const meta = data as { title?: string | null; image?: string | null };
+      const meta = data as { title?: string | null; image?: string | null; description?: string | null };
       setLocal(prev => {
         const next = { ...prev };
-        if (!titleEditedRef.current && meta.title && meta.title.trim()) next.label = meta.title.trim();
-        if (!imageEditedRef.current && meta.image) next.image_url = meta.image;
+        if ((!titleEditedRef.current || !prev.label.trim()) && meta.title && meta.title.trim()) next.label = meta.title.trim();
+        if ((!imageEditedRef.current || !prev.image_url) && meta.image) next.image_url = meta.image;
+        if (!(prev.subtitle || '').trim() && meta.description && meta.description.trim()) next.subtitle = meta.description.trim().slice(0, 120);
         return next;
       });
     } catch {
