@@ -276,7 +276,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     if (el) el.scrollTo({ left: lightboxIndex * el.clientWidth });
   }, [lightboxIndex]);
   const lightbox = lightboxIndex === null ? null : createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[130] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         onClick={closeLightbox}
@@ -336,7 +336,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 <img
                   src={item.image_url}
                   alt={item.label || 'Gallery photo'}
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
@@ -378,7 +378,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 <img
                   src={item.image_url}
                   alt={item.label || 'Gallery photo'}
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
@@ -969,8 +969,8 @@ export function EditableProfileView({
     handleColor: '#ffffff99',
     nameOffset: 0,
     iconsOffset: 0,
-    namePadTop: 16,
-    namePadBottom: 16,
+    namePadTop: 0,
+    namePadBottom: 0,
     iconsPaddingY: 8,
     iconSize: 'medium' as 'small'|'medium'|'large',
     nameHandleGap: 2,
@@ -995,8 +995,8 @@ export function EditableProfileView({
   const [localHandleSize, setLocalHandleSize] = useState(headerConfig.handleSize ?? 14);
   const [localNameColor, setLocalNameColor] = useState(headerConfig.nameColor ?? '#ffffff');
   const [localHandleColor, setLocalHandleColor] = useState(headerConfig.handleColor ?? '#ffffff99');
-  const [localNamePadTop, setLocalNamePadTop] = useState(headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16);
-  const [localNamePadBottom, setLocalNamePadBottom] = useState(headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16);
+  const [localNamePadTop, setLocalNamePadTop] = useState(headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 0);
+  const [localNamePadBottom, setLocalNamePadBottom] = useState(headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 0);
   const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
   const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
   const [localNameHandleGap, setLocalNameHandleGap] = useState(headerConfig.nameHandleGap ?? 2);
@@ -1706,7 +1706,7 @@ export function EditableProfileView({
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : chrome.textMuted;
             const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
-              <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 16, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 16, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', transform: `translateY(${headerConfig.nameCardY ?? 0}px)` }}>
+              <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 0, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 0, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', transform: `translateY(${headerConfig.nameCardY ?? 0}px)` }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -1765,7 +1765,7 @@ export function EditableProfileView({
 
               {photoPreview && photoStep !== 'idle' && (
                 <div
-                  className="fixed inset-0 z-[100] flex flex-col bg-black/95"
+                  className="fixed inset-0 z-[130] flex flex-col bg-black/95"
                   style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                   onTouchMove={(e) => {
                     // Prevent background scroll on touch devices
