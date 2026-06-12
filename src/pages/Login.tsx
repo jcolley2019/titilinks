@@ -36,7 +36,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user && !authLoading && !onboardingLoading) {
-      navigate(onboardingComplete ? '/dashboard' : '/onboarding');
+      navigate(onboardingComplete ? '/dashboard/editor' : '/onboarding');
     }
   }, [user, authLoading, onboardingLoading, onboardingComplete, navigate]);
 

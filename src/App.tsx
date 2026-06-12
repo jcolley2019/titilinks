@@ -3,18 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
 import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
-import Setup from "./pages/Setup";
 import Settings from "./pages/Settings";
-import AISetup from "./pages/AISetup";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import PublicProfile from "./pages/PublicProfile";
 import Templates from "./pages/Templates";
@@ -46,14 +43,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard" element={<Navigate to="/dashboard/editor" replace />} />
             <Route
               path="/dashboard/editor"
               element={
@@ -70,22 +60,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/dashboard/setup"
-              element={
-                <ProtectedRoute>
-                  <Setup />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/ai-setup"
-              element={
-                <ProtectedRoute>
-                  <AISetup />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard/setup" element={<Navigate to="/dashboard/editor" replace />} />
+            <Route path="/dashboard/ai-setup" element={<Navigate to="/dashboard/editor" replace />} />
             <Route
               path="/dashboard/settings"
               element={
