@@ -681,7 +681,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           </div>
 
           {/* Items List */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
             {items.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />

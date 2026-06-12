@@ -591,7 +591,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             </Button>
 
             {/* Items List */}
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
               {items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <LayoutGrid className="h-10 w-10 mx-auto mb-3 opacity-50" />

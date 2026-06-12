@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, Image as ImageIcon, Plus, Trash2, ImagePlus } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 
@@ -227,22 +227,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         <div className="flex flex-col flex-1 min-h-0">
           {/* Layout picker */}
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground">Layout</p>
-              {layout === 'filmstrip' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Auto-scroll</span>
-                  <button
-                    type="button"
-                    onClick={() => setAutoScroll(!autoScroll)}
-                    className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground mb-2">Layout</p>
+            <div className="flex items-center gap-2">
               {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
                 <button
                   key={opt}
@@ -257,24 +243,37 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                   {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
                 </button>
               ))}
-              {layout === 'filmstrip' && autoScroll && (
-                <>
-                  <span className="w-px h-5 bg-white/10 mx-1" />
-                  {(['slow', 'medium', 'fast'] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSpeed(s)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
-                        speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </>
-              )}
             </div>
+            {layout === 'filmstrip' && (
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Auto-scroll</span>
+                  <button
+                    type="button"
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                  </button>
+                </div>
+                {autoScroll && (
+                  <div className="flex items-center gap-1.5">
+                    {(['slow', 'medium', 'fast'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSpeed(s)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                          speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {/* Add Photo Button */}
           <div className="mb-4">
@@ -286,21 +285,10 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
               onChange={handleFileSelect}
               className="hidden"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="gap-2"
-              disabled={photos.length >= MAX_ITEMS}
-            >
-              <ImagePlus className="h-4 w-4" />
-              Add Photos
-            </Button>
           </div>
 
           {/* Photo Grid */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
             {photos.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -309,6 +297,15 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
+                {photos.length < MAX_ITEMS && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  >
+                    <Plus className="h-7 w-7 text-muted-foreground/60" />
+                    <span className="text-xs font-medium text-muted-foreground/70">Add photos</span>
+                  </button>
+                )}
                 {photos.map((photo) => (
                   <div
                     key={photo.id}
@@ -317,7 +314,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                     <img
                       src={photo.imagePreview || photo.image_url}
                       alt="Gallery photo"
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                     <button
                       onClick={() => deletePhoto(photo.id)}
@@ -327,16 +324,6 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                     </button>
                   </div>
                 ))}
-
-                {/* Add more placeholder */}
-                {photos.length < MAX_ITEMS && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                  >
-                    <Plus className="h-6 w-6 text-muted-foreground/50" />
-                  </button>
-                )}
               </div>
             )}
           </ScrollArea>
