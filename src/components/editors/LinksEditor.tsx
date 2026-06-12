@@ -390,7 +390,7 @@ function LinkDetailPanel({
               onChange={(e) => update('url', e.target.value)}
               onBlur={handleUnfurl}
               placeholder="https://..."
-              className="h-10 text-[#0e0c09]"
+              className="h-10"
             />
             {unfurling && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -407,7 +407,7 @@ function LinkDetailPanel({
               value={local.label}
               onChange={(e) => { titleEditedRef.current = true; update('label', e.target.value); }}
               placeholder="My Link"
-              className="h-10 text-[#0e0c09]"
+              className="h-10"
             />
           </div>
 
@@ -434,7 +434,7 @@ function LinkDetailPanel({
                 value={local.subtitle || ''}
                 onChange={(e) => update('subtitle', e.target.value)}
                 placeholder="Check this out"
-                className="h-10 text-[#0e0c09]"
+                className="h-10"
               />
             </CollapsibleContent>
           </Collapsible>
