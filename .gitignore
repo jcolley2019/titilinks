@@ -35,3 +35,13 @@ playwright-report/
 
 # Claude Code local session state — do not commit
 .claude/
+
+# Local reference material — never commit (personal screenshots, scratch docs, tool temp)
+public/*.png
+public/*.PNG
+public/*.jpeg
+public/*.jpg
+public/archive/
+docs/block-system-current-state.md
+skills-lock.json
+supabase/.temp/

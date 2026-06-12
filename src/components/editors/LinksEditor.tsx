@@ -101,6 +101,7 @@ function LinkDetailPanel({
   onSave,
   onDelete,
   onDraftChange,
+  panelMode,
 }: {
   item: LinkItem;
   isNew: boolean;
@@ -109,6 +110,7 @@ function LinkDetailPanel({
   onSave: (item: LinkItem) => void;
   onDelete: (id: string) => void;
   onDraftChange?: (item: LinkItem | null) => void;
+  panelMode?: boolean;
 }) {
   const [local, setLocal] = useState<LinkItem>(item);
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
@@ -220,7 +222,7 @@ function LinkDetailPanel({
         )}
       </div>
 
-      <ScrollArea className="flex-1 -mx-6 px-6">
+      <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
         <div className="space-y-4">
           {/* Live Preview — EMPTY big/medium/small show a TitiLinks-brand
               placeholder (centered + corner camera, Link.me style); once an
@@ -806,6 +808,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           isNew={isNewItem}
           blockStyle={styleConfig}
           onDraftChange={onDraftChange}
+          panelMode={panelMode}
           onBack={directMode
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}
