@@ -162,6 +162,18 @@ function LinkDetailPanel({
     }
   };
 
+  // Auto-unfurl as the user types (Link.me-style): when typing pauses and the
+  // URL looks like a complete domain (has a dot + TLD), fetch metadata without
+  // requiring blur. handleUnfurl's internal guards prevent duplicate fetches
+  // and never overwrite user-entered fields.
+  useEffect(() => {
+    const candidate = (local.url || '').trim();
+    if (!/\.[a-z]{2,}([/:?#].*)?$/i.test(candidate)) return;
+    const id = setTimeout(() => { handleUnfurl(); }, 700);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local.url]);
+
   // Per-link style overrides live on block_items.style_json (additive — any
   // future keys are preserved). Writing null removes the key; empty → null.
   const setStyleField = (key: string, value: string | number | null) => {
