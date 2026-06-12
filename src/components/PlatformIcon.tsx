@@ -4,7 +4,7 @@ import {
   SiPinterest, SiGithub, SiTelegram, SiWhatsapp, SiCalendly, SiDiscord,
   SiSpotify, SiApplemusic, SiSoundcloud, SiYoutubemusic, SiPaypal, SiVenmo,
   SiCashapp, SiZelle, SiTwitch, SiKick, SiNetflix, SiSteam, SiEtsy, SiYelp,
-  SiAirbnb,
+  SiAirbnb, SiOnlyfans,
 } from 'react-icons/si';
 import { FaLinkedin } from 'react-icons/fa';
 import { Link as LinkIcon, Globe } from 'lucide-react';
@@ -47,6 +47,7 @@ const PLATFORMS: Record<string, PlatformMeta> = {
   'Etsy': { Icon: SiEtsy, color: '#F16521' },
   'Yelp': { Icon: SiYelp, color: '#FF1A1A' },
   'Airbnb': { Icon: SiAirbnb, color: '#FF5A5F' },
+  'OnlyFans': { Icon: SiOnlyfans, color: '#00AFF0' },
 };
 
 // Lowercase + strip any parenthetical suffix so variant labels resolve:

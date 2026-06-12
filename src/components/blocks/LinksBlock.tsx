@@ -5,7 +5,7 @@
 // strings.
 
 import { useState, Fragment } from 'react';
-import { X, GripVertical } from 'lucide-react';
+import { X, GripVertical, Link as LinkChainIcon, Mail, Phone } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -27,6 +27,8 @@ import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifi
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
+import { platformFromUrl } from '@/lib/platform-from-url';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import type { BlockItem, ThemedBlockProps } from './types';
 
@@ -236,6 +238,13 @@ export function LinksBlock({
             : undefined
         }
         size={resolveSize(item.size)}
+        socialIcon={(() => {
+          const u = (item.url || '').trim();
+          if (u.includes('@')) return <Mail size={14} />;
+          if (/^tel:/i.test(u) || /^[\d+\-\s()]+$/.test(u)) return <Phone size={14} />;
+          const platform = platformFromUrl(u);
+          return platform ? <PlatformIcon label={platform} size={14} /> : <LinkChainIcon size={14} />;
+        })()}
         onClick={(e) => handleClick(e, item)}
       />
     );

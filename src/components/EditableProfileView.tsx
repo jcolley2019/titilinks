@@ -1648,14 +1648,14 @@ export function EditableProfileView({
               className="bg-black/40 backdrop-blur-sm rounded-full p-3"
               title={t('editor.editCurrentPhoto')}
             >
-              <Pencil className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
+              <Pencil className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
             </button>
             <button
               onClick={() => photoInputRef.current?.click()}
               className="bg-black/40 backdrop-blur-sm rounded-full p-3"
               title={t('editor.newPhoto')}
             >
-              <Camera className="h-10 w-10 text-white opacity-80 hover:opacity-100" />
+              <Camera className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
             </button>
           </div>
         )}

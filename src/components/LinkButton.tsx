@@ -203,6 +203,14 @@ export function LinkButton(props: LinkButtonProps) {
       {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && (
         <MediaThumb media={effectiveMedia} className="lb-cover" />
       )}
+      {effectiveSize === 'big' && effectiveMedia && socialIcon && (
+        <span
+          className="absolute top-2.5 left-2.5 z-[1] h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white"
+          aria-hidden="true"
+        >
+          {socialIcon}
+        </span>
+      )}
 
       {effectiveSize !== 'big' && effectiveSize !== 'small' && effectiveMedia && (
         <MediaThumb media={effectiveMedia} />
