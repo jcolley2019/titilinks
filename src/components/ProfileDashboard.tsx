@@ -442,10 +442,10 @@ export function ProfileDashboard({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 z-[120] w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col overflow-x-clip"
+            className="fixed top-16 sm:top-0 right-0 bottom-0 z-[120] w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col overflow-x-clip"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+            <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
               {galleryOpen ? (
                 <>
                   <button
