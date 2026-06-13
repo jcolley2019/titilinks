@@ -1276,8 +1276,10 @@ export function EditableProfileView({
           .update({ theme_json: { ...existingTheme, avatar_url_page2: urlData.publicUrl } })
           .eq('id', page.id);
       } else {
-        const updates: { avatar_url: string; avatar_original_url?: string } = {
+        const existingTheme = (page.theme_json as any) || {};
+        const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
+          theme_json: { ...existingTheme, heroConfig: { fit: heroFitDraft, posY: heroPosYDraft } },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -1830,19 +1832,97 @@ export function EditableProfileView({
 
                   {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-6">
+                    <div className="flex flex-col items-center flex-1 p-6 gap-4 overflow-y-auto">
                       <p className="text-white font-bold text-xl">
                         {t('editor.editPhoto')}
                       </p>
-                      <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-white/20">
-                        <img src={photoPreview} alt="Selected" className="w-full h-full object-cover object-top" />
+
+                      {/* Live preview in the real hero shape — what you see is what publishes */}
+                      <div className="relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black">
+                        {heroFitDraft === 'fit' && (
+                          <div
+                            aria-hidden="true"
+                            className="absolute inset-0"
+                            style={{
+                              backgroundImage: `url(${photoPreview})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              filter: 'blur(28px) brightness(0.7)',
+                              transform: 'scale(1.1)',
+                            }}
+                          />
+                        )}
+                        <img
+                          src={photoPreview}
+                          alt="Preview"
+                          className="absolute inset-0 w-full h-full"
+                          style={
+                            heroFitDraft === 'fit'
+                              ? { objectFit: 'contain', objectPosition: 'center' }
+                              : { objectFit: 'cover', objectPosition: `50% ${heroPosYDraft}%` }
+                          }
+                        />
                       </div>
+
+                      {/* Fill / Fit toggle */}
+                      <div className="flex w-full max-w-xs rounded-xl bg-white/5 p-1 gap-1">
+                        <button
+                          onClick={() => setHeroFitDraft('fill')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                            heroFitDraft === 'fill' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'
+                          }`}
+                        >
+                          Fill
+                        </button>
+                        <button
+                          onClick={() => setHeroFitDraft('fit')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                            heroFitDraft === 'fit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'
+                          }`}
+                        >
+                          Fit
+                        </button>
+                      </div>
+                      <p className="text-white/40 text-xs text-center max-w-xs -mt-1">
+                        {heroFitDraft === 'fill'
+                          ? 'Fills the space. Drag to choose what stays centered.'
+                          : 'Shows the whole photo, with a soft blurred backdrop.'}
+                      </p>
+
+                      {/* Vertical position — Fill only */}
+                      {heroFitDraft === 'fill' && (
+                        <div className="w-full max-w-xs flex items-center gap-3">
+                          <span className="text-white/40 text-[10px]">Top</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={heroPosYDraft}
+                            onChange={(e) => setHeroPosYDraft(Number(e.target.value))}
+                            className="flex-1 accent-[#C9A55C]"
+                          />
+                          <span className="text-white/40 text-[10px]">Bottom</span>
+                        </div>
+                      )}
+
+                      {/* Save (no crop needed) — new photo uploads uncropped + config;
+                          existing photo writes display config only */}
+                      <button
+                        onClick={() => (photoFile ? handlePhotoSave() : handleHeroDisplaySave())}
+                        disabled={photoSaving}
+                        className="w-full max-w-xs py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm disabled:opacity-60"
+                      >
+                        {photoSaving ? 'Saving…' : 'Save'}
+                      </button>
+
+                      {/* Crop manually — secondary, optional */}
                       <button
                         onClick={() => setPhotoStep('manual')}
-                        className="w-full max-w-xs py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold flex items-center justify-center gap-2 text-sm"
+                        className="w-full max-w-xs py-3 rounded-2xl border border-white/20 text-white/80 font-semibold text-sm"
                       >
                         {t('editor.cropImage')}
                       </button>
+
                       <button onClick={resetPhoto} className="text-white/40 text-xs">
                         {t('editor.cancel')}
                       </button>
