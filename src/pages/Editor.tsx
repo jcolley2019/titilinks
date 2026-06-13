@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +33,8 @@ interface ThemeJson {
 }
 
 export default function Editor() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
@@ -479,6 +481,12 @@ export default function Editor() {
               className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
             >
               {t('editor.viewLive')} ↗
+            </button>
+            <button
+              onClick={async () => { await signOut(); navigate('/login'); }}
+              className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/50 hover:text-white hover:border-white/40 transition-colors"
+            >
+              {t('dashLayout.signOut') || 'Log Out'}
             </button>
           </div>
         </div>
