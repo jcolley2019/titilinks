@@ -520,7 +520,7 @@ export default function Editor() {
       </div>
 
       {/* ═══ MOBILE: Full screen live profile ═══ */}
-      <div className="lg:hidden -mx-4 -mt-6 min-h-screen bg-[#0e0c09]">
+      <div className="lg:hidden -mx-4 min-h-screen bg-[#0e0c09]">
         <EditableProfileView
           page={page}
           blocks={previewBlocks}
