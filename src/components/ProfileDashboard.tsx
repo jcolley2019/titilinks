@@ -444,6 +444,16 @@ export function ProfileDashboard({
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className="fixed top-0 right-0 bottom-0 z-[120] w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col overflow-x-clip"
           >
+            {/* Mobile-only floating close — guarantees an always-reachable exit
+                that nothing can cover (desktop uses the header X below). */}
+            <button
+              onClick={handleClose}
+              aria-label="Close"
+              className="sm:hidden fixed right-3 z-[125] h-9 w-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-transform"
+              style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}
+            >
+              <X className="h-5 w-5" />
+            </button>
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
               {galleryOpen ? (
