@@ -14,7 +14,8 @@
     "test:desktop": "playwright test --project=desktop",
     "test:screenshots": "playwright test --project=mobile --project=desktop",
     "test:report": "playwright show-report",
-    "audit:contrast": "tsx scripts/contrast-audit.mjs"
+    "audit:contrast": "tsx scripts/contrast-audit.mjs",
+    "guard": "node scripts/guard-invariants.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
