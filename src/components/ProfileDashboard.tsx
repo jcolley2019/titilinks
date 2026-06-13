@@ -445,7 +445,7 @@ export function ProfileDashboard({
             className="fixed top-0 right-0 bottom-0 z-[120] w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col overflow-x-clip"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
               {galleryOpen ? (
                 <>
                   <button

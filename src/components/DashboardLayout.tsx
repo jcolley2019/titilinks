@@ -360,6 +360,14 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               Edit Profile
             </button>
           )}
+          {isEditorPage && pageHandle && (
+            <button
+              onClick={() => window.open(`/${pageHandle}`, '_blank')}
+              className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground active:scale-95 transition-transform"
+            >
+              Live ↗
+            </button>
+          )}
           <Button
             variant="ghost"
             size="icon"

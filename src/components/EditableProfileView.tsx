@@ -940,6 +940,13 @@ export function EditableProfileView({
   const [aiProcessing, setAiProcessing] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 }); // image pan offset
+  // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json.heroConfig
+  const [heroFitDraft, setHeroFitDraft] = useState<'fill' | 'fit'>(
+    (page.theme_json as any)?.heroConfig?.fit === 'fit' ? 'fit' : 'fill'
+  );
+  const [heroPosYDraft, setHeroPosYDraft] = useState<number>(
+    typeof (page.theme_json as any)?.heroConfig?.posY === 'number' ? (page.theme_json as any).heroConfig.posY : 50
+  );
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const cropImgRef = useRef<HTMLImageElement>(null);
@@ -1201,6 +1208,26 @@ export function EditableProfileView({
     if (!ctx) return photoPreview || '';
     ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
     return canvas.toDataURL('image/jpeg', 0.95);
+  };
+
+  // HERO-1 (B1): persist display mode only — no file upload, no crop.
+  const handleHeroDisplaySave = async () => {
+    setPhotoSaving(true);
+    try {
+      const existingTheme = (page.theme_json as any) || {};
+      const { error } = await supabase
+        .from('pages')
+        .update({ theme_json: { ...existingTheme, heroConfig: { fit: heroFitDraft, posY: heroPosYDraft } } })
+        .eq('id', page.id);
+      if (error) throw error;
+      setPhotoStep('idle');
+      onRefresh();
+    } catch (e) {
+      console.error('hero display save failed', e);
+      toast.error(t('editor.saveFailed') || 'Could not save');
+    } finally {
+      setPhotoSaving(false);
+    }
   };
 
   const handlePhotoSave = async (overrideFile?: File) => {
