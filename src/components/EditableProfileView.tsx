@@ -1552,6 +1552,13 @@ export function EditableProfileView({
   const heroImage = selectedMode === 'recruit'
     ? (localHeroImages.recruit || page2AvatarUrl || '')
     : (localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '');
+  // Hero display config (HERO-1). Absent → Fill, centered — un-beheads legacy photos.
+  const heroConfig = (page.theme_json as any)?.heroConfig || {};
+  const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
+  const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;
+  const heroImgStyle: React.CSSProperties = heroFit === 'fit'
+    ? { objectFit: 'contain', objectPosition: 'center' }
+    : { objectFit: 'cover', objectPosition: `50% ${heroPosY}%` };
 
   // Page labels from theme
   const themePages = (page.theme_json as any)?.pages;
@@ -1605,13 +1612,29 @@ export function EditableProfileView({
       {/* Fixed hero image — stays pinned while content scrolls over it */}
       <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
         {heroImage ? (
-          <SmoothImage
-            src={heroImage}
-            alt={page.display_name || page.handle}
-            className="object-cover object-top brightness-110"
-            containerClassName="h-full w-full"
-            skeletonClassName="bg-neutral-900"
-          />
+          <>
+            {heroFit === 'fit' && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${heroImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(28px) brightness(0.7)',
+                  transform: 'scale(1.1)',
+                }}
+              />
+            )}
+            <SmoothImage
+              src={heroImage}
+              alt={page.display_name || page.handle}
+              className="brightness-110 relative"
+              imgStyle={heroImgStyle}
+              containerClassName="h-full w-full"
+              skeletonClassName="bg-neutral-900"
+            />
+          </>
         ) : (
           <div className="h-full w-full bg-[#0e0c09] flex flex-col items-center justify-center gap-3">
             {editMode && selectedMode === 'recruit' && (

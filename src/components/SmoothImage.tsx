@@ -10,6 +10,7 @@ interface SmoothImageProps {
   skeletonClassName?: string;
   aspectRatio?: 'video' | 'square' | 'banner' | 'auto';
   fallback?: React.ReactNode;
+  imgStyle?: React.CSSProperties;
 }
 
 /**
@@ -26,6 +27,7 @@ export function SmoothImage({
   skeletonClassName,
   aspectRatio = 'auto',
   fallback,
+  imgStyle,
 }: SmoothImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -90,6 +92,7 @@ export function SmoothImage({
         onError={handleError}
         loading="lazy"
         decoding="async"
+        style={imgStyle}
         className={cn(
           'w-full h-full object-cover',
           // Fade transition
