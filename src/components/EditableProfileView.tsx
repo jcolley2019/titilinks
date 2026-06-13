@@ -99,6 +99,7 @@ interface EditableProfileViewProps {
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
   onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
+  stickyTop?: number | string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -921,6 +922,7 @@ export function EditableProfileView({
   onItemDelete,
   onItemAdd,
   onItemsReorder,
+  stickyTop = 0,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -1639,7 +1641,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image — stays pinned while content scrolls over it */}
-      <div className="relative w-full" style={{ position: 'sticky', top: 0, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
+      <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
         {heroImage ? (
           <>
             {heroFit === 'fit' && (
@@ -1733,8 +1735,8 @@ export function EditableProfileView({
             top: '-60px',
             left: 0,
             right: 0,
-            height: '60px',
-            background: `linear-gradient(to bottom, transparent 0%, ${theme.background?.solid_color || '#0e0c09'} 100%)`,
+            height: '64px',
+            background: `linear-gradient(to bottom, transparent 0%, ${theme.background?.solid_color || '#0e0c09'} 80%)`,
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -1832,7 +1834,7 @@ export function EditableProfileView({
 
                   {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
-                    <div className="flex flex-col items-center flex-1 p-6 gap-4 overflow-y-auto">
+                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-4 overflow-y-auto">
                       <p className="text-white font-bold text-xl">
                         {t('editor.editPhoto')}
                       </p>
