@@ -483,8 +483,8 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
       )}
 
       {/* Main Content */}
-      <main className={`lg:pl-64 pt-16 lg:pt-0 ${isEditorPage ? '' : 'pb-20'} lg:pb-0 min-h-screen scrollbar-hide-mobile overflow-x-hidden`}>
-        <div className="p-4 lg:p-8 overflow-x-hidden">
+      <main className={`lg:pl-64 pt-16 lg:pt-0 ${isEditorPage ? '' : 'pb-20'} lg:pb-0 min-h-screen scrollbar-hide-mobile ${isEditorPage ? 'overflow-x-clip' : 'overflow-x-hidden'}`}>
+        <div className={`p-4 lg:p-8 ${isEditorPage ? 'overflow-x-clip' : 'overflow-x-hidden'}`}>
           {children}
         </div>
       </main>
