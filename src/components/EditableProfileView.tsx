@@ -497,6 +497,11 @@ function EmptyState({ textColor }: { textColor: string }) {
 
 // ─── Name/Handle Sortable Card ──────────────────────────────────────────────
 
+// Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
+const HEADER_NAME_TOP = 8;   // space above the name (the red-line anchor), px
+const HEADER_GAP_A = 4;      // fixed gap name -> handle, px
+const HEADER_GAP_B = 12;     // fixed gap handle -> icons, px
+
 function NameHandleCard({
   page,
   expanded,
@@ -551,13 +556,13 @@ function NameHandleCard({
 
   return (
     <div
-      style={{ transform: `translateY(${nameCardY}px)`, position: 'relative', zIndex: 20 }}
-      className="mx-4 mb-2 relative"
+      style={{ position: 'relative', zIndex: 20 }}
+      className="relative"
     >
       {/* Content — tap name to edit inline, tap handle area to expand settings */}
       <div
         className="relative"
-        style={{ paddingTop: localNamePadTop, paddingBottom: localNamePadBottom, textAlign: 'center' }}
+        style={{ paddingTop: HEADER_NAME_TOP, textAlign: 'center' }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <input
@@ -583,7 +588,7 @@ function NameHandleCard({
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: lightHeaderText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none', margin: 0, marginTop: localNameHandleGap }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: lightHeaderText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none', margin: 0, marginTop: HEADER_GAP_A }}>
             @{page.handle}
           </p>
         </div>
@@ -687,13 +692,13 @@ function SocialIconsCard({
 
   return (
     <div
-      style={{ transform: `translateY(${iconsCardY}px)`, marginBottom: (iconsCardY < 0 ? iconsCardY : 0) + 8, position: 'relative', zIndex: 20 }}
-      className="mx-4 mb-2 relative"
+      style={{ marginTop: HEADER_GAP_B, position: 'relative', zIndex: 20 }}
+      className="relative"
     >
       {/* Content — matches profile display */}
       <div
         className="cursor-pointer relative"
-        style={{ paddingTop: localIconsPaddingY, paddingBottom: localIconsPaddingY }}
+        style={{ paddingTop: 0, paddingBottom: 0 }}
         onClick={onToggleExpand}
       >
         <div className="flex flex-wrap justify-center gap-3 px-4">
@@ -1585,6 +1590,7 @@ export function EditableProfileView({
     : (localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '');
   // Hero display config (HERO-1). Absent → Fill, centered — un-beheads legacy photos.
   const heroConfig = (page.theme_json as any)?.heroConfig || {};
+  const heroVideo: string = heroConfig.video || '';
   const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
   const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;
   const heroImgStyle: React.CSSProperties = heroFit === 'fit'
@@ -1642,7 +1648,33 @@ export function EditableProfileView({
     >
       {/* Fixed hero image — stays pinned while content scrolls over it */}
       <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
-        {heroImage ? (
+        {heroVideo ? (
+          <>
+            {heroFit === 'fit' && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${heroImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(28px) brightness(0.7)',
+                  transform: 'scale(1.1)',
+                }}
+              />
+            )}
+            <video
+              src={heroVideo}
+              poster={heroImage || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full brightness-110"
+              style={heroImgStyle}
+            />
+          </>
+        ) : heroImage ? (
           <>
             {heroFit === 'fit' && (
               <div
@@ -1750,8 +1782,8 @@ export function EditableProfileView({
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: `${headerConfig.nameOffset ?? 0}px`,
-            paddingBottom: '1rem',
+            marginTop: 0,
+            paddingBottom: editMode ? 0 : '1rem',
           }}
         >
           {/* In edit mode, name/handle render as sortable cards below */}
@@ -1760,7 +1792,7 @@ export function EditableProfileView({
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : chrome.textMuted;
             const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
-              <div key={id} style={{ paddingTop: headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 0, paddingBottom: headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 0, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', transform: `translateY(${headerConfig.nameCardY ?? 0}px)` }}>
+              <div key={id} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -1777,7 +1809,7 @@ export function EditableProfileView({
                     color: headerHandleColor,
                     textShadow: headerLightText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
                     margin: 0,
-                    marginTop: headerConfig.nameHandleGap ?? 2,
+                    marginTop: HEADER_GAP_A,
                   }}
                 >
                   @{page.handle}
@@ -1798,7 +1830,7 @@ export function EditableProfileView({
               const sizeMap: Record<string, number> = { small: 14, medium: 18, large: 24 };
               const containerMap: Record<string, string> = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
               return (
-                <div key={id} style={{ paddingTop: headerConfig.iconsPaddingY ?? 8, paddingBottom: headerConfig.iconsPaddingY ?? 8, transform: `translateY(${headerConfig.iconsCardY ?? 0}px)`, marginBottom: ((headerConfig.iconsCardY ?? 0) < 0 ? (headerConfig.iconsCardY ?? 0) : 0) + 8 }} className="flex flex-wrap justify-center gap-3">
+                <div key={id} style={{ marginTop: HEADER_GAP_B }} className="flex flex-wrap justify-center gap-3">
                   {dedupedItems.map((item) => (
                     <span
                       key={item.id}
@@ -2235,8 +2267,6 @@ export function EditableProfileView({
           <div
             className="pb-32 flex flex-col gap-[6px]"
           >
-            <div className="flex items-center justify-between px-4 pt-1 pb-2 relative z-[5]">
-            </div>
             {/* Free-drag header cards (outside DndContext) — hidden during photo crop/edit */}
             {photoStep === 'idle' && (() => {
               const allItems = socialBlocks.flatMap(b => b.items);
