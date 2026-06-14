@@ -27,13 +27,13 @@ interface EmailSubscribeConfig {
 }
 
 const DEFAULT_CONFIG: EmailSubscribeConfig = {
-  title: 'Stay up to date',
-  placeholder: 'your@email.com',
-  button_label: 'Subscribe',
-  success_message: 'Thanks for subscribing! 🎉',
+  title: '',
+  placeholder: '',
+  button_label: '',
+  success_message: '',
   redirect_url: '',
   collect_name: false,
-  name_placeholder: 'Your name',
+  name_placeholder: '',
 };
 
 interface EmailSubscribeEditorProps {
@@ -242,19 +242,19 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
               )}>
                 {config.collect_name && (
                   <Input
-                    placeholder={config.name_placeholder}
+                    placeholder={config.name_placeholder || 'Your name'}
                     className="h-10"
                     disabled
                   />
                 )}
                 <div className="flex gap-2 flex-1">
                   <Input
-                    placeholder={config.placeholder}
+                    placeholder={config.placeholder || 'your@email.com'}
                     className="h-10 flex-1"
                     disabled
                   />
                   <Button className="h-10 px-4" disabled>
-                    {config.button_label}
+                    {config.button_label || 'Subscribe'}
                   </Button>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
             <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
               <div className="flex items-center justify-center gap-2 text-green-600">
                 <Check className="h-5 w-5" />
-                <p className="text-sm font-medium">{config.success_message}</p>
+                <p className="text-sm font-medium">{config.success_message || 'Thanks for subscribing! 🎉'}</p>
               </div>
             </div>
           </div>

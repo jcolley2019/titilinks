@@ -49,6 +49,10 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
     try {
       const parsed = JSON.parse(item.badge);
       config = { ...config, ...parsed };
+      config.button_label = config.button_label || t('emailSubscribe.defaultButton');
+      config.success_message = config.success_message || t('emailSubscribe.defaultSuccess');
+      config.placeholder = config.placeholder || t('emailSubscribe.defaultPlaceholder');
+      config.name_placeholder = config.name_placeholder || t('emailSubscribe.defaultName');
     } catch {
       // Use defaults
     }
