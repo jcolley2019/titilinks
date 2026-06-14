@@ -85,6 +85,10 @@ export default function PublicProfile() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [headerOpacity, setHeaderOpacity] = useState(0);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
+  const [shareView, setShareView] = useState(false);
+  const [shareName, setShareName] = useState('');
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
   useEffect(() => {
     const onScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -280,6 +284,23 @@ export default function PublicProfile() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+
+  const ownerEmail = (page?.theme_json as any)?.contactCard?.email || '';
+
+  const closeContactSheet = () => {
+    setContactSheetOpen(false);
+    setShareView(false);
+    setShareName('');
+    setShareEmail('');
+    setShareMsg('');
+  };
+
+  const sendShareBack = () => {
+    const subject = `New contact from ${shareName || 'a visitor'} via your link page`;
+    const body = `Name: ${shareName}\nEmail: ${shareEmail}\n\n${shareMsg}`;
+    window.location.href = `mailto:${ownerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    closeContactSheet();
+  };
   const ogTitle = page ? `${page.display_name || page.handle} | TitiLinks` : 'TitiLinks';
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const page2AvatarUrl = (page?.theme_json as any)?.avatar_url_page2 || null;
@@ -333,7 +354,7 @@ export default function PublicProfile() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setContactSheetOpen(false)}
+                onClick={closeContactSheet}
                 className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
               />
               <motion.div
@@ -344,34 +365,81 @@ export default function PublicProfile() {
                 className="fixed bottom-0 left-0 right-0 z-[61] rounded-t-3xl bg-[#17130e] px-6 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.75rem)]"
               >
                 <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-white/15" />
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-16 w-16 mb-3">
-                    <AvatarImage src={page?.avatar_url || ''} alt={page?.display_name || ''} />
-                    <AvatarFallback className="bg-[#C9A55C] text-[#0e0c09] font-semibold">
-                      {(page?.display_name || page?.handle || '?').charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <p className="text-white font-semibold text-lg leading-tight">
-                    {page?.display_name || page?.handle}
-                  </p>
-                  {page?.handle && (
-                    <p className="text-white/45 text-sm mt-0.5">@{page.handle}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { handleSaveContact(); setContactSheetOpen(false); }}
-                  className="mt-6 w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09]"
-                >
-                  Save to Contacts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactSheetOpen(false)}
-                  className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
-                >
-                  Cancel
-                </button>
+                {!shareView ? (
+                  <>
+                    <div className="flex flex-col items-center text-center">
+                      <Avatar className="h-16 w-16 mb-3">
+                        <AvatarImage src={page?.avatar_url || ''} alt={page?.display_name || ''} />
+                        <AvatarFallback className="bg-[#C9A55C] text-[#0e0c09] font-semibold">
+                          {(page?.display_name || page?.handle || '?').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="text-white font-semibold text-lg leading-tight">
+                        {page?.display_name || page?.handle}
+                      </p>
+                      {page?.handle && (
+                        <p className="text-white/45 text-sm mt-0.5">@{page.handle}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { handleSaveContact(); ownerEmail ? setShareView(true) : closeContactSheet(); }}
+                      className="mt-6 w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09]"
+                    >
+                      Save to Contacts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeContactSheet}
+                      className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-white font-semibold text-lg text-center leading-tight">
+                      Send your info to {page?.display_name || page?.handle}?
+                    </p>
+                    <p className="text-white/45 text-sm text-center mt-1 mb-4">It goes straight to their inbox.</p>
+                    <input
+                      type="text"
+                      value={shareName}
+                      onChange={(e) => setShareName(e.target.value)}
+                      placeholder="Your name"
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] mb-2"
+                    />
+                    <input
+                      type="email"
+                      value={shareEmail}
+                      onChange={(e) => setShareEmail(e.target.value)}
+                      placeholder="Your email"
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] mb-2"
+                    />
+                    <textarea
+                      value={shareMsg}
+                      onChange={(e) => setShareMsg(e.target.value)}
+                      placeholder="Why are you reaching out?"
+                      rows={3}
+                      className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] resize-none mb-4"
+                    />
+                    <button
+                      type="button"
+                      disabled={!shareName || !shareEmail}
+                      onClick={sendShareBack}
+                      className="w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09] disabled:opacity-40"
+                    >
+                      Send
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeContactSheet}
+                      className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
+                    >
+                      No thanks
+                    </button>
+                  </>
+                )}
               </motion.div>
             </>
           )}
