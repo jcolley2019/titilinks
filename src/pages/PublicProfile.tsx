@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Share2,
+  UserPlus,
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
@@ -86,6 +87,13 @@ export default function PublicProfile() {
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Keep the iOS safe-area (status-bar region) fixed black so it blends with the chrome
+  useEffect(() => {
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#0e0c09';
+    return () => { document.body.style.backgroundColor = prev; };
   }, []);
 
   // Adult content interstitial state
@@ -264,6 +272,7 @@ export default function PublicProfile() {
         <meta property="og:description" content={ogDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:url" content={profileUrl} />
+        <meta name="theme-color" content="#0e0c09" />
         <meta property="og:type" content="profile" />
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content={ogTitle} />
@@ -274,6 +283,19 @@ export default function PublicProfile() {
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
       </Helmet>
       <div className="min-h-screen bg-[#0e0c09]">
+        {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
+        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+          <div className="flex items-center justify-between px-4 h-14">
+            <div />
+            <button
+              type="button"
+              aria-label="Save contact"
+              className="flex items-center justify-center h-9 w-9 rounded-full bg-black/30 backdrop-blur-sm text-white"
+            >
+              <UserPlus className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
         <EditableProfileView
           page={page}
           blocks={blocks}
