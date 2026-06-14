@@ -261,6 +261,24 @@ export default function PublicProfile() {
   }
 
   const profileUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  const handleSaveContact = () => {
+    if (!page) return;
+    const esc = (s: string) => String(s).replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const name = page.display_name || page.handle || 'Contact';
+    const lines = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${esc(name)}`, `URL:${profileUrl}`];
+    if (page.bio) lines.push(`NOTE:${esc(page.bio)}`);
+    lines.push('END:VCARD');
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.replace(/[^a-z0-9]/gi, '_')}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const ogTitle = page ? `${page.display_name || page.handle} | TitiLinks` : 'TitiLinks';
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const page2AvatarUrl = (page?.theme_json as any)?.avatar_url_page2 || null;
@@ -297,6 +315,7 @@ export default function PublicProfile() {
             </div>
             <button
               type="button"
+              onClick={handleSaveContact}
               aria-label="Save contact"
               className="flex items-center justify-center h-9 w-9 rounded-full bg-black/30 backdrop-blur-sm text-white"
             >
