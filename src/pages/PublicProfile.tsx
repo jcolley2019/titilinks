@@ -83,8 +83,12 @@ export default function PublicProfile() {
 
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [headerOpacity, setHeaderOpacity] = useState(0);
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+      setHeaderOpacity(Math.min(window.scrollY / 220, 1));
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -284,7 +288,7 @@ export default function PublicProfile() {
       </Helmet>
       <div className="min-h-screen bg-[#0e0c09]">
         {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
-        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${headerOpacity})` }}>
           <div className="flex items-center justify-between px-4 h-14">
             <div />
             <button
