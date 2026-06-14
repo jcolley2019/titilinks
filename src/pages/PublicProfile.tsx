@@ -84,6 +84,7 @@ export default function PublicProfile() {
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [headerOpacity, setHeaderOpacity] = useState(0);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
   useEffect(() => {
     const onScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -315,7 +316,7 @@ export default function PublicProfile() {
             </div>
             <button
               type="button"
-              onClick={handleSaveContact}
+              onClick={() => setContactSheetOpen(true)}
               aria-label="Save contact"
               className="flex items-center justify-center h-9 w-9 rounded-full bg-black/30 backdrop-blur-sm text-white"
             >
@@ -323,6 +324,58 @@ export default function PublicProfile() {
             </button>
           </div>
         </header>
+
+        {/* Contact sheet — Save to Contacts (Step A) */}
+        <AnimatePresence>
+          {contactSheetOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setContactSheetOpen(false)}
+                className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+                className="fixed bottom-0 left-0 right-0 z-[61] rounded-t-3xl bg-[#17130e] px-6 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+1.75rem)]"
+              >
+                <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-white/15" />
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-16 w-16 mb-3">
+                    <AvatarImage src={page?.avatar_url || ''} alt={page?.display_name || ''} />
+                    <AvatarFallback className="bg-[#C9A55C] text-[#0e0c09] font-semibold">
+                      {(page?.display_name || page?.handle || '?').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <p className="text-white font-semibold text-lg leading-tight">
+                    {page?.display_name || page?.handle}
+                  </p>
+                  {page?.handle && (
+                    <p className="text-white/45 text-sm mt-0.5">@{page.handle}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { handleSaveContact(); setContactSheetOpen(false); }}
+                  className="mt-6 w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09]"
+                >
+                  Save to Contacts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactSheetOpen(false)}
+                  className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         <EditableProfileView
           page={page}
           blocks={blocks}
