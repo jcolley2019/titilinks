@@ -1139,6 +1139,14 @@ export function EditableProfileView({
   const [heroPosYDraft, setHeroPosYDraft] = useState<number>(
     typeof (page.theme_json as any)?.heroConfig?.posY === 'number' ? (page.theme_json as any).heroConfig.posY : 50
   );
+  const [heroAudioDraft, setHeroAudioDraft] = useState<'silent' | 'clip' | 'voiceover'>(
+    (page.theme_json as any)?.heroConfig?.audio === 'clip' || (page.theme_json as any)?.heroConfig?.audio === 'voiceover'
+      ? (page.theme_json as any).heroConfig.audio : 'silent'
+  );
+  const [heroPlaybackDraft, setHeroPlaybackDraft] = useState<'once' | 'loop' | 'bounce'>(
+    (page.theme_json as any)?.heroConfig?.playback === 'loop' || (page.theme_json as any)?.heroConfig?.playback === 'bounce'
+      ? (page.theme_json as any).heroConfig.playback : 'once'
+  );
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const cropImgRef = useRef<HTMLImageElement>(null);
@@ -1415,7 +1423,7 @@ export function EditableProfileView({
       const existingHero = existingTheme.heroConfig || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } } })
+        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, audio: heroAudioDraft, playback: heroPlaybackDraft } } })
         .eq('id', page.id);
       if (error) throw error;
       setPhotoStep('idle');
@@ -1478,7 +1486,7 @@ export function EditableProfileView({
         const existingHero = existingTheme.heroConfig || {};
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
-          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } },
+          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, audio: heroAudioDraft, playback: heroPlaybackDraft } },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -2183,6 +2191,64 @@ export function EditableProfileView({
                             className="flex-1 accent-[#C9A55C]"
                           />
                           <span className="text-white/40 text-[10px]">Bottom</span>
+                        </div>
+                      )}
+
+                      {/* Hero audio & playback — only relevant once a hero video exists */}
+                      {heroConfig.video && (
+                        <div className="w-full max-w-xs flex flex-col gap-3">
+                          <div>
+                            <p className="text-white/70 text-xs font-semibold mb-1.5">Sound</p>
+                            <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                              <button
+                                onClick={() => setHeroAudioDraft('silent')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioDraft === 'silent' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                              >
+                                Silent
+                              </button>
+                              <button
+                                onClick={() => setHeroAudioDraft('clip')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioDraft === 'clip' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                              >
+                                Clip sound
+                              </button>
+                            </div>
+                            <p className="text-white/40 text-[10px] mt-1">
+                              {heroAudioDraft === 'clip'
+                                ? "Plays muted, visitors tap to hear the clip's sound."
+                                : 'Hero plays muted, no sound controls.'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-white/70 text-xs font-semibold mb-1.5">Playback</p>
+                            <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                              <button
+                                onClick={() => setHeroPlaybackDraft('once')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackDraft === 'once' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                              >
+                                Once
+                              </button>
+                              <button
+                                onClick={() => setHeroPlaybackDraft('loop')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackDraft === 'loop' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                              >
+                                Loop
+                              </button>
+                              <button
+                                onClick={() => setHeroPlaybackDraft('bounce')}
+                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackDraft === 'bounce' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                              >
+                                Bounce
+                              </button>
+                            </div>
+                            <p className="text-white/40 text-[10px] mt-1">
+                              {heroPlaybackDraft === 'once'
+                                ? 'Plays once, then shows a replay arrow.'
+                                : heroPlaybackDraft === 'loop'
+                                ? 'Loops continuously.'
+                                : 'Plays forward then reverses, like a Live Photo.'}
+                            </p>
+                          </div>
                         </div>
                       )}
 
