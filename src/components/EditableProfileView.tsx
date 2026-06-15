@@ -37,6 +37,8 @@ import {
   FileText,
   Mail,
   User,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
@@ -925,6 +927,74 @@ function SortablePreviewCard({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+function HeroVideo({
+  src,
+  poster,
+  fit,
+  blurImage,
+  imgStyle,
+}: {
+  src: string;
+  poster?: string;
+  fit: string;
+  blurImage?: string;
+  imgStyle: React.CSSProperties;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    if (!v.muted) {
+      v.play?.().catch(() => {});
+    }
+    setMuted(v.muted);
+  };
+
+  return (
+    <>
+      {fit === 'fit' && blurImage && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${blurImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(28px) brightness(0.7)',
+            transform: 'scale(1.1)',
+          }}
+        />
+      )}
+      <video
+        ref={videoRef}
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full brightness-110"
+        style={imgStyle}
+      />
+      <button
+        onClick={toggleSound}
+        aria-label={muted ? 'Unmute video' : 'Mute video'}
+        className="absolute bottom-3 right-3 z-10 bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90"
+      >
+        {muted ? (
+          <VolumeX className="h-5 w-5 text-white" />
+        ) : (
+          <Volume2 className="h-5 w-5 text-white" />
+        )}
+      </button>
+    </>
+  );
+}
+
 export function EditableProfileView({
   page,
   blocks,
@@ -1726,31 +1796,13 @@ export function EditableProfileView({
       {/* Fixed hero image — stays pinned while content scrolls over it */}
       <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
         {heroVideo ? (
-          <>
-            {heroFit === 'fit' && (
-              <div
-                aria-hidden="true"
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `url(${heroImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  filter: 'blur(28px) brightness(0.7)',
-                  transform: 'scale(1.1)',
-                }}
-              />
-            )}
-            <video
-              src={heroVideo}
-              poster={heroImage || undefined}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="absolute inset-0 w-full h-full brightness-110"
-              style={heroImgStyle}
-            />
-          </>
+          <HeroVideo
+            src={heroVideo}
+            poster={heroImage || undefined}
+            fit={heroFit}
+            blurImage={heroImage}
+            imgStyle={heroImgStyle}
+          />
         ) : heroImage ? (
           <>
             {heroFit === 'fit' && (
