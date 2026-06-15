@@ -254,6 +254,13 @@ export function ProfileDashboard({
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [videoProfileOpen, setVideoProfileOpen] = useState(false);
+  const heroCfg = (themeJson as any)?.heroConfig || {};
+  const heroVideoUrl: string = heroCfg.video || '';
+  const heroAudioMode: 'silent' | 'clip' | 'voiceover' =
+    heroCfg.audio === 'clip' || heroCfg.audio === 'voiceover' ? heroCfg.audio : 'silent';
+  const heroPlaybackMode: 'once' | 'loop' | 'bounce' =
+    heroCfg.playback === 'loop' || heroCfg.playback === 'bounce' ? heroCfg.playback : 'once';
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -285,6 +292,7 @@ export function ProfileDashboard({
     setEntryMode('add');
     setDesignOpen(false);
     setGalleryOpen(false);
+    setVideoProfileOpen(false);
     onClose();
   };
 
@@ -314,11 +322,35 @@ export function ProfileDashboard({
       if (error) throw error;
       toast.success('Hero video added!');
       onRefresh();
-      handleClose();
     } catch (err) {
       console.error('Video upload error:', err);
       toast.error('Failed to upload video');
     }
+  };
+
+  const saveHeroConfig = async (patch: Record<string, unknown>) => {
+    const existingTheme = (themeJson as any) || {};
+    const existingHero = existingTheme.heroConfig || {};
+    const { error } = await supabase
+      .from('pages')
+      .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, ...patch } } })
+      .eq('id', pageId);
+    if (error) { toast.error('Could not save'); return; }
+    onRefresh();
+  };
+
+  const handleVideoRemove = async () => {
+    const existingTheme = (themeJson as any) || {};
+    const existingHero = { ...(existingTheme.heroConfig || {}) };
+    delete existingHero.video;
+    const { error } = await supabase
+      .from('pages')
+      .update({ theme_json: { ...existingTheme, heroConfig: existingHero } })
+      .eq('id', pageId);
+    if (error) { toast.error('Could not remove video'); return; }
+    toast.success('Hero video removed');
+    onRefresh();
+    setVideoProfileOpen(false);
   };
 
   const handleRowTap = async (row: DashboardRow) => {
@@ -335,7 +367,7 @@ export function ProfileDashboard({
         return;
       }
       if (row.titleKey === 'dashboard.videoProfile') {
-        videoInputRef.current?.click();
+        setVideoProfileOpen(true);
         return;
       }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
@@ -486,7 +518,17 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              {galleryOpen ? (
+              {videoProfileOpen ? (
+                <>
+                  <button
+                    onClick={() => setVideoProfileOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.videoProfile')}</h2>
+                </>
+              ) : galleryOpen ? (
                 <>
                   <button
                     onClick={() => setGalleryOpen(false)}
@@ -539,7 +581,91 @@ export function ProfileDashboard({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
-              {galleryOpen ? (
+              {videoProfileOpen ? (
+                <div className="dark text-foreground px-4 pt-4 space-y-5">
+                  {heroVideoUrl ? (
+                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
+                      <video src={heroVideoUrl} muted loop playsInline autoPlay className="w-full h-48 object-cover" />
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 h-40 flex items-center justify-center">
+                      <p className="text-white/40 text-xs">No hero video yet</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => videoInputRef.current?.click()}
+                      className="flex-1 py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
+                    >
+                      {heroVideoUrl ? 'Change video' : 'Add a video'}
+                    </button>
+                    {heroVideoUrl && (
+                      <button
+                        onClick={handleVideoRemove}
+                        className="px-4 py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {heroVideoUrl && (
+                    <>
+                      <div>
+                        <p className="text-white/70 text-xs font-semibold mb-2">Sound</p>
+                        <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                          <button
+                            onClick={() => saveHeroConfig({ audio: 'silent' })}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioMode === 'silent' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Silent
+                          </button>
+                          <button
+                            onClick={() => saveHeroConfig({ audio: 'clip' })}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioMode === 'clip' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Clip sound
+                          </button>
+                        </div>
+                        <p className="text-white/40 text-[11px] mt-1.5">
+                          {heroAudioMode === 'clip'
+                            ? "Plays muted; visitors tap to hear the clip's sound."
+                            : 'Hero plays silently.'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-white/70 text-xs font-semibold mb-2">Playback</p>
+                        <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                          <button
+                            onClick={() => saveHeroConfig({ playback: 'once' })}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'once' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Once
+                          </button>
+                          <button
+                            onClick={() => saveHeroConfig({ playback: 'loop' })}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'loop' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Loop
+                          </button>
+                          <button
+                            onClick={() => saveHeroConfig({ playback: 'bounce' })}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'bounce' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Bounce
+                          </button>
+                        </div>
+                        <p className="text-white/40 text-[11px] mt-1.5">
+                          {heroPlaybackMode === 'once'
+                            ? 'Plays once, then shows a replay arrow.'
+                            : heroPlaybackMode === 'loop'
+                            ? 'Loops continuously.'
+                            : 'Plays forward then reverses, like a Live Photo.'}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : galleryOpen ? (
                 <div className="dark text-foreground">
                   <TemplateGallery pageId={pageId} onApply={onRefresh} />
                 </div>
