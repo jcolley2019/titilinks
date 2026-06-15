@@ -39,6 +39,7 @@ import {
   User,
   Volume2,
   VolumeX,
+  Play,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
@@ -933,26 +934,109 @@ function HeroVideo({
   fit,
   blurImage,
   imgStyle,
+  playbackMode = 'once',
+  audioMode = 'silent',
+  voiceoverUrl = '',
 }: {
   src: string;
   poster?: string;
   fit: string;
   blurImage?: string;
   imgStyle: React.CSSProperties;
+  playbackMode?: 'once' | 'loop' | 'bounce';
+  audioMode?: 'silent' | 'clip' | 'voiceover';
+  voiceoverUrl?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const bounceRaf = useRef<number | null>(null);
   const [muted, setMuted] = useState(true);
+  const [showReplay, setShowReplay] = useState(false);
+
+  const hasVoiceover = audioMode === 'voiceover' && !!voiceoverUrl;
+  const hasSound = audioMode === 'clip' || hasVoiceover;
+
+  const stopBounce = () => {
+    if (bounceRaf.current !== null) {
+      cancelAnimationFrame(bounceRaf.current);
+      bounceRaf.current = null;
+    }
+  };
+
+  // Bounce = ping-pong. Browsers can't play video in reverse, so step
+  // currentTime backwards with rAF, then play forward again.
+  const playReverse = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.pause();
+    let last = performance.now();
+    const step = (now: number) => {
+      const vid = videoRef.current;
+      if (!vid) return;
+      const dt = (now - last) / 1000;
+      last = now;
+      const next = vid.currentTime - dt;
+      if (next <= 0.03) {
+        stopBounce();
+        vid.currentTime = 0;
+        vid.play().catch(() => {});
+        return;
+      }
+      vid.currentTime = next;
+      bounceRaf.current = requestAnimationFrame(step);
+    };
+    bounceRaf.current = requestAnimationFrame(step);
+  };
+
+  const handleEnded = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playbackMode === 'bounce') {
+      playReverse();
+    } else if (playbackMode !== 'loop') {
+      setShowReplay(true);
+    }
+  };
+
+  // Replay tap also unlocks sound, so a sound-enabled hero restarts WITH audio.
+  const replay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    stopBounce();
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = 0;
+    if (hasVoiceover && audioRef.current) {
+      const a = audioRef.current;
+      a.currentTime = 0;
+      a.muted = false;
+      a.play().catch(() => {});
+      v.muted = true;
+      setMuted(false);
+    } else if (audioMode === 'clip') {
+      v.muted = false;
+      setMuted(false);
+    }
+    v.play().catch(() => {});
+    setShowReplay(false);
+  };
 
   const toggleSound = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (hasVoiceover && audioRef.current) {
+      const a = audioRef.current;
+      a.muted = !a.muted;
+      if (!a.muted) { a.currentTime = 0; a.play().catch(() => {}); }
+      setMuted(a.muted);
+      return;
+    }
     const v = videoRef.current;
     if (!v) return;
     v.muted = !v.muted;
-    if (!v.muted) {
-      v.play?.().catch(() => {});
-    }
+    if (!v.muted) v.play().catch(() => {});
     setMuted(v.muted);
   };
+
+  useEffect(() => stopBounce, []);
 
   return (
     <>
@@ -975,22 +1059,39 @@ function HeroVideo({
         poster={poster}
         autoPlay
         muted
-        loop
+        loop={playbackMode === 'loop'}
         playsInline
+        onEnded={handleEnded}
         className="absolute inset-0 w-full h-full brightness-110"
         style={imgStyle}
       />
-      <button
-        onClick={toggleSound}
-        aria-label={muted ? 'Unmute video' : 'Mute video'}
-        className="absolute bottom-3 right-3 z-10 bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90"
-      >
-        {muted ? (
-          <VolumeX className="h-5 w-5 text-white" />
-        ) : (
-          <Volume2 className="h-5 w-5 text-white" />
-        )}
-      </button>
+      {hasVoiceover && (
+        <audio ref={audioRef} src={voiceoverUrl} preload="auto" />
+      )}
+      {showReplay && (
+        <button
+          onClick={replay}
+          aria-label="Replay video"
+          className="absolute inset-0 z-[6] flex items-center justify-center bg-black/15"
+        >
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+            <Play className="h-7 w-7 text-white/90" fill="currentColor" />
+          </span>
+        </button>
+      )}
+      {hasSound && !showReplay && (
+        <button
+          onClick={toggleSound}
+          aria-label={muted ? 'Unmute' : 'Mute'}
+          className="absolute bottom-3 right-3 z-10 bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90"
+        >
+          {muted ? (
+            <VolumeX className="h-5 w-5 text-white" />
+          ) : (
+            <Volume2 className="h-5 w-5 text-white" />
+          )}
+        </button>
+      )}
     </>
   );
 }
@@ -1740,6 +1841,11 @@ export function EditableProfileView({
   const heroVideo: string = heroConfig.video || '';
   const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
   const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;
+  const heroAudio: 'silent' | 'clip' | 'voiceover' =
+    heroConfig.audio === 'clip' || heroConfig.audio === 'voiceover' ? heroConfig.audio : 'silent';
+  const heroPlayback: 'once' | 'loop' | 'bounce' =
+    heroConfig.playback === 'loop' || heroConfig.playback === 'bounce' ? heroConfig.playback : 'once';
+  const heroVoiceover: string = heroConfig.voiceover || '';
   const heroImgStyle: React.CSSProperties = heroFit === 'fit'
     ? { objectFit: 'contain', objectPosition: 'center' }
     : { objectFit: 'cover', objectPosition: `50% ${heroPosY}%` };
@@ -1802,6 +1908,9 @@ export function EditableProfileView({
             fit={heroFit}
             blurImage={heroImage}
             imgStyle={heroImgStyle}
+            playbackMode={heroPlayback}
+            audioMode={heroAudio}
+            voiceoverUrl={heroVoiceover}
           />
         ) : heroImage ? (
           <>
