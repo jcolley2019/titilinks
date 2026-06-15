@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -22,6 +22,7 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
@@ -249,6 +250,8 @@ export function ProfileDashboard({
   avatarUrl,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
@@ -285,6 +288,39 @@ export function ProfileDashboard({
     onClose();
   };
 
+  const handleVideoUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Video is too large (max 50MB). Try a shorter clip.');
+      return;
+    }
+    toast('Uploading video…');
+    try {
+      const fileExt = file.name.split('.').pop() || 'mp4';
+      const fileName = `${user.id}/hero-video-${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      const existingTheme = (themeJson as any) || {};
+      const existingHero = existingTheme.heroConfig || {};
+      const { error } = await supabase
+        .from('pages')
+        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl } } })
+        .eq('id', pageId);
+      if (error) throw error;
+      toast.success('Hero video added!');
+      onRefresh();
+      handleClose();
+    } catch (err) {
+      console.error('Video upload error:', err);
+      toast.error('Failed to upload video');
+    }
+  };
+
   const handleRowTap = async (row: DashboardRow) => {
     // List-entry path always opens the batch list view, never direct item mode.
     setDirectItemId(null);
@@ -296,6 +332,10 @@ export function ProfileDashboard({
       }
       if (row.toastKey === 'dashboard.openDesignTab') {
         setDesignOpen(true);
+        return;
+      }
+      if (row.titleKey === 'dashboard.videoProfile') {
+        videoInputRef.current?.click();
         return;
       }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
@@ -544,6 +584,13 @@ export function ProfileDashboard({
               )}
             </div>
           </motion.div>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/mp4,video/quicktime,video/webm"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoUpload(f); e.target.value = ''; }}
+          />
         </>
       )}
     </AnimatePresence>

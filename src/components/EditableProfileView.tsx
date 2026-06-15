@@ -1096,6 +1096,11 @@ export function EditableProfileView({
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type.startsWith('video/')) {
+      handleVideoUpload(file);
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setPhotoPreview(reader.result as string);
@@ -1236,9 +1241,10 @@ export function EditableProfileView({
     setPhotoSaving(true);
     try {
       const existingTheme = (page.theme_json as any) || {};
+      const existingHero = existingTheme.heroConfig || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { fit: heroFitDraft, posY: heroPosYDraft } } })
+        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } } })
         .eq('id', page.id);
       if (error) throw error;
       setPhotoStep('idle');
@@ -1298,9 +1304,10 @@ export function EditableProfileView({
           .eq('id', page.id);
       } else {
         const existingTheme = (page.theme_json as any) || {};
+        const existingHero = existingTheme.heroConfig || {};
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
-          theme_json: { ...existingTheme, heroConfig: { fit: heroFitDraft, posY: heroPosYDraft } },
+          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -1322,6 +1329,62 @@ export function EditableProfileView({
     } catch (err) {
       console.error('Photo upload error:', err);
       toast.error('Failed to upload photo');
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const handleVideoUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Video is too large (max 50MB). Try a shorter clip.');
+      return;
+    }
+    toast('Uploading video…');
+    setPhotoSaving(true);
+    try {
+      const fileExt = file.name.split('.').pop() || 'mp4';
+      const fileName = `${user.id}/hero-video-${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      const existingTheme = (page.theme_json as any) || {};
+      const existingHero = existingTheme.heroConfig || {};
+      const { error } = await supabase
+        .from('pages')
+        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl } } })
+        .eq('id', page.id);
+      if (error) throw error;
+      toast.success('Hero video added!');
+      onRefresh();
+    } catch (err) {
+      console.error('Video upload error:', err);
+      toast.error('Failed to upload video');
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const handleVideoRemove = async () => {
+    setPhotoSaving(true);
+    try {
+      const existingTheme = (page.theme_json as any) || {};
+      const existingHero = { ...(existingTheme.heroConfig || {}) };
+      delete existingHero.video;
+      const { error } = await supabase
+        .from('pages')
+        .update({ theme_json: { ...existingTheme, heroConfig: existingHero } })
+        .eq('id', page.id);
+      if (error) throw error;
+      toast.success('Hero video removed');
+      onRefresh();
+    } catch (err) {
+      console.error('Video remove error:', err);
+      toast.error('Failed to remove video');
     } finally {
       setPhotoSaving(false);
     }
@@ -1757,6 +1820,15 @@ export function EditableProfileView({
             >
               <Camera className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
             </button>
+            {heroConfig.video && (
+              <button
+                onClick={handleVideoRemove}
+                className="bg-black/40 backdrop-blur-sm rounded-full p-3"
+                title="Remove hero video"
+              >
+                <Trash2 className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -2422,7 +2494,7 @@ export function EditableProfileView({
       <input
         ref={photoInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm"
         className="hidden"
         onChange={handlePhotoSelect}
       />
