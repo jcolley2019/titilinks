@@ -114,6 +114,43 @@ const PLATFORM_CATEGORIES = [
   },
 ];
 
+// Maps a platform's bare handle/username to its full profile URL.
+const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
+  'TikTok': (h) => `https://tiktok.com/@${h}`,
+  'Instagram': (h) => `https://instagram.com/${h}`,
+  'YouTube': (h) => `https://youtube.com/@${h}`,
+  'Facebook': (h) => `https://facebook.com/${h}`,
+  'X (Twitter)': (h) => `https://x.com/${h}`,
+  'Snapchat': (h) => `https://snapchat.com/add/${h}`,
+  'Threads': (h) => `https://threads.com/@${h}`,
+  'Pinterest': (h) => `https://pinterest.com/${h}`,
+  'LinkedIn': (h) => `https://linkedin.com/in/${h}`,
+  'GitHub': (h) => `https://github.com/${h}`,
+  'Telegram': (h) => `https://t.me/${h}`,
+  'WhatsApp': (h) => `https://wa.me/${h.replace(/[^0-9]/g, '')}`,
+  'Calendly': (h) => `https://calendly.com/${h}`,
+  'SoundCloud': (h) => `https://soundcloud.com/${h}`,
+  'PayPal': (h) => `https://paypal.me/${h}`,
+  'Venmo': (h) => `https://venmo.com/u/${h}`,
+  'Cash App': (h) => `https://cash.app/$${h.replace(/^\$/, '')}`,
+  'Twitch': (h) => `https://twitch.tv/${h}`,
+  'Kick': (h) => `https://kick.com/${h}`,
+  'Depop': (h) => `https://depop.com/${h}`,
+  'Etsy': (h) => `https://etsy.com/shop/${h}`,
+};
+
+// Turn whatever the user typed into a usable URL: full URLs pass through,
+// bare handles expand via the platform builder, bare domains get https://.
+const buildSocialUrl = (label: string, raw: string): string => {
+  const v = (raw || '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  const builder = SOCIAL_URL_BUILDERS[label];
+  if (builder) return builder(v.replace(/^@/, ''));
+  if (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(v)) return `https://${v}`;
+  return v;
+};
+
 const itemSchema = z.object({
   id: z.string(),
   label: z.string().min(1, 'Label is required').max(50),
@@ -231,6 +268,10 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
               <Input
                 value={item.url}
                 onChange={(e) => onUpdate(item.id, 'url', e.target.value)}
+                onBlur={(e) => {
+                  const built = buildSocialUrl(item.label, e.target.value);
+                  if (built !== e.target.value) onUpdate(item.id, 'url', built);
+                }}
                 placeholder="https://..."
                 className="h-8 text-sm"
               />
@@ -396,17 +437,17 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const validate = (): boolean => {
+  const validate = (list: SocialItem[] = items): boolean => {
     const newErrors: Record<string, string> = {};
     let valid = true;
 
     // Enforce item cap
-    if (items.length > MAX_ITEMS) {
+    if (list.length > MAX_ITEMS) {
       toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
       return false;
     }
 
-    items.forEach((item) => {
+    list.forEach((item) => {
       if (!item.label.trim()) {
         newErrors[item.id] = 'Label is required';
         valid = false;
@@ -427,7 +468,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   };
 
   const handleSave = async () => {
-    if (!validate()) {
+    // Expand bare handles into full profile URLs before validating + saving.
+    const normalized = items.map((it) => ({ ...it, url: buildSocialUrl(it.label, it.url) }));
+    if (normalized.some((it, i) => it.url !== items[i].url)) setItems(normalized);
+    if (!validate(normalized)) {
       toast.error('Please fix the errors before saving. Expand items to see details.');
       return;
     }
@@ -435,7 +479,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     setSaving(true);
     try {
       // Delete removed items
-      const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
+      const currentIds = normalized.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
 
       for (const item of toDelete) {
@@ -444,8 +488,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       }
 
       // Update or create items
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+      for (let i = 0; i < normalized.length; i++) {
+        const item = normalized[i];
         const isNew = item.id.startsWith('new-');
 
         if (isNew) {
