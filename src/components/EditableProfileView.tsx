@@ -1981,15 +1981,6 @@ export function EditableProfileView({
             >
               <Camera className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
             </button>
-            {heroConfig.video && (
-              <button
-                onClick={handleVideoRemove}
-                className="bg-black/40 backdrop-blur-sm rounded-full p-3"
-                title="Remove hero video"
-              >
-                <Trash2 className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
-              </button>
-            )}
           </div>
         )}
       </div>
