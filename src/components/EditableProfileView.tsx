@@ -246,25 +246,39 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     speedMs = parsed?.speed === 'fast' ? 3000 : parsed?.speed === 'medium' ? 5000 : 7000;
   } catch { /* legacy/plain title => full */ }
 
+  // Seamless infinite loop: public showcase only (no delete handles), filmstrip
+  // layout, 2+ photos, auto-scroll on. Render the strip twice and glide
+  // continuously, wrapping by exactly one copy width (pixel-identical) so the
+  // first photo flows back around with no rewind/jump.
+  const loop = layout === 'filmstrip' && autoScroll && count >= 2 && !onDelete;
+  const stripItems = loop ? [...block.items, ...block.items] : block.items;
+
   // Filmstrip auto-advance: one photo every 4s; any touch pauses it for 8s.
   const stripRef = useRef<HTMLDivElement>(null);
   const pausedUntil = useRef(0);
   const pauseAutoScroll = () => { pausedUntil.current = Date.now() + 8000; };
   useEffect(() => {
-    if (layout !== 'filmstrip' || count < 2 || !autoScroll) return;
+    if (!loop) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => {
-      const el = stripRef.current;
-      if (!el || Date.now() < pausedUntil.current) return;
-      const step = el.clientWidth * 0.72 + 8;
-      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 8) {
-        el.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        el.scrollBy({ left: step, behavior: 'smooth' });
+    const el = stripRef.current;
+    if (!el) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
+        const oneCopy = el.scrollWidth / 2;
+        const pxPerSec = (el.clientWidth * 0.72 * 1000) / speedMs;
+        let next = el.scrollLeft + pxPerSec * dt;
+        if (next >= oneCopy) next -= oneCopy;
+        el.scrollLeft = next;
       }
-    }, speedMs);
-    return () => clearInterval(id);
-  }, [layout, count, autoScroll, speedMs]);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [loop, speedMs]);
 
   // Lightbox: tap a photo → fullscreen swipe viewer. Auto-scroll pauses while open.
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -323,14 +337,14 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           ref={stripRef}
           onPointerDown={pauseAutoScroll}
           onTouchStart={pauseAutoScroll}
-          className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1"
+          className={`flex overflow-x-auto pb-1 ${loop ? '' : 'gap-2 snap-x snap-mandatory'}`}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {block.items.map((item, i) => (
+          {stripItems.map((item, i) => (
             <div
-              key={item.id}
-              onClick={(e) => { e.stopPropagation(); openLightbox(i); }}
-              className="relative flex-shrink-0 w-[72%] first:ml-[14%] last:mr-[14%] rounded-xl overflow-hidden snap-center snap-always cursor-pointer"
+              key={`${item.id}-${i}`}
+              onClick={(e) => { e.stopPropagation(); openLightbox(i % count); }}
+              className={`relative flex-shrink-0 w-[72%] rounded-xl overflow-hidden cursor-pointer ${loop ? 'mr-2' : 'first:ml-[14%] last:mr-[14%] snap-center snap-always'}`}
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
