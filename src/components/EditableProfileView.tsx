@@ -518,6 +518,7 @@ function EmptyState({ textColor }: { textColor: string }) {
 const HEADER_NAME_TOP = 8;   // space above the name (the red-line anchor), px
 const HEADER_GAP_A = 4;      // fixed gap name -> handle, px
 const HEADER_GAP_B = 12;     // fixed gap handle -> icons, px
+const HERO_EXTRA = 60;       // px added to hero height; gradient follows down with it. Dial on a REAL phone until the hero fills ~half the screen. 6px ~ 1/16 in.
 
 function NameHandleCard({
   page,
@@ -600,6 +601,8 @@ function NameHandleCard({
             className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
             style={{
               fontSize: localNameSize,
+              lineHeight: 1,
+              padding: 0,
               color: resolvedNameColor,
               textShadow: lightHeaderText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
               caretColor: '#C9A55C',
@@ -645,24 +648,6 @@ function NameHandleCard({
             <input type="color" value={localHandleColor.slice(0, 7)}
               onChange={(e) => { setLocalHandleColor(e.target.value); debouncedSave(); }}
               className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
-            <input type="range" min={-10} max={20} step={1} value={localNameHandleGap}
-              onChange={(e) => { setLocalNameHandleGap(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Top</label>
-            <input type="range" min={0} max={60} step={2} value={localNamePadTop}
-              onChange={(e) => { setLocalNamePadTop(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Bottom</label>
-            <input type="range" min={0} max={60} step={2} value={localNamePadBottom}
-              onChange={(e) => { setLocalNamePadBottom(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
           </div>
         </div>
       </div>
@@ -1900,7 +1885,7 @@ export function EditableProfileView({
       style={{ fontFamily, color: theme.typography.text_color }}
     >
       {/* Fixed hero image — stays pinned while content scrolls over it */}
-      <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: '50dvh', maxHeight: '500px', overflow: 'hidden', zIndex: 1 }}>
+      <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(50dvh + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
         {heroVideo ? (
           <HeroVideo
             src={heroVideo}

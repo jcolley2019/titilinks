@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 const F = (p) => `src/${p}`;
 const checks = [
   { name:'STICKY-HERO', file:'components/EditableProfileView.tsx',
-    needs:[/position:\s*'sticky'/, /top:\s*stickyTop/, /height:\s*'50dvh'/] },
+    needs:[/position:\s*'sticky'/, /top:\s*stickyTop/, /height:\s*'calc\(50dvh \+ '\s*\+\s*HERO_EXTRA\s*\+\s*'px\)'/, /const HERO_EXTRA\s*=\s*60\b/] },
   { name:'STICKY-PROP', file:'components/EditableProfileView.tsx',
     needs:[/stickyTop\?\s*:\s*number\s*\|\s*string/, /stickyTop\s*=\s*0\b/] },
   { name:'FADE-SEAM', file:'components/EditableProfileView.tsx',
