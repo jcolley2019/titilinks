@@ -31,7 +31,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { 
   Loader2,
@@ -45,7 +44,6 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
-import { ThumbnailUpload } from './ThumbnailUpload';
 
 const MAX_ITEMS = ITEM_CAPS.social_links;
 
@@ -183,6 +181,21 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
       setExpanded(true);
     }
   }, [errors[item.id]]);
+
+  // Auto-expand a bare handle into its full profile URL as the user types
+  // (mirrors LinksEditor's debounced auto-unfurl). buildSocialUrl passes full
+  // URLs through unchanged, so re-running after expansion never loops.
+  useEffect(() => {
+    const raw = (item.url || '').trim();
+    if (!raw || /^https?:\/\//i.test(raw)) return;
+    const id = setTimeout(() => {
+      const built = buildSocialUrl(item.label, raw);
+      if (built !== item.url) onUpdate(item.id, 'url', built);
+    }, 700);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.url, item.label]);
+
   const {
     attributes,
     listeners,
@@ -225,7 +238,10 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
 
         <PlatformIcon label={item.label} size={20} />
 
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
           <p className="font-medium text-sm truncate">{item.label}</p>
           <p className="text-xs text-muted-foreground truncate">{item.url || 'No URL set'}</p>
         </div>
@@ -253,7 +269,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
 
       {expanded && (
         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Label</Label>
               <Input
@@ -268,10 +284,6 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
               <Input
                 value={item.url}
                 onChange={(e) => onUpdate(item.id, 'url', e.target.value)}
-                onBlur={(e) => {
-                  const built = buildSocialUrl(item.label, e.target.value);
-                  if (built !== e.target.value) onUpdate(item.id, 'url', built);
-                }}
                 placeholder="https://..."
                 className="h-8 text-sm"
               />
@@ -280,39 +292,6 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
           {errors[item.id] && (
             <p className="text-xs text-destructive">{errors[item.id]}</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Subtitle (optional)</Label>
-              <Input
-                value={item.subtitle || ''}
-                onChange={(e) => onUpdate(item.id, 'subtitle', e.target.value)}
-                placeholder="Follow me!"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Badge (optional)</Label>
-              <Input
-                value={item.badge || ''}
-                onChange={(e) => onUpdate(item.id, 'badge', e.target.value)}
-                placeholder="NEW"
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Thumbnail Upload */}
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Label className="text-xs font-normal text-muted-foreground">
-                Custom Icon (optional)
-              </Label>
-            </div>
-            <ThumbnailUpload
-              value={item.image_url}
-              onChange={(url) => onUpdate(item.id, 'image_url', url)}
-            />
-          </div>
         </div>
       )}
     </div>
@@ -325,9 +304,11 @@ interface SocialLinksEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  iconSize?: 'small' | 'medium' | 'large';
+  onIconSizeChange?: (v: 'small' | 'medium' | 'large') => void;
 }
 
-export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode }: SocialLinksEditorProps) {
+export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange }: SocialLinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<SocialItem[]>([]);
@@ -336,6 +317,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   const [search, setSearch] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
+  const [localIconSize, setLocalIconSize] = useState<'small' | 'medium' | 'large'>(iconSize ?? 'medium');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -538,6 +520,27 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
+          {/* Icon Size — global, saved to page headerConfig.iconSize */}
+          <div className="mb-4">
+            <label className="text-xs text-white/50 block mb-1.5">Icon Size</label>
+            <div className="flex gap-1.5">
+              {(['small', 'medium', 'large'] as const).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => { setLocalIconSize(sz); onIconSizeChange?.(sz); }}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    localIconSize === sz
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/10 text-white/50'
+                  }`}
+                >
+                  {sz.charAt(0).toUpperCase() + sz.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Platform Picker Toggle */}
           <div className="mb-4">
             <Button
@@ -693,7 +696,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
           )}
 
           {/* Items List */}
-          <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
+          <div className={panelMode ? 'flex-1 overflow-y-auto px-4 min-w-0' : 'flex-1 overflow-y-auto -mx-6 px-6 min-w-0'}>
             {items.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -721,7 +724,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 </SortableContext>
               </DndContext>
             )}
-          </ScrollArea>
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-4 mt-4 border-t border-border">
