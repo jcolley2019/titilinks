@@ -61,7 +61,7 @@ interface ContentSectionConfig {
 const DEFAULT_CONFIG: ContentSectionConfig = {
   section_title: '',
   view_all_url: '',
-  view_all_label: 'View all',
+  view_all_label: '',
   layout: 'carousel',
 };
 

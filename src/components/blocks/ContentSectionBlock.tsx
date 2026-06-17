@@ -39,6 +39,7 @@ export function ContentSectionBlock({ block, onOutboundClick, theme }: ThemedBlo
     try {
       const parsed = JSON.parse(block.title);
       config = { ...config, ...parsed };
+      config.view_all_label = config.view_all_label || t('contentSection.viewAll');
     } catch {
       config.section_title = block.title;
     }
