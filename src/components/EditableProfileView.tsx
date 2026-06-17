@@ -515,9 +515,11 @@ function EmptyState({ textColor }: { textColor: string }) {
 // ─── Name/Handle Sortable Card ──────────────────────────────────────────────
 
 // Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
-const HEADER_NAME_TOP = 8;   // space above the name (the red-line anchor), px
-const HEADER_GAP_A = 4;      // fixed gap name -> handle, px
-const HEADER_GAP_B = 12;     // fixed gap handle -> icons, px
+const HEADER_NAME_TOP = 10;  // space above the name (the red-line anchor), px
+const HEADER_GAP_A = 0;      // fixed gap name -> handle, px
+const HEADER_GAP_B = 5;      // fixed gap handle -> icons, px
+const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam; dial on a REAL phone (bigger = higher; content below rides up with them).
+const HEADER_OFFSET_Y = 100; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
 const HERO_EXTRA = 60;       // px added to hero height; gradient follows down with it. Dial on a REAL phone until the hero fills ~half the screen. 6px ~ 1/16 in.
 
 function NameHandleCard({
@@ -604,11 +606,11 @@ function NameHandleCard({
               lineHeight: 1,
               padding: 0,
               color: resolvedNameColor,
-              textShadow: lightHeaderText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
+              textShadow: 'none',
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? chrome.textMuted : localHandleColor, textShadow: lightHeaderText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none', margin: 0, marginTop: HEADER_GAP_A }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,0.9)' : localHandleColor, textShadow: 'none', margin: 0, marginTop: HEADER_GAP_A }}>
             @{page.handle}
           </p>
         </div>
@@ -1460,7 +1462,8 @@ export function EditableProfileView({
           .eq('id', page.id);
       } else {
         const existingTheme = (page.theme_json as any) || {};
-        const existingHero = existingTheme.heroConfig || {};
+        const existingHero = { ...(existingTheme.heroConfig || {}) };
+        delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
           theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } },
@@ -1889,7 +1892,6 @@ export function EditableProfileView({
         {heroVideo ? (
           <HeroVideo
             src={heroVideo}
-            poster={heroImage || undefined}
             fit={heroFit}
             blurImage={heroImage}
             imgStyle={heroImgStyle}
@@ -2001,18 +2003,19 @@ export function EditableProfileView({
         <div
           style={{
             position: 'relative',
-            zIndex: 2,
+            zIndex: 3,
             textAlign: 'center',
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
-            marginTop: 0,
+            marginTop: -HEADER_LIFT,
+            transform: editMode ? undefined : `translateY(${-HEADER_OFFSET_Y}px)`,
             paddingBottom: editMode ? 0 : '1rem',
           }}
         >
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             const headerNameColor = headerConfig.nameColor && headerConfig.nameColor !== '#ffffff' ? headerConfig.nameColor : chrome.text;
-            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : chrome.textMuted;
+            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,0.9)';
             const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
               <div key={id} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
@@ -2021,7 +2024,7 @@ export function EditableProfileView({
                   style={{
                     fontSize: `${headerConfig.nameSize}px`,
                     color: headerNameColor,
-                    textShadow: headerLightText ? '0 2px 20px rgba(0,0,0,0.8)' : 'none',
+                    textShadow: 'none',
                   }}
                 >
                   {page.display_name || `@${page.handle}`}
@@ -2030,7 +2033,7 @@ export function EditableProfileView({
                   style={{
                     fontSize: `${headerConfig.handleSize}px`,
                     color: headerHandleColor,
-                    textShadow: headerLightText ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+                    textShadow: 'none',
                     margin: 0,
                     marginTop: HEADER_GAP_A,
                   }}
@@ -2489,8 +2492,10 @@ export function EditableProfileView({
           /* Preview block cards for edit mode */
           <div
             className="pb-32 flex flex-col gap-[6px]"
+            style={{ marginTop: -HEADER_LIFT }}
           >
             {/* Free-drag header cards (outside DndContext) — hidden during photo crop/edit */}
+            <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 5, transform: `translateY(${-HEADER_OFFSET_Y}px)` }}>
             {photoStep === 'idle' && (() => {
               const allItems = socialBlocks.flatMap(b => b.items);
               const seen = new Set<string>();
@@ -2558,6 +2563,7 @@ export function EditableProfileView({
                 return null;
               });
             })()}
+            </div>
             {/* Block cards (sortable via DndContext) */}
             <div className="flex flex-col gap-[6px]" style={{ paddingTop: `${contentStartY ?? 0}px` }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
