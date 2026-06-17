@@ -467,7 +467,22 @@ export function ProfileDashboard({
       case 'primary_cta':
         return <PrimaryCtaEditor {...editorProps} />;
       case 'social_links':
-        return <SocialLinksEditor {...editorProps} />;
+        return (
+          <SocialLinksEditor
+            {...editorProps}
+            iconSize={(themeJson as any)?.headerConfig?.iconSize ?? 'medium'}
+            onIconSizeChange={async (v) => {
+              const existingTheme = (themeJson as any) || {};
+              const existingHeader = existingTheme.headerConfig || {};
+              const { error } = await supabase
+                .from('pages')
+                .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconSize: v } } })
+                .eq('id', pageId);
+              if (error) { toast.error('Could not save'); return; }
+              onRefresh();
+            }}
+          />
+        );
       case 'links':
         return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} />;
       case 'product_cards':

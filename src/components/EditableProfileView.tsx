@@ -40,6 +40,7 @@ import {
   Volume2,
   VolumeX,
   Play,
+  Plus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
@@ -517,9 +518,10 @@ function EmptyState({ textColor }: { textColor: string }) {
 // Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
 const HEADER_NAME_TOP = 10;  // space above the name (the red-line anchor), px
 const HEADER_GAP_A = 0;      // fixed gap name -> handle, px
-const HEADER_GAP_B = 5;      // fixed gap handle -> icons, px
+const HEADER_GAP_B = 10;      // fixed gap handle -> icons, px
 const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam; dial on a REAL phone (bigger = higher; content below rides up with them).
-const HEADER_OFFSET_Y = 100; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
+const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
+const CARDS_LIFT = 85;      // px the link cards ride UP under the icons, closing the gap the header lift leaves behind. Bigger = cards higher / smaller gap; smaller = bigger gap.
 const HERO_EXTRA = 60;       // px added to hero height; gradient follows down with it. Dial on a REAL phone until the hero fills ~half the screen. 6px ~ 1/16 in.
 
 function NameHandleCard({
@@ -699,81 +701,39 @@ function SocialIconsCard({
       style={{ marginTop: HEADER_GAP_B, position: 'relative', zIndex: 20 }}
       className="relative"
     >
-      {/* Content — matches profile display */}
+      {/* Icon row — size comes from the Social Platforms menu (headerConfig.iconSize) */}
       <div
-        className="cursor-pointer relative"
+        className="relative"
         style={{ paddingTop: 0, paddingBottom: 0 }}
-        onClick={onToggleExpand}
       >
         <div className="flex flex-wrap justify-center gap-3 px-4">
           {socialItems.map((item) => (
-            <span
+            <a
               key={item.id}
+              href={item.url || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
               className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
               style={{ background: chrome.iconBg }}
               title={item.label}
             >
               <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={chrome.iconColor} />
-            </span>
+            </a>
           ))}
-          {socialItems.length === 0 && (
-            <p className="text-xs text-white/30">{t('editor.editSocial')}</p>
-          )}
-        </div>
-        <ChevronRight className={cn(
-          "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 transition-transform duration-200",
-          expanded && "rotate-90"
-        )} />
-      </div>
-
-      {/* Compact settings row */}
-      <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-out',
-          expanded ? 'max-h-[160px] opacity-100' : 'max-h-0 opacity-0'
-        )}
-      >
-        <div className="px-6 pb-2 space-y-1.5">
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Pad</label>
-            <input type="range" min={0} max={60} step={2} value={localIconsPaddingY}
-              onChange={(e) => { setLocalIconsPaddingY(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Size</label>
-            <div className="flex gap-1 flex-1">
-              {(['small', 'medium', 'large'] as const).map((sz) => (
-                <button
-                  key={sz}
-                  onClick={() => { setLocalIconSize(sz); debouncedSave(); }}
-                  className={cn(
-                    'flex-1 py-1 rounded text-[10px] font-semibold transition-colors',
-                    localIconSize === sz
-                      ? 'bg-[#C9A55C] text-[#0e0c09]'
-                      : 'bg-white/10 text-white/50'
-                  )}
-                >
-                  {sz.charAt(0).toUpperCase() + sz.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Gap</label>
-            <input type="range" min={-100} max={200} step={4} value={contentStartY}
-              onChange={(e) => { setContentStartY(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-          </div>
+          {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
           <button
+            type="button"
             onClick={onEditSocial}
-            className="w-full text-[10px] text-white/40 hover:text-white/60 flex items-center gap-1 justify-center py-1"
+            aria-label={t('editor.editSocial')}
+            title={t('editor.editSocial')}
+            className={cn('flex items-center justify-center rounded-full border border-dashed border-white/30 text-white/50 hover:text-white/80 hover:border-white/50 transition-colors', iconContainerMap[localIconSize])}
+            style={{ background: chrome.iconBg }}
           >
-            <Share2 className="h-3 w-3" />
-            {t('editor.editSocial')}
+            <Plus size={iconSizeMap[localIconSize]} />
           </button>
         </div>
       </div>
+
     </div>
   );
 }
@@ -1195,6 +1155,12 @@ export function EditableProfileView({
   const [contentStartY, setContentStartY] = useState(
     (page.theme_json as any)?.headerConfig?.contentStartY ?? 0
   );
+
+  // Inline Size buttons removed (SOCIAL.7) — keep the editor preview's icon size
+  // in sync with the Social Platforms menu (headerConfig.iconSize).
+  useEffect(() => {
+    setLocalIconSize(headerConfig.iconSize ?? 'medium');
+  }, [headerConfig.iconSize]);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -2565,7 +2531,7 @@ export function EditableProfileView({
             })()}
             </div>
             {/* Block cards (sortable via DndContext) */}
-            <div className="flex flex-col gap-[6px]" style={{ paddingTop: `${contentStartY ?? 0}px` }}>
+            <div className="flex flex-col gap-[6px]" style={{ marginTop: `${-CARDS_LIFT}px` }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
               <SortableContext items={allSortableItems} strategy={verticalListSortingStrategy}>
                 {allSortableItems.map((itemId) => {
@@ -2596,7 +2562,7 @@ export function EditableProfileView({
           /* Full block content for view mode */
           <div
             className="px-4 pb-20 flex flex-col gap-[6px]"
-            style={{ paddingTop: `${contentStartY ?? 0}px` }}
+            style={{ marginTop: `${-CARDS_LIFT}px` }}
           >
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />
