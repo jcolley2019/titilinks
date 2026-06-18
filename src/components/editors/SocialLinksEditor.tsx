@@ -306,9 +306,11 @@ interface SocialLinksEditorProps {
   panelMode?: boolean;
   iconSize?: 'small' | 'medium' | 'large';
   onIconSizeChange?: (v: 'small' | 'medium' | 'large') => void;
+  iconColorMode?: 'color' | 'black' | 'white';
+  onIconColorModeChange?: (v: 'color' | 'black' | 'white') => void;
 }
 
-export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange }: SocialLinksEditorProps) {
+export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange }: SocialLinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<SocialItem[]>([]);
@@ -318,6 +320,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const [localIconSize, setLocalIconSize] = useState<'small' | 'medium' | 'large'>(iconSize ?? 'medium');
+  const [localIconColorMode, setLocalIconColorMode] = useState<'color' | 'black' | 'white'>(iconColorMode ?? 'color');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -541,6 +544,31 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             </div>
           </div>
 
+          {/* Icon Color — global, saved to page headerConfig.iconColorMode */}
+          <div className="mb-4">
+            <label className="text-xs text-white/50 block mb-1.5">Icon Color</label>
+            <div className="flex gap-1.5">
+              {([
+                { value: 'color', label: 'Brand' },
+                { value: 'black', label: 'Black' },
+                { value: 'white', label: 'White' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setLocalIconColorMode(opt.value); onIconColorModeChange?.(opt.value); }}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    localIconColorMode === opt.value
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/10 text-white/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Platform Picker Toggle */}
           <div className="mb-4">
             <Button
@@ -581,7 +609,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
               </div>
 
               {/* Categories or Search Results */}
-              <div className="max-h-72 overflow-y-auto">
+              <div>
                 {search ? (
                   /* Search results - flat list */
                   <div>
@@ -759,7 +787,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto overflow-x-hidden px-4 py-4">
         {innerContent}
       </div>
     );

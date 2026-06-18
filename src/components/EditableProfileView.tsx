@@ -97,6 +97,7 @@ interface EditableProfileViewProps {
   onModeChange: (mode: 'shop' | 'recruit') => void;
   onOutboundClick?: ClickHandler;
   onAddContent?: () => void;
+  onEditVideo?: () => void;
   // Per-item edit affordances for links blocks (G2). Optional — absent on the
   // public/live render.
   onItemEdit?: (blockId: string, itemId: string) => void;
@@ -130,7 +131,7 @@ function getFontFamily(theme: ThemeJson): string {
 
 // ─── SocialSvgIcon ───────────────────────────────────────────────────────────
 
-function SocialSvgIcon({ label, size = 20, color = 'currentColor' }: { label: string; size?: number; color?: string }) {
+function SocialSvgIcon({ label, size = 20, color }: { label: string; size?: number; color?: string }) {
   return <PlatformIcon label={label} size={size} color={color} />;
 }
 
@@ -668,6 +669,7 @@ function SocialIconsCard({
   onToggleExpand,
   localIconsPaddingY, setLocalIconsPaddingY,
   localIconSize, setLocalIconSize,
+  localIconColorMode,
   iconsCardY, onIconsCardYChange, onDragEnd,
   contentStartY, setContentStartY,
   onEditSocial,
@@ -679,6 +681,7 @@ function SocialIconsCard({
   onToggleExpand: () => void;
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
   localIconSize: 'small'|'medium'|'large'; setLocalIconSize: (v: 'small'|'medium'|'large') => void;
+  localIconColorMode: 'color'|'black'|'white';
   iconsCardY: number; onIconsCardYChange: (v: number) => void; onDragEnd: () => void;
   contentStartY: number; setContentStartY: (v: number) => void;
   onEditSocial: () => void;
@@ -689,6 +692,8 @@ function SocialIconsCard({
 
   const iconSizeMap = { small: 14, medium: 18, large: 24 };
   const iconContainerMap = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
+  const resolvedIconColor = localIconColorMode === 'black' ? '#000000' : localIconColorMode === 'white' ? '#ffffff' : undefined;
+  const resolvedIconBg = localIconColorMode === 'color' ? chrome.iconBg : 'transparent';
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debouncedSave = () => {
@@ -714,10 +719,10 @@ function SocialIconsCard({
               target="_blank"
               rel="noopener noreferrer"
               className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
-              style={{ background: chrome.iconBg }}
+              style={{ background: resolvedIconBg }}
               title={item.label}
             >
-              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={chrome.iconColor} />
+              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={resolvedIconColor} />
             </a>
           ))}
           {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
@@ -987,6 +992,8 @@ function HeroVideo({
 
   return (
     <>
+      {/* Dark fill behind the video — black edges when zoomed out, and bridges load (no old-image flash). */}
+      <div aria-hidden="true" className="absolute inset-0 bg-[#0e0c09]" />
       {fit === 'fit' && blurImage && (
         <div
           aria-hidden="true"
@@ -1009,7 +1016,7 @@ function HeroVideo({
         loop={playbackMode === 'loop'}
         playsInline
         onEnded={handleEnded}
-        className="absolute inset-0 w-full h-full brightness-110"
+        className="brightness-110"
         style={imgStyle}
       />
       {hasVoiceover && (
@@ -1055,6 +1062,7 @@ export function EditableProfileView({
   onModeChange,
   onOutboundClick,
   onAddContent,
+  onEditVideo,
   onItemEdit,
   onItemDelete,
   onItemAdd,
@@ -1145,6 +1153,7 @@ export function EditableProfileView({
   const [localNamePadBottom, setLocalNamePadBottom] = useState(headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 0);
   const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
   const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
+  const [localIconColorMode, setLocalIconColorMode] = useState<'color'|'black'|'white'>(headerConfig.iconColorMode ?? 'color');
   const [localNameHandleGap, setLocalNameHandleGap] = useState(headerConfig.nameHandleGap ?? 2);
   const [nameCardY, setNameCardY] = useState(
     (page.theme_json as any)?.headerConfig?.nameCardY ?? 0
@@ -1161,6 +1170,9 @@ export function EditableProfileView({
   useEffect(() => {
     setLocalIconSize(headerConfig.iconSize ?? 'medium');
   }, [headerConfig.iconSize]);
+  useEffect(() => {
+    setLocalIconColorMode(headerConfig.iconColorMode ?? 'color');
+  }, [headerConfig.iconColorMode]);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1481,7 +1493,7 @@ export function EditableProfileView({
       const existingHero = existingTheme.heroConfig || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl } } })
+        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl, fit: 'fill' } } })
         .eq('id', page.id);
       if (error) throw error;
       toast.success('Hero video added!');
@@ -1800,9 +1812,34 @@ export function EditableProfileView({
   const heroPlayback: 'once' | 'loop' | 'bounce' =
     heroConfig.playback === 'loop' || heroConfig.playback === 'bounce' ? heroConfig.playback : 'once';
   const heroVoiceover: string = heroConfig.voiceover || '';
-  const heroImgStyle: React.CSSProperties = heroFit === 'fit'
+  // Hero VIDEO position/zoom — its OWN config, decoupled from the image's fit/posY.
+  // Absent on legacy videos → centered, no zoom.
+  const heroVideoPos = heroConfig.videoPos || {};
+  const videoScale: number = typeof heroVideoPos.scale === 'number' ? heroVideoPos.scale : 1;
+  const videoPosX: number = typeof heroVideoPos.posX === 'number' ? heroVideoPos.posX : 50;
+  const videoPosY: number = typeof heroVideoPos.posY === 'number' ? heroVideoPos.posY : 50;
+  // Hero videos always render cover (never letterboxed); 'fit' applies to images only.
+  const heroFitEffective: 'fill' | 'fit' = heroVideo ? 'fill' : heroFit;
+  const heroImgStyle: React.CSSProperties = heroFitEffective === 'fit'
     ? { objectFit: 'contain', objectPosition: 'center' }
     : { objectFit: 'cover', objectPosition: `50% ${heroPosY}%` };
+  // Video sized to its OWN aspect (fills the box at zoom 1), then transformed:
+  //  - scale < 1 reveals more of the clip (slim brand-dark edges appear)
+  //  - scale = 1 fills the frame edge-to-edge (cover)
+  //  - scale > 1 zooms in
+  // translate pans; the dark backdrop behind the <video> fills any revealed edges.
+  const heroVideoStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    minWidth: '100%',
+    minHeight: '100%',
+    width: 'auto',
+    height: 'auto',
+    maxWidth: 'none',
+    transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`,
+    transformOrigin: 'center',
+  };
 
   // Page labels from theme
   const themePages = (page.theme_json as any)?.pages;
@@ -1858,9 +1895,9 @@ export function EditableProfileView({
         {heroVideo ? (
           <HeroVideo
             src={heroVideo}
-            fit={heroFit}
+            fit={heroFitEffective}
             blurImage={heroImage}
-            imgStyle={heroImgStyle}
+            imgStyle={heroVideoStyle}
             playbackMode={heroPlayback}
             audioMode={heroAudio}
             voiceoverUrl={heroVoiceover}
@@ -1907,26 +1944,37 @@ export function EditableProfileView({
             )}
           </div>
         )}
-        {editMode && photoStep === 'idle' && heroImage && (
+        {editMode && photoStep === 'idle' && (heroImage || heroVideo) && (
           <div className="absolute top-3 right-3 z-[15] flex flex-col gap-2">
-            <button
-              onClick={() => {
-                // Prefer the saved original (full-size) so the cropper has the
-                // unrestricted source. Falls back to the cropped hero for
-                // legacy photos uploaded before avatar_original_url existed.
-                const editSource = page.avatar_original_url || heroImage;
-                setPhotoPreview(editSource);
-                setPhotoFile(null);
-                setPhotoOriginalFile(null);
-                setCropZoom(1);
-                setCropPosition({ x: 0, y: 0 });
-                setPhotoStep('choose');
-              }}
-              className="bg-black/40 backdrop-blur-sm rounded-full p-3"
-              title={t('editor.editCurrentPhoto')}
-            >
-              <Pencil className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
-            </button>
+            {!heroVideo && (
+              <button
+                onClick={() => {
+                  // Prefer the saved original (full-size) so the cropper has the
+                  // unrestricted source. Falls back to the cropped hero for
+                  // legacy photos uploaded before avatar_original_url existed.
+                  const editSource = page.avatar_original_url || heroImage;
+                  setPhotoPreview(editSource);
+                  setPhotoFile(null);
+                  setPhotoOriginalFile(null);
+                  setCropZoom(1);
+                  setCropPosition({ x: 0, y: 0 });
+                  setPhotoStep('choose');
+                }}
+                className="bg-black/40 backdrop-blur-sm rounded-full p-3"
+                title={t('editor.editCurrentPhoto')}
+              >
+                <Pencil className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
+              </button>
+            )}
+            {heroVideo && onEditVideo && (
+              <button
+                onClick={() => onEditVideo()}
+                className="bg-black/40 backdrop-blur-sm rounded-full p-3"
+                title="Edit hero video"
+              >
+                <Pencil className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
+              </button>
+            )}
             <button
               onClick={() => photoInputRef.current?.click()}
               className="bg-black/40 backdrop-blur-sm rounded-full p-3"
@@ -2021,16 +2069,19 @@ export function EditableProfileView({
               const iSize = headerConfig.iconSize ?? 'medium';
               const sizeMap: Record<string, number> = { small: 14, medium: 18, large: 24 };
               const containerMap: Record<string, string> = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
+              const iconColorMode = headerConfig.iconColorMode ?? 'color';
+              const resolvedIconColor = iconColorMode === 'black' ? '#000000' : iconColorMode === 'white' ? '#ffffff' : undefined;
+              const resolvedIconBg = iconColorMode === 'color' ? chrome.iconBg : 'transparent';
               return (
                 <div key={id} style={{ marginTop: HEADER_GAP_B }} className="flex flex-wrap justify-center gap-3">
                   {dedupedItems.map((item) => (
                     <span
                       key={item.id}
                       className={cn('flex items-center justify-center rounded-full', containerMap[iSize])}
-                      style={{ background: chrome.iconBg }}
+                      style={{ background: resolvedIconBg }}
                       title={item.label}
                     >
-                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={chrome.iconColor} />
+                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={resolvedIconColor} />
                     </span>
                   ))}
                 </div>
@@ -2512,6 +2563,7 @@ export function EditableProfileView({
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
                     localIconsPaddingY={localIconsPaddingY} setLocalIconsPaddingY={setLocalIconsPaddingY}
                     localIconSize={localIconSize} setLocalIconSize={setLocalIconSize}
+                    localIconColorMode={localIconColorMode}
                     iconsCardY={iconsCardY} onIconsCardYChange={setIconsCardY}
                     onDragEnd={() => saveHeaderConfig({ iconsCardY })}
                     contentStartY={contentStartY} setContentStartY={setContentStartY}

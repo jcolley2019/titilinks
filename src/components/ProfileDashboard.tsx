@@ -20,6 +20,8 @@ import {
   Image as ImageIcon,
   User,
   ChevronLeft,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -68,6 +70,9 @@ interface ProfileDashboardProps {
    * from tapping a live block, not from the add-content menu.
    */
   editingBlock?: EditingBlockTarget | null;
+  /** When set with `open`, the panel opens directly into the Video Profile menu
+   *  (driven by the hero video pencil). */
+  openVideoProfile?: boolean;
   /** Live-mirror channel (L2): forwarded to LinksEditor so the in-progress
    *  draft reaches the preview before Save. */
   onDraftChange?: (item: LinkItem | null) => void;
@@ -242,6 +247,7 @@ export function ProfileDashboard({
   onBlockEdit,
   onRefresh,
   editingBlock,
+  openVideoProfile,
   onDraftChange,
   onTitleDraftChange,
   themeJson,
@@ -261,6 +267,12 @@ export function ProfileDashboard({
     heroCfg.audio === 'clip' || heroCfg.audio === 'voiceover' ? heroCfg.audio : 'silent';
   const heroPlaybackMode: 'once' | 'loop' | 'bounce' =
     heroCfg.playback === 'loop' || heroCfg.playback === 'bounce' ? heroCfg.playback : 'once';
+  // Hero video position/zoom drafts — decoupled from image fit/posY. Live preview + debounced save.
+  const heroVideoPos0 = heroCfg.videoPos || {};
+  const [videoScale, setVideoScale] = useState<number>(typeof heroVideoPos0.scale === 'number' ? heroVideoPos0.scale : 1);
+  const [videoPosX, setVideoPosX] = useState<number>(typeof heroVideoPos0.posX === 'number' ? heroVideoPos0.posX : 50);
+  const [videoPosY, setVideoPosY] = useState<number>(typeof heroVideoPos0.posY === 'number' ? heroVideoPos0.posY : 50);
+  const videoPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -270,6 +282,10 @@ export function ProfileDashboard({
   // 'add' = entered via section list. 'edit' = opened directly via editingBlock prop.
   // Drives whether back-button / save closes the panel or returns to the list.
   const [entryMode, setEntryMode] = useState<'add' | 'edit'>('add');
+  // Pin keeps the panel open after Save instead of closing / returning to the list.
+  const [pinned, setPinned] = useState(false);
+  // Set by a pinned Save so the editor's follow-up onOpenChange(false) is ignored once.
+  const skipNextCloseRef = useRef(false);
 
   // When opened with an editingBlock target, jump straight to the editor.
   useEffect(() => {
@@ -338,6 +354,28 @@ export function ProfileDashboard({
     if (error) { toast.error('Could not save'); return; }
     onRefresh();
   };
+
+  // Re-sync position drafts when the video changes (e.g. new upload). Gated on the URL — NOT on
+  // every themeJson refresh — so a save's onRefresh can't yank a slider thumb mid-drag.
+  useEffect(() => {
+    const vp = ((themeJson as any)?.heroConfig?.videoPos) || {};
+    setVideoScale(typeof vp.scale === 'number' ? vp.scale : 1);
+    setVideoPosX(typeof vp.posX === 'number' ? vp.posX : 50);
+    setVideoPosY(typeof vp.posY === 'number' ? vp.posY : 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroVideoUrl]);
+
+  // Persist position/zoom ~400ms after the last change (covers drag + keyboard) — one PATCH per adjustment.
+  const persistVideoPos = (next: { scale: number; posX: number; posY: number }) => {
+    if (videoPosTimer.current) clearTimeout(videoPosTimer.current);
+    videoPosTimer.current = setTimeout(() => { saveHeroConfig({ videoPos: next }); }, 400);
+  };
+
+  // Hero video pencil → open straight into the Video Profile menu. Re-fires only when the
+  // signal flips on (Editor clears it on close), so in-panel back-navigation isn't overridden.
+  useEffect(() => {
+    if (open && openVideoProfile) setVideoProfileOpen(true);
+  }, [open, openVideoProfile]);
 
   const handleVideoRemove = async () => {
     const existingTheme = (themeJson as any) || {};
@@ -425,6 +463,11 @@ export function ProfileDashboard({
 
   const handleEditorClose = (editorOpen: boolean) => {
     if (!editorOpen) {
+      // A pinned Save just fired; swallow the editor's auto-close once and stay put.
+      if (skipNextCloseRef.current) {
+        skipNextCloseRef.current = false;
+        return;
+      }
       // In edit mode, closing the editor closes the whole panel (the user
       // came from the live preview, not from the section list).
       if (entryMode === 'edit') {
@@ -441,6 +484,12 @@ export function ProfileDashboard({
 
   const handleEditorSave = () => {
     onRefresh();
+    // Pinned: keep the current editor open. The editor still calls
+    // onOpenChange(false) right after this — skipNextCloseRef swallows it.
+    if (pinned) {
+      skipNextCloseRef.current = true;
+      return;
+    }
     if (entryMode === 'edit') {
       handleClose();
       return;
@@ -477,6 +526,17 @@ export function ProfileDashboard({
               const { error } = await supabase
                 .from('pages')
                 .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconSize: v } } })
+                .eq('id', pageId);
+              if (error) { toast.error('Could not save'); return; }
+              onRefresh();
+            }}
+            iconColorMode={(themeJson as any)?.headerConfig?.iconColorMode ?? 'color'}
+            onIconColorModeChange={async (v) => {
+              const existingTheme = (themeJson as any) || {};
+              const existingHeader = existingTheme.headerConfig || {};
+              const { error } = await supabase
+                .from('pages')
+                .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconColorMode: v } } })
                 .eq('id', pageId);
               if (error) { toast.error('Could not save'); return; }
               onRefresh();
@@ -594,19 +654,44 @@ export function ProfileDashboard({
               </button>
             </div>
 
+            {/* Pin — keeps the panel open after Save */}
+            <div className="flex items-center px-4 py-2 border-b border-white/10 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setPinned((p) => !p)}
+                aria-pressed={pinned}
+                className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 transition-colors ${
+                  pinned ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/10 text-white/60 hover:text-white/90'
+                }`}
+              >
+                {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+                {pinned ? 'Pinned' : 'Pin menu'}
+              </button>
+            </div>
+
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
               {videoProfileOpen ? (
                 <div className="dark text-foreground px-4 pt-4 space-y-5">
-                  {heroVideoUrl ? (
-                    <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
-                      <video src={heroVideoUrl} muted loop playsInline autoPlay className="w-full h-48 object-cover" />
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 h-40 flex items-center justify-center">
-                      <p className="text-white/40 text-xs">No hero video yet</p>
-                    </div>
-                  )}
+                  {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
+                  <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">
+                    {heroVideoUrl ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px]">
+                        <video
+                          src={heroVideoUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          style={{ position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 h-40 flex items-center justify-center">
+                        <p className="text-white/40 text-xs">No hero video yet</p>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => videoInputRef.current?.click()}
@@ -623,6 +708,9 @@ export function ProfileDashboard({
                       </button>
                     )}
                   </div>
+                  <p className="text-white/40 text-[11px] -mt-3">
+                    Best results: a vertical 9:16 MP4, 5-10 sec, under ~10MB (50MB max).
+                  </p>
                   {heroVideoUrl && (
                     <>
                       <div>
@@ -676,6 +764,57 @@ export function ProfileDashboard({
                             ? 'Loops continuously.'
                             : 'Plays forward then reverses, like a Live Photo.'}
                         </p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-white/70 text-xs font-semibold">Position & zoom</p>
+                          <button
+                            onClick={() => {
+                              setVideoScale(1); setVideoPosX(50); setVideoPosY(50);
+                              if (videoPosTimer.current) clearTimeout(videoPosTimer.current);
+                              saveHeroConfig({ videoPos: { scale: 1, posX: 50, posY: 50 } });
+                            }}
+                            className="text-[#C9A55C] text-[11px] font-semibold"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-white/40 text-[10px]">Zoom</span>
+                              <span className="text-white/40 text-[10px]">{videoScale === 1 ? 'Fill' : `${videoScale.toFixed(2)}×`}</span>
+                            </div>
+                            <input
+                              type="range" min={0.5} max={2.5} step={0.01} value={videoScale}
+                              onChange={(e) => { const raw = Number(e.target.value); const v = Math.abs(raw - 1) < 0.04 ? 1 : raw; setVideoScale(v); persistVideoPos({ scale: v, posX: videoPosX, posY: videoPosY }); }}
+                              className="w-full accent-[#C9A55C]"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-white/40 text-[10px]">Left</span>
+                              <span className="text-white/40 text-[10px]">Right</span>
+                            </div>
+                            <input
+                              type="range" min={0} max={100} step={1} value={videoPosX}
+                              onChange={(e) => { const v = Number(e.target.value); setVideoPosX(v); persistVideoPos({ scale: videoScale, posX: v, posY: videoPosY }); }}
+                              className="w-full accent-[#C9A55C]"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-white/40 text-[10px]">Top</span>
+                              <span className="text-white/40 text-[10px]">Bottom</span>
+                            </div>
+                            <input
+                              type="range" min={0} max={100} step={1} value={videoPosY}
+                              onChange={(e) => { const v = Number(e.target.value); setVideoPosY(v); persistVideoPos({ scale: videoScale, posX: videoPosX, posY: v }); }}
+                              className="w-full accent-[#C9A55C]"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-white/40 text-[11px] mt-1.5">Drag Zoom left to show more of the clip (slim black edges appear), right to zoom in. Left/Right and Top/Bottom reposition it.</p>
                       </div>
                     </>
                   )}

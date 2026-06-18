@@ -41,6 +41,8 @@ export default function Editor() {
   const [editingBlock, setEditingBlock] = useState<EditingBlockTarget | null>(null);
   const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
+  // Opens the dashboard straight to the Video Profile menu (hero video pencil).
+  const [openVideoProfile, setOpenVideoProfile] = useState(false);
   // Live-mirror (L2): the editor panel's in-progress draft, scoped to its block.
   const [draftItem, setDraftItem] = useState<{ blockId: string; item: LinkItem } | null>(null);
   // Live-mirror (L3): the editor's in-progress block.title config (Text/Bio), scoped to its block.
@@ -245,9 +247,15 @@ export default function Editor() {
     setProfileDashboardOpen(true);
   };
 
+  const handleEditVideo = () => {
+    setOpenVideoProfile(true);
+    setProfileDashboardOpen(true);
+  };
+
   const handleProfileDashboardClose = () => {
     setProfileDashboardOpen(false);
     setEditingBlock(null);
+    setOpenVideoProfile(false);
     setDraftItem(null);
     setDraftTitle(null);
     fetchBlocks();
@@ -510,6 +518,7 @@ export default function Editor() {
               selectedMode={selectedMode}
               onModeChange={setSelectedMode}
               onAddContent={() => setProfileDashboardOpen(true)}
+              onEditVideo={handleEditVideo}
               onItemEdit={handleItemEdit}
               onItemDelete={handleItemDelete}
               onItemAdd={handleItemAdd}
@@ -533,6 +542,7 @@ export default function Editor() {
           selectedMode={selectedMode}
           onModeChange={setSelectedMode}
           onAddContent={() => setProfileDashboardOpen(true)}
+          onEditVideo={handleEditVideo}
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
@@ -550,6 +560,7 @@ export default function Editor() {
         onBlockEdit={handleEditBlock}
         onRefresh={refresh}
         editingBlock={editingBlock}
+        openVideoProfile={openVideoProfile}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
         themeJson={page.theme_json}
