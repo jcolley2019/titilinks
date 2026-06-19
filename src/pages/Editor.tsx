@@ -49,11 +49,6 @@ export default function Editor() {
   // Live-mirror (L3): the editor's in-progress block.title config (Text/Bio), scoped to its block.
   const [draftTitle, setDraftTitle] = useState<{ blockId: string; title: string } | null>(null);
 
-  // Page labels from theme
-  const themeJson = (page?.theme_json as ThemeJson) || {};
-  const page1Label = themeJson.pages?.page1?.label || 'Page 1';
-  const page2Label = themeJson.pages?.page2?.label || 'Page 2';
-
   // ── Data Fetching ──
 
   const autoPopulatePlaceholders = async (pageData: Page, modesData: Mode[]) => {
@@ -467,32 +462,6 @@ export default function Editor() {
             Titi<span className="italic text-[#C9A55C]">Links</span>
           </span>
 
-          {/* Page 1 / Page 2 tabs */}
-          <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5">
-            <button
-              onClick={() => setSelectedMode('shop')}
-              className={cn(
-                'px-4 py-1 rounded-full text-xs font-medium transition-colors',
-                selectedMode === 'shop'
-                  ? 'bg-[#C9A55C] text-[#0e0c09]'
-                  : 'text-white/60 hover:text-white'
-              )}
-            >
-              {page1Label}
-            </button>
-            <button
-              onClick={() => setSelectedMode('recruit')}
-              className={cn(
-                'px-4 py-1 rounded-full text-xs font-medium transition-colors',
-                selectedMode === 'recruit'
-                  ? 'bg-[#C9A55C] text-[#0e0c09]'
-                  : 'text-white/60 hover:text-white'
-              )}
-            >
-              {page2Label}
-            </button>
-          </div>
-
           <div className="flex items-center gap-3">
             <span className="text-xs text-white/50">@{page.handle}</span>
             <button
@@ -576,6 +545,8 @@ export default function Editor() {
         onClose={handleProfileDashboardClose}
         pageId={page.id}
         modeId={currentMode?.id || null}
+        selectedMode={selectedMode}
+        onSelectedModeChange={setSelectedMode}
         onBlockEdit={handleEditBlock}
         onRefresh={refresh}
         editingBlock={editingBlock}

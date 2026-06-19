@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   Pin,
   PinOff,
+  Files,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +64,11 @@ interface ProfileDashboardProps {
   modeId: string | null;
   onBlockEdit: (blockId: string) => void;
   onRefresh: () => void;
+  /** Active editing page (shop = Page 1, recruit = Page 2). Drives which page's
+   *  hero config the dashboard reads/writes, and the Pages config view. */
+  selectedMode?: 'shop' | 'recruit';
+  /** Switches which page is being edited, from the Pages config view. */
+  onSelectedModeChange?: (mode: 'shop' | 'recruit') => void;
   /**
    * When set together with `open`, the panel skips the section-list view and
    * opens directly into the editor for this block. Pressing back closes the
@@ -137,6 +143,12 @@ const sections: DashboardSection[] = [
   {
     labelKey: 'dashboard.appearance',
     rows: [
+      {
+        icon: <Files className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.pages',
+        subtitleKey: 'dashboard.pagesDesc',
+        blockType: null,
+      },
       {
         icon: <Type className="h-6 w-6 text-white" />,
         titleKey: 'blocks.text.title',
@@ -239,6 +251,38 @@ const sections: DashboardSection[] = [
   },
 ];
 
+// Block presets for the Pages menu — each replaces the active page's content
+// blocks (header social blocks are preserved) with a tailored layout. Uses only
+// real, wired block types.
+const PRESETS: { key: string; label: string; desc: string; blocks: { type: BlockWithItems['type']; title: string }[] }[] = [
+  { key: 'default', label: 'Default', desc: "All link cards — turn off the ones you don't want", blocks: [
+    { type: 'primary_cta', title: 'Primary CTA' },
+    { type: 'links', title: 'Links' },
+    { type: 'product_cards', title: 'Products' },
+    { type: 'gallery', title: 'Gallery' },
+    { type: 'video_feed', title: 'Videos' },
+    { type: 'bio', title: 'About' },
+  ] },
+  { key: 'social', label: 'Social Links', desc: 'A clean set focused on your links', blocks: [
+    { type: 'bio', title: 'About' },
+    { type: 'links', title: 'My Links' },
+  ] },
+  { key: 'store', label: 'New Merch / Store', desc: 'Set up for selling products', blocks: [
+    { type: 'primary_cta', title: 'Shop Now' },
+    { type: 'product_cards', title: 'Products' },
+    { type: 'gallery', title: 'Gallery' },
+  ] },
+  { key: 'events', label: 'Custom Events', desc: 'Share event details and RSVP links', blocks: [
+    { type: 'content_section', title: 'Event Details' },
+    { type: 'links', title: 'RSVP & Tickets' },
+    { type: 'primary_cta', title: 'Get Tickets' },
+  ] },
+  { key: 'forms', label: 'Forms', desc: 'Capture contact info from visitors', blocks: [
+    { type: 'email_subscribe', title: 'Get in Touch' },
+    { type: 'content_section', title: 'Details' },
+  ] },
+];
+
 export function ProfileDashboard({
   open,
   onClose,
@@ -254,6 +298,8 @@ export function ProfileDashboard({
   displayName,
   bio,
   avatarUrl,
+  selectedMode,
+  onSelectedModeChange,
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -261,7 +307,17 @@ export function ProfileDashboard({
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [videoProfileOpen, setVideoProfileOpen] = useState(false);
-  const heroCfg = (themeJson as any)?.heroConfig || {};
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [pendingPreset, setPendingPreset] = useState<string | null>(null);
+  const [page1LabelDraft, setPage1LabelDraft] = useState('');
+  const [page2LabelDraft, setPage2LabelDraft] = useState('');
+  // Two-page config (read from theme). `heroInherit` makes Page 2 mirror Page 1's hero.
+  const pagesCfg = (themeJson as any)?.pages || {};
+  const pagesEnabled: boolean = pagesCfg?.enabled === true;
+  const heroInherit: boolean = pagesCfg?.page2?.heroInherit === true;
+  // Hero reads/writes target Page 2's own config only when editing Page 2 and not inheriting.
+  const heroConfigKey = (selectedMode === 'recruit' && !heroInherit) ? 'heroConfig_page2' : 'heroConfig';
+  const heroCfg = (themeJson as any)?.[heroConfigKey] || {};
   const heroVideoUrl: string = heroCfg.video || '';
   const heroAudioMode: 'silent' | 'clip' | 'voiceover' =
     heroCfg.audio === 'clip' || heroCfg.audio === 'voiceover' ? heroCfg.audio : 'silent';
@@ -309,6 +365,8 @@ export function ProfileDashboard({
     setDesignOpen(false);
     setGalleryOpen(false);
     setVideoProfileOpen(false);
+    setPagesOpen(false);
+    setPendingPreset(null);
     onClose();
   };
 
@@ -330,10 +388,10 @@ export function ProfileDashboard({
         .from('avatars')
         .getPublicUrl(fileName);
       const existingTheme = (themeJson as any) || {};
-      const existingHero = existingTheme.heroConfig || {};
+      const existingHero = existingTheme[heroConfigKey] || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl } } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, video: urlData.publicUrl } } })
         .eq('id', pageId);
       if (error) throw error;
       toast.success('Hero video added!');
@@ -346,10 +404,10 @@ export function ProfileDashboard({
 
   const saveHeroConfig = async (patch: Record<string, unknown>) => {
     const existingTheme = (themeJson as any) || {};
-    const existingHero = existingTheme.heroConfig || {};
+    const existingHero = existingTheme[heroConfigKey] || {};
     const { error } = await supabase
       .from('pages')
-      .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, ...patch } } })
+      .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, ...patch } } })
       .eq('id', pageId);
     if (error) { toast.error('Could not save'); return; }
     onRefresh();
@@ -358,12 +416,12 @@ export function ProfileDashboard({
   // Re-sync position drafts when the video changes (e.g. new upload). Gated on the URL — NOT on
   // every themeJson refresh — so a save's onRefresh can't yank a slider thumb mid-drag.
   useEffect(() => {
-    const vp = ((themeJson as any)?.heroConfig?.videoPos) || {};
+    const vp = ((themeJson as any)?.[heroConfigKey]?.videoPos) || {};
     setVideoScale(typeof vp.scale === 'number' ? vp.scale : 1);
     setVideoPosX(typeof vp.posX === 'number' ? vp.posX : 50);
     setVideoPosY(typeof vp.posY === 'number' ? vp.posY : 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroVideoUrl]);
+  }, [heroVideoUrl, heroConfigKey]);
 
   // Persist position/zoom ~400ms after the last change (covers drag + keyboard) — one PATCH per adjustment.
   const persistVideoPos = (next: { scale: number; posX: number; posY: number }) => {
@@ -379,16 +437,92 @@ export function ProfileDashboard({
 
   const handleVideoRemove = async () => {
     const existingTheme = (themeJson as any) || {};
-    const existingHero = { ...(existingTheme.heroConfig || {}) };
+    const existingHero = { ...(existingTheme[heroConfigKey] || {}) };
     delete existingHero.video;
     const { error } = await supabase
       .from('pages')
-      .update({ theme_json: { ...existingTheme, heroConfig: existingHero } })
+      .update({ theme_json: { ...existingTheme, [heroConfigKey]: existingHero } })
       .eq('id', pageId);
     if (error) { toast.error('Could not remove video'); return; }
     toast.success('Hero video removed');
     onRefresh();
     setVideoProfileOpen(false);
+  };
+
+  // ── Two-page (Pages) config ──
+  // Seed label drafts when the Pages view opens (avoids clobbering mid-type).
+  useEffect(() => {
+    if (pagesOpen) {
+      setPage1LabelDraft(pagesCfg?.page1?.label || '');
+      setPage2LabelDraft(pagesCfg?.page2?.label || '');
+      setPendingPreset(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagesOpen]);
+
+  const savePages = async (patch: Record<string, unknown>) => {
+    const existingTheme = (themeJson as any) || {};
+    const existingPages = existingTheme.pages || {};
+    const { error } = await supabase
+      .from('pages')
+      .update({ theme_json: { ...existingTheme, pages: { ...existingPages, ...patch } } })
+      .eq('id', pageId);
+    if (error) { toast.error('Could not save'); return; }
+    onRefresh();
+  };
+
+  const setPageEnabled = (enabled: boolean) => {
+    // Disabling Page 2 while editing it bounces editing back to Page 1.
+    if (!enabled && selectedMode === 'recruit') onSelectedModeChange?.('shop');
+    savePages({ enabled });
+  };
+  const setPageLabel = (which: 'page1' | 'page2', label: string) => {
+    const existing = (pagesCfg as any)?.[which] || {};
+    savePages({ [which]: { ...existing, label: label.trim() || undefined } });
+  };
+  const setHeroInherit = (inherit: boolean) => {
+    const existing = (pagesCfg as any)?.page2 || {};
+    savePages({ page2: { ...existing, heroInherit: inherit } });
+  };
+
+  // Apply a preset to the ACTIVE page (modeId): replace its content blocks with
+  // the preset's tailored set. Header social blocks are preserved.
+  const applyPreset = async (presetKey: string) => {
+    setPendingPreset(null);
+    if (!modeId) { toast.error(t('dashboard.noMode')); return; }
+    const preset = PRESETS.find((p) => p.key === presetKey);
+    if (!preset) return;
+    try {
+      const { data: existing, error: fErr } = await supabase
+        .from('blocks')
+        .select('id, type')
+        .eq('mode_id', modeId);
+      if (fErr) throw fErr;
+      // Preserve the header social blocks; replace everything else.
+      const removableIds = (existing || [])
+        .filter((b) => b.type !== 'social_links' && b.type !== 'social_icon_row')
+        .map((b) => b.id);
+      if (removableIds.length) {
+        const { error: iErr } = await supabase.from('block_items').delete().in('block_id', removableIds);
+        if (iErr) throw iErr;
+        const { error: bErr } = await supabase.from('blocks').delete().in('id', removableIds);
+        if (bErr) throw bErr;
+      }
+      const inserts = preset.blocks.map((b, i) => ({
+        mode_id: modeId,
+        type: b.type as any,
+        title: b.title,
+        is_enabled: true,
+        order_index: i,
+      }));
+      const { error: insErr } = await supabase.from('blocks').insert(inserts);
+      if (insErr) throw insErr;
+      toast.success(`${preset.label} preset applied`);
+      onRefresh();
+    } catch (e) {
+      console.error('apply preset failed', e);
+      toast.error('Could not apply preset');
+    }
   };
 
   const handleRowTap = async (row: DashboardRow) => {
@@ -406,6 +540,10 @@ export function ProfileDashboard({
       }
       if (row.titleKey === 'dashboard.videoProfile') {
         setVideoProfileOpen(true);
+        return;
+      }
+      if (row.titleKey === 'dashboard.pages') {
+        setPagesOpen(true);
         return;
       }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
@@ -593,7 +731,17 @@ export function ProfileDashboard({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
-              {videoProfileOpen ? (
+              {pagesOpen ? (
+                <>
+                  <button
+                    onClick={() => setPagesOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.pages')}</h2>
+                </>
+              ) : videoProfileOpen ? (
                 <>
                   <button
                     onClick={() => setVideoProfileOpen(false)}
@@ -671,7 +819,128 @@ export function ProfileDashboard({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pb-8">
-              {videoProfileOpen ? (
+              {pagesOpen ? (
+                <div className="dark text-foreground px-4 pt-5 space-y-5">
+                  {/* Enable second page */}
+                  <div>
+                    <p className="text-white/70 text-xs font-semibold mb-2">Second page</p>
+                    <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                      <button
+                        onClick={() => setPageEnabled(false)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${!pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                      >
+                        Off
+                      </button>
+                      <button
+                        onClick={() => setPageEnabled(true)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                      >
+                        On
+                      </button>
+                    </div>
+                    <p className="text-white/40 text-[11px] mt-1.5">
+                      Adds a second page visitors can switch to. Page 2 starts blank — give it its own links and hero.
+                    </p>
+                  </div>
+
+                  {pagesEnabled && (
+                    <>
+                      {/* Page labels */}
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-white/40 text-[10px] block mb-1">Page 1 label</label>
+                          <input
+                            type="text"
+                            value={page1LabelDraft}
+                            maxLength={24}
+                            placeholder="Page 1"
+                            onChange={(e) => setPage1LabelDraft(e.target.value)}
+                            onBlur={() => setPageLabel('page1', page1LabelDraft)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-white/40 text-[10px] block mb-1">Page 2 label</label>
+                          <input
+                            type="text"
+                            value={page2LabelDraft}
+                            maxLength={24}
+                            placeholder="Page 2"
+                            onChange={(e) => setPage2LabelDraft(e.target.value)}
+                            onBlur={() => setPageLabel('page2', page2LabelDraft)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Page 2 hero source */}
+                      <div>
+                        <p className="text-white/70 text-xs font-semibold mb-2">Page 2 hero</p>
+                        <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                          <button
+                            onClick={() => setHeroInherit(false)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${!heroInherit ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Its own
+                          </button>
+                          <button
+                            onClick={() => setHeroInherit(true)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroInherit ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                          >
+                            Same as Page 1
+                          </button>
+                        </div>
+                        <p className="text-white/40 text-[11px] mt-1.5">
+                          {heroInherit
+                            ? "Page 2 shows Page 1's hero image/video."
+                            : 'Page 2 has its own hero — set it from the photo / Video Profile controls while editing Page 2.'}
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Preset configurations — replace the active page's content blocks */}
+                  <div>
+                    <p className="text-white/70 text-xs font-semibold mb-1">Preset configurations</p>
+                    <p className="text-white/40 text-[11px] mb-2">
+                      Sets up <span className="text-white/70 font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span> with a tailored set of blocks, replacing the link blocks on this page.
+                    </p>
+                    {pendingPreset && (
+                      <div className="rounded-xl border border-[#C9A55C]/40 bg-[#C9A55C]/10 p-3 mb-2 space-y-2">
+                        <p className="text-white text-xs">
+                          Replace <span className="font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPendingPreset(null)}
+                            className="flex-1 py-2 rounded-lg text-xs font-semibold border border-white/15 text-white/80"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => applyPreset(pendingPreset)}
+                            className="flex-1 py-2 rounded-lg text-xs font-bold bg-[#C9A55C] text-[#0e0c09]"
+                          >
+                            Replace
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {PRESETS.map((p) => (
+                        <button
+                          key={p.key}
+                          onClick={() => setPendingPreset(p.key)}
+                          className="w-full text-left bg-white/5 rounded-xl px-3 py-2.5 hover:bg-white/10 transition-colors"
+                        >
+                          <p className="text-sm font-semibold text-white truncate">{p.label}</p>
+                          <p className="text-[11px] text-white/50">{p.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : videoProfileOpen ? (
                 <div className="dark text-foreground px-4 pt-4 space-y-5">
                   {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">

@@ -78,6 +78,26 @@ export const DEFAULT_BLOCK_STYLE: BlockStyleConfig = {
   letter_spacing: 0,
 };
 
+// Hero display config (HERO-1). Shared shape for Page 1 (`heroConfig`) and
+// Page 2 (`heroConfig_page2`). All optional — components read via casts.
+export interface HeroConfig {
+  fit?: 'fill' | 'fit';
+  posY?: number;
+  video?: string;
+  audio?: 'silent' | 'clip' | 'voiceover';
+  playback?: 'once' | 'loop' | 'bounce';
+  voiceover?: string;
+  videoPos?: { scale?: number; posX?: number; posY?: number };
+}
+
+// Two-page feature. `enabled` gates the visitor switcher; each page carries an
+// optional label, and Page 2 can mirror Page 1's hero via `heroInherit`.
+export interface PagesConfig {
+  enabled?: boolean;
+  page1?: { label?: string };
+  page2?: { label?: string; heroInherit?: boolean };
+}
+
 export interface ThemeJson {
   background: ThemeBackground;
   buttons: ThemeButtons;
@@ -87,6 +107,12 @@ export interface ThemeJson {
   auto_contrast?: boolean;
   online_indicator?: boolean;
   canva_last_import?: CanvaImportMetadata;
+  // Two-page feature + per-page hero. All optional; read via casts in components.
+  pages?: PagesConfig;
+  heroConfig?: HeroConfig;
+  heroConfig_page2?: HeroConfig;
+  avatar_url_page2?: string;
+  avatar_original_url_page2?: string;
 }
 
 export const DEFAULT_HEADER: ThemeHeader = {

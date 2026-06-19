@@ -76,10 +76,13 @@ export default function PublicProfile() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
-  const [blocks, setBlocks] = useState<BlockWithItems[]>([]);
+  const [blocksByMode, setBlocksByMode] = useState<{ shop: BlockWithItems[]; recruit: BlockWithItems[] }>({ shop: [], recruit: [] });
   const [notFound, setNotFound] = useState(false);
-  const [stickyCtaEnabled, setStickyCtaEnabled] = useState(false);
+  const [stickyCtaByMode, setStickyCtaByMode] = useState<{ shop: boolean; recruit: boolean }>({ shop: false, recruit: false });
   const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
+  // Visitor switcher flips selectedMode → derive the active page's blocks + sticky CTA (no refetch).
+  const blocks = blocksByMode[selectedMode] ?? [];
+  const stickyCtaEnabled = stickyCtaByMode[selectedMode] ?? false;
 
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -172,7 +175,8 @@ export default function PublicProfile() {
     if (handle) {
       fetchPageData();
     }
-  }, [handle, detectedMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handle]);
 
   const fetchPageData = async () => {
     if (!handle) return;
@@ -196,44 +200,44 @@ export default function PublicProfile() {
 
       setPage(pageData);
 
-      // Fetch mode for this page
-      const { data: modeData, error: modeError } = await supabase
+      // Fetch both modes (shop = Page 1, recruit = Page 2) so the visitor
+      // switcher can flip pages instantly without a refetch.
+      const { data: modesData, error: modeError } = await supabase
         .from('modes')
         .select('*')
         .eq('page_id', pageData.id)
-        .eq('type', detectedMode)
-        .maybeSingle();
+        .in('type', ['shop', 'recruit']);
 
       if (modeError) throw modeError;
 
-      if (!modeData) {
-        setBlocks([]);
-        setStickyCtaEnabled(false);
+      const shopMode = (modesData || []).find((m) => m.type === 'shop') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
+      const recruitMode = (modesData || []).find((m) => m.type === 'recruit') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
+
+      setStickyCtaByMode({
+        shop: shopMode?.sticky_cta_enabled ?? false,
+        recruit: recruitMode?.sticky_cta_enabled ?? false,
+      });
+
+      const modeIds = (modesData || []).map((m) => m.id);
+      if (modeIds.length === 0) {
+        setBlocksByMode({ shop: [], recruit: [] });
         setLoading(false);
         return;
       }
 
-      // Store sticky CTA setting
-      setStickyCtaEnabled((modeData as Mode & { sticky_cta_enabled?: boolean }).sticky_cta_enabled ?? false);
-
-      // Fetch enabled blocks for this mode
+      // Fetch enabled blocks for both modes in one query.
       const { data: blocksData, error: blocksError } = await supabase
         .from('blocks')
         .select('*')
-        .eq('mode_id', modeData.id)
+        .in('mode_id', modeIds)
         .eq('is_enabled', true)
         .order('order_index', { ascending: true });
 
       if (blocksError) throw blocksError;
 
-      if (!blocksData || blocksData.length === 0) {
-        setBlocks([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch items for all blocks
-      const blockIds = blocksData.map((b) => b.id);
+      const allBlocks = blocksData || [];
+      // Fetch items for all blocks (both modes) in one query.
+      const blockIds = allBlocks.map((b) => b.id);
       const { data: itemsData, error: itemsError } = await supabase
         .from('block_items')
         .select('*')
@@ -242,13 +246,18 @@ export default function PublicProfile() {
 
       if (itemsError) throw itemsError;
 
-      // Group items by block
-      const blocksWithItems: BlockWithItems[] = blocksData.map((block) => ({
-        ...block,
-        items: (itemsData || []).filter((item) => item.block_id === block.id),
-      }));
+      const groupForMode = (modeId: string | undefined): BlockWithItems[] =>
+        !modeId ? [] : allBlocks
+          .filter((b) => b.mode_id === modeId)
+          .map((block) => ({
+            ...block,
+            items: (itemsData || []).filter((item) => item.block_id === block.id),
+          }));
 
-      setBlocks(blocksWithItems);
+      setBlocksByMode({
+        shop: groupForMode(shopMode?.id),
+        recruit: groupForMode(recruitMode?.id),
+      });
     } catch (error) {
       console.error('Error fetching page:', error);
       setNotFound(true);
@@ -304,7 +313,8 @@ export default function PublicProfile() {
   const ogTitle = page ? `${page.display_name || page.handle} | TitiLinks` : 'TitiLinks';
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const page2AvatarUrl = (page?.theme_json as any)?.avatar_url_page2 || null;
-  const ogImage = (selectedMode === 'recruit' && page2AvatarUrl)
+  const heroInheritPublic = (page?.theme_json as any)?.pages?.page2?.heroInherit === true;
+  const ogImage = (selectedMode === 'recruit' && !heroInheritPublic && page2AvatarUrl)
     ? page2AvatarUrl
     : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
 

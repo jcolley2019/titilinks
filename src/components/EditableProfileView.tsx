@@ -1087,13 +1087,26 @@ export function EditableProfileView({
   const [aiProcessing, setAiProcessing] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 }); // image pan offset
-  // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json.heroConfig
+  // Two-page hero (HERO-PAGE2): Page 2 (recruit) reads/writes its OWN hero config
+  // unless it inherits Page 1's. `heroConfigKey` is the single key the hero
+  // handlers + render selection target.
+  const heroInherit: boolean = (page.theme_json as any)?.pages?.page2?.heroInherit === true;
+  const usePage2Own = selectedMode === 'recruit' && !heroInherit;
+  const heroConfigKey = usePage2Own ? 'heroConfig_page2' : 'heroConfig';
+  // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json[heroConfigKey]
   const [heroFitDraft, setHeroFitDraft] = useState<'fill' | 'fit'>(
-    (page.theme_json as any)?.heroConfig?.fit === 'fit' ? 'fit' : 'fill'
+    (page.theme_json as any)?.[heroConfigKey]?.fit === 'fit' ? 'fit' : 'fill'
   );
   const [heroPosYDraft, setHeroPosYDraft] = useState<number>(
-    typeof (page.theme_json as any)?.heroConfig?.posY === 'number' ? (page.theme_json as any).heroConfig.posY : 50
+    typeof (page.theme_json as any)?.[heroConfigKey]?.posY === 'number' ? (page.theme_json as any)[heroConfigKey].posY : 50
   );
+  // Resync hero display drafts when the edited page (or inherit toggle) changes.
+  useEffect(() => {
+    const cfg = (page.theme_json as any)?.[heroConfigKey] || {};
+    setHeroFitDraft(cfg.fit === 'fit' ? 'fit' : 'fill');
+    setHeroPosYDraft(typeof cfg.posY === 'number' ? cfg.posY : 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroConfigKey]);
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const cropImgRef = useRef<HTMLImageElement>(null);
@@ -1377,10 +1390,10 @@ export function EditableProfileView({
     setPhotoSaving(true);
     try {
       const existingTheme = (page.theme_json as any) || {};
-      const existingHero = existingTheme.heroConfig || {};
+      const existingHero = existingTheme[heroConfigKey] || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } } })
         .eq('id', page.id);
       if (error) throw error;
       setPhotoStep('idle');
@@ -1415,10 +1428,10 @@ export function EditableProfileView({
 
       // If this is a fresh upload (user picked a new file), also store the
       // original full-size photo so they can re-crop later with full
-      // flexibility. Skipped on re-crop (photoOriginalFile is null) and on
-      // recruit-mode page 2 (its schema is JSON-based).
+      // flexibility. Skipped only on re-crop (photoOriginalFile is null).
+      // Page 1 stores it in the avatar_original_url column; Page 2 in theme_json.
       let originalUrl: string | null = null;
-      if (photoOriginalFile && selectedMode !== 'recruit') {
+      if (photoOriginalFile) {
         const origExt = photoOriginalFile.name.split('.').pop() || 'jpg';
         const origFileName = `${user.id}/${crypto.randomUUID()}-original.${origExt}`;
         const { error: origUploadError } = await supabase.storage
@@ -1431,12 +1444,21 @@ export function EditableProfileView({
         }
       }
 
-      if (selectedMode === 'recruit') {
-        // Save page 2 avatar into theme_json
+      if (usePage2Own) {
+        // Save Page 2's own hero into theme_json: image, display config, and
+        // (when a fresh file was picked) the full-size original for re-crop.
         const existingTheme = (page.theme_json as any) || {};
+        const existingHero = { ...(existingTheme.heroConfig_page2 || {}) };
+        delete existingHero.video; // an image hero replaces any video — clean swap
+        const nextTheme: any = {
+          ...existingTheme,
+          avatar_url_page2: urlData.publicUrl,
+          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft },
+        };
+        if (originalUrl) nextTheme.avatar_original_url_page2 = originalUrl;
         await supabase
           .from('pages')
-          .update({ theme_json: { ...existingTheme, avatar_url_page2: urlData.publicUrl } })
+          .update({ theme_json: nextTheme })
           .eq('id', page.id);
       } else {
         const existingTheme = (page.theme_json as any) || {};
@@ -1490,10 +1512,10 @@ export function EditableProfileView({
         .from('avatars')
         .getPublicUrl(fileName);
       const existingTheme = (page.theme_json as any) || {};
-      const existingHero = existingTheme.heroConfig || {};
+      const existingHero = existingTheme[heroConfigKey] || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: { ...existingHero, video: urlData.publicUrl, fit: 'fill' } } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, video: urlData.publicUrl, fit: 'fill' } } })
         .eq('id', page.id);
       if (error) throw error;
       toast.success('Hero video added!');
@@ -1510,11 +1532,11 @@ export function EditableProfileView({
     setPhotoSaving(true);
     try {
       const existingTheme = (page.theme_json as any) || {};
-      const existingHero = { ...(existingTheme.heroConfig || {}) };
+      const existingHero = { ...(existingTheme[heroConfigKey] || {}) };
       delete existingHero.video;
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, heroConfig: existingHero } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: existingHero } })
         .eq('id', page.id);
       if (error) throw error;
       toast.success('Hero video removed');
@@ -1797,13 +1819,15 @@ export function EditableProfileView({
     onRefresh();
   };
 
-  // Hero image — per-page avatar support (no cross-page fallback)
+  // Hero image — per-page. Page 2 (recruit) uses its own image unless it
+  // inherits Page 1's hero (heroInherit), in which case it mirrors Page 1.
   const page2AvatarUrl = (page.theme_json as any)?.avatar_url_page2 || null;
+  const page1HeroImage = localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '';
   const heroImage = selectedMode === 'recruit'
-    ? (localHeroImages.recruit || page2AvatarUrl || '')
-    : (localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '');
+    ? (heroInherit ? page1HeroImage : (localHeroImages.recruit || page2AvatarUrl || ''))
+    : page1HeroImage;
   // Hero display config (HERO-1). Absent → Fill, centered — un-beheads legacy photos.
-  const heroConfig = (page.theme_json as any)?.heroConfig || {};
+  const heroConfig = (page.theme_json as any)?.[heroConfigKey] || {};
   const heroVideo: string = heroConfig.video || '';
   const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
   const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;
@@ -1841,10 +1865,38 @@ export function EditableProfileView({
     transformOrigin: 'center',
   };
 
-  // Page labels from theme
+  // Page labels + two-page switcher (shown in both editor preview and live page).
   const themePages = (page.theme_json as any)?.pages;
   const page1Label = themePages?.page1?.label || 'Page 1';
   const page2Label = themePages?.page2?.label || 'Page 2';
+  const pagesEnabled: boolean = themePages?.enabled === true;
+  const renderPageSwitcher = () => {
+    if (!pagesEnabled) return null;
+    return (
+      <div className="flex justify-center mt-4">
+        <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 max-w-full">
+          <button
+            onClick={() => onModeChange('shop')}
+            className={cn(
+              'px-4 py-1 rounded-full text-xs font-medium transition-colors truncate max-w-[45vw]',
+              selectedMode !== 'recruit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
+            )}
+          >
+            {page1Label}
+          </button>
+          <button
+            onClick={() => onModeChange('recruit')}
+            className={cn(
+              'px-4 py-1 rounded-full text-xs font-medium transition-colors truncate max-w-[45vw]',
+              selectedMode === 'recruit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
+            )}
+          >
+            {page2Label}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // No-op click handler for edit mode
   const noOpClick: ClickHandler = () => false;
@@ -1952,7 +2004,7 @@ export function EditableProfileView({
                   // Prefer the saved original (full-size) so the cropper has the
                   // unrestricted source. Falls back to the cropped hero for
                   // legacy photos uploaded before avatar_original_url existed.
-                  const editSource = page.avatar_original_url || heroImage;
+                  const editSource = (usePage2Own ? ((page.theme_json as any)?.avatar_original_url_page2 || heroImage) : (page.avatar_original_url || heroImage));
                   setPhotoPreview(editSource);
                   setPhotoFile(null);
                   setPhotoOriginalFile(null);
@@ -2089,6 +2141,7 @@ export function EditableProfileView({
             }
             return null;
           })}
+          {!editMode && renderPageSwitcher()}
           {editMode && (
             <>
 
@@ -2581,6 +2634,7 @@ export function EditableProfileView({
                 return null;
               });
             })()}
+            {photoStep === 'idle' && renderPageSwitcher()}
             </div>
             {/* Block cards (sortable via DndContext) */}
             <div className="flex flex-col gap-[6px]" style={{ marginTop: `${-CARDS_LIFT}px` }}>
