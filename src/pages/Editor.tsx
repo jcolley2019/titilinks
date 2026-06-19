@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
-import { OnboardingForm } from '@/components/OnboardingForm';
+import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import type { LinkItem } from '@/components/editors/LinksEditor';
@@ -404,10 +404,6 @@ export default function Editor() {
     }
   };
 
-  const handleOnboardingComplete = () => {
-    fetchPageData();
-  };
-
   const currentMode = modes.find((m) => m.type === selectedMode);
 
   // ── Render ──
@@ -422,12 +418,10 @@ export default function Editor() {
     );
   }
 
+  // No page yet (brand-new account, or an older account whose page was removed):
+  // route through the single, unified onboarding flow — never the legacy form.
   if (!page) {
-    return (
-      <DashboardLayout>
-        <OnboardingForm onComplete={handleOnboardingComplete} />
-      </DashboardLayout>
-    );
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (
