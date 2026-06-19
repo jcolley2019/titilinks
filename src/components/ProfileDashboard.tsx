@@ -45,6 +45,7 @@ import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
+import { BLOCK_PRESETS } from '@/lib/block-presets';
 
 export interface EditingBlockTarget {
   id: string;
@@ -249,38 +250,6 @@ const sections: DashboardSection[] = [
       },
     ],
   },
-];
-
-// Block presets for the Pages menu — each replaces the active page's content
-// blocks (header social blocks are preserved) with a tailored layout. Uses only
-// real, wired block types.
-const PRESETS: { key: string; label: string; desc: string; blocks: { type: BlockWithItems['type']; title: string }[] }[] = [
-  { key: 'default', label: 'Default', desc: "All link cards — turn off the ones you don't want", blocks: [
-    { type: 'primary_cta', title: 'Primary CTA' },
-    { type: 'links', title: 'Links' },
-    { type: 'product_cards', title: 'Products' },
-    { type: 'gallery', title: 'Gallery' },
-    { type: 'video_feed', title: 'Videos' },
-    { type: 'bio', title: 'About' },
-  ] },
-  { key: 'social', label: 'Social Links', desc: 'A clean set focused on your links', blocks: [
-    { type: 'bio', title: 'About' },
-    { type: 'links', title: 'My Links' },
-  ] },
-  { key: 'store', label: 'New Merch / Store', desc: 'Set up for selling products', blocks: [
-    { type: 'primary_cta', title: 'Shop Now' },
-    { type: 'product_cards', title: 'Products' },
-    { type: 'gallery', title: 'Gallery' },
-  ] },
-  { key: 'events', label: 'Custom Events', desc: 'Share event details and RSVP links', blocks: [
-    { type: 'content_section', title: 'Event Details' },
-    { type: 'links', title: 'RSVP & Tickets' },
-    { type: 'primary_cta', title: 'Get Tickets' },
-  ] },
-  { key: 'forms', label: 'Forms', desc: 'Capture contact info from visitors', blocks: [
-    { type: 'email_subscribe', title: 'Get in Touch' },
-    { type: 'content_section', title: 'Details' },
-  ] },
 ];
 
 export function ProfileDashboard({
@@ -490,7 +459,7 @@ export function ProfileDashboard({
   const applyPreset = async (presetKey: string) => {
     setPendingPreset(null);
     if (!modeId) { toast.error(t('dashboard.noMode')); return; }
-    const preset = PRESETS.find((p) => p.key === presetKey);
+    const preset = BLOCK_PRESETS.find((p) => p.key === presetKey);
     if (!preset) return;
     try {
       const { data: existing, error: fErr } = await supabase
@@ -908,7 +877,7 @@ export function ProfileDashboard({
                     {pendingPreset && (
                       <div className="rounded-xl border border-[#C9A55C]/40 bg-[#C9A55C]/10 p-3 mb-2 space-y-2">
                         <p className="text-white text-xs">
-                          Replace <span className="font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
+                          Replace <span className="font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{BLOCK_PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -927,7 +896,7 @@ export function ProfileDashboard({
                       </div>
                     )}
                     <div className="space-y-2">
-                      {PRESETS.map((p) => (
+                      {BLOCK_PRESETS.map((p) => (
                         <button
                           key={p.key}
                           onClick={() => setPendingPreset(p.key)}
