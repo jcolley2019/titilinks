@@ -26,6 +26,10 @@ import {
   Settings2,
   Camera,
   Lock,
+  Plus,
+  ArrowLeftRight,
+  Info,
+  X,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { Tables } from '@/integrations/supabase/types';
@@ -33,6 +37,8 @@ import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
 import { LinkButton } from '@/components/LinkButton';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
+import { findPartnerId } from '@/lib/link-layout';
+import { cn } from '@/lib/utils';
 
 const MAX_ITEMS = ITEM_CAPS.links;
 
@@ -93,8 +99,39 @@ export interface LinkItem {
   style_json?: Record<string, any> | null;
 }
 
+// Text input with a clear (X) button and an INSET focus ring. The shared Input's
+// default focus ring is outset (ring-2 + ring-offset-2 = 4px beyond the box),
+// which clips at the narrow slide-in panel's edges; ring-inset keeps the gold
+// "editing" outline inside the box so it always fits. The X clears the field.
+function ClearableInput({
+  onClear,
+  className,
+  ...props
+}: React.ComponentProps<typeof Input> & { onClear: () => void }) {
+  const hasValue = typeof props.value === 'string' && props.value.length > 0;
+  return (
+    <div className="relative">
+      <Input className={cn('pr-9 focus-visible:ring-inset', className)} {...props} />
+      {hasValue && (
+        <button
+          type="button"
+          aria-label="Clear"
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onClear}
+          className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function LinkDetailPanel({
   item,
+  partnerItem,
+  initialActiveSlot,
   isNew,
   blockStyle,
   onBack,
@@ -104,42 +141,104 @@ function LinkDetailPanel({
   panelMode,
 }: {
   item: LinkItem;
+  partnerItem?: LinkItem | null;
+  initialActiveSlot?: 'a' | 'b';
   isNew: boolean;
   blockStyle: BlockStyleConfig;
   onBack: () => void;
-  onSave: (item: LinkItem) => void;
+  onSave: (primary: LinkItem, partner: LinkItem | null) => void;
   onDelete: (id: string) => void;
   onDraftChange?: (item: LinkItem | null) => void;
   panelMode?: boolean;
 }) {
-  const [local, setLocal] = useState<LinkItem>(item);
+  // Card A is the primary (left) item; Card B is the Small partner (right). The
+  // tapped half is the initial active slot so editing starts where you clicked.
+  const [cardA, setCardA] = useState<LinkItem>(item);
+  const [cardB, setCardB] = useState<LinkItem | null>(partnerItem ?? null);
+  const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
+    initialActiveSlot === 'b' && partnerItem ? 'b' : 'a',
+  );
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
   const [subtitleExpanded, setSubtitleExpanded] = useState<boolean>(!!item.subtitle);
+  const [unfurling, setUnfurling] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
 
-  // Live-mirror the draft up to the preview (L2): emit on every change, and
-  // clear (null) when the panel unmounts so a cancelled edit doesn't linger.
-  useEffect(() => { onDraftChange?.(local); }, [local]);
-  useEffect(() => () => { onDraftChange?.(null); }, []);
+  // Pair mode is on whenever the primary card is Small: two half-width slots are
+  // edited as a unit and the form below binds to whichever slot is active.
+  const isPair = cardA.size === 'small';
+  const activeIsB = activeSlot === 'b' && cardB != null;
+  const activeKey: 'a' | 'b' = activeIsB ? 'b' : 'a';
+  const active = activeIsB ? (cardB as LinkItem) : cardA;
 
+  // Per-slot unfurl bookkeeping so each card auto-fills independently. lastUrl
+  // marks the existing URL as already-seen; titleEdited/imageEdited freeze a
+  // field once the user edits it this session.
+  const unfurlState = useRef<Record<'a' | 'b', { lastUrl: string; titleEdited: boolean; imageEdited: boolean }>>({
+    a: { lastUrl: normalizeUrl(item.url || ''), titleEdited: false, imageEdited: false },
+    b: { lastUrl: normalizeUrl(partnerItem?.url || ''), titleEdited: false, imageEdited: false },
+  });
+
+  const setActive = (updater: (prev: LinkItem) => LinkItem) => {
+    if (activeIsB) setCardB(prev => (prev ? updater(prev) : prev));
+    else setCardA(updater);
+  };
   const update = (field: keyof LinkItem, value: any) => {
-    setLocal(prev => ({ ...prev, [field]: value }));
+    setActive(prev => ({ ...prev, [field]: value }));
   };
 
-  // --- unfurl: auto-fill title + image from the URL's metadata (best-effort) ---
-  const [unfurling, setUnfurling] = useState(false);
-  // Treat the item's existing URL as already-seen so merely opening a saved link
-  // and blurring its unchanged URL does not re-unfurl. A NEW/changed URL fires it.
-  const lastUnfurledRef = useRef<string>(normalizeUrl(item.url || ''));
-  // Auto-fill stops overwriting a field once the USER edits it this session.
-  const titleEditedRef = useRef(false);
-  const imageEditedRef = useRef(false);
+  // Choose the size for the whole link group (Card A). Picking Small opens pair
+  // mode (Card B slot appears); any other size closes it and drops Card B.
+  const pickSize = (key: 'big' | 'medium' | 'small' | 'button') => {
+    setActiveSlot('a');
+    if (key === 'small') {
+      setCardA(prev => ({ ...prev, size: 'small' }));
+    } else {
+      setCardB(null);
+      setCardA(prev => ({ ...prev, size: key }));
+    }
+  };
 
+  // Tap the second slot: create an empty Small partner on first tap, then edit it.
+  const selectSlotB = () => {
+    if (!cardB) {
+      setCardB({
+        id: `new-${Date.now()}-${Math.random()}`,
+        label: '', url: '', subtitle: '', badge: '',
+        is_adult: false, image_url: null, size: 'small',
+        bg_color: null, title_color: null, style_json: null,
+      });
+    }
+    setActiveSlot('b');
+  };
+
+  // Swap left/right: exchange Card A and Card B content (ids travel with the
+  // content, so on Save the swap persists as a reorder). The active highlight
+  // stays on its side; the per-slot unfurl bookkeeping travels too.
+  const swapCards = () => {
+    if (!cardB) return;
+    const a = cardA;
+    const b = cardB;
+    setCardA({ ...b, size: 'small' });
+    setCardB({ ...a, size: 'small' });
+    const t = unfurlState.current.a;
+    unfurlState.current.a = unfurlState.current.b;
+    unfurlState.current.b = t;
+  };
+
+  // Live-mirror the draft to the preview (single-card only). Pair mode suppresses
+  // the partial mirror — the channel can't represent two cards — so the panel's
+  // own two-slot preview shows the pair and the live preview refreshes on Save.
+  useEffect(() => { onDraftChange?.(isPair ? null : cardA); }, [cardA, isPair]);
+  useEffect(() => () => { onDraftChange?.(null); }, []);
+
+  // --- unfurl: auto-fill title + image from the active card's URL (best-effort) ---
   const handleUnfurl = async () => {
-    const normalized = normalizeUrl(local.url);
+    const st = unfurlState.current[activeKey];
+    const normalized = normalizeUrl(active.url);
     if (!/^https?:\/\//i.test(normalized)) return;            // only real web URLs
-    if (titleEditedRef.current && imageEditedRef.current && local.label.trim() && local.image_url) return; // user set both → nothing to auto-fill
-    if (lastUnfurledRef.current === normalized) return;       // already tried this exact URL
-    lastUnfurledRef.current = normalized;
+    if (st.titleEdited && st.imageEdited && active.label.trim() && active.image_url) return; // user set both → nothing to auto-fill
+    if (st.lastUrl === normalized) return;                    // already tried this exact URL
+    st.lastUrl = normalized;
 
     setUnfurling(true);
     try {
@@ -148,11 +247,13 @@ function LinkDetailPanel({
       });
       if (error || !data) return;
       const meta = data as { title?: string | null; image?: string | null; description?: string | null };
-      setLocal(prev => {
+      setActive(prev => {
         const next = { ...prev };
-        if ((!titleEditedRef.current || !prev.label.trim()) && meta.title && meta.title.trim()) next.label = meta.title.trim();
-        if ((!imageEditedRef.current || !prev.image_url) && meta.image) next.image_url = meta.image;
-        if (!(prev.subtitle || '').trim() && meta.description && meta.description.trim()) next.subtitle = meta.description.trim().slice(0, 120);
+        // Auto-fill only fields the user hasn't touched. Once a field is edited
+        // (including cleared), it's frozen — so a deleted title stays deleted.
+        if (!st.titleEdited && meta.title && meta.title.trim()) next.label = meta.title.trim();
+        if (!st.imageEdited && meta.image) next.image_url = meta.image;
+        // Subtitle is user-only — never auto-filled from the link's OG description (it's optional).
         return next;
       });
     } catch {
@@ -163,21 +264,20 @@ function LinkDetailPanel({
   };
 
   // Auto-unfurl as the user types (Link.me-style): when typing pauses and the
-  // URL looks like a complete domain (has a dot + TLD), fetch metadata without
-  // requiring blur. handleUnfurl's internal guards prevent duplicate fetches
-  // and never overwrite user-entered fields.
+  // active card's URL looks like a complete domain, fetch metadata. handleUnfurl's
+  // per-slot guards prevent duplicate fetches and never overwrite user fields.
   useEffect(() => {
-    const candidate = (local.url || '').trim();
+    const candidate = (active.url || '').trim();
     if (!/\.[a-z]{2,}([/:?#].*)?$/i.test(candidate)) return;
     const id = setTimeout(() => { handleUnfurl(); }, 700);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [local.url]);
+  }, [active.url, activeSlot]);
 
   // Per-link style overrides live on block_items.style_json (additive — any
   // future keys are preserved). Writing null removes the key; empty → null.
   const setStyleField = (key: string, value: string | number | null) => {
-    setLocal(prev => {
+    setActive(prev => {
       const next: Record<string, any> = { ...(prev.style_json || {}) };
       if (value === null) delete next[key];
       else next[key] = value;
@@ -185,26 +285,97 @@ function LinkDetailPanel({
     });
   };
 
-  // Live preview theme — mirror LinksBlock's per-item color override so the
-  // preview card matches the live profile: bg_color → fill, title_color → text.
-  const previewTheme = (local.bg_color || local.title_color)
+  // Per-card preview theme/style — mirror LinksBlock's per-item overrides so the
+  // slot previews match the live profile: bg_color → fill, title_color → text.
+  const themeFor = (c: LinkItem) => (c.bg_color || c.title_color)
     ? {
         ...DEFAULT_THEME,
         buttons: {
           ...DEFAULT_THEME.buttons,
-          ...(local.bg_color ? { fill_color: local.bg_color } : {}),
-          ...(local.title_color ? { text_color: local.title_color } : {}),
+          ...(c.bg_color ? { fill_color: c.bg_color } : {}),
+          ...(c.title_color ? { text_color: c.title_color } : {}),
         },
       }
     : DEFAULT_THEME;
+  const blockStyleFor = (c: LinkItem): Partial<BlockStyleConfig> => {
+    const cj = c.style_json || {};
+    return {
+      ...blockStyle,
+      ...(cj.border_width != null ? { border_width: cj.border_width } : {}),
+      ...(cj.border_color ? { border_color: cj.border_color } : {}),
+    };
+  };
+  const previewTheme = themeFor(active);
+  const previewBlockStyle = blockStyleFor(active);
 
-  // Merge per-link border (style_json) over the block-level style so the
-  // preview reflects per-item-first precedence; falls back to block border.
-  const sj = local.style_json || {};
-  const previewBlockStyle: Partial<BlockStyleConfig> = {
-    ...blockStyle,
-    ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
-    ...(sj.border_color ? { border_color: sj.border_color } : {}),
+  // One small slot in the pair preview: a filled card (cover + title + camera) or
+  // an "add second" placeholder. Tapping the body selects the slot as active.
+  const renderPairSlot = (card: LinkItem | null, slot: 'a' | 'b') => {
+    const isActiveSlot = (slot === 'b') === activeIsB;
+    if (!card) {
+      return (
+        <button
+          type="button"
+          onClick={selectSlotB}
+          className="relative aspect-[4/3] w-full rounded-[14px] border-2 border-dashed border-[#C9A55C]/40 bg-[#C9A55C]/5 flex flex-col items-center justify-center gap-1 text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
+        >
+          <Plus className="h-6 w-6" />
+          <span className="text-xs font-semibold">Add second</span>
+        </button>
+      );
+    }
+    return (
+      <ThumbnailUpload
+        value={card.image_url}
+        onChange={(url) => {
+          unfurlState.current[slot].imageEdited = true;
+          if (slot === 'b') setCardB(prev => (prev ? { ...prev, image_url: url } : prev));
+          else setCardA(prev => ({ ...prev, image_url: url }));
+        }}
+        renderTrigger={({ open, uploading }) => (
+          <div
+            onClick={() => setActiveSlot(slot)}
+            className="relative aspect-[4/3] w-full overflow-hidden rounded-[14px] cursor-pointer"
+          >
+            {card.image_url ? (
+              <img src={card.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div
+                className="absolute inset-0"
+                style={{ background: 'linear-gradient(180deg, rgba(201,165,92,0.10) 0%, rgba(255,255,255,0.02) 100%)' }}
+              />
+            )}
+            {/* Title only when set — a deleted title shows no overlay, matching
+                the live card; positioned bottom-left like the reference. */}
+            {card.label && (
+              <div
+                className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6 text-left"
+                style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
+              >
+                <span className="text-[13px] font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                  {card.label}
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setActiveSlot(slot); open(); }}
+              disabled={uploading}
+              aria-label={card.image_url ? 'Replace image' : 'Add image'}
+              className="absolute top-1.5 left-1.5 h-7 w-7 rounded-full bg-black/55 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-60"
+            >
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            </button>
+            {/* Active-slot highlight as an INSET frame (drawn on top, inside the
+                card) so it never overflows/clips the panel edge like an outset
+                ring would — cards stay at the exact live grid size. */}
+            {isActiveSlot && (
+              <div className="pointer-events-none absolute inset-0 z-[2] rounded-[14px] ring-2 ring-inset ring-[#C9A55C]" />
+            )}
+          </div>
+        )}
+      />
+    );
   };
 
   const sizes = [
@@ -214,6 +385,31 @@ function LinkDetailPanel({
     { key: 'button', label: 'Button' },
   ] as const;
 
+  // A card is "started" if it has any of URL / title / image — used to detect a
+  // half-filled pair on Save.
+  const cardHasContent = (c: LinkItem | null) =>
+    !!c && (!!c.url.trim() || !!c.label.trim() || !!c.image_url);
+
+  // Save: a complete pair saves both. A half-filled pair (one card blank) asks
+  // the user to fill the other or fall back to a single large card. Otherwise
+  // it saves as one item.
+  const handleSave = () => {
+    if (isPair) {
+      const aHas = cardHasContent(cardA);
+      const bHas = cardHasContent(cardB);
+      if (aHas && bHas) { onSave(cardA, cardB as LinkItem); return; }
+      if (aHas !== bHas) { setConfirmRevert(true); return; }
+    }
+    onSave(cardA, null);
+  };
+
+  // Confirmed "save as large": persist the one filled card as a full-width Big.
+  const proceedRevert = () => {
+    setConfirmRevert(false);
+    const filled = cardHasContent(cardA) ? cardA : (cardB as LinkItem);
+    onSave({ ...filled, size: 'big' }, null);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header with back arrow */}
@@ -222,11 +418,13 @@ function LinkDetailPanel({
           <ChevronLeft className="h-5 w-5" />
         </button>
         <h3 className="font-semibold text-base">
-          {isNew ? 'Add Link' : 'Edit Link'}
+          {isPair
+            ? (isNew ? 'Add Cards' : 'Edit Cards')
+            : (isNew ? 'Add Link' : 'Edit Link')}
         </h3>
-        {!isNew && (
+        {!active.id.startsWith('new-') && (
           <button
-            onClick={() => onDelete(local.id)}
+            onClick={() => onDelete(active.id)}
             className="ml-auto text-destructive hover:text-destructive/80"
           >
             <Trash2 className="h-4 w-4" />
@@ -236,17 +434,47 @@ function LinkDetailPanel({
 
       <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
         <div className="space-y-4">
-          {/* Live Preview — EMPTY big/medium/small show a TitiLinks-brand
-              placeholder (centered + corner camera, Link.me style); once an
-              image exists (or size=button) it renders the real LinkButton.
-              Editor-preview only — the live profile and FL.3 stay untouched.
+          {/* Live Preview. Pair mode → two Small slots side-by-side with a swap
+              control between them. Otherwise the single-card preview (EMPTY
+              big/medium/small show a TitiLinks-brand placeholder; once an image
+              exists, or size=button, it renders the real LinkButton).
               ThumbnailUpload still owns the hidden input + upload via open(). */}
+          {isPair ? (
+            <div>
+              <div className="relative">
+                {/* Same grid as the live page (lb-row): two equal columns, 10px
+                    gap — so the cards size/space exactly as they render live. */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {renderPairSlot(cardA, 'a')}
+                  {renderPairSlot(cardB, 'b')}
+                </div>
+                {/* Swap floats centered over the gap, slightly overlapping both
+                    cards, so it never changes the cards' size or spacing. */}
+                <button
+                  type="button"
+                  onClick={swapCards}
+                  disabled={!cardB}
+                  aria-label="Swap cards"
+                  className="absolute left-1/2 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#C9A55C]/50 bg-[#1a160f] shadow-lg flex items-center justify-center text-[#C9A55C] disabled:opacity-40 hover:bg-[#C9A55C]/20 transition-colors"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-center text-[#C9A55C]">
+                {!cardB
+                  ? 'Now add your second small card link →'
+                  : activeIsB
+                  ? 'Editing the right card'
+                  : 'Editing the left card'}
+              </p>
+            </div>
+          ) : (
           <ThumbnailUpload
-            value={local.image_url}
-            onChange={(url) => { imageEditedRef.current = true; update('image_url', url); }}
+            value={active.image_url}
+            onChange={(url) => { unfurlState.current[activeKey].imageEdited = true; update('image_url', url); }}
             renderTrigger={({ open, uploading }) => {
-              const noImage = !local.image_url;
-              const isCover = local.size === 'big' || local.size === 'small';
+              const noImage = !active.image_url;
+              const isCover = active.size === 'big' || active.size === 'small';
               const camBtn = (px: number, small: boolean) => (
                 <button
                   type="button"
@@ -272,8 +500,8 @@ function LinkDetailPanel({
                   <div
                     className="relative w-full overflow-hidden border border-white/10"
                     style={{
-                      aspectRatio: local.size === 'big' ? '16 / 10' : '16 / 7',
-                      borderRadius: local.size === 'big' ? 16 : 14,
+                      aspectRatio: active.size === 'big' ? '16 / 10' : '16 / 7',
+                      borderRadius: active.size === 'big' ? 16 : 14,
                       background: placeholderBg,
                     }}
                   >
@@ -281,24 +509,24 @@ function LinkDetailPanel({
                       {camBtn(48, false)}
                     </div>
                     <div
-                      className={local.size === 'big'
+                      className={active.size === 'big'
                         ? 'absolute left-4 right-4 bottom-3 text-left'
                         : 'absolute inset-x-0 bottom-3 px-4 text-center'}
                     >
                       <span
                         className="font-bold text-white/90"
                         style={{
-                          fontSize: local.size === 'big' ? 17 : 15,
+                          fontSize: active.size === 'big' ? 17 : 15,
                           textShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}
                       >
-                        {local.label || 'Title'}
+                        {active.label || 'Title'}
                       </span>
                     </div>
                     <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
                   </div>
                 );
-              } else if (noImage && local.size === 'medium') {
+              } else if (noImage && active.size === 'medium') {
                 // Empty Medium → row placeholder with a SQUARE (1:1) thumb slot
                 body = (
                   <div
@@ -317,7 +545,7 @@ function LinkDetailPanel({
                         : <Camera className="h-5 w-5" />}
                     </button>
                     <span className="font-semibold text-white/90 text-[15px]">
-                      {local.label || 'Title'}
+                      {active.label || 'Title'}
                     </span>
                   </div>
                 );
@@ -330,19 +558,19 @@ function LinkDetailPanel({
                       type="button"
                       theme={previewTheme}
                       blockStyle={previewBlockStyle}
-                      title={local.label || 'Title'}
-                      subtitle={local.subtitle || undefined}
-                      media={local.image_url ? { kind: 'image', src: local.image_url } : undefined}
+                      title={active.label || 'Title'}
+                      subtitle={active.subtitle || undefined}
+                      media={active.image_url ? { kind: 'image', src: active.image_url } : undefined}
                       meta={
-                        local.is_adult && local.badge
-                          ? `18+ · ${local.badge}`
-                          : local.is_adult
+                        active.is_adult && active.badge
+                          ? `18+ · ${active.badge}`
+                          : active.is_adult
                           ? '18+'
-                          : local.badge
-                          ? local.badge
+                          : active.badge
+                          ? active.badge
                           : undefined
                       }
-                      size={local.size}
+                      size={active.size}
                       onClick={(e) => e.preventDefault()}
                     />
                     <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
@@ -362,6 +590,7 @@ function LinkDetailPanel({
               );
             }}
           />
+          )}
           <p className="text-sm text-center text-muted-foreground">
             Find the look that fits you best
           </p>
@@ -371,9 +600,9 @@ function LinkDetailPanel({
             {sizes.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => update('size', key)}
+                onClick={() => pickSize(key)}
                 className={`py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
-                  local.size === key
+                  cardA.size === key
                     ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
                     : 'border-border text-muted-foreground'
                 }`}
@@ -386,24 +615,25 @@ function LinkDetailPanel({
           {/* Reserve constant height: always rendered, toggled invisible so
               the fields below never shift when the warning appears/disappears. */}
           <p
-            aria-hidden={!((local.size === 'big' || local.size === 'small') && !local.image_url)}
+            aria-hidden={!((active.size === 'big' || active.size === 'small') && !active.image_url)}
             className={`text-sm text-[#C9A55C] ${
-              (local.size === 'big' || local.size === 'small') && !local.image_url
+              (active.size === 'big' || active.size === 'small') && !active.image_url
                 ? ''
                 : 'invisible'
             }`}
           >
             This will display as a button because there's no image. Add an image to use the{' '}
-            {local.size === 'big' ? 'big' : 'small'} thumbnail.
+            {active.size === 'big' ? 'big' : 'small'} thumbnail.
           </p>
 
           {/* URL Input */}
           <div className="space-y-1">
             <Label className="text-sm">Link, phone number, or email</Label>
-            <Input
-              value={local.url}
+            <ClearableInput
+              value={active.url}
               onChange={(e) => update('url', e.target.value)}
               onBlur={handleUnfurl}
+              onClear={() => update('url', '')}
               placeholder="https://..."
               className="h-10"
             />
@@ -418,9 +648,10 @@ function LinkDetailPanel({
           {/* Title Input */}
           <div className="space-y-1">
             <Label className="text-sm">Title</Label>
-            <Input
-              value={local.label}
-              onChange={(e) => { titleEditedRef.current = true; update('label', e.target.value); }}
+            <ClearableInput
+              value={active.label}
+              onChange={(e) => { unfurlState.current[activeKey].titleEdited = true; update('label', e.target.value); }}
+              onClear={() => { unfurlState.current[activeKey].titleEdited = true; update('label', ''); }}
               placeholder="My Link"
               className="h-10"
             />
@@ -445,9 +676,10 @@ function LinkDetailPanel({
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <Input
-                value={local.subtitle || ''}
+              <ClearableInput
+                value={active.subtitle || ''}
                 onChange={(e) => update('subtitle', e.target.value)}
+                onClear={() => update('subtitle', '')}
                 placeholder="Check this out"
                 className="h-10"
               />
@@ -483,8 +715,8 @@ function LinkDetailPanel({
               <input
                 type="color"
                 value={colorTab === 'title'
-                  ? (local.title_color || '#ffffff')
-                  : (local.bg_color || '#C9A55C')}
+                  ? (active.title_color || '#ffffff')
+                  : (active.bg_color || '#C9A55C')}
                 onChange={(e) => update(
                   colorTab === 'title' ? 'title_color' : 'bg_color',
                   e.target.value
@@ -510,10 +742,10 @@ function LinkDetailPanel({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-sm">
-                  Width ({(local.style_json?.border_width as number | undefined) ?? 0}px)
+                  Width ({(active.style_json?.border_width as number | undefined) ?? 0}px)
                 </Label>
                 <Slider
-                  value={[(local.style_json?.border_width as number | undefined) ?? 0]}
+                  value={[(active.style_json?.border_width as number | undefined) ?? 0]}
                   onValueChange={([v]) => setStyleField('border_width', v)}
                   min={0}
                   max={4}
@@ -526,7 +758,7 @@ function LinkDetailPanel({
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
-                    value={(local.style_json?.border_color as string | undefined) || '#C9A55C'}
+                    value={(active.style_json?.border_color as string | undefined) || '#C9A55C'}
                     onChange={(e) => setStyleField('border_color', e.target.value)}
                     className="w-10 h-10 rounded-lg border border-border p-1 cursor-pointer"
                   />
@@ -550,7 +782,7 @@ function LinkDetailPanel({
               </Label>
             </div>
             <Switch
-              checked={local.is_adult || false}
+              checked={active.is_adult || false}
               onCheckedChange={(checked) => update('is_adult', checked)}
             />
           </div>
@@ -584,11 +816,40 @@ function LinkDetailPanel({
 
       {/* Save button */}
       <div className="pt-4 mt-4 border-t border-border">
+        {confirmRevert && (
+          <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
+            <div className="flex items-start gap-2">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#C9A55C]" />
+              <p className="text-[13px] leading-snug text-white/85">
+                Only one card is filled in. Fill out the second small card to keep
+                the pair — otherwise it saves as a single large card.
+              </p>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRevert(false)}
+                className="rounded-md border border-white/20 px-3 py-1.5 text-[13px] font-medium text-white/80 hover:text-white hover:border-white/40 transition-colors"
+              >
+                Fill out second card
+              </button>
+              <button
+                type="button"
+                onClick={proceedRevert}
+                className="rounded-md bg-[#C9A55C] px-3 py-1.5 text-[13px] font-semibold text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
+              >
+                Save as large
+              </button>
+            </div>
+          </div>
+        )}
         <Button
-          onClick={() => onSave(local)}
+          onClick={handleSave}
           className="w-full gradient-primary text-primary-foreground"
         >
-          {isNew ? 'Add' : 'Update'}
+          {isPair && cardB
+            ? (isNew ? 'Add pair' : 'Update pair')
+            : (isNew ? 'Add' : 'Update')}
         </Button>
       </div>
     </div>
@@ -625,6 +886,8 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   const [styleConfig, setStyleConfig] = useState<BlockStyleConfig>(DEFAULT_BLOCK_STYLE);
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [editingItem, setEditingItem] = useState<LinkItem | null>(null);
+  const [editingPartner, setEditingPartner] = useState<LinkItem | null>(null);
+  const [editingInitialSlot, setEditingInitialSlot] = useState<'a' | 'b'>('a');
   const [isNewItem, setIsNewItem] = useState(false);
 
   // Direct single-item mode (G1): open straight into the detail panel.
@@ -636,6 +899,8 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
       if (!directMode) {
         setView('list');
         setEditingItem(null);
+        setEditingPartner(null);
+        setEditingInitialSlot('a');
       }
     }
   }, [open, blockId, directItemId, directNew]);
@@ -703,12 +968,32 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           title_color: null,
           style_json: null,
         });
+        setEditingPartner(null);
+        setEditingInitialSlot('a');
         setIsNewItem(true);
         setView('detail');
       } else if (directItemId) {
         const found = mapped.find((i) => i.id === directItemId);
         if (found) {
-          setEditingItem({ ...found });
+          // If the tapped card is a paired Small, open the WHOLE pair in visual
+          // order (earlier = left = Card A; later = right = Card B), regardless of
+          // which half was tapped — so saving never silently swaps them. The
+          // tapped half becomes the active slot.
+          let primary = found;
+          let partner: LinkItem | null = null;
+          let slot: 'a' | 'b' = 'a';
+          if (parseSize(found.size) === 'small') {
+            const mate = findPartnerId(mapped, found.id, (s) => parseSize(s));
+            if (mate) {
+              const fi = mapped.findIndex((i) => i.id === found.id);
+              const mi = mapped.findIndex((i) => i.id === mate.id);
+              if (mi < fi) { primary = mate; partner = found; slot = 'b'; }
+              else { primary = found; partner = mate; slot = 'a'; }
+            }
+          }
+          setEditingItem({ ...primary });
+          setEditingPartner(partner ? { ...partner } : null);
+          setEditingInitialSlot(slot);
           setIsNewItem(false);
           setView('detail');
         } else {
@@ -732,7 +1017,10 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // Shared payload shape for a single block_items row (used by the direct
   // single-item Save).
   const buildItemPayload = (item: LinkItem, orderIndex: number) => ({
-    label: item.label.trim() || labelFromUrl(item.url),
+    // Image cards (cover thumbnails) may have NO title — the image carries the
+    // meaning, so a deleted title stays deleted. Only fall back to the hostname
+    // when there's no image, so a plain button/text link is never left blank.
+    label: item.label.trim() || (item.image_url ? '' : labelFromUrl(item.url)),
     url: normalizeUrl(item.url),
     subtitle: item.subtitle || null,
     badge: item.badge || null,
@@ -790,6 +1078,65 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
     }
   };
 
+  // Upsert one item row, returning its id (insert for new-, update for existing).
+  const upsertItem = async (item: LinkItem, fallbackOrder: number): Promise<string> => {
+    if (item.id.startsWith('new-')) {
+      const payload = buildItemPayload(item, fallbackOrder);
+      const { data, error } = await supabase
+        .from('block_items')
+        .insert({ block_id: blockId, ...payload })
+        .select('id')
+        .single();
+      if (error) throw error;
+      return (data as { id: string }).id;
+    }
+    const existing = existingItems.find((ei) => ei.id === item.id);
+    const orderIndex = existing ? existing.order_index : fallbackOrder;
+    const payload = buildItemPayload(item, orderIndex);
+    const { error } = await supabase.from('block_items').update(payload).eq('id', item.id);
+    if (error) throw error;
+    return item.id;
+  };
+
+  // Small-pair Save: persist both cards (forced size 'small'), then rewrite the
+  // block's item order so B sits immediately after A — consecutive Smalls pair
+  // per the shared rule, and a swap in the panel persists as this reorder.
+  const saveSmallPair = async (a: LinkItem, b: LinkItem) => {
+    for (const it of [a, b]) {
+      if (it.label.length > 100) { toast.error('Title must be less than 100 characters'); return; }
+      const urlError = validateUrl(normalizeUrl(it.url));
+      if (urlError) { toast.error(urlError); return; }
+    }
+    setSaving(true);
+    try {
+      const aId = await upsertItem({ ...a, size: 'small' }, items.length);
+      const bId = await upsertItem({ ...b, size: 'small' }, items.length + 1);
+
+      // Re-fetch current order, drop B, reinsert right after A, rewrite indices.
+      const { data, error } = await supabase
+        .from('block_items')
+        .select('id')
+        .eq('block_id', blockId)
+        .order('order_index', { ascending: true });
+      if (error) throw error;
+      const ids = (data || []).map((r) => (r as { id: string }).id).filter((id) => id !== bId);
+      const aIdx = ids.indexOf(aId);
+      ids.splice(aIdx >= 0 ? aIdx + 1 : ids.length, 0, bId);
+      for (let i = 0; i < ids.length; i++) {
+        await supabase.from('block_items').update({ order_index: i }).eq('id', ids[i]);
+      }
+
+      toast.success('Cards saved');
+      onSave?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error saving cards:', error);
+      toast.error(error.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Direct single-item Delete (G1): a never-persisted new item just closes;
   // an existing item is removed from block_items.
   const deleteSingleItem = async (itemId: string) => {
@@ -816,7 +1163,10 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
     <>
       {view === 'detail' && editingItem ? (
         <LinkDetailPanel
+          key={editingItem.id}
           item={editingItem}
+          partnerItem={editingPartner}
+          initialActiveSlot={editingInitialSlot}
           isNew={isNewItem}
           blockStyle={styleConfig}
           onDraftChange={onDraftChange}
@@ -825,12 +1175,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}
           onSave={directMode
-            ? (updated) => { saveSingleItem(updated); }
-            : (updated) => {
+            ? (primary, partner) => { if (partner) saveSmallPair(primary, partner); else saveSingleItem(primary); }
+            : (primary) => {
                 if (isNewItem) {
-                  setItems(prev => [...prev, updated]);
+                  setItems(prev => [...prev, primary]);
                 } else {
-                  setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+                  setItems(prev => prev.map(i => i.id === primary.id ? primary : i));
                 }
                 setView('list');
                 setEditingItem(null);

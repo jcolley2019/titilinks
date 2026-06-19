@@ -8,6 +8,7 @@ import { OnboardingForm } from '@/components/OnboardingForm';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import type { LinkItem } from '@/components/editors/LinksEditor';
+import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
@@ -282,13 +283,31 @@ export default function Editor() {
   const handleItemDelete = async (itemId: string) => {
     // Optimistic: strip the item from its block immediately.
     const prev = allBlocks;
+
+    // If removing this item leaves a Small card with no partner, it reverts to a
+    // full-size large card. Notify with a toast (no blocking dialog) — only when
+    // this delete actually increases the count of unpaired Smalls.
+    const ownerBlock = prev.find((b) => b.items.some((i) => i.id === itemId));
+    const sizeOf = (s: string | null | undefined): ItemSize =>
+      s === 'big' || s === 'medium' || s === 'small' || s === 'button' ? s : 'medium';
+    const loneCount = (items: { size?: string | null }[]) =>
+      planLinkLayout(items, sizeOf).filter((r) => r.kind === 'lone-small').length;
+    const revertsToLarge =
+      !!ownerBlock &&
+      ownerBlock.type === 'links' &&
+      loneCount(ownerBlock.items.filter((i) => i.id !== itemId)) > loneCount(ownerBlock.items);
+
     setAllBlocks((bs) =>
       bs.map((b) => ({ ...b, items: b.items.filter((i) => i.id !== itemId) }))
     );
     try {
       const { error } = await supabase.from('block_items').delete().eq('id', itemId);
       if (error) throw error;
-      toast.success(t('editor.linkRemoved') || 'Link removed');
+      if (revertsToLarge) {
+        toast('Now showing as a large card. Small cards come in pairs — add another in the editor to pair them.');
+      } else {
+        toast.success(t('editor.linkRemoved') || 'Link removed');
+      }
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error(t('editor.failedDelete') || 'Failed to remove link');

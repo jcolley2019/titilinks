@@ -19,17 +19,17 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
+import { planLinkLayout, VALID_SIZES, type ItemSize } from '@/lib/link-layout';
 import type { BlockItem, ThemedBlockProps } from './types';
 
 // Optional edit-mode props. When absent, the block renders byte-identical to
@@ -182,15 +182,15 @@ export function LinksBlock({
     onItemsReorder?.(arrayMove(ids, oldIndex, newIndex));
   };
 
-  const VALID_SIZES = ['big', 'medium', 'small', 'button'] as const;
-  type ItemSize = typeof VALID_SIZES[number];
   const resolveSize = (raw: string | null | undefined): ItemSize => {
     if (raw && (VALID_SIZES as readonly string[]).includes(raw)) return raw as ItemSize;
     if (blockStyle.size && (VALID_SIZES as readonly string[]).includes(blockStyle.size)) return blockStyle.size as ItemSize;
     return 'medium';
   };
 
-  const renderedItems = block.items.map((item) => {
+  // Build a single link card. renderSize is the size to ACTUALLY render (a lone
+  // Small is promoted to 'big'); span controls half- vs full-width.
+  const buildLinkButton = (item: BlockItem, renderSize: ItemSize, span: 'full' | 'half') => {
     // Per-item color overrides synthesize a per-link theme — bg_color
     // overrides theme.buttons.fill_color, title_color overrides text_color.
     const itemTheme = (item.bg_color || item.title_color)
@@ -217,7 +217,7 @@ export function LinksBlock({
         }
       : blockStyle;
 
-    const linkButton = (
+    return (
       <LinkButton
         as="a"
         href={item.url}
@@ -237,7 +237,8 @@ export function LinksBlock({
             ? tc(item.badge)
             : undefined
         }
-        size={resolveSize(item.size)}
+        size={renderSize}
+        span={span}
         socialIcon={(() => {
           const u = (item.url || '').trim();
           if (u.includes('@')) return <Mail size={14} />;
@@ -248,44 +249,75 @@ export function LinksBlock({
         onClick={(e) => handleClick(e, item)}
       />
     );
+  };
 
-    // Public profile (editMode absent): render exactly as before.
-    if (!editMode) {
-      return <Fragment key={item.id}>{linkButton}</Fragment>;
-    }
+  // Pair consecutive Small cards into half-width rows; an unpaired Small falls
+  // back to a full-width Big. Shared by both render paths so preview == live.
+  const layout = planLinkLayout(block.items, resolveSize);
 
-    // Edit preview: drag to reorder; tap card -> edit; X -> inline confirm -> delete.
-    return (
-      <SortableLinkItem
-        key={item.id}
-        item={item}
-        onItemEdit={onItemEdit}
-        onItemDelete={onItemDelete}
-      >
-        {linkButton}
-      </SortableLinkItem>
-    );
-  });
-
-  // Public render: no DnD — byte-identical to the pre-G3 output.
+  // Public render: no DnD. Pairs render side-by-side; everything else full-width.
   if (!editMode) {
-    return <div className="space-y-3">{renderedItems}</div>;
+    return (
+      <div className="space-y-3">
+        {layout.map((row) => {
+          if (row.kind === 'pair') {
+            return (
+              <div key={`${row.items[0].id}-${row.items[1].id}`} className="lb-row">
+                {buildLinkButton(row.items[0], 'small', 'half')}
+                {buildLinkButton(row.items[1], 'small', 'half')}
+              </div>
+            );
+          }
+          const renderSize = row.kind === 'lone-small' ? 'big' : resolveSize(row.item.size);
+          return <Fragment key={row.item.id}>{buildLinkButton(row.item, renderSize, 'full')}</Fragment>;
+        })}
+      </div>
+    );
   }
 
-  // Edit render: nested item-level DnD (handle-only) + trailing add button.
+  // Edit render: grid-aware DnD (free axis so a card can move between pair
+  // slots) + trailing add button.
   return (
     <div className="space-y-3">
       <DndContext
         sensors={itemSensors}
         collisionDetection={closestCenter}
         onDragEnd={handleItemDragEnd}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
         <SortableContext
           items={block.items.map((i) => i.id)}
-          strategy={verticalListSortingStrategy}
+          strategy={rectSortingStrategy}
         >
-          {renderedItems}
+          {layout.map((row) => {
+            // Pair: two independently sortable half-width cards in one grid row.
+            if (row.kind === 'pair') {
+              return (
+                <div key={`${row.items[0].id}-${row.items[1].id}`} className="lb-row">
+                  <SortableLinkItem item={row.items[0]} onItemEdit={onItemEdit} onItemDelete={onItemDelete}>
+                    {buildLinkButton(row.items[0], 'small', 'half')}
+                  </SortableLinkItem>
+                  <SortableLinkItem item={row.items[1]} onItemEdit={onItemEdit} onItemDelete={onItemDelete}>
+                    {buildLinkButton(row.items[1], 'small', 'half')}
+                  </SortableLinkItem>
+                </div>
+              );
+            }
+            // Lone Small: rendered full-width as Big (revert is announced via a
+            // toast from the delete handler — no inline notice).
+            if (row.kind === 'lone-small') {
+              return (
+                <SortableLinkItem key={row.item.id} item={row.item} onItemEdit={onItemEdit} onItemDelete={onItemDelete}>
+                  {buildLinkButton(row.item, 'big', 'full')}
+                </SortableLinkItem>
+              );
+            }
+            // Full-width single.
+            return (
+              <SortableLinkItem key={row.item.id} item={row.item} onItemEdit={onItemEdit} onItemDelete={onItemDelete}>
+                {buildLinkButton(row.item, resolveSize(row.item.size), 'full')}
+              </SortableLinkItem>
+            );
+          })}
         </SortableContext>
       </DndContext>
 

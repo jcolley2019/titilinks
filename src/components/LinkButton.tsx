@@ -203,9 +203,11 @@ export function LinkButton(props: LinkButtonProps) {
       {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && (
         <MediaThumb media={effectiveMedia} className="lb-cover" />
       )}
-      {effectiveSize === 'big' && effectiveMedia && socialIcon && (
+      {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && socialIcon && (
         <span
-          className="absolute top-2.5 left-2.5 z-[1] h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white"
+          className={`absolute z-[1] rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white ${
+            effectiveSize === 'big' ? 'top-2.5 left-2.5 h-7 w-7' : 'top-2 left-2 h-6 w-6'
+          }`}
           aria-hidden="true"
         >
           {socialIcon}
@@ -221,10 +223,12 @@ export function LinkButton(props: LinkButtonProps) {
         </span>
       )}
 
-      <span className="lb-text">
-        <span className="lb-title">{title}</span>
-        {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
-      </span>
+      {(title || (subtitle && effectiveSize !== 'button')) && (
+        <span className="lb-text">
+          {title && <span className="lb-title">{title}</span>}
+          {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
+        </span>
+      )}
 
       {meta && effectiveSize !== 'big' && effectiveSize !== 'button' && <span className="lb-meta">{meta}</span>}
     </>
