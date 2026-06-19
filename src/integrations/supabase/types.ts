@@ -397,6 +397,7 @@ export type Database = {
           id: string
           onboarding_complete: boolean
           page_style: string | null
+          plan: string
           updated_at: string
           username: string | null
         }
@@ -408,6 +409,7 @@ export type Database = {
           id: string
           onboarding_complete?: boolean
           page_style?: string | null
+          plan?: string
           updated_at?: string
           username?: string | null
         }
@@ -419,6 +421,7 @@ export type Database = {
           id?: string
           onboarding_complete?: boolean
           page_style?: string | null
+          plan?: string
           updated_at?: string
           username?: string | null
         }

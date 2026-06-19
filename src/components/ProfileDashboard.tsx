@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
@@ -272,6 +273,9 @@ export function ProfileDashboard({
 }: ProfileDashboardProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { entitlements } = useEntitlements();
+  // Two pages (Page 2 / Recruit) is a Pro feature; Free is capped at one page.
+  const canTwoPages = entitlements.maxPages >= 2;
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -441,6 +445,8 @@ export function ProfileDashboard({
   };
 
   const setPageEnabled = (enabled: boolean) => {
+    // Two pages is Pro-gated; Free users get an upsell instead of enabling.
+    if (enabled && !canTwoPages) return;
     // Disabling Page 2 while editing it bounces editing back to Page 1.
     if (!enabled && selectedMode === 'recruit') onSelectedModeChange?.('shop');
     savePages({ enabled });
@@ -790,9 +796,16 @@ export function ProfileDashboard({
             <div className="flex-1 overflow-y-auto pb-8">
               {pagesOpen ? (
                 <div className="dark text-foreground px-4 pt-5 space-y-5">
-                  {/* Enable second page */}
+                  {/* Enable second page — Pro feature */}
                   <div>
-                    <p className="text-white/70 text-xs font-semibold mb-2">Second page</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-white/70 text-xs font-semibold">Second page</p>
+                      {!canTwoPages && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
+                          <Lock className="h-2.5 w-2.5" /> PRO
+                        </span>
+                      )}
+                    </div>
                     <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
                       <button
                         onClick={() => setPageEnabled(false)}
@@ -801,14 +814,24 @@ export function ProfileDashboard({
                         Off
                       </button>
                       <button
-                        onClick={() => setPageEnabled(true)}
-                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                        onClick={() =>
+                          canTwoPages
+                            ? setPageEnabled(true)
+                            : toast('Two pages is a Pro feature', {
+                                description: 'Upgrade to Pro to add a second page visitors can switch to.',
+                              })
+                        }
+                        aria-disabled={!canTwoPages}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1 ${pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : canTwoPages ? 'text-white/70' : 'text-white/30'}`}
                       >
+                        {!canTwoPages && <Lock className="h-3 w-3" />}
                         On
                       </button>
                     </div>
                     <p className="text-white/40 text-[11px] mt-1.5">
-                      Adds a second page visitors can switch to. Page 2 starts blank — give it its own links and hero.
+                      {canTwoPages
+                        ? 'Adds a second page visitors can switch to. Page 2 starts blank — give it its own links and hero.'
+                        : 'A second page — visitors can switch between them — is part of Pro. Upgrade to unlock Page 2.'}
                     </p>
                   </div>
 
