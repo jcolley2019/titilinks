@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   PenSquare,
   BarChart3,
-  Sparkles,
   LogOut,
   Menu,
   X,
@@ -50,7 +49,6 @@ const baseNavItems = [
   { path: '/dashboard', labelKey: 'dashLayout.dashboard', icon: LayoutDashboard },
   { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
   { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
-  { path: '/dashboard/ai-setup', labelKey: 'dashLayout.aiSetup', icon: Sparkles },
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
 
