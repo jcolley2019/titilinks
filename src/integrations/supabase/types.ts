@@ -299,7 +299,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           goal_primary_offer_item_id: string | null
-          goal_recruit_item_id: string | null
+          goal_secondary_item_id: string | null
           handle: string
           id: string
           theme_json: Json | null
@@ -313,7 +313,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           goal_primary_offer_item_id?: string | null
-          goal_recruit_item_id?: string | null
+          goal_secondary_item_id?: string | null
           handle: string
           id?: string
           theme_json?: Json | null
@@ -327,7 +327,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           goal_primary_offer_item_id?: string | null
-          goal_recruit_item_id?: string | null
+          goal_secondary_item_id?: string | null
           handle?: string
           id?: string
           theme_json?: Json | null
@@ -343,8 +343,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_goal_recruit"
-            columns: ["goal_recruit_item_id"]
+            foreignKeyName: "fk_goal_secondary"
+            columns: ["goal_secondary_item_id"]
             isOneToOne: false
             referencedRelation: "block_items"
             referencedColumns: ["id"]
@@ -514,7 +514,7 @@ export type Database = {
         | "video_feed"
         | "text"
       event_type: "page_view" | "outbound_click" | "mode_routed"
-      mode_type: "shop" | "recruit"
+      mode_type: "page1" | "page2"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -659,7 +659,7 @@ export const Constants = {
         "text",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
-      mode_type: ["shop", "recruit"],
+      mode_type: ["page1", "page2"],
     },
   },
 } as const

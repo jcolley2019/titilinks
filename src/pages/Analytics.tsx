@@ -97,14 +97,14 @@ export default function Analytics() {
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
             label={analytics.pageLabels.page1}
-            value={analytics.viewsByMode.shop}
-            subValue={`${analytics.clicksByMode.shop} ${t('analytics.clicks')}`}
+            value={analytics.viewsByMode.page1}
+            subValue={`${analytics.clicksByMode.page1} ${t('analytics.clicks')}`}
           />
           <MetricCard
             icon={<Eye className="h-5 w-5" />}
             label={analytics.pageLabels.page2}
-            value={analytics.viewsByMode.recruit}
-            subValue={`${analytics.clicksByMode.recruit} ${t('analytics.clicks')}`}
+            value={analytics.viewsByMode.page2}
+            subValue={`${analytics.clicksByMode.page2} ${t('analytics.clicks')}`}
           />
         </div>
 
@@ -118,7 +118,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {analytics.goals.primaryOfferId || analytics.goals.recruitId ? (
+              {analytics.goals.primaryOfferId || analytics.goals.secondaryId ? (
                 <div className="space-y-4">
                   <GoalMetric
                     label={t('analytics.primaryOfferGoal')}
@@ -127,8 +127,8 @@ export default function Analytics() {
                   />
                   <GoalMetric
                     label={`${analytics.pageLabels.page2} ${t('analytics.goal')}`}
-                    clicks={analytics.goalClicks.recruit}
-                    isSet={!!analytics.goals.recruitId}
+                    clicks={analytics.goalClicks.secondary}
+                    isSet={!!analytics.goals.secondaryId}
                   />
                 </div>
               ) : (
@@ -223,15 +223,15 @@ export default function Analytics() {
                 <div className="space-y-4">
                   <ModeBar
                     label={analytics.pageLabels.page1}
-                    views={analytics.viewsByMode.shop}
-                    clicks={analytics.clicksByMode.shop}
+                    views={analytics.viewsByMode.page1}
+                    clicks={analytics.clicksByMode.page1}
                     totalViews={analytics.pageViews30Days}
                     icon={<Eye className="h-4 w-4" />}
                   />
                   <ModeBar
                     label={analytics.pageLabels.page2}
-                    views={analytics.viewsByMode.recruit}
-                    clicks={analytics.clicksByMode.recruit}
+                    views={analytics.viewsByMode.page2}
+                    clicks={analytics.clicksByMode.page2}
                     totalViews={analytics.pageViews30Days}
                     icon={<Eye className="h-4 w-4" />}
                   />

@@ -77,7 +77,7 @@ const translations: Record<Language, Record<string, string>> = {
     'features.analytics.title': 'Deep Analytics',
     'features.analytics.desc': 'Track every click, view, and conversion. Know exactly where your audience comes from and what they want.',
     'features.modes.title': 'Mode Switching',
-    'features.modes.desc': 'Show different content to different audiences. Shopping mode, recruiting mode—switch with one click.',
+    'features.modes.desc': 'Give visitors a second page with its own links and hero—they switch with one click.',
     'features.speed.title': 'Blazing Fast',
     'features.speed.desc': 'Sub-100ms load times. Your page loads before they can blink, so they never bounce.',
     'features.privacy.title': 'Privacy First',
@@ -157,6 +157,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Style',
     'onboardingFlow.stepProfile': 'Profile',
+    'onboardingFlow.stepLayout': 'Layout',
     'onboardingFlow.stepVibe': 'Vibe',
     'onboardingFlow.stepLinks': 'Links',
     'onboardingFlow.stepLive': 'Live',
@@ -1034,7 +1035,7 @@ const translations: Record<Language, Record<string, string>> = {
     'features.analytics.title': 'Analíticas Profundas',
     'features.analytics.desc': 'Rastrea cada clic, vista y conversión. Sabe exactamente de dónde viene tu audiencia y qué quieren.',
     'features.modes.title': 'Cambio de Modo',
-    'features.modes.desc': 'Muestra contenido diferente a diferentes audiencias. Modo compras, modo reclutamiento—cambia con un clic.',
+    'features.modes.desc': 'Ofrece a los visitantes una segunda página con sus propios enlaces—cambian con un clic.',
     'features.speed.title': 'Ultrarrápido',
     'features.speed.desc': 'Tiempos de carga de menos de 100ms. Tu página carga antes de que puedan parpadear.',
     'features.privacy.title': 'Privacidad Primero',
@@ -1114,6 +1115,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Estilo',
     'onboardingFlow.stepProfile': 'Perfil',
+    'onboardingFlow.stepLayout': 'Diseño',
     'onboardingFlow.stepVibe': 'Vibra',
     'onboardingFlow.stepLinks': 'Enlaces',
     'onboardingFlow.stepLive': 'En vivo',

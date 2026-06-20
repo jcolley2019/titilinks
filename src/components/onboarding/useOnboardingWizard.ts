@@ -13,6 +13,7 @@ export interface OnboardingState {
   socialIconStyle: 'color' | 'white' | 'dark';
   linkLayout: 'gallery' | 'standard' | 'featured' | null;
   linkCount: number;
+  selectedPreset: string | null;
   links: Array<{ platform: string; url: string }>;
   currentStep: number;
   currentSubStep: number;
@@ -41,6 +42,7 @@ const initialState: OnboardingState = {
   socialIconStyle: 'color',
   linkLayout: null,
   linkCount: 3,
+  selectedPreset: null,
   links: [],
   currentStep: 1,
   currentSubStep: 0,

@@ -16,7 +16,7 @@ const benefits = [
   {
     icon: Repeat2,
     title: 'Dual Page System',
-    description: 'One link that shows different content to shoppers vs. team recruits automatically.',
+    description: 'One link with a second page, so visitors can switch between two sets of content.',
   },
 ];
 

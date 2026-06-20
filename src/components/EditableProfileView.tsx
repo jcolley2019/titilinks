@@ -93,8 +93,8 @@ interface EditableProfileViewProps {
   onBlockToggle: (blockId: string, enabled: boolean) => void;
   onBlockReorder: (blockIds: string[]) => void;
   onRefresh: () => void;
-  selectedMode: 'shop' | 'recruit';
-  onModeChange: (mode: 'shop' | 'recruit') => void;
+  selectedMode: 'page1' | 'page2';
+  onModeChange: (mode: 'page1' | 'page2') => void;
   onOutboundClick?: ClickHandler;
   onAddContent?: () => void;
   onEditVideo?: () => void;
@@ -1078,7 +1078,7 @@ export function EditableProfileView({
   const [photoOriginalFile, setPhotoOriginalFile] = useState<File | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [localHeroImages, setLocalHeroImages] = useState<{ shop: string | null; recruit: string | null }>({ shop: null, recruit: null });
+  const [localHeroImages, setLocalHeroImages] = useState<{ page1: string | null; page2: string | null }>({ page1: null, page2: null });
   const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
   const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
   const [aiPreviewEnhanced, setAiPreviewEnhanced] = useState(false); // true = AI ran, false = crop only fallback
@@ -1087,11 +1087,11 @@ export function EditableProfileView({
   const [aiProcessing, setAiProcessing] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 }); // image pan offset
-  // Two-page hero (HERO-PAGE2): Page 2 (recruit) reads/writes its OWN hero config
+  // Two-page hero (HERO-PAGE2): Page 2 reads/writes its OWN hero config
   // unless it inherits Page 1's. `heroConfigKey` is the single key the hero
   // handlers + render selection target.
   const heroInherit: boolean = (page.theme_json as any)?.pages?.page2?.heroInherit === true;
-  const usePage2Own = selectedMode === 'recruit' && !heroInherit;
+  const usePage2Own = selectedMode === 'page2' && !heroInherit;
   const heroConfigKey = usePage2Own ? 'heroConfig_page2' : 'heroConfig';
   // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json[heroConfigKey]
   const [heroFitDraft, setHeroFitDraft] = useState<'fill' | 'fit'>(
@@ -1819,12 +1819,12 @@ export function EditableProfileView({
     onRefresh();
   };
 
-  // Hero image — per-page. Page 2 (recruit) uses its own image unless it
+  // Hero image — per-page. Page 2 uses its own image unless it
   // inherits Page 1's hero (heroInherit), in which case it mirrors Page 1.
   const page2AvatarUrl = (page.theme_json as any)?.avatar_url_page2 || null;
-  const page1HeroImage = localHeroImages.shop || (theme.header?.image_url) || page.avatar_url || '';
-  const heroImage = selectedMode === 'recruit'
-    ? (heroInherit ? page1HeroImage : (localHeroImages.recruit || page2AvatarUrl || ''))
+  const page1HeroImage = localHeroImages.page1 || (theme.header?.image_url) || page.avatar_url || '';
+  const heroImage = selectedMode === 'page2'
+    ? (heroInherit ? page1HeroImage : (localHeroImages.page2 || page2AvatarUrl || ''))
     : page1HeroImage;
   // Hero display config (HERO-1). Absent → Fill, centered — un-beheads legacy photos.
   const heroConfig = (page.theme_json as any)?.[heroConfigKey] || {};
@@ -1876,19 +1876,19 @@ export function EditableProfileView({
       <div className="flex justify-center mt-4">
         <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 max-w-full">
           <button
-            onClick={() => onModeChange('shop')}
+            onClick={() => onModeChange('page1')}
             className={cn(
               'px-4 py-1 rounded-full text-xs font-medium transition-colors truncate max-w-[45vw]',
-              selectedMode !== 'recruit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
+              selectedMode !== 'page2' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
             )}
           >
             {page1Label}
           </button>
           <button
-            onClick={() => onModeChange('recruit')}
+            onClick={() => onModeChange('page2')}
             className={cn(
               'px-4 py-1 rounded-full text-xs font-medium transition-colors truncate max-w-[45vw]',
-              selectedMode === 'recruit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
+              selectedMode === 'page2' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
             )}
           >
             {page2Label}
@@ -1980,7 +1980,7 @@ export function EditableProfileView({
           </>
         ) : (
           <div className="h-full w-full bg-[#0e0c09] flex flex-col items-center justify-center gap-3">
-            {editMode && selectedMode === 'recruit' && (
+            {editMode && selectedMode === 'page2' && (
               <>
                 <Camera className="h-12 w-12 text-white/20" />
                 <p className="text-white/40 text-sm font-medium text-center px-6">

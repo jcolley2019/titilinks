@@ -68,9 +68,9 @@ interface ProfileDashboardProps {
   onRefresh: () => void;
   /** Active editing page (shop = Page 1, recruit = Page 2). Drives which page's
    *  hero config the dashboard reads/writes, and the Pages config view. */
-  selectedMode?: 'shop' | 'recruit';
+  selectedMode?: 'page1' | 'page2';
   /** Switches which page is being edited, from the Pages config view. */
-  onSelectedModeChange?: (mode: 'shop' | 'recruit') => void;
+  onSelectedModeChange?: (mode: 'page1' | 'page2') => void;
   /**
    * When set together with `open`, the panel skips the section-list view and
    * opens directly into the editor for this block. Pressing back closes the
@@ -289,7 +289,7 @@ export function ProfileDashboard({
   const pagesEnabled: boolean = pagesCfg?.enabled === true;
   const heroInherit: boolean = pagesCfg?.page2?.heroInherit === true;
   // Hero reads/writes target Page 2's own config only when editing Page 2 and not inheriting.
-  const heroConfigKey = (selectedMode === 'recruit' && !heroInherit) ? 'heroConfig_page2' : 'heroConfig';
+  const heroConfigKey = (selectedMode === 'page2' && !heroInherit) ? 'heroConfig_page2' : 'heroConfig';
   const heroCfg = (themeJson as any)?.[heroConfigKey] || {};
   const heroVideoUrl: string = heroCfg.video || '';
   const heroAudioMode: 'silent' | 'clip' | 'voiceover' =
@@ -444,11 +444,38 @@ export function ProfileDashboard({
     onRefresh();
   };
 
-  const setPageEnabled = (enabled: boolean) => {
+  // Ensure Page 2 (the recruit mode) exists before enabling it. New accounts
+  // onboard with only Page 1, so the second page is created on demand here —
+  // blank except header blocks; the user lays it out via the Presets picker
+  // below (switch to Page 2, then choose a preset).
+  const ensureSecondPage = async () => {
+    if (!pageId) return;
+    const { data: existing } = await supabase
+      .from('modes')
+      .select('id')
+      .eq('page_id', pageId)
+      .eq('type', 'page2')
+      .maybeSingle();
+    if (existing) return;
+    const { data: newMode, error } = await supabase
+      .from('modes')
+      .insert({ page_id: pageId, type: 'page2' })
+      .select('id')
+      .single();
+    if (error || !newMode) { toast.error('Could not create Page 2'); return; }
+    await supabase.from('blocks').insert([
+      { mode_id: newMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 0 },
+      { mode_id: newMode.id, type: 'social_icon_row', title: 'Social Icons', is_enabled: true, order_index: 1 },
+    ]);
+  };
+
+  const setPageEnabled = async (enabled: boolean) => {
     // Two pages is Pro-gated; Free users get an upsell instead of enabling.
     if (enabled && !canTwoPages) return;
+    // New accounts have only Page 1 — create a blank Page 2 before enabling.
+    if (enabled) await ensureSecondPage();
     // Disabling Page 2 while editing it bounces editing back to Page 1.
-    if (!enabled && selectedMode === 'recruit') onSelectedModeChange?.('shop');
+    if (!enabled && selectedMode === 'page2') onSelectedModeChange?.('page1');
     savePages({ enabled });
   };
   const setPageLabel = (which: 'page1' | 'page2', label: string) => {
@@ -895,12 +922,12 @@ export function ProfileDashboard({
                   <div>
                     <p className="text-white/70 text-xs font-semibold mb-1">Preset configurations</p>
                     <p className="text-white/40 text-[11px] mb-2">
-                      Sets up <span className="text-white/70 font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span> with a tailored set of blocks, replacing the link blocks on this page.
+                      Sets up <span className="text-white/70 font-semibold">{selectedMode === 'page2' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span> with a tailored set of blocks, replacing the link blocks on this page.
                     </p>
                     {pendingPreset && (
                       <div className="rounded-xl border border-[#C9A55C]/40 bg-[#C9A55C]/10 p-3 mb-2 space-y-2">
                         <p className="text-white text-xs">
-                          Replace <span className="font-semibold">{selectedMode === 'recruit' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{BLOCK_PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
+                          Replace <span className="font-semibold">{selectedMode === 'page2' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{BLOCK_PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
                         </p>
                         <div className="flex gap-2">
                           <button

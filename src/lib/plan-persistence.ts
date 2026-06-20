@@ -88,8 +88,8 @@ export async function persistDraftPlan(
     const { data: modesData, error: modesError } = await supabase
       .from('modes')
       .insert([
-        { page_id: pageId, type: 'shop' as const },
-        { page_id: pageId, type: 'recruit' as const },
+        { page_id: pageId, type: 'page1' as const },
+        { page_id: pageId, type: 'page2' as const },
       ])
       .select('id, type');
 
@@ -100,8 +100,8 @@ export async function persistDraftPlan(
       return { success: false, error: `Failed to create modes: ${modesError.message}` };
     }
 
-    const shopMode = modesData.find((m) => m.type === 'shop');
-    const recruitMode = modesData.find((m) => m.type === 'recruit');
+    const shopMode = modesData.find((m) => m.type === 'page1');
+    const recruitMode = modesData.find((m) => m.type === 'page2');
 
     if (!shopMode || !recruitMode) {
       return { success: false, error: 'Failed to create modes' };
@@ -125,7 +125,7 @@ export async function persistDraftPlan(
         .from('pages')
         .update({
           goal_primary_offer_item_id: primaryOfferItemId,
-          goal_recruit_item_id: recruitItemId,
+          goal_secondary_item_id: recruitItemId,
         })
         .eq('id', pageId);
 

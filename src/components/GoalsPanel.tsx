@@ -30,7 +30,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<BlockItem[]>([]);
   const [primaryOfferId, setPrimaryOfferId] = useState<string | null>(page.goal_primary_offer_item_id);
-  const [recruitId, setRecruitId] = useState<string | null>(page.goal_recruit_item_id);
+  const [recruitId, setRecruitId] = useState<string | null>(page.goal_secondary_item_id);
 
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
 
@@ -50,8 +50,8 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
   useEffect(() => {
     setPrimaryOfferId(page.goal_primary_offer_item_id);
-    setRecruitId(page.goal_recruit_item_id);
-  }, [page.goal_primary_offer_item_id, page.goal_recruit_item_id]);
+    setRecruitId(page.goal_secondary_item_id);
+  }, [page.goal_primary_offer_item_id, page.goal_secondary_item_id]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -110,7 +110,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
         .from('pages')
         .update({
           goal_primary_offer_item_id: primaryOfferId,
-          goal_recruit_item_id: recruitId,
+          goal_secondary_item_id: recruitId,
         })
         .eq('id', page.id);
 
@@ -128,7 +128,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
   const hasChanges =
     primaryOfferId !== page.goal_primary_offer_item_id ||
-    recruitId !== page.goal_recruit_item_id;
+    recruitId !== page.goal_secondary_item_id;
 
   return (
     <Card className="bg-card border-border">

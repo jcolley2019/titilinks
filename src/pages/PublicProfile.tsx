@@ -38,37 +38,25 @@ interface ModeDetectionResult {
 }
 
 function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
-  // 1. Check query param page=2 (new neutral param)
+  // 1. Explicit page selector (?page=1 / ?page=2).
   const pageParam = searchParams.get('page');
   if (pageParam === '2') {
-    return { mode: 'recruit', reason: 'param' };
+    return { mode: 'page2', reason: 'param' };
   }
   if (pageParam === '1') {
-    return { mode: 'shop', reason: 'param' };
+    return { mode: 'page1', reason: 'param' };
   }
 
-  // 2. Check query param mode=recruit (backward compatibility)
-  const modeParam = searchParams.get('mode');
-  if (modeParam === 'recruit') {
-    return { mode: 'recruit', reason: 'param' };
-  }
-
-  // 3. Check utm_campaign=recruit
-  const utmCampaign = searchParams.get('utm_campaign');
-  if (utmCampaign === 'recruit') {
-    return { mode: 'recruit', reason: 'utm' };
-  }
-
-  // 4. Check referrer for social platforms -> shop
+  // 2. Referrer from social platforms -> Page 1.
   if (typeof document !== 'undefined' && document.referrer) {
     const referrer = document.referrer.toLowerCase();
     if (referrer.includes('tiktok.com') || referrer.includes('instagram.com')) {
-      return { mode: 'shop', reason: 'referrer' };
+      return { mode: 'page1', reason: 'referrer' };
     }
   }
 
-  // 5. Default -> shop (Page 1)
-  return { mode: 'shop', reason: 'default' };
+  // 3. Default -> Page 1.
+  return { mode: 'page1', reason: 'default' };
 }
 
 export default function PublicProfile() {
@@ -76,10 +64,10 @@ export default function PublicProfile() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
-  const [blocksByMode, setBlocksByMode] = useState<{ shop: BlockWithItems[]; recruit: BlockWithItems[] }>({ shop: [], recruit: [] });
+  const [blocksByMode, setBlocksByMode] = useState<{ page1: BlockWithItems[]; page2: BlockWithItems[] }>({ page1: [], page2: [] });
   const [notFound, setNotFound] = useState(false);
-  const [stickyCtaByMode, setStickyCtaByMode] = useState<{ shop: boolean; recruit: boolean }>({ shop: false, recruit: false });
-  const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
+  const [stickyCtaByMode, setStickyCtaByMode] = useState<{ page1: boolean; page2: boolean }>({ page1: false, page2: false });
+  const [selectedMode, setSelectedMode] = useState<'page1' | 'page2'>('page1');
   // Visitor switcher flips selectedMode → derive the active page's blocks + sticky CTA (no refetch).
   const blocks = blocksByMode[selectedMode] ?? [];
   const stickyCtaEnabled = stickyCtaByMode[selectedMode] ?? false;
@@ -121,7 +109,7 @@ export default function PublicProfile() {
 
   // Sync selectedMode with detected mode from URL
   useEffect(() => {
-    setSelectedMode(detectedMode as 'shop' | 'recruit');
+    setSelectedMode(detectedMode as 'page1' | 'page2');
   }, [detectedMode]);
 
   // Handle outbound click with adult content check
@@ -206,21 +194,21 @@ export default function PublicProfile() {
         .from('modes')
         .select('*')
         .eq('page_id', pageData.id)
-        .in('type', ['shop', 'recruit']);
+        .in('type', ['page1', 'page2']);
 
       if (modeError) throw modeError;
 
-      const shopMode = (modesData || []).find((m) => m.type === 'shop') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
-      const recruitMode = (modesData || []).find((m) => m.type === 'recruit') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
+      const shopMode = (modesData || []).find((m) => m.type === 'page1') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
+      const recruitMode = (modesData || []).find((m) => m.type === 'page2') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
 
       setStickyCtaByMode({
-        shop: shopMode?.sticky_cta_enabled ?? false,
-        recruit: recruitMode?.sticky_cta_enabled ?? false,
+        page1: shopMode?.sticky_cta_enabled ?? false,
+        page2: recruitMode?.sticky_cta_enabled ?? false,
       });
 
       const modeIds = (modesData || []).map((m) => m.id);
       if (modeIds.length === 0) {
-        setBlocksByMode({ shop: [], recruit: [] });
+        setBlocksByMode({ page1: [], page2: [] });
         setLoading(false);
         return;
       }
@@ -255,8 +243,8 @@ export default function PublicProfile() {
           }));
 
       setBlocksByMode({
-        shop: groupForMode(shopMode?.id),
-        recruit: groupForMode(recruitMode?.id),
+        page1: groupForMode(shopMode?.id),
+        page2: groupForMode(recruitMode?.id),
       });
     } catch (error) {
       console.error('Error fetching page:', error);
@@ -314,7 +302,7 @@ export default function PublicProfile() {
   const ogDescription = page?.bio || 'Check out my links, products, and more on TitiLinks.';
   const page2AvatarUrl = (page?.theme_json as any)?.avatar_url_page2 || null;
   const heroInheritPublic = (page?.theme_json as any)?.pages?.page2?.heroInherit === true;
-  const ogImage = (selectedMode === 'recruit' && !heroInheritPublic && page2AvatarUrl)
+  const ogImage = (selectedMode === 'page2' && !heroInheritPublic && page2AvatarUrl)
     ? page2AvatarUrl
     : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
 

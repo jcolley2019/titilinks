@@ -7,11 +7,13 @@ import { useOnboardingWizard } from '@/components/onboarding/useOnboardingWizard
 import { OnboardingStepIndicator } from '@/components/onboarding/OnboardingStepIndicator';
 import { StepChooseStyle } from '@/components/onboarding/StepChooseStyle';
 import { StepYourProfile } from '@/components/onboarding/StepYourProfile';
+import { StepChoosePreset } from '@/components/onboarding/StepChoosePreset';
 import { StepPickYourVibe } from '@/components/onboarding/StepPickYourVibe';
 import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
 import type { ThemeTypography } from '@/lib/theme-defaults';
+import { BLOCK_PRESETS } from '@/lib/block-presets';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -32,6 +34,7 @@ export default function OnboardingFlow() {
   const stepLabels = [
     t('onboardingFlow.stepStyle'),
     t('onboardingFlow.stepProfile'),
+    t('onboardingFlow.stepLayout'),
     t('onboardingFlow.stepVibe'),
     t('onboardingFlow.stepLinks'),
     t('onboardingFlow.stepLive'),
@@ -64,7 +67,7 @@ export default function OnboardingFlow() {
         if (page) {
           updateField('createdPageId', page.id);
           updateField('createdHandle', page.handle);
-          dispatch({ type: 'GO_TO_STEP', step: 4 });
+          dispatch({ type: 'GO_TO_STEP', step: 5 });
         } else if (profile.username) {
           dispatch({ type: 'GO_TO_STEP', step: 3 });
         } else {
@@ -128,18 +131,16 @@ export default function OnboardingFlow() {
     }
   };
 
-  const prefillBlockContent = async (shopModeId: string, recruitModeId: string) => {
+  const prefillBlockContent = async (shopModeId: string) => {
     try {
-      // Fetch all blocks for both modes
       const { data: allBlocks } = await supabase
         .from('blocks')
         .select('id, type, mode_id')
-        .in('mode_id', [shopModeId, recruitModeId]);
+        .in('mode_id', [shopModeId]);
 
       if (!allBlocks) return;
 
       const shopBlocks = allBlocks.filter(b => b.mode_id === shopModeId);
-      const recruitBlocks = allBlocks.filter(b => b.mode_id === recruitModeId);
 
       const getBlock = (blocks: typeof allBlocks, type: string) =>
         blocks.find(b => b.type === type);
@@ -195,49 +196,6 @@ export default function OnboardingFlow() {
           { block_id: shopProducts.id, label: 'Product One', url: 'https://example.com/product-1', subtitle: 'Your best seller', badge: 'SALE', order_index: 0 },
           { block_id: shopProducts.id, label: 'Product Two', url: 'https://example.com/product-2', subtitle: 'New arrival', order_index: 1 },
           { block_id: shopProducts.id, label: 'Product Three', url: 'https://example.com/product-3', subtitle: 'Fan favorite', order_index: 2 },
-        );
-      }
-
-      // === RECRUIT MODE (Page 2) ===
-
-      // primary_cta
-      const recruitCta = getBlock(recruitBlocks, 'primary_cta');
-      if (recruitCta) {
-        itemsToInsert.push({
-          block_id: recruitCta.id,
-          label: 'Book a Consultation',
-          url: 'https://example.com/book',
-          subtitle: 'Let\'s work together',
-          badge: 'AVAILABLE',
-          order_index: 0,
-        });
-      }
-
-      // social_links
-      const recruitSocial = getBlock(recruitBlocks, 'social_links');
-      if (recruitSocial) {
-        itemsToInsert.push(
-          { block_id: recruitSocial.id, label: 'LinkedIn', url: 'https://linkedin.com/in/yourhandle', subtitle: 'Connect professionally', order_index: 0 },
-          { block_id: recruitSocial.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', subtitle: 'Follow my content', order_index: 1 },
-        );
-      }
-
-      // featured_media
-      const recruitMedia = getBlock(recruitBlocks, 'featured_media');
-      if (recruitMedia) {
-        itemsToInsert.push(
-          { block_id: recruitMedia.id, label: 'My Showreel', url: 'https://youtube.com/watch?v=example', subtitle: 'Watch my latest work', order_index: 0 },
-          { block_id: recruitMedia.id, label: 'Portfolio', url: 'https://example.com/portfolio', subtitle: 'View my full portfolio', order_index: 1 },
-        );
-      }
-
-      // links
-      const recruitLinks = getBlock(recruitBlocks, 'links');
-      if (recruitLinks) {
-        itemsToInsert.push(
-          { block_id: recruitLinks.id, label: 'My Resume', url: 'https://example.com/resume', subtitle: 'Download my CV', order_index: 0 },
-          { block_id: recruitLinks.id, label: 'Press Kit', url: 'https://example.com/press', subtitle: 'Media resources', order_index: 1 },
-          { block_id: recruitLinks.id, label: 'Testimonials', url: 'https://example.com/testimonials', subtitle: 'What clients say', order_index: 2 },
         );
       }
 
@@ -363,40 +321,35 @@ export default function OnboardingFlow() {
 
       if (pageError) throw pageError;
 
-      // Create modes
+      // Single page (Page 1 = shop mode). A second page is opt-in later via the
+      // editor's "Second page" toggle (Pro), which creates it on demand —
+      // onboarding no longer assumes a recruit/second page.
       const { data: modes, error: modesError } = await supabase.from('modes').insert([
-        { page_id: page.id, type: 'shop' },
-        { page_id: page.id, type: 'recruit' },
+        { page_id: page.id, type: 'page1' },
       ]).select();
 
       if (modesError) throw modesError;
 
-      const shopMode = modes.find((m) => m.type === 'shop');
-      const recruitMode = modes.find((m) => m.type === 'recruit');
+      const shopMode = modes.find((m) => m.type === 'page1');
 
       if (shopMode) {
+        // Page 1 content comes from the preset picked in the Layout step.
+        // social_links is a header block (populated in the Links step), so it's
+        // always present regardless of preset — matching the block-presets contract.
+        const preset = BLOCK_PRESETS.find((p) => p.key === state.selectedPreset) ?? BLOCK_PRESETS[0];
         await supabase.from('blocks').insert([
-          { mode_id: shopMode.id, type: 'primary_cta', title: 'Primary CTA', is_enabled: true, order_index: 0 },
-          { mode_id: shopMode.id, type: 'product_cards', title: 'Products', is_enabled: true, order_index: 1 },
-          { mode_id: shopMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 2 },
-          { mode_id: shopMode.id, type: 'links', title: 'Links', is_enabled: true, order_index: 3 },
-          { mode_id: shopMode.id, type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 4 },
+          { mode_id: shopMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 0 },
+          ...preset.blocks.map((b, i) => ({
+            mode_id: shopMode.id,
+            type: b.type,
+            title: b.title,
+            is_enabled: true,
+            order_index: i + 1,
+          })),
         ]);
-      }
 
-      if (recruitMode) {
-        await supabase.from('blocks').insert([
-          { mode_id: recruitMode.id, type: 'primary_cta', title: 'Primary CTA', is_enabled: true, order_index: 0 },
-          { mode_id: recruitMode.id, type: 'featured_media', title: 'Featured Media', is_enabled: true, order_index: 1 },
-          { mode_id: recruitMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 2 },
-          { mode_id: recruitMode.id, type: 'links', title: 'Links', is_enabled: true, order_index: 3 },
-          { mode_id: recruitMode.id, type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 4 },
-        ]);
-      }
-
-      // Pre-populate all blocks with placeholder content
-      if (shopMode && recruitMode) {
-        await prefillBlockContent(shopMode.id, recruitMode.id);
+        // Pre-populate Page 1 blocks with placeholder content.
+        await prefillBlockContent(shopMode.id);
       }
 
       updateField('createdPageId', page.id);
@@ -421,7 +374,7 @@ export default function OnboardingFlow() {
         .from('modes')
         .select('id')
         .eq('page_id', state.createdPageId)
-        .eq('type', 'shop');
+        .eq('type', 'page1');
 
       if (!modes || modes.length === 0) {
         goNext();
@@ -511,12 +464,15 @@ export default function OnboardingFlow() {
               <StepYourProfile state={state} updateField={updateField} onNext={handleStep2Next} onPrev={goPrev} user={user} t={t} />
             )}
             {state.currentStep === 3 && (
-              <StepPickYourVibe state={state} updateField={updateField} dispatch={dispatch} onNext={handleStep3Next} onPrev={goPrev} t={t} />
+              <StepChoosePreset state={state} updateField={updateField} onNext={goNext} onPrev={goPrev} t={t} />
             )}
             {state.currentStep === 4 && (
-              <StepAddYourLinks state={state} updateField={updateField} onNext={handleStep4Next} onPrev={goPrev} t={t} />
+              <StepPickYourVibe state={state} updateField={updateField} dispatch={dispatch} onNext={handleStep3Next} onPrev={goPrev} t={t} />
             )}
             {state.currentStep === 5 && (
+              <StepAddYourLinks state={state} updateField={updateField} onNext={handleStep4Next} onPrev={goPrev} t={t} />
+            )}
+            {state.currentStep === 6 && (
               <StepYoureLive state={state} onFinish={handleFinish} t={t} />
             )}
           </motion.div>

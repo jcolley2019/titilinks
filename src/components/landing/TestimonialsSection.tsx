@@ -38,9 +38,9 @@ const testimonials = [
   {
     name: 'Chris & Maria Vega',
     handle: '@vegateam',
-    platform: '🤝 Network Marketers',
+    platform: '🛍️ Creators',
     avatar: 'https://ui-avatars.com/api/?name=Chris+Vega&background=C9A55C&color=fff',
-    content: 'We replaced three different tools with TitiLinks. Recruit page for team building, shop page for products. Our downline grew 60% in two months.',
+    content: 'Two pages on one link — my shop on one, my free content on the other. Visitors land exactly where they want.',
     rating: 5
   },
   {

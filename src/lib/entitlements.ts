@@ -20,7 +20,7 @@ export const PLAN_ORDER: Plan[] = ['free', 'pro', 'business'];
 export interface PlanEntitlements {
   /** Display name for the tier. */
   label: string;
-  /** Max profile pages (Shop + Recruit). 1 = single page; 2 = both pages. */
+  /** Max profile pages. 1 = single page; 2 = both pages. */
   maxPages: number;
   /** Max link items per links block. `Infinity` = unlimited. */
   maxLinks: number;

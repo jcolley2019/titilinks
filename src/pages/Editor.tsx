@@ -38,7 +38,7 @@ export default function Editor() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
-  const [selectedMode, setSelectedMode] = useState<'shop' | 'recruit'>('shop');
+  const [selectedMode, setSelectedMode] = useState<'page1' | 'page2'>('page1');
   const [editingBlock, setEditingBlock] = useState<EditingBlockTarget | null>(null);
   const [allBlocks, setAllBlocks] = useState<BlockWithItems[]>([]);
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
@@ -55,7 +55,7 @@ export default function Editor() {
     const theme = pageData.theme_json as ThemeJson;
     if (!theme?.linkLayout || !theme?.linkCount) return;
 
-    const shopMode = modesData.find((m) => m.type === 'shop');
+    const shopMode = modesData.find((m) => m.type === 'page1');
     if (!shopMode) return;
 
     const targetBlockType = theme.linkLayout === 'gallery' ? 'product_cards' : 'links';

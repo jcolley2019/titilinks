@@ -27,7 +27,7 @@ export function PricingSection() {
       annualPrice: '$7',
       period: isAnnual ? '/mo (billed annually)' : '/month',
       description: 'Everything you need to grow your brand and audience.',
-      features: ['2 pages (Shop + Recruit)', 'Unlimited links', 'All premium themes', 'Full analytics dashboard', 'Custom domain', 'AI bio generator', 'Email subscribe block', 'Remove branding'],
+      features: ['Two pages', 'Unlimited links', 'All premium themes', 'Full analytics dashboard', 'Custom domain', 'AI bio generator', 'Email subscribe block', 'Remove branding'],
       cta: 'Start Pro Trial',
       popular: true,
       comingSoon: false

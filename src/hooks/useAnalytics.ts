@@ -15,19 +15,19 @@ interface PageLabels {
 interface AnalyticsData {
   pageViews7Days: number;
   pageViews30Days: number;
-  viewsByMode: { shop: number; recruit: number };
+  viewsByMode: { page1: number; page2: number };
   clicks7Days: number;
   clicks30Days: number;
-  clicksByMode: { shop: number; recruit: number };
+  clicksByMode: { page1: number; page2: number };
   topDestinations: { domain: string; count: number }[];
   referrerBreakdown: { tiktok: number; instagram: number; other: number };
   goalClicks: {
     primaryOffer: number | null;
-    recruit: number | null;
+    secondary: number | null;
   };
   goals: {
     primaryOfferId: string | null;
-    recruitId: string | null;
+    secondaryId: string | null;
   };
   shortLinks: ShortLink[];
   totalShortLinkClicks: number;
@@ -142,8 +142,8 @@ export function useAnalytics(): AnalyticsData {
 
     // Views by mode
     const viewsByMode = {
-      shop: pageViewEvents.filter((e) => e.mode === 'shop').length,
-      recruit: pageViewEvents.filter((e) => e.mode === 'recruit').length,
+      page1: pageViewEvents.filter((e) => e.mode === 'page1').length,
+      page2: pageViewEvents.filter((e) => e.mode === 'page2').length,
     };
 
     // Clicks
@@ -154,8 +154,8 @@ export function useAnalytics(): AnalyticsData {
 
     // Clicks by mode
     const clicksByMode = {
-      shop: clickEvents.filter((e) => e.mode === 'shop').length,
-      recruit: clickEvents.filter((e) => e.mode === 'recruit').length,
+      page1: clickEvents.filter((e) => e.mode === 'page1').length,
+      page2: clickEvents.filter((e) => e.mode === 'page2').length,
     };
 
     // Top destinations
@@ -196,7 +196,7 @@ export function useAnalytics(): AnalyticsData {
 
     // Goal clicks
     let primaryOfferClicks: number | null = null;
-    let recruitClicks: number | null = null;
+    let secondaryClicks: number | null = null;
 
     if (page?.goal_primary_offer_item_id) {
       primaryOfferClicks = clickEvents.filter((e) => {
@@ -208,11 +208,11 @@ export function useAnalytics(): AnalyticsData {
       }).length;
     }
 
-    if (page?.goal_recruit_item_id) {
-      recruitClicks = clickEvents.filter((e) => {
+    if (page?.goal_secondary_item_id) {
+      secondaryClicks = clickEvents.filter((e) => {
         const metadata = e.metadata_json;
         if (metadata && isMetadataObject(metadata)) {
-          return metadata.item_id === page.goal_recruit_item_id;
+          return metadata.item_id === page.goal_secondary_item_id;
         }
         return false;
       }).length;
@@ -235,11 +235,11 @@ export function useAnalytics(): AnalyticsData {
       referrerBreakdown,
       goalClicks: {
         primaryOffer: primaryOfferClicks,
-        recruit: recruitClicks,
+        secondary: secondaryClicks,
       },
       goals: {
         primaryOfferId: page?.goal_primary_offer_item_id || null,
-        recruitId: page?.goal_recruit_item_id || null,
+        secondaryId: page?.goal_secondary_item_id || null,
       },
       shortLinks,
       totalShortLinkClicks,
