@@ -41,8 +41,8 @@ type UserPlan = 'Free' | 'Pro' | 'Business';
 
 const planBadgeStyles: Record<UserPlan, string> = {
   Free: 'bg-muted text-muted-foreground border-border cursor-pointer hover:bg-muted/80',
-  Pro: 'bg-primary/10 text-primary border-primary/30 cursor-pointer hover:bg-primary/20',
-  Business: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
+  Pro: 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C]',
+  Business: 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C]',
 };
 
 // Nav item definitions with translation keys
@@ -266,7 +266,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               variant="outline"
               className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
             >
-              {userPlan === 'Business' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
+              <Crown className="h-2.5 w-2.5 mr-0.5" />
               {userPlan}
             </Badge>
           )}
@@ -345,7 +345,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               variant="outline"
               className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
             >
-              {userPlan === 'Business' && <Crown className="h-2 w-2 mr-0.5" />}
+              <Crown className="h-2 w-2 mr-0.5" />
               {userPlan}
             </Badge>
           )}
