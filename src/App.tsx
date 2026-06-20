@@ -19,6 +19,7 @@ import TemplateCategory from "./pages/TemplateCategory";
 import CanvaConnect from "./pages/CanvaConnect";
 import CanvaCallback from "./pages/CanvaCallback";
 import OnboardingFlow from "./pages/OnboardingFlow";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,7 +44,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/dashboard" element={<Navigate to="/dashboard/editor" replace />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/dashboard/editor"
               element={

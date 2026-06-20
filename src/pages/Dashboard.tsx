@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Eye, MousePointer, TrendingUp } from 'lucide-react';
+import {
+  BarChart3,
+  Eye,
+  MousePointer,
+  TrendingUp,
+  ExternalLink,
+  Copy,
+  Check,
+  PenSquare,
+  Cog,
+  ArrowRight,
+} from 'lucide-react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from 'sonner';
 
 type TimeRange = '7d' | 'all';
 
@@ -18,6 +32,8 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [activeLinksCount, setActiveLinksCount] = useState<number>(0);
   const [activeLinksLoading, setActiveLinksLoading] = useState(true);
+  const [handle, setHandle] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -28,9 +44,11 @@ export default function Dashboard() {
         // Get user's page
         const { data: page } = await supabase
           .from('pages')
-          .select('id')
+          .select('id, handle')
           .eq('user_id', user.id)
           .maybeSingle();
+
+        setHandle(page?.handle ?? null);
 
         if (!page) {
           setActiveLinksCount(0);
@@ -85,11 +103,31 @@ export default function Dashboard() {
   const clicks = timeRange === '7d' ? analytics.clicks7Days : analytics.clicks30Days;
   const clickRate = views > 0 ? ((clicks / views) * 100).toFixed(1) + '%' : '0%';
 
+  const publicUrl = handle ? `${window.location.origin}/${handle}` : null;
+
+  const copyLink = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      toast.success('Link copied');
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error('Could not copy link');
+    }
+  };
+
   const stats = [
     { label: t('dash.totalViews'), value: String(views), icon: Eye },
     { label: t('dash.linkClicks'), value: String(clicks), icon: MousePointer },
     { label: t('dash.clickRate'), value: clickRate, icon: TrendingUp },
     { label: t('dash.activeLinks'), value: String(activeLinksCount), icon: BarChart3 },
+  ];
+
+  const quickActions = [
+    { to: '/dashboard/editor', icon: PenSquare, title: 'Edit your page', desc: 'Add links, blocks, and design' },
+    { to: '/dashboard/analytics', icon: BarChart3, title: 'Analytics', desc: 'Views, clicks, and goals' },
+    { to: '/dashboard/settings', icon: Cog, title: 'Settings', desc: 'Account and preferences' },
   ];
 
   return (
@@ -129,6 +167,32 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Your public link */}
+        {publicUrl && (
+          <Card className="bg-card border-border">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Your TitiLink</p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {publicUrl.replace(/^https?:\/\//, '')}
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+                <Button asChild size="sm" className="gap-1.5">
+                  <a href={publicUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4" /> View live
+                  </a>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Key stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
             <motion.div
@@ -164,16 +228,26 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">{t('dash.quickStart')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              {t('dash.quickStartDesc')}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Quick actions */}
+        <div>
+          <h2 className="text-sm font-semibold text-foreground mb-3">{t('dash.quickStart')}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {quickActions.map((action) => (
+              <Link key={action.to} to={action.to}>
+                <Card className="bg-card border-border h-full transition-colors hover:border-primary/40 hover:bg-secondary/40">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <action.icon className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">{action.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{action.desc}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
       </motion.div>
     </DashboardLayout>
   );
