@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -36,12 +37,12 @@ interface ProfileCompletion {
   items: { labelKey: string; completed: boolean }[];
 }
 
-type UserPlan = 'Free' | 'Pro' | 'Premium';
+type UserPlan = 'Free' | 'Pro' | 'Business';
 
 const planBadgeStyles: Record<UserPlan, string> = {
   Free: 'bg-muted text-muted-foreground border-border cursor-pointer hover:bg-muted/80',
   Pro: 'bg-primary/10 text-primary border-primary/30 cursor-pointer hover:bg-primary/20',
-  Premium: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
+  Business: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 border-amber-500/30',
 };
 
 // Nav item definitions with translation keys
@@ -57,17 +58,17 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { t } = useLanguage();
+  const { entitlements } = useEntitlements();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isEditorPage = location.pathname === '/dashboard/editor';
   const [hasPage, setHasPage] = useState<boolean | null>(null);
   const [pageHandle, setPageHandle] = useState<string | null>(null);
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
-  const [userPlan, setUserPlan] = useState<UserPlan>('Free');
+  const userPlan = entitlements.label as UserPlan;
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
   const [showLivePreview, setShowLivePreview] = useState(false);
 
-  // TODO: Fetch actual plan from subscription data when Stripe is enabled
-  // For now, defaults to 'Free'. This will be updated when subscription management is implemented.
+  // Plan badge reflects the real entitlement (profiles.plan via useEntitlements).
 
   const planFeatures = {
     Pro: [
@@ -76,7 +77,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
       t('dashLayout.advancedAnalytics'),
       t('dashLayout.prioritySupport'),
     ],
-    Premium: [
+    Business: [
       t('dashLayout.everythingInPro'),
       t('dashLayout.customDomain'),
       t('dashLayout.removeBranding'),
@@ -265,7 +266,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               variant="outline"
               className={`text-[10px] px-1.5 py-0.5 font-semibold ${planBadgeStyles[userPlan]}`}
             >
-              {userPlan === 'Premium' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
+              {userPlan === 'Business' && <Crown className="h-2.5 w-2.5 mr-0.5" />}
               {userPlan}
             </Badge>
           )}
@@ -344,7 +345,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               variant="outline"
               className={`text-[9px] px-1 py-0 font-semibold ${planBadgeStyles[userPlan]}`}
             >
-              {userPlan === 'Premium' && <Crown className="h-2 w-2 mr-0.5" />}
+              {userPlan === 'Business' && <Crown className="h-2 w-2 mr-0.5" />}
               {userPlan}
             </Badge>
           )}
