@@ -31,7 +31,6 @@ Rules:
 ## Protected — do not modify without an explicit task naming them
 - Hero / crop / SmoothImage / getCroppedCanvas system in EditableProfileView.tsx
 - src/hooks/useAuth.tsx
-- src/pages/Setup.tsx
 
 ## Supabase
 - Production project ref: ohmvlypcbrfkuudcuqub. supabase/config.toml line 1 points at an ORPHAN project — never `supabase db push` or `supabase link`.

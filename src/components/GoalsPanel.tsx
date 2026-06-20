@@ -30,7 +30,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<BlockItem[]>([]);
   const [primaryOfferId, setPrimaryOfferId] = useState<string | null>(page.goal_primary_offer_item_id);
-  const [recruitId, setRecruitId] = useState<string | null>(page.goal_secondary_item_id);
+  const [secondaryId, setSecondaryId] = useState<string | null>(page.goal_secondary_item_id);
 
   const baseUrl = `${window.location.protocol}//${window.location.host}`;
 
@@ -39,9 +39,9 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
     [items, primaryOfferId]
   );
 
-  const recruitItem = useMemo(
-    () => items.find((item) => item.id === recruitId),
-    [items, recruitId]
+  const secondaryItem = useMemo(
+    () => items.find((item) => item.id === secondaryId),
+    [items, secondaryId]
   );
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
   useEffect(() => {
     setPrimaryOfferId(page.goal_primary_offer_item_id);
-    setRecruitId(page.goal_secondary_item_id);
+    setSecondaryId(page.goal_secondary_item_id);
   }, [page.goal_primary_offer_item_id, page.goal_secondary_item_id]);
 
   const fetchItems = async () => {
@@ -110,7 +110,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
         .from('pages')
         .update({
           goal_primary_offer_item_id: primaryOfferId,
-          goal_secondary_item_id: recruitId,
+          goal_secondary_item_id: secondaryId,
         })
         .eq('id', page.id);
 
@@ -128,7 +128,7 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
 
   const hasChanges =
     primaryOfferId !== page.goal_primary_offer_item_id ||
-    recruitId !== page.goal_secondary_item_id;
+    secondaryId !== page.goal_secondary_item_id;
 
   return (
     <Card className="bg-card border-border">
@@ -181,14 +181,14 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="recruit-goal" className="text-sm font-medium">
+              <Label htmlFor="secondary-goal" className="text-sm font-medium">
                 {t('goals.page2Goal')}
               </Label>
               <Select
-                value={recruitId || 'none'}
-                onValueChange={(v) => setRecruitId(v === 'none' ? null : v)}
+                value={secondaryId || 'none'}
+                onValueChange={(v) => setSecondaryId(v === 'none' ? null : v)}
               >
-                <SelectTrigger id="recruit-goal" className="w-full">
+                <SelectTrigger id="secondary-goal" className="w-full">
                   <SelectValue placeholder={t('goals.selectItem')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,13 +203,13 @@ export function GoalsPanel({ page, onUpdate }: GoalsPanelProps) {
               <p className="text-xs text-muted-foreground">
                 {t('goals.trackPage2')}
               </p>
-              {recruitItem && (
+              {secondaryItem && (
                 <div className="mt-2">
                   <LinkTools
                     baseUrl={baseUrl}
                     pageId={page.id}
-                    destinationUrl={recruitItem.url}
-                    blockItemId={recruitItem.id}
+                    destinationUrl={secondaryItem.url}
+                    blockItemId={secondaryItem.id}
                   />
                 </div>
               )}

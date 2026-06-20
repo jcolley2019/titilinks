@@ -188,7 +188,7 @@ export default function PublicProfile() {
 
       setPage(pageData);
 
-      // Fetch both modes (shop = Page 1, recruit = Page 2) so the visitor
+      // Fetch both modes (page1 = Page 1, page2 = Page 2) so the visitor
       // switcher can flip pages instantly without a refetch.
       const { data: modesData, error: modeError } = await supabase
         .from('modes')
@@ -199,11 +199,11 @@ export default function PublicProfile() {
       if (modeError) throw modeError;
 
       const shopMode = (modesData || []).find((m) => m.type === 'page1') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
-      const recruitMode = (modesData || []).find((m) => m.type === 'page2') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
+      const page2Mode = (modesData || []).find((m) => m.type === 'page2') as (Mode & { sticky_cta_enabled?: boolean }) | undefined;
 
       setStickyCtaByMode({
         page1: shopMode?.sticky_cta_enabled ?? false,
-        page2: recruitMode?.sticky_cta_enabled ?? false,
+        page2: page2Mode?.sticky_cta_enabled ?? false,
       });
 
       const modeIds = (modesData || []).map((m) => m.id);
@@ -244,7 +244,7 @@ export default function PublicProfile() {
 
       setBlocksByMode({
         page1: groupForMode(shopMode?.id),
-        page2: groupForMode(recruitMode?.id),
+        page2: groupForMode(page2Mode?.id),
       });
     } catch (error) {
       console.error('Error fetching page:', error);

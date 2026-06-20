@@ -66,7 +66,7 @@ interface ProfileDashboardProps {
   modeId: string | null;
   onBlockEdit: (blockId: string) => void;
   onRefresh: () => void;
-  /** Active editing page (shop = Page 1, recruit = Page 2). Drives which page's
+  /** Active editing page (page1 = Page 1, page2 = Page 2). Drives which page's
    *  hero config the dashboard reads/writes, and the Pages config view. */
   selectedMode?: 'page1' | 'page2';
   /** Switches which page is being edited, from the Pages config view. */
@@ -274,7 +274,7 @@ export function ProfileDashboard({
   const { t } = useLanguage();
   const { user } = useAuth();
   const { entitlements } = useEntitlements();
-  // Two pages (Page 2 / Recruit) is a Pro feature; Free is capped at one page.
+  // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
@@ -444,7 +444,7 @@ export function ProfileDashboard({
     onRefresh();
   };
 
-  // Ensure Page 2 (the recruit mode) exists before enabling it. New accounts
+  // Ensure Page 2 (the page2 mode) exists before enabling it. New accounts
   // onboard with only Page 1, so the second page is created on demand here —
   // blank except header blocks; the user lays it out via the Presets picker
   // below (switch to Page 2, then choose a preset).

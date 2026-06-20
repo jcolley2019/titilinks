@@ -323,7 +323,7 @@ export default function OnboardingFlow() {
 
       // Single page (Page 1 = shop mode). A second page is opt-in later via the
       // editor's "Second page" toggle (Pro), which creates it on demand —
-      // onboarding no longer assumes a recruit/second page.
+      // onboarding no longer creates a second page automatically.
       const { data: modes, error: modesError } = await supabase.from('modes').insert([
         { page_id: page.id, type: 'page1' },
       ]).select();
