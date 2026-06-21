@@ -5,7 +5,7 @@
 // strings.
 
 import { useState, Fragment } from 'react';
-import { X, GripVertical, Link as LinkChainIcon, Mail, Phone } from 'lucide-react';
+import { X, GripVertical } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -26,8 +26,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
-import { platformFromUrl } from '@/lib/platform-from-url';
-import { PlatformIcon } from '@/components/PlatformIcon';
+import { leadingIconFor, useProfileAvatar } from './link-leading-icon';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import { planLinkLayout, VALID_SIZES, type ItemSize } from '@/lib/link-layout';
 import type { BlockItem, ThemedBlockProps } from './types';
@@ -138,6 +137,9 @@ export function LinksBlock({
 }: ThemedBlockProps & LinksBlockEditProps) {
   const { t } = useLanguage();
   const tc = (text: string | null | undefined) => translateContent(text, t);
+  // Creator's live profile photo — lets a link opt into using the avatar as its
+  // leading icon (see leadingIconFor / icon_source).
+  const profileAvatar = useProfileAvatar();
 
   // Item-level drag sensors — nested inside the block-level DndContext. Handle-
   // only activation with an 8px threshold so a stationary press still taps.
@@ -225,6 +227,7 @@ export function LinksBlock({
         rel="noopener noreferrer"
         theme={itemTheme}
         blockStyle={itemBlockStyle}
+        titleColor={item.title_color || undefined}
         title={tc(item.label)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
@@ -239,13 +242,12 @@ export function LinksBlock({
         }
         size={renderSize}
         span={span}
-        socialIcon={(() => {
-          const u = (item.url || '').trim();
-          if (u.includes('@')) return <Mail size={14} />;
-          if (/^tel:/i.test(u) || /^[\d+\-\s()]+$/.test(u)) return <Phone size={14} />;
-          const platform = platformFromUrl(u);
-          return platform ? <PlatformIcon label={platform} size={14} /> : <LinkChainIcon size={14} />;
-        })()}
+        socialIcon={leadingIconFor({
+          url: item.url,
+          iconSource: sj?.icon_source as string | undefined,
+          hasImage: !!item.image_url,
+          avatarUrl: profileAvatar,
+        })}
         onClick={(e) => handleClick(e, item)}
       />
     );

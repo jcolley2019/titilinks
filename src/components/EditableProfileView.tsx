@@ -57,6 +57,7 @@ import type { Tables, Enums } from '@/integrations/supabase/types';
 import type { ClickHandler } from '@/components/blocks/types';
 import { PrimaryCtaBlock } from '@/components/blocks/PrimaryCtaBlock';
 import { LinksBlock } from '@/components/blocks/LinksBlock';
+import { ProfileAvatarContext } from '@/components/blocks/link-leading-icon';
 import { SocialLinksBlock } from '@/components/blocks/SocialLinksBlock';
 import { ProductCardsBlock } from '@/components/blocks/ProductCardsBlock';
 import { FeaturedMediaBlock } from '@/components/blocks/FeaturedMediaBlock';
@@ -1822,6 +1823,9 @@ export function EditableProfileView({
   // Hero image — per-page. Page 2 uses its own image unless it
   // inherits Page 1's hero (heroInherit), in which case it mirrors Page 1.
   const page2AvatarUrl = (page.theme_json as any)?.avatar_url_page2 || null;
+  // Avatar offered to links as a leading-icon option — matches the page in view.
+  const linkAvatarUrl: string | undefined =
+    (selectedMode === 'page2' ? page2AvatarUrl : page.avatar_url) || undefined;
   const page1HeroImage = localHeroImages.page1 || (theme.header?.image_url) || page.avatar_url || '';
   const heroImage = selectedMode === 'page2'
     ? (heroInherit ? page1HeroImage : (localHeroImages.page2 || page2AvatarUrl || ''))
@@ -1938,6 +1942,7 @@ export function EditableProfileView({
   };
 
   return (
+    <ProfileAvatarContext.Provider value={linkAvatarUrl}>
     <div
       className="relative max-w-[640px] mx-auto"
       style={{ fontFamily, color: theme.typography.text_color }}
@@ -2714,5 +2719,6 @@ export function EditableProfileView({
         onChange={handlePhotoSelect}
       />
     </div>
+    </ProfileAvatarContext.Provider>
   );
 }

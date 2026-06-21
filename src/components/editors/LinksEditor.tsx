@@ -12,14 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import {
   Loader2,
   Link as LinkIcon,
   Trash2,
-  ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
@@ -36,6 +33,8 @@ import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
 import { LinkButton } from '@/components/LinkButton';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
@@ -139,6 +138,7 @@ function LinkDetailPanel({
   onDelete,
   onDraftChange,
   panelMode,
+  avatarUrl,
 }: {
   item: LinkItem;
   partnerItem?: LinkItem | null;
@@ -150,6 +150,7 @@ function LinkDetailPanel({
   onDelete: (id: string) => void;
   onDraftChange?: (item: LinkItem | null) => void;
   panelMode?: boolean;
+  avatarUrl?: string;
 }) {
   // Card A is the primary (left) item; Card B is the Small partner (right). The
   // tapped half is the initial active slot so editing starts where you clicked.
@@ -159,9 +160,13 @@ function LinkDetailPanel({
     initialActiveSlot === 'b' && partnerItem ? 'b' : 'a',
   );
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
-  const [subtitleExpanded, setSubtitleExpanded] = useState<boolean>(!!item.subtitle);
   const [unfurling, setUnfurling] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
+  // Size-picker tab: 'cards' (Large/Small) or 'buttons' (Buttons A/B). Opens to
+  // whichever group the link's current size belongs to.
+  const [sizeTab, setSizeTab] = useState<'cards' | 'buttons'>(
+    () => (item.size === 'medium' || item.size === 'button' ? 'buttons' : 'cards')
+  );
 
   // Pair mode is on whenever the primary card is Small: two half-width slots are
   // edited as a unit and the form below binds to whichever slot is active.
@@ -378,12 +383,14 @@ function LinkDetailPanel({
     );
   };
 
-  const sizes = [
-    { key: 'big', label: 'Big' },
-    { key: 'medium', label: 'Medium' },
+  const cardSizes: { key: ItemSize; label: string }[] = [
+    { key: 'big', label: 'Large' },
     { key: 'small', label: 'Small' },
-    { key: 'button', label: 'Button' },
-  ] as const;
+  ];
+  const buttonSizes: { key: ItemSize; label: string }[] = [
+    { key: 'medium', label: 'Buttons A' },
+    { key: 'button', label: 'Buttons B' },
+  ];
 
   // A card is "started" if it has any of URL / title / image — used to detect a
   // half-filled pair on Save.
@@ -413,19 +420,34 @@ function LinkDetailPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Header with back arrow */}
-      <div className="flex items-center gap-3 pb-4 border-b border-border mb-4">
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <h3 className="font-semibold text-base">
-          {isPair
-            ? (isNew ? 'Add Cards' : 'Edit Cards')
-            : (isNew ? 'Add Link' : 'Edit Link')}
-        </h3>
+      {/* Header: back arrow + Link Cards/Buttons tabs (each is its own page;
+          switching aligns the item's size to that group's default) + delete. */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-1 gap-1 rounded-lg p-1" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+          {([
+            { id: 'cards', label: 'Link Cards' },
+            { id: 'buttons', label: 'Buttons' },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setSizeTab(tab.id);
+                if (tab.id === 'cards' && !(cardA.size === 'big' || cardA.size === 'small')) pickSize('big');
+                if (tab.id === 'buttons' && !(cardA.size === 'medium' || cardA.size === 'button')) pickSize('medium');
+              }}
+              className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+                sizeTab === tab.id ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-muted-foreground hover:text-white/80'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         {!active.id.startsWith('new-') && (
           <button
             onClick={() => onDelete(active.id)}
-            className="ml-auto text-destructive hover:text-destructive/80"
+            className="shrink-0 text-destructive hover:text-destructive/80"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -433,15 +455,16 @@ function LinkDetailPanel({
       </div>
 
       <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {/* Live Preview. Pair mode → two Small slots side-by-side with a swap
               control between them. Otherwise the single-card preview (EMPTY
               big/medium/small show a TitiLinks-brand placeholder; once an image
               exists, or size=button, it renders the real LinkButton).
               ThumbnailUpload still owns the hidden input + upload via open(). */}
           {isPair ? (
-            <div>
-              <div className="relative">
+            <div className="relative w-full" style={{ aspectRatio: '16 / 10' }}>
+              <div className="absolute inset-0 flex flex-col justify-center">
+                <div className="relative">
                 {/* Same grid as the live page (lb-row): two equal columns, 10px
                     gap — so the cards size/space exactly as they render live. */}
                 <div className="grid grid-cols-2 gap-2.5">
@@ -455,7 +478,7 @@ function LinkDetailPanel({
                   onClick={swapCards}
                   disabled={!cardB}
                   aria-label="Swap cards"
-                  className="absolute left-1/2 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#C9A55C]/50 bg-[#1a160f] shadow-lg flex items-center justify-center text-[#C9A55C] disabled:opacity-40 hover:bg-[#C9A55C]/20 transition-colors"
+                  className="absolute left-1/2 top-1/2 z-10 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0e0c09] bg-[#C9A55C] shadow-lg shadow-black/40 flex items-center justify-center text-[#0e0c09] disabled:opacity-40 hover:bg-[#d9b86c] transition-colors"
                 >
                   <ArrowLeftRight className="h-4 w-4" />
                 </button>
@@ -467,6 +490,7 @@ function LinkDetailPanel({
                   ? 'Editing the right card'
                   : 'Editing the left card'}
               </p>
+              </div>
             </div>
           ) : (
           <ThumbnailUpload
@@ -558,9 +582,16 @@ function LinkDetailPanel({
                       type="button"
                       theme={previewTheme}
                       blockStyle={previewBlockStyle}
+                      titleColor={active.title_color || undefined}
                       title={active.label || 'Title'}
                       subtitle={active.subtitle || undefined}
                       media={active.image_url ? { kind: 'image', src: active.image_url } : undefined}
+                      socialIcon={leadingIconFor({
+                        url: active.url,
+                        iconSource: active.style_json?.icon_source as string | undefined,
+                        hasImage: !!active.image_url,
+                        avatarUrl,
+                      })}
                       meta={
                         active.is_adult && active.badge
                           ? `18+ · ${active.badge}`
@@ -591,25 +622,26 @@ function LinkDetailPanel({
             }}
           />
           )}
-          <p className="text-sm text-center text-muted-foreground">
-            Find the look that fits you best
-          </p>
-
-          {/* Size Picker */}
-          <div className="grid grid-cols-4 gap-2">
-            {sizes.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => pickSize(key)}
-                className={`py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
-                  cardA.size === key
-                    ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Style sub-selector for the active type */}
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-foreground">
+              {sizeTab === 'cards' ? 'Card style' : 'Button style'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(sizeTab === 'cards' ? cardSizes : buttonSizes).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => pickSize(key)}
+                  className={`py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
+                    cardA.size === key
+                      ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Reserve constant height: always rendered, toggled invisible so
@@ -623,7 +655,7 @@ function LinkDetailPanel({
             }`}
           >
             This will display as a button because there's no image. Add an image to use the{' '}
-            {active.size === 'big' ? 'big' : 'small'} thumbnail.
+            {active.size === 'big' ? 'large' : 'small'} thumbnail.
           </p>
 
           {/* URL Input */}
@@ -657,83 +689,92 @@ function LinkDetailPanel({
             />
           </div>
 
-          {/* Subtitle Input — collapsed behind a chevron; value is preserved
-              when collapsed (field is only hidden, never cleared). */}
-          <Collapsible
-            open={subtitleExpanded}
-            onOpenChange={setSubtitleExpanded}
-            className="space-y-1"
-          >
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between py-1 text-sm font-medium text-foreground"
-              >
-                <span>Subtitle (optional)</span>
-                {subtitleExpanded
-                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <ClearableInput
-                value={active.subtitle || ''}
-                onChange={(e) => update('subtitle', e.target.value)}
-                onClear={() => update('subtitle', '')}
-                placeholder="Check this out"
-                className="h-10"
-              />
-            </CollapsibleContent>
-          </Collapsible>
+          {/* Color — Link Cards: title only (the photo is the background).
+              Buttons: full Title + Background controls. */}
+          {sizeTab === 'cards' ? (
+            <div className="space-y-2">
+              <p className="text-base font-semibold">Title color</p>
+              <div className="flex gap-2 items-center">
+                <ColorPicker
+                  value={active.title_color || '#ffffff'}
+                  onChange={(c) => update('title_color', c)}
+                />
+                <button
+                  onClick={() => update('title_color', null)}
+                  className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                >
+                  No color
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-base font-semibold">Customize Color</p>
+              <div className="flex rounded-lg overflow-hidden border border-border">
+                <button
+                  onClick={() => setColorTab('title')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    colorTab === 'title' ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  Title
+                </button>
+                <button
+                  onClick={() => setColorTab('background')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    colorTab === 'background' ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  Background
+                </button>
+              </div>
+              <div className="flex gap-2 items-center">
+                <ColorPicker
+                  value={colorTab === 'title' ? (active.title_color || '#ffffff') : (active.bg_color || '#C9A55C')}
+                  onChange={(c) => update(colorTab === 'title' ? 'title_color' : 'bg_color', c)}
+                />
+                <button
+                  onClick={() => update(colorTab === 'title' ? 'title_color' : 'bg_color', null)}
+                  className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                >
+                  No color
+                </button>
+              </div>
+            </div>
+          )}
 
-          {/* Customize Color */}
-          <div className="space-y-3">
-            <p className="text-base font-semibold">Customize Color</p>
-            <div className="flex rounded-lg overflow-hidden border border-border">
-              <button
-                onClick={() => setColorTab('title')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                  colorTab === 'title'
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                Title
-              </button>
-              <button
-                onClick={() => setColorTab('background')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                  colorTab === 'background'
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                Background
-              </button>
+          {/* Leading icon (buttons only) — the small glyph on the LEFT of a
+              button. Default auto-detects the platform from the URL; creators can
+              instead use their profile photo, or hide it. Stored on style_json. */}
+          {sizeTab !== 'cards' && (
+            <div className="space-y-2">
+              <p className="text-base font-semibold">Leading icon</p>
+              <div className="flex rounded-lg overflow-hidden border border-border">
+                {([
+                  { key: 'platform', label: 'Platform' },
+                  { key: 'avatar', label: 'Photo' },
+                  { key: 'none', label: 'None' },
+                ] as const).map(({ key, label }) => {
+                  const current = (active.style_json?.icon_source as string | undefined) || 'platform';
+                  const selected = current === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setStyleField('icon_source', key === 'platform' ? null : key)}
+                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                        selected ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Photo uses your profile picture. Only shows when the button has no image.
+              </p>
             </div>
-            <div className="flex gap-2 items-center">
-              <input
-                type="color"
-                value={colorTab === 'title'
-                  ? (active.title_color || '#ffffff')
-                  : (active.bg_color || '#C9A55C')}
-                onChange={(e) => update(
-                  colorTab === 'title' ? 'title_color' : 'bg_color',
-                  e.target.value
-                )}
-                className="w-10 h-10 rounded-lg border border-border p-1 cursor-pointer"
-              />
-              <button
-                onClick={() => update(
-                  colorTab === 'title' ? 'title_color' : 'bg_color',
-                  null
-                )}
-                className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
-              >
-                No color
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Per-link Border — stored on block_items.style_json (additive;
               takes precedence over the block-level Style Variants border) */}
@@ -756,11 +797,9 @@ function LinkDetailPanel({
               <div className="space-y-1">
                 <Label className="text-sm">Color</Label>
                 <div className="flex gap-2 items-center">
-                  <input
-                    type="color"
+                  <ColorPicker
                     value={(active.style_json?.border_color as string | undefined) || '#C9A55C'}
-                    onChange={(e) => setStyleField('border_color', e.target.value)}
-                    className="w-10 h-10 rounded-lg border border-border p-1 cursor-pointer"
+                    onChange={(c) => setStyleField('border_color', c)}
                   />
                   <button
                     onClick={() => setStyleField('border_color', null)}
@@ -815,7 +854,7 @@ function LinkDetailPanel({
       </ScrollArea>
 
       {/* Save button */}
-      <div className="pt-4 mt-4 border-t border-border">
+      <div className="pt-3 mt-3 border-t border-border">
         {confirmRevert && (
           <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
             <div className="flex items-start gap-2">
@@ -876,9 +915,11 @@ interface LinksEditorProps {
    * in the preview before Save.
    */
   onDraftChange?: (item: LinkItem | null) => void;
+  /** Creator's profile photo — offered as a per-link "leading icon" option. */
+  avatarUrl?: string;
 }
 
-export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange }: LinksEditorProps) {
+export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl }: LinksEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -1171,6 +1212,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           blockStyle={styleConfig}
           onDraftChange={onDraftChange}
           panelMode={panelMode}
+          avatarUrl={avatarUrl}
           onBack={directMode
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}

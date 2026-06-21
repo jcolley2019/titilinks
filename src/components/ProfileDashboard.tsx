@@ -684,7 +684,7 @@ export function ProfileDashboard({
           />
         );
       case 'links':
-        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} />;
+        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} avatarUrl={avatarUrl} />;
       case 'product_cards':
         return <ProductCardsEditor {...editorProps} />;
       case 'email_subscribe':
@@ -714,13 +714,15 @@ export function ProfileDashboard({
     <AnimatePresence>
       {open && (
         <>
-          {/* Dim overlay */}
+          {/* Outside-click catcher — closes the panel on an outside click, UNLESS
+              it's pinned. When pinned, it becomes click-through so you can keep
+              working in the editor and the panel stays open (close via the X). */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40"
-            onClick={handleClose}
+            className={`fixed inset-0 z-40 ${pinned ? 'pointer-events-none' : ''}`}
+            onClick={pinned ? undefined : handleClose}
           />
 
           {/* Panel — slides from right on all screen sizes */}
@@ -732,7 +734,7 @@ export function ProfileDashboard({
             className="fixed top-16 sm:top-0 right-0 bottom-0 z-[120] w-full sm:w-[420px] bg-[#0e0c09] border-l border-white/10 flex flex-col overflow-x-clip"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 flex-shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
               {pagesOpen ? (
                 <>
                   <button
@@ -805,7 +807,7 @@ export function ProfileDashboard({
             </div>
 
             {/* Pin — keeps the panel open after Save */}
-            <div className="flex items-center px-4 py-2 border-b border-white/10 flex-shrink-0">
+            <div className="flex items-center px-4 py-1.5 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setPinned((p) => !p)}

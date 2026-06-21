@@ -20,6 +20,9 @@ interface BaseLinkButtonProps {
   span?: 'full' | 'half';
   onClick?: (e: React.MouseEvent) => void;
   className?: string;
+  /** Per-item title color override. Applied inline to the title so it wins over
+   *  the hardcoded white on image-card (.lb-size-big/.lb-size-small) titles. */
+  titleColor?: string;
 }
 
 interface ButtonLinkButtonProps extends BaseLinkButtonProps {
@@ -225,7 +228,7 @@ export function LinkButton(props: LinkButtonProps) {
 
       {(title || (subtitle && effectiveSize !== 'button')) && (
         <span className="lb-text">
-          {title && <span className="lb-title">{title}</span>}
+          {title && <span className="lb-title" style={props.titleColor ? { color: props.titleColor } : undefined}>{title}</span>}
           {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
         </span>
       )}
