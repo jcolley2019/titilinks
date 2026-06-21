@@ -328,8 +328,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
             )}
           </ScrollArea>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 mt-4 border-t border-border">
+          {/* Actions — pinned to the bottom of the panel while content scrolls. */}
+          <div className="sticky bottom-0 z-10 flex gap-3 pt-4 mt-4 border-t border-border bg-[#0e0c09]">
             <Button
               type="button"
               variant="outline"
@@ -361,7 +361,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
         {innerContent}
       </div>
     );

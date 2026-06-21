@@ -255,7 +255,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="sticky bottom-0 z-10 flex gap-2 justify-end pt-3 mt-2 border-t border-white/10 bg-[#0e0c09]">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-white/60 hover:text-white hover:bg-white/10">
               {t('blockEditor.cancel')}
             </Button>
@@ -270,7 +270,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
         {innerContent}
       </div>
     );

@@ -271,8 +271,8 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         </div>
       )}
 
-      {/* Footer */}
-      <div className="flex justify-end gap-2 pt-4 border-t">
+      {/* Footer — pinned to the bottom of the panel while content scrolls. */}
+      <div className="sticky bottom-0 z-10 flex justify-end gap-2 pt-4 border-t bg-[#0e0c09]">
         <Button variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
@@ -292,7 +292,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
         {innerContent}
       </div>
     );

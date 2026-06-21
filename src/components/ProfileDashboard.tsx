@@ -20,9 +20,8 @@ import {
   Image as ImageIcon,
   User,
   ChevronLeft,
-  Pin,
-  PinOff,
   Files,
+  GalleryHorizontalEnd,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +35,7 @@ import type { LinkItem } from '@/components/editors/LinksEditor';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
+import { CarouselEditor } from '@/components/editors/CarouselEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
 import { VideoFeedEditor } from '@/components/editors/VideoFeedEditor';
@@ -99,6 +99,9 @@ interface DashboardRow {
   subtitleKey: string;
   blockType: BlockWithItems['type'] | null;
   toastKey?: string;
+  /** Pro/Business-only row. Currently gated by the `carousel` entitlement
+   *  (carousel is the only Pro-gated block today — see `canCarousel`). */
+  pro?: boolean;
 }
 
 interface DashboardSection {
@@ -123,10 +126,23 @@ const sections: DashboardSection[] = [
         blockType: 'links',
       },
       {
+        icon: <GalleryHorizontalEnd className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.carousel.title',
+        subtitleKey: 'blocks.carousel.subtitle',
+        blockType: 'carousel',
+        pro: true,
+      },
+      {
         icon: <Youtube className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.videoFeeds',
         subtitleKey: 'dashboard.videoFeedsDesc',
         blockType: 'video_feed',
+      },
+      {
+        icon: <ImageIcon className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.gallery.title',
+        subtitleKey: 'blocks.gallery.subtitle',
+        blockType: 'gallery',
       },
       {
         icon: <MousePointer className="h-6 w-6 text-white" />,
@@ -188,12 +204,6 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.newMerch',
         subtitleKey: 'dashboard.newMerchDesc',
         blockType: 'product_cards',
-      },
-      {
-        icon: <ImageIcon className="h-6 w-6 text-white" />,
-        titleKey: 'blocks.gallery.title',
-        subtitleKey: 'blocks.gallery.subtitle',
-        blockType: 'gallery',
       },
     ],
   },
@@ -276,6 +286,8 @@ export function ProfileDashboard({
   const { entitlements } = useEntitlements();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
+  // Carousel is a Pro/Business feature (gates the menu row + its tap).
+  const canCarousel = entitlements.carousel;
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -311,9 +323,8 @@ export function ProfileDashboard({
   // 'add' = entered via section list. 'edit' = opened directly via editingBlock prop.
   // Drives whether back-button / save closes the panel or returns to the list.
   const [entryMode, setEntryMode] = useState<'add' | 'edit'>('add');
-  // Pin keeps the panel open after Save instead of closing / returning to the list.
-  const [pinned, setPinned] = useState(false);
-  // Set by a pinned Save so the editor's follow-up onOpenChange(false) is ignored once.
+  // Set by Save so the editor's follow-up onOpenChange(false) is ignored once —
+  // saving never closes the panel; the user leaves via the X / back arrow.
   const skipNextCloseRef = useRef(false);
 
   // When opened with an editingBlock target, jump straight to the editor.
@@ -552,6 +563,14 @@ export function ProfileDashboard({
       return;
     }
 
+    // Pro gate: a Pro-only row (carousel) is locked for Free — show an upsell.
+    if (row.pro && !canCarousel) {
+      toast('Carousel is a Pro feature', {
+        description: 'Upgrade to Pro to add a swipeable carousel of link cards.',
+      });
+      return;
+    }
+
     if (!modeId) {
       toast.error(t('dashboard.noMode'));
       return;
@@ -603,7 +622,7 @@ export function ProfileDashboard({
 
   const handleEditorClose = (editorOpen: boolean) => {
     if (!editorOpen) {
-      // A pinned Save just fired; swallow the editor's auto-close once and stay put.
+      // A Save just fired; swallow the editor's auto-close once and stay put.
       if (skipNextCloseRef.current) {
         skipNextCloseRef.current = false;
         return;
@@ -624,21 +643,10 @@ export function ProfileDashboard({
 
   const handleEditorSave = () => {
     onRefresh();
-    // Pinned: keep the current editor open. The editor still calls
-    // onOpenChange(false) right after this — skipNextCloseRef swallows it.
-    if (pinned) {
-      skipNextCloseRef.current = true;
-      return;
-    }
-    if (entryMode === 'edit') {
-      handleClose();
-      return;
-    }
-    setActiveBlockId(null);
-    setActiveBlockType(null);
-    setActiveBlockTitle('');
-    setDirectItemId(null);
-    setDirectNew(false);
+    // Save/Update only saves — it never closes the panel or returns to the list.
+    // The editor calls onOpenChange(false) right after onSave(); swallow it once
+    // so the editor stays open. The user leaves via the X / back arrow.
+    skipNextCloseRef.current = true;
   };
 
   const renderEditor = () => {
@@ -691,6 +699,8 @@ export function ProfileDashboard({
         return <EmailSubscribeEditor {...editorProps} />;
       case 'gallery':
         return <GalleryEditor {...editorProps} />;
+      case 'carousel':
+        return <CarouselEditor {...editorProps} />;
       case 'bio':
         return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} onDraftChange={onDraftChange} />;
       case 'featured_media':
@@ -714,18 +724,8 @@ export function ProfileDashboard({
     <AnimatePresence>
       {open && (
         <>
-          {/* Outside-click catcher — closes the panel on an outside click, UNLESS
-              it's pinned. When pinned, it becomes click-through so you can keep
-              working in the editor and the panel stays open (close via the X). */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-40 ${pinned ? 'pointer-events-none' : ''}`}
-            onClick={pinned ? undefined : handleClose}
-          />
-
-          {/* Panel — slides from right on all screen sizes */}
+          {/* Panel — slides from right on all screen sizes. It stays open until
+              the user closes it via the X (no outside-click / auto close). */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -806,23 +806,8 @@ export function ProfileDashboard({
               </button>
             </div>
 
-            {/* Pin — keeps the panel open after Save */}
-            <div className="flex items-center px-4 py-1.5 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setPinned((p) => !p)}
-                aria-pressed={pinned}
-                className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-1 transition-colors ${
-                  pinned ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/10 text-white/60 hover:text-white/90'
-                }`}
-              >
-                {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
-                {pinned ? 'Pinned' : 'Pin menu'}
-              </button>
-            </div>
-
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto pb-8">
+            <div className="flex-1 overflow-y-auto scrollbar-hide pb-8">
               {pagesOpen ? (
                 <div className="dark text-foreground px-4 pt-5 space-y-5">
                   {/* Enable second page — Pro feature */}
@@ -1143,7 +1128,14 @@ export function ProfileDashboard({
                           {row.icon}
                         </div>
                         <div className="flex-1 text-left">
-                          <p className="text-sm font-bold text-white">{t(row.titleKey)}</p>
+                          <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                            {t(row.titleKey)}
+                            {row.pro && !canCarousel && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-1.5 py-0.5">
+                                <Lock className="h-2.5 w-2.5" /> PRO
+                              </span>
+                            )}
+                          </p>
                           <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
                         </div>
                         <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />

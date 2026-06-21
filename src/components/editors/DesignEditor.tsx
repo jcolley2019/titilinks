@@ -1429,8 +1429,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
         </Tabs>
 
-        {/* Update / Reset to Default */}
-        <div className="mt-8 space-y-3">
+        {/* Update / Reset to Default — pinned to the bottom while content scrolls. */}
+        <div className="sticky bottom-0 z-10 space-y-3 border-t border-border pt-4 bg-card">
           <Button
             onClick={handleSave}
             disabled={saving}

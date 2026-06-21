@@ -68,6 +68,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
+import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { resolveFontFamily } from '@/lib/fonts';
 import { createPortal } from 'react-dom';
 
@@ -192,6 +193,8 @@ function BlockRenderer({
       return <ContentSectionBlock {...blockProps} />;
     case 'gallery':
       return <GalleryBlock block={block} theme={theme} onEdit={() => {}} />;
+    case 'carousel':
+      return <CarouselBlock {...blockProps} />;
     case 'bio':
       return <BioBlock block={block} theme={theme} />;
     default:
@@ -224,7 +227,7 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
   const fontFamily = resolveFontFamily(cfg.font);
 
   return (
-    <div className={cn('px-1 py-3', alignClass)} style={fontFamily ? { fontFamily } : undefined}>
+    <div className={cn('px-1 py-1', alignClass)} style={fontFamily ? { fontFamily } : undefined}>
       <p
         className={cn('leading-relaxed whitespace-pre-wrap', sizeClass, cfg.bold ? 'font-bold' : 'font-normal')}
         style={{ color: theme.typography.text_color, opacity: 0.85 }}
@@ -252,11 +255,12 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     speedMs = parsed?.speed === 'fast' ? 3000 : parsed?.speed === 'medium' ? 5000 : 7000;
   } catch { /* legacy/plain title => full */ }
 
-  // Seamless infinite loop: public showcase only (no delete handles), filmstrip
-  // layout, 2+ photos, auto-scroll on. Render the strip twice and glide
-  // continuously, wrapping by exactly one copy width (pixel-identical) so the
-  // first photo flows back around with no rewind/jump.
-  const loop = layout === 'filmstrip' && autoScroll && count >= 2 && !onDelete;
+  // Seamless infinite loop: filmstrip layout, 2+ photos, auto-scroll on. Render
+  // the strip twice and glide continuously, wrapping by exactly one copy width
+  // (pixel-identical) so the first photo flows back around with no rewind/jump.
+  // Runs in the edit preview too (so the creator can see speeds): delete handles
+  // render on the first copy only, and any touch pauses the glide for 8s to tap.
+  const loop = layout === 'filmstrip' && autoScroll && count >= 2;
   const stripItems = loop ? [...block.items, ...block.items] : block.items;
 
   // Filmstrip auto-advance: one photo every 4s; any touch pauses it for 8s.
@@ -365,7 +369,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
                 </div>
               )}
-              {onDelete && (
+              {onDelete && i < count && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                   className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
@@ -809,14 +813,14 @@ function SortablePreviewCard({
         <button
           onClick={() => onToggle(!block.is_enabled)}
           className={cn(
-            'w-11 h-6 rounded-full flex-shrink-0 p-[2px] transition-colors',
+            'w-[33px] h-[18px] rounded-full flex-shrink-0 p-[1.5px] transition-colors',
             block.is_enabled ? 'bg-[#C9A55C]' : 'bg-white/20'
           )}
         >
           <div
             className={cn(
-              'h-5 w-5 rounded-full bg-white shadow-md transition-transform',
-              block.is_enabled ? 'translate-x-[20px]' : 'translate-x-0'
+              'h-[15px] w-[15px] rounded-full bg-white shadow-md transition-transform',
+              block.is_enabled ? 'translate-x-[15px]' : 'translate-x-0'
             )}
           />
         </button>
@@ -842,7 +846,7 @@ function SortablePreviewCard({
         )}
         onClick={block.type !== 'links' && !isDragActive ? onEdit : undefined}
       >
-        <div className="p-4">
+        <div className="p-3">
           {block.type === 'gallery' ? (
             <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
           ) : block.items.length === 0 && block.type !== 'video_feed' && block.type !== 'text' ? (
@@ -854,7 +858,7 @@ function SortablePreviewCard({
                   if (block.type === 'links' && onItemAdd) onItemAdd(block.id);
                   else onEdit();
                 }}
-                className="mt-3 text-xs font-semibold text-[#C9A55C] border border-[#C9A55C]/40 rounded-full px-4 py-1.5 hover:bg-[#C9A55C]/10 transition-colors"
+                className="mt-3 w-full rounded-xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
               >
                 + {t('editor.addContent')}
               </button>

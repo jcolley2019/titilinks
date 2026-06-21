@@ -34,7 +34,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
 import { LinkButton } from '@/components/LinkButton';
-import { ColorPicker, InlineColorPicker } from '@/components/ui/color-picker';
+import { InlineColorPicker } from '@/components/ui/color-picker';
 import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { findPartnerId } from '@/lib/link-layout';
@@ -162,7 +162,7 @@ function LinkDetailPanel({
   const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
     initialActiveSlot === 'b' && partnerItem ? 'b' : 'a',
   );
-  const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
+  const [colorTab, setColorTab] = useState<'title' | 'background' | 'border'>('background');
   const [colorOpen, setColorOpen] = useState(false);
   const [gradientStop, setGradientStop] = useState<'from' | 'to'>('from');
   const [unfurling, setUnfurling] = useState(false);
@@ -623,28 +623,35 @@ function LinkDetailPanel({
             }}
           />
           )}
-          {/* Size — ONE row of Big / Medium / Small / Button drives the whole
-              page (Cards vs Buttons is derived from this; no tabs). */}
+          {/* Style — two groups: Link Cards (cover cards) and Buttons, each with
+              a Large/Small choice. The underlying sizes stay big/small (cards)
+              and medium/button (buttons); only labels + grouping change. Cards vs
+              Buttons is still derived from the chosen size. */}
           <div className="space-y-1.5">
             <p className="text-sm font-medium text-foreground">Style</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {([
-                { key: 'big', label: 'Big' },
-                { key: 'medium', label: 'Medium' },
-                { key: 'small', label: 'Small' },
-                { key: 'button', label: 'Button' },
-              ] as const).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => pickSize(key)}
-                  className={`py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
-                    cardA.size === key
-                      ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                      : 'border-border text-muted-foreground'
-                  }`}
-                >
-                  {label}
-                </button>
+                { group: 'Link Cards', options: [{ key: 'big', label: 'Large' }, { key: 'small', label: 'Small' }] },
+                { group: 'Buttons', options: [{ key: 'medium', label: 'Large' }, { key: 'button', label: 'Small' }] },
+              ] as const).map(({ group, options }) => (
+                <div key={group} className="space-y-1.5">
+                  <p className="text-center text-xs font-medium text-muted-foreground">{group}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {options.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => pickSize(key)}
+                        className={`py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
+                          cardA.size === key
+                            ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                            : 'border-border text-muted-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -696,15 +703,32 @@ function LinkDetailPanel({
             />
           </div>
 
-          {/* Customize Color — collapsible (Link.me style): Title / Background,
-              an optional gradient on the button background, and an inline picker. */}
+          {/* Customize Color — collapsible: Title / Background / Border tabs.
+              One row below the tabs carries the background gradient toggle (left,
+              buttons only) + the border width slider (right); a single inline
+              picker edits the active tab's color. */}
           {(() => {
+            const isButtons = sizeTab === 'buttons';
             const grad = active.style_json?.bg_gradient as { from?: string; to?: string } | undefined;
             const gradientOn = !!grad;
-            const isButtons = sizeTab === 'buttons';
-            const editingBg = isButtons && colorTab === 'background';
+            // Cards fill from their image, so only buttons get a Background tab;
+            // Border applies to both.
+            const tabs = isButtons
+              ? (['title', 'background', 'border'] as const)
+              : (['title', 'border'] as const);
+            const tab: 'title' | 'background' | 'border' =
+              (tabs as readonly string[]).includes(colorTab) ? colorTab : 'title';
+            const editingBg = tab === 'background';
+            const editingBorder = tab === 'border';
+            const borderWidth = (active.style_json?.border_width as number | undefined) ?? 0;
             const solidField: 'title_color' | 'bg_color' = editingBg ? 'bg_color' : 'title_color';
             const setGradient = (next: { from?: string; to?: string } | null) => setStyleField('bg_gradient', next);
+            // A border color is invisible at 0px (e.g. an outline on a solid-fill
+            // button) — bump width to 1 the moment a color is picked so it shows.
+            const setBorderColor = (c: string | null) => {
+              setStyleField('border_color', c);
+              if (c && !borderWidth) setStyleField('border_width', 1);
+            };
             return (
               <div className="space-y-3">
                 <button
@@ -718,36 +742,48 @@ function LinkDetailPanel({
 
                 {colorOpen && (
                   <div className="space-y-3">
-                    {/* Title | Background — buttons only (cards = title only). */}
-                    {isButtons && (
-                      <div className="flex rounded-lg overflow-hidden border border-border">
-                        {(['title', 'background'] as const).map((tabKey) => (
-                          <button
-                            key={tabKey}
-                            onClick={() => setColorTab(tabKey)}
-                            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                              colorTab === tabKey ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                            }`}
-                          >
-                            {tabKey === 'title' ? 'Title' : 'Background'}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    {/* Title | Background | Border */}
+                    <div className="flex rounded-lg overflow-hidden border border-border">
+                      {tabs.map((tabKey) => (
+                        <button
+                          key={tabKey}
+                          onClick={() => setColorTab(tabKey)}
+                          className={`flex-1 py-2 text-sm font-medium capitalize transition-colors ${
+                            tab === tabKey ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {tabKey}
+                        </button>
+                      ))}
+                    </div>
 
-                    {/* Color Gradient toggle — only for the button background. */}
-                    {editingBg && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">Color Gradient</span>
-                        <Switch
-                          checked={gradientOn}
-                          onCheckedChange={(on) =>
-                            setGradient(on ? { from: active.bg_color || '#C9A55C', to: '#5B3FA0' } : null)
-                          }
+                    {/* Gradient toggle (left, buttons) + border width slider (right). */}
+                    <div className="flex items-center gap-4">
+                      {isButtons && (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">Color Gradient</span>
+                          <Switch
+                            checked={gradientOn}
+                            onCheckedChange={(on) =>
+                              setGradient(on ? { from: active.bg_color || '#C9A55C', to: '#5B3FA0' } : null)
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="shrink-0 text-sm text-muted-foreground">Width {borderWidth}px</span>
+                        <Slider
+                          value={[borderWidth]}
+                          onValueChange={([v]) => setStyleField('border_width', v)}
+                          min={0}
+                          max={4}
+                          step={1}
+                          className="flex-1 py-2"
                         />
                       </div>
-                    )}
+                    </div>
 
+                    {/* Inline picker for the active tab's color. */}
                     {editingBg && gradientOn ? (
                       <>
                         <div
@@ -771,6 +807,19 @@ function LinkDetailPanel({
                           value={grad?.[gradientStop] || (gradientStop === 'from' ? '#C9A55C' : '#5B3FA0')}
                           onChange={(c) => setGradient({ ...grad, [gradientStop]: c })}
                         />
+                      </>
+                    ) : editingBorder ? (
+                      <>
+                        <InlineColorPicker
+                          value={(active.style_json?.border_color as string | undefined) || '#C9A55C'}
+                          onChange={setBorderColor}
+                        />
+                        <button
+                          onClick={() => setStyleField('border_color', null)}
+                          className="w-full py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                        >
+                          No color
+                        </button>
                       </>
                     ) : (
                       <>
@@ -883,42 +932,6 @@ function LinkDetailPanel({
             );
           })()}
 
-          {/* Per-link Border — stored on block_items.style_json (additive;
-              takes precedence over the block-level Style Variants border) */}
-          <div className="space-y-3">
-            <p className="text-base font-semibold">Border</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm">
-                  Width ({(active.style_json?.border_width as number | undefined) ?? 0}px)
-                </Label>
-                <Slider
-                  value={[(active.style_json?.border_width as number | undefined) ?? 0]}
-                  onValueChange={([v]) => setStyleField('border_width', v)}
-                  min={0}
-                  max={4}
-                  step={1}
-                  className="py-2"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Color</Label>
-                <div className="flex gap-2 items-center">
-                  <ColorPicker
-                    value={(active.style_json?.border_color as string | undefined) || '#C9A55C'}
-                    onChange={(c) => setStyleField('border_color', c)}
-                  />
-                  <button
-                    onClick={() => setStyleField('border_color', null)}
-                    className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
-                  >
-                    None
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 18+ Toggle */}
           <div className="flex items-center justify-between py-3 border-t border-border">
             <div className="flex items-center gap-2">
@@ -960,8 +973,8 @@ function LinkDetailPanel({
         </div>
       </ScrollArea>
 
-      {/* Save button */}
-      <div className="pt-3 mt-3 border-t border-border">
+      {/* Save button — pinned to the bottom of the panel while content scrolls. */}
+      <div className="sticky bottom-0 z-10 pt-3 mt-3 border-t border-border bg-[#0e0c09]">
         {confirmRevert && (
           <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
             <div className="flex items-start gap-2">
@@ -1404,7 +1417,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
         {innerContent}
       </div>
     );

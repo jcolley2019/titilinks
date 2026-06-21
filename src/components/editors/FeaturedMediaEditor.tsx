@@ -529,7 +529,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
               )}
             </ScrollArea>
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-border mt-auto">
+            <div className="sticky bottom-0 z-10 flex justify-end gap-2 pt-4 border-t border-border mt-auto bg-[#0e0c09]">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
@@ -545,7 +545,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white overflow-y-auto px-4 py-4">
+      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
         {innerContent}
       </div>
     );

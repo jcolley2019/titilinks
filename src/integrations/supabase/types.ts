@@ -513,6 +513,7 @@ export type Database = {
         | "bio"
         | "video_feed"
         | "text"
+        | "carousel"
       event_type: "page_view" | "outbound_click" | "mode_routed"
       mode_type: "page1" | "page2"
     }
@@ -657,6 +658,7 @@ export const Constants = {
         "bio",
         "video_feed",
         "text",
+        "carousel",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
       mode_type: ["page1", "page2"],

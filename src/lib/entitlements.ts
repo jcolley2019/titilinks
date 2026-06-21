@@ -29,6 +29,8 @@ export interface PlanEntitlements {
   customDomain: boolean;
   aiBio: boolean;
   emailSubscribe: boolean;
+  /** Swipeable carousel of link cards (Featured Links → Carousel). */
+  carousel: boolean;
   /** Business-tier extras. */
   teamCollab: boolean;
   whiteLabel: boolean;
@@ -46,6 +48,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     customDomain: false,
     aiBio: false,
     emailSubscribe: false,
+    carousel: false,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -60,6 +63,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     customDomain: true,
     aiBio: true,
     emailSubscribe: true,
+    carousel: true,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -74,6 +78,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     customDomain: true,
     aiBio: true,
     emailSubscribe: true,
+    carousel: true,
     teamCollab: true,
     whiteLabel: true,
     apiAccess: true,
