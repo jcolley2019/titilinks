@@ -19,6 +19,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ShieldAlert,
   Settings2,
   Camera,
@@ -33,7 +34,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
 import { LinkButton } from '@/components/LinkButton';
-import { ColorPicker } from '@/components/ui/color-picker';
+import { ColorPicker, InlineColorPicker } from '@/components/ui/color-picker';
 import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { findPartnerId } from '@/lib/link-layout';
@@ -51,6 +52,8 @@ function parseSize(value: string | null | undefined): ItemSize {
     ? (value as ItemSize)
     : 'big';
 }
+
+// (button shapes moved to src/lib/button-shapes.ts — now a GLOBAL theme setting)
 
 // Accept bare web domains (FL.12). When the input looks like a web URL/domain
 // WITHOUT a protocol, prepend "https://" so users need not type it. Leaves
@@ -160,13 +163,14 @@ function LinkDetailPanel({
     initialActiveSlot === 'b' && partnerItem ? 'b' : 'a',
   );
   const [colorTab, setColorTab] = useState<'title' | 'background'>('background');
+  const [colorOpen, setColorOpen] = useState(false);
+  const [gradientStop, setGradientStop] = useState<'from' | 'to'>('from');
   const [unfurling, setUnfurling] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
-  // Size-picker tab: 'cards' (Large/Small) or 'buttons' (Buttons A/B). Opens to
-  // whichever group the link's current size belongs to.
-  const [sizeTab, setSizeTab] = useState<'cards' | 'buttons'>(
-    () => (item.size === 'medium' || item.size === 'button' ? 'buttons' : 'cards')
-  );
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Cards vs Buttons is DERIVED from the primary card's size — a single
+  // Big/Medium/Small/Button row drives the whole page (no separate tab).
+  const sizeTab: 'cards' | 'buttons' = (cardA.size === 'medium' || cardA.size === 'button') ? 'buttons' : 'cards';
 
   // Pair mode is on whenever the primary card is Small: two half-width slots are
   // edited as a unit and the form below binds to whichever slot is active.
@@ -281,7 +285,7 @@ function LinkDetailPanel({
 
   // Per-link style overrides live on block_items.style_json (additive — any
   // future keys are preserved). Writing null removes the key; empty → null.
-  const setStyleField = (key: string, value: string | number | null) => {
+  const setStyleField = (key: string, value: string | number | boolean | Record<string, unknown> | null) => {
     setActive(prev => {
       const next: Record<string, any> = { ...(prev.style_json || {}) };
       if (value === null) delete next[key];
@@ -292,22 +296,33 @@ function LinkDetailPanel({
 
   // Per-card preview theme/style — mirror LinksBlock's per-item overrides so the
   // slot previews match the live profile: bg_color → fill, title_color → text.
-  const themeFor = (c: LinkItem) => (c.bg_color || c.title_color)
-    ? {
-        ...DEFAULT_THEME,
-        buttons: {
-          ...DEFAULT_THEME.buttons,
-          ...(c.bg_color ? { fill_color: c.bg_color } : {}),
-          ...(c.title_color ? { text_color: c.title_color } : {}),
-        },
-      }
-    : DEFAULT_THEME;
+  // Per-link gradient → CSS string (135deg, start→end). Mirrors LinksBlock.
+  const gradFor = (c: LinkItem): string | undefined => {
+    const g = (c.style_json as Record<string, any> | null)?.bg_gradient as { from?: string; to?: string } | undefined;
+    return g ? `linear-gradient(135deg, ${g.from || '#C9A55C'}, ${g.to || '#5B3FA0'})` : undefined;
+  };
+  const themeFor = (c: LinkItem) => {
+    const g = (c.style_json as Record<string, any> | null)?.bg_gradient as { from?: string } | undefined;
+    const fillBase = c.bg_color || g?.from;
+    return (fillBase || c.title_color)
+      ? {
+          ...DEFAULT_THEME,
+          buttons: {
+            ...DEFAULT_THEME.buttons,
+            ...(fillBase ? { fill_color: fillBase } : {}),
+            ...(c.title_color ? { text_color: c.title_color } : {}),
+          },
+        }
+      : DEFAULT_THEME;
+  };
   const blockStyleFor = (c: LinkItem): Partial<BlockStyleConfig> => {
     const cj = c.style_json || {};
+    const filled = !!c.bg_color || !!gradFor(c);
     return {
       ...blockStyle,
       ...(cj.border_width != null ? { border_width: cj.border_width } : {}),
       ...(cj.border_color ? { border_color: cj.border_color } : {}),
+      ...(filled ? { variant: 'filled' as const, background_opacity: 1 } : {}),
     };
   };
   const previewTheme = themeFor(active);
@@ -383,15 +398,7 @@ function LinkDetailPanel({
     );
   };
 
-  const cardSizes: { key: ItemSize; label: string }[] = [
-    { key: 'big', label: 'Large' },
-    { key: 'small', label: 'Small' },
-  ];
-  const buttonSizes: { key: ItemSize; label: string }[] = [
-    { key: 'medium', label: 'Buttons A' },
-    { key: 'button', label: 'Buttons B' },
-  ];
-
+  // (size options now come from the single Big/Medium/Small/Button row below)
   // A card is "started" if it has any of URL / title / image — used to detect a
   // half-filled pair on Save.
   const cardHasContent = (c: LinkItem | null) =>
@@ -419,40 +426,8 @@ function LinkDetailPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with back arrow */}
-      {/* Header: back arrow + Link Cards/Buttons tabs (each is its own page;
-          switching aligns the item's size to that group's default) + delete. */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex flex-1 gap-1 rounded-lg p-1" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-          {([
-            { id: 'cards', label: 'Link Cards' },
-            { id: 'buttons', label: 'Buttons' },
-          ] as const).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setSizeTab(tab.id);
-                if (tab.id === 'cards' && !(cardA.size === 'big' || cardA.size === 'small')) pickSize('big');
-                if (tab.id === 'buttons' && !(cardA.size === 'medium' || cardA.size === 'button')) pickSize('medium');
-              }}
-              className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
-                sizeTab === tab.id ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-muted-foreground hover:text-white/80'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {!active.id.startsWith('new-') && (
-          <button
-            onClick={() => onDelete(active.id)}
-            className="shrink-0 text-destructive hover:text-destructive/80"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+      {/* One-page editor: the Big/Medium/Small/Button row drives Cards vs
+          Buttons (no tab). Delete lives at the bottom. */}
 
       <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
         <div className="space-y-2.5">
@@ -490,6 +465,31 @@ function LinkDetailPanel({
                   ? 'Editing the right card'
                   : 'Editing the left card'}
               </p>
+              </div>
+            </div>
+          ) : sizeTab === 'buttons' ? (
+            // Buttons: a compact live button preview — no image upload, no camera,
+            // natural height. The leading icon defaults to the platform glyph.
+            <div className="flex w-full justify-center py-3">
+              <div className="w-full max-w-[300px]">
+                <LinkButton
+                  as="button"
+                  type="button"
+                  theme={previewTheme}
+                  blockStyle={previewBlockStyle}
+                  fillGradient={gradFor(active)}
+                  titleColor={active.title_color || undefined}
+                  title={active.label || 'Title'}
+                  size={active.size === 'medium' ? 'medium' : 'button'}
+                  socialIcon={leadingIconFor({
+                    url: active.url,
+                    iconSource: active.style_json?.icon_source as string | undefined,
+                    hasImage: false,
+                    avatarUrl,
+                    iconColor: active.style_json?.icon_color as string | undefined,
+                  })}
+                  onClick={(e) => e.preventDefault()}
+                />
               </div>
             </div>
           ) : (
@@ -622,17 +622,21 @@ function LinkDetailPanel({
             }}
           />
           )}
-          {/* Style sub-selector for the active type */}
+          {/* Size — ONE row of Big / Medium / Small / Button drives the whole
+              page (Cards vs Buttons is derived from this; no tabs). */}
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-foreground">
-              {sizeTab === 'cards' ? 'Card style' : 'Button style'}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {(sizeTab === 'cards' ? cardSizes : buttonSizes).map(({ key, label }) => (
+            <p className="text-sm font-medium text-foreground">Style</p>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                { key: 'big', label: 'Big' },
+                { key: 'medium', label: 'Medium' },
+                { key: 'small', label: 'Small' },
+                { key: 'button', label: 'Button' },
+              ] as const).map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => pickSize(key)}
-                  className={`py-2 text-sm font-semibold rounded-lg border-2 transition-all ${
+                  className={`py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
                     cardA.size === key
                       ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
                       : 'border-border text-muted-foreground'
@@ -643,20 +647,22 @@ function LinkDetailPanel({
               ))}
             </div>
           </div>
+          {/* Button shape is now GLOBAL — set in Design → Buttons. */}
 
-          {/* Reserve constant height: always rendered, toggled invisible so
-              the fields below never shift when the warning appears/disappears. */}
-          <p
-            aria-hidden={!((active.size === 'big' || active.size === 'small') && !active.image_url)}
-            className={`text-sm text-[#C9A55C] ${
-              (active.size === 'big' || active.size === 'small') && !active.image_url
-                ? ''
-                : 'invisible'
-            }`}
-          >
-            This will display as a button because there's no image. Add an image to use the{' '}
-            {active.size === 'big' ? 'large' : 'small'} thumbnail.
-          </p>
+          {/* Cards-only: a Big/Small with no image falls back to a button. */}
+          {sizeTab === 'cards' && (
+            <p
+              aria-hidden={!((active.size === 'big' || active.size === 'small') && !active.image_url)}
+              className={`text-sm text-[#C9A55C] ${
+                (active.size === 'big' || active.size === 'small') && !active.image_url
+                  ? ''
+                  : 'invisible'
+              }`}
+            >
+              This will display as a button because there's no image. Add an image to use the{' '}
+              {active.size === 'big' ? 'large' : 'small'} thumbnail.
+            </p>
+          )}
 
           {/* URL Input */}
           <div className="space-y-1">
@@ -689,59 +695,101 @@ function LinkDetailPanel({
             />
           </div>
 
-          {/* Color — Link Cards: title only (the photo is the background).
-              Buttons: full Title + Background controls. */}
-          {sizeTab === 'cards' ? (
-            <div className="space-y-2">
-              <p className="text-base font-semibold">Title color</p>
-              <div className="flex gap-2 items-center">
-                <ColorPicker
-                  value={active.title_color || '#ffffff'}
-                  onChange={(c) => update('title_color', c)}
-                />
+          {/* Customize Color — collapsible (Link.me style): Title / Background,
+              an optional gradient on the button background, and an inline picker. */}
+          {(() => {
+            const grad = active.style_json?.bg_gradient as { from?: string; to?: string } | undefined;
+            const gradientOn = !!grad;
+            const isButtons = sizeTab === 'buttons';
+            const editingBg = isButtons && colorTab === 'background';
+            const solidField: 'title_color' | 'bg_color' = editingBg ? 'bg_color' : 'title_color';
+            const setGradient = (next: { from?: string; to?: string } | null) => setStyleField('bg_gradient', next);
+            return (
+              <div className="space-y-3">
                 <button
-                  onClick={() => update('title_color', null)}
-                  className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                  type="button"
+                  onClick={() => setColorOpen((o) => !o)}
+                  className="flex w-full items-center justify-between py-1"
                 >
-                  No color
+                  <span className="text-base font-semibold">Customize Color</span>
+                  <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${colorOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {colorOpen && (
+                  <div className="space-y-3">
+                    {/* Title | Background — buttons only (cards = title only). */}
+                    {isButtons && (
+                      <div className="flex rounded-lg overflow-hidden border border-border">
+                        {(['title', 'background'] as const).map((tabKey) => (
+                          <button
+                            key={tabKey}
+                            onClick={() => setColorTab(tabKey)}
+                            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                              colorTab === tabKey ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {tabKey === 'title' ? 'Title' : 'Background'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Color Gradient toggle — only for the button background. */}
+                    {editingBg && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">Color Gradient</span>
+                        <Switch
+                          checked={gradientOn}
+                          onCheckedChange={(on) =>
+                            setGradient(on ? { from: active.bg_color || '#C9A55C', to: '#5B3FA0' } : null)
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {editingBg && gradientOn ? (
+                      <>
+                        <div
+                          className="h-6 w-full rounded-md border border-border"
+                          style={{ background: `linear-gradient(135deg, ${grad?.from || '#C9A55C'}, ${grad?.to || '#5B3FA0'})` }}
+                        />
+                        <div className="flex rounded-lg overflow-hidden border border-border">
+                          {(['from', 'to'] as const).map((stop) => (
+                            <button
+                              key={stop}
+                              onClick={() => setGradientStop(stop)}
+                              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                                gradientStop === stop ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                              }`}
+                            >
+                              {stop === 'from' ? 'Start' : 'End'}
+                            </button>
+                          ))}
+                        </div>
+                        <InlineColorPicker
+                          value={grad?.[gradientStop] || (gradientStop === 'from' ? '#C9A55C' : '#5B3FA0')}
+                          onChange={(c) => setGradient({ ...grad, [gradientStop]: c })}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <InlineColorPicker
+                          value={(active[solidField] as string | null) || (solidField === 'bg_color' ? '#C9A55C' : '#ffffff')}
+                          onChange={(c) => update(solidField, c)}
+                        />
+                        <button
+                          onClick={() => update(solidField, null)}
+                          className="w-full py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
+                        >
+                          No color
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-base font-semibold">Customize Color</p>
-              <div className="flex rounded-lg overflow-hidden border border-border">
-                <button
-                  onClick={() => setColorTab('title')}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    colorTab === 'title' ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                  }`}
-                >
-                  Title
-                </button>
-                <button
-                  onClick={() => setColorTab('background')}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    colorTab === 'background' ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                  }`}
-                >
-                  Background
-                </button>
-              </div>
-              <div className="flex gap-2 items-center">
-                <ColorPicker
-                  value={colorTab === 'title' ? (active.title_color || '#ffffff') : (active.bg_color || '#C9A55C')}
-                  onChange={(c) => update(colorTab === 'title' ? 'title_color' : 'bg_color', c)}
-                />
-                <button
-                  onClick={() => update(colorTab === 'title' ? 'title_color' : 'bg_color', null)}
-                  className="flex-1 py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
-                >
-                  No color
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Leading icon (buttons only) — the small glyph on the LEFT of a
               button. Default auto-detects the platform from the URL; creators can
@@ -771,8 +819,37 @@ function LinkDetailPanel({
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Photo uses your profile picture. Only shows when the button has no image.
+                Photo uses your own profile picture.
               </p>
+            </div>
+          )}
+
+          {/* Icon color (buttons, platform glyph) — Brand keeps each platform's
+              own color; White/Black force it monochrome (like Manage Platforms). */}
+          {sizeTab !== 'cards' && ((active.style_json?.icon_source as string | undefined) || 'platform') === 'platform' && (
+            <div className="space-y-2">
+              <p className="text-base font-semibold">Icon color</p>
+              <div className="flex rounded-lg overflow-hidden border border-border">
+                {([
+                  { key: 'brand', label: 'Brand' },
+                  { key: 'white', label: 'White' },
+                  { key: 'black', label: 'Black' },
+                ] as const).map(({ key, label }) => {
+                  const current = (active.style_json?.icon_color as string | undefined) || 'brand';
+                  const selected = current === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setStyleField('icon_color', key === 'brand' ? null : key)}
+                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                        selected ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -890,6 +967,38 @@ function LinkDetailPanel({
             ? (isNew ? 'Add pair' : 'Update pair')
             : (isNew ? 'Add' : 'Update')}
         </Button>
+        {/* Delete — labeled + confirm (replaces the confusing header trashcan). */}
+        {!active.id.startsWith('new-') && (
+          confirmDelete ? (
+            <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+              <p className="mb-2 text-[13px] text-white/85">Delete this link? This can't be undone.</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 rounded-md border border-white/20 py-1.5 text-[13px] font-medium text-white/80 hover:border-white/40 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(active.id)}
+                  className="flex-1 rounded-md bg-destructive py-1.5 text-[13px] font-semibold text-white hover:bg-destructive/90 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="mt-2 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" /> Delete link
+            </button>
+          )
+        )}
       </div>
     </div>
   );

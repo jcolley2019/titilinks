@@ -544,6 +544,40 @@
   }
   .lb-velvet.lb-size-button .lb-social svg { width: 18px; height: 18px; }
 
+  /* Per-link button shapes (Featured Links → Buttons → Button Style). Pill /
+     rounded / sharp come from inline border-radius; these add the silhouettes
+     that radius can't. Applied to the whole button so fill + border clip too. */
+  .lb-velvet.lb-shape-ticket {
+    -webkit-mask:
+      radial-gradient(circle 6px at left 50%, transparent 6px, #000 0),
+      radial-gradient(circle 6px at right 50%, transparent 6px, #000 0);
+    -webkit-mask-composite: source-in;
+    mask:
+      radial-gradient(circle 6px at left 50%, transparent 6px, #000 0),
+      radial-gradient(circle 6px at right 50%, transparent 6px, #000 0);
+    mask-composite: intersect;
+  }
+  .lb-velvet.lb-shape-cut {
+    clip-path: polygon(
+      10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
+      calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  }
+  /* Link.me-style inline color picker — full-width saturation square. */
+  .lb-inline-picker .react-colorful { width: 100%; height: 190px; }
+  .lb-inline-picker .react-colorful__saturation { border-radius: 8px 8px 0 0; }
+  .lb-inline-picker .react-colorful__last-control { border-radius: 0 0 8px 8px; }
+
+  .lb-velvet.lb-shape-torn {
+    -webkit-mask:
+      radial-gradient(circle 5px at left 50%, transparent 5px, #000 0) 0 0 / 100% 13px repeat-y,
+      radial-gradient(circle 5px at right 50%, transparent 5px, #000 0) 0 0 / 100% 13px repeat-y;
+    -webkit-mask-composite: source-in;
+    mask:
+      radial-gradient(circle 5px at left 50%, transparent 5px, #000 0) 0 0 / 100% 13px repeat-y,
+      radial-gradient(circle 5px at right 50%, transparent 5px, #000 0) 0 0 / 100% 13px repeat-y;
+    mask-composite: intersect;
+  }
+
   /* Velvet: BIG */
   .lb-velvet.lb-size-big {
     display: flex; flex-direction: column;

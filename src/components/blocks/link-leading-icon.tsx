@@ -38,11 +38,15 @@ export function leadingIconFor({
   iconSource,
   hasImage,
   avatarUrl,
+  iconColor,
 }: {
   url: string | null | undefined;
   iconSource?: string | null;
   hasImage: boolean;
   avatarUrl?: string;
+  /** 'brand' (or unset) keeps each platform's own color; 'white'/'black' force
+   *  the glyph monochrome — same choice as the Manage Platforms icon color. */
+  iconColor?: string | null;
 }): ReactNode {
   if (!hasImage) {
     if (iconSource === 'none') return null;
@@ -57,9 +61,13 @@ export function leadingIconFor({
       );
     }
   }
+  const glyph = iconColor === 'white' ? '#ffffff' : iconColor === 'black' ? '#000000' : undefined;
   const u = (url || '').trim();
-  if (u.includes('@')) return <Mail size={14} />;
-  if (/^tel:/i.test(u) || /^[\d+\-\s()]+$/.test(u)) return <Phone size={14} />;
+  // Email only for a real address (mailto:, or bare "user@host.tld") — NOT a
+  // social URL whose path has an @handle (e.g. tiktok.com/@user).
+  const isEmail = /^mailto:/i.test(u) || (!/^https?:\/\//i.test(u) && /^[^\s/]+@[^\s/]+\.[^\s/]+$/.test(u));
+  if (isEmail) return <Mail size={14} color={glyph} />;
+  if (/^tel:/i.test(u) || /^[\d+\-\s()]+$/.test(u)) return <Phone size={14} color={glyph} />;
   const platform = platformFromUrl(u);
-  return platform ? <PlatformIcon label={platform} size={14} /> : <LinkChainIcon size={14} />;
+  return platform ? <PlatformIcon label={platform} size={14} color={glyph} /> : <LinkChainIcon size={14} color={glyph} />;
 }

@@ -39,3 +39,23 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
     </Popover>
   );
 }
+
+/**
+ * Inline color picker (Link.me-style): the saturation/value square + hue bar +
+ * hex input rendered directly in the page (no popover). Use inside an expanded
+ * "Customize Color" section. Full-width via the `.lb-inline-picker` rule in
+ * index.css.
+ */
+export function InlineColorPicker({ value, onChange, className }: ColorPickerProps) {
+  return (
+    <div className={cn('lb-inline-picker space-y-2.5', className)}>
+      <HexColorPicker color={value} onChange={onChange} />
+      <HexColorInput
+        color={value}
+        onChange={onChange}
+        prefixed
+        className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm uppercase outline-none focus:ring-1 focus:ring-ring"
+      />
+    </div>
+  );
+}

@@ -18,6 +18,12 @@ interface BaseLinkButtonProps {
   blockStyle?: Partial<BlockStyleConfig>;
   size?: 'big' | 'medium' | 'small' | 'button';
   span?: 'full' | 'half';
+  /** Per-link button shape override (pill | rounded | sharp | ticket | cut | slant).
+   *  Wins over the theme-level button shape. */
+  buttonShape?: string;
+  /** Per-link gradient fill (a CSS `linear-gradient(...)` string). When set on a
+   *  filled button it paints the background instead of the solid fill color. */
+  fillGradient?: string;
   onClick?: (e: React.MouseEvent) => void;
   className?: string;
   /** Per-item title color override. Applied inline to the title so it wins over
@@ -62,12 +68,22 @@ function radiusFor(shape: string | undefined, fallback: string): string {
       return '9999px';
     case 'square':
       return '6px';
+    case 'sharp':
+      return '0px';
+    case 'ticket':
+      return '8px';
+    case 'cut':
+    case 'torn':
     case 'rounded':
       return fallback;
     default:
       return fallback;
   }
 }
+
+// Per-link shapes whose silhouette comes from clip-path/mask (not border-radius)
+// — see the .lb-shape-* rules in index.css.
+const CLIPPED_SHAPES = ['ticket', 'cut', 'torn'];
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   if (!hex || !hex.startsWith('#')) return { r: 255, g: 255, b: 255 };
@@ -118,7 +134,7 @@ export function LinkButton(props: LinkButtonProps) {
   // profiles (no theme-level values) render identically.
   const themeButtons = buttons as Record<string, any> | undefined;
   const themeTypography = theme?.typography as Record<string, any> | undefined;
-  const shape = buttons?.shape || 'rounded';
+  const shape = props.buttonShape || buttons?.shape || 'rounded';
   const variant = themeButtons?.variant ?? bs.variant ?? 'glass';
   const opacity = themeButtons?.background_opacity ?? bs.background_opacity ?? 1;
   const fontStyle = themeTypography?.font_style ?? bs.font_style;
@@ -169,7 +185,7 @@ export function LinkButton(props: LinkButtonProps) {
       borderColor ? rgbaStr(borderColor, 0.35) : rgbaStr(fillColor, 0.12)
     }`;
   } else if (variant === 'filled') {
-    style.background = rgbaStr(fillColor, opacity);
+    style.background = props.fillGradient || rgbaStr(fillColor, opacity);
     style.border = borderEnabled
       ? `${borderWidth}px solid ${borderColor || fillColor}`
       : '1px solid transparent';
@@ -192,6 +208,7 @@ export function LinkButton(props: LinkButtonProps) {
     `lb-size-${effectiveSize}`,
     `lb-span-${span}`,
     effectiveMedia ? 'has-media' : socialIcon ? 'has-social' : 'no-thumb',
+    CLIPPED_SHAPES.includes(shape) ? `lb-shape-${shape}` : '',
     className,
   ]
     .filter(Boolean)
@@ -221,7 +238,7 @@ export function LinkButton(props: LinkButtonProps) {
         <MediaThumb media={effectiveMedia} />
       )}
       {effectiveSize !== 'big' && !effectiveMedia && socialIcon && (
-        <span className="lb-social" aria-hidden="true" style={{ color: fillColor }}>
+        <span className="lb-social" aria-hidden="true" style={{ color: variant === 'filled' ? safeTextColor : fillColor }}>
           {socialIcon}
         </span>
       )}

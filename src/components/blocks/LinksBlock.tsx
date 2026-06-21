@@ -193,29 +193,38 @@ export function LinksBlock({
   // Build a single link card. renderSize is the size to ACTUALLY render (a lone
   // Small is promoted to 'big'); span controls half- vs full-width.
   const buildLinkButton = (item: BlockItem, renderSize: ItemSize, span: 'full' | 'half') => {
-    // Per-item color overrides synthesize a per-link theme — bg_color
-    // overrides theme.buttons.fill_color, title_color overrides text_color.
-    const itemTheme = (item.bg_color || item.title_color)
+    // Per-item style overrides (style_json): border, leading-icon, gradient.
+    const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
+      ? (item.style_json as Record<string, any>)
+      : null;
+    const grad = sj?.bg_gradient as { from?: string; to?: string } | undefined;
+    const fillGradient = grad
+      ? `linear-gradient(135deg, ${grad.from || '#C9A55C'}, ${grad.to || '#5B3FA0'})`
+      : undefined;
+    // A per-item background color OR gradient paints the button SOLID (filled).
+    const filled = !!item.bg_color || !!fillGradient;
+    // bg_color → fill; gradient (no bg_color) → its start color drives contrast.
+    const fillBase = item.bg_color || grad?.from;
+
+    // Per-item color overrides synthesize a per-link theme — fill drives the
+    // button background color, title_color overrides text_color.
+    const itemTheme = (fillBase || item.title_color)
       ? {
           ...theme,
           buttons: {
             ...theme.buttons,
-            ...(item.bg_color ? { fill_color: item.bg_color } : {}),
+            ...(fillBase ? { fill_color: fillBase } : {}),
             ...(item.title_color ? { text_color: item.title_color } : {}),
           },
         }
       : theme;
 
-    // Per-item border override (style_json) takes precedence over the
-    // block-level border; falls back to blockStyle when unset.
-    const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
-      ? (item.style_json as Record<string, any>)
-      : null;
-    const itemBlockStyle = sj
+    const itemBlockStyle = (sj || filled)
       ? {
           ...blockStyle,
-          ...(sj.border_width != null ? { border_width: sj.border_width } : {}),
-          ...(sj.border_color ? { border_color: sj.border_color } : {}),
+          ...(sj?.border_width != null ? { border_width: sj.border_width } : {}),
+          ...(sj?.border_color ? { border_color: sj.border_color } : {}),
+          ...(filled ? { variant: 'filled' as const, background_opacity: 1 } : {}),
         }
       : blockStyle;
 
@@ -227,6 +236,7 @@ export function LinksBlock({
         rel="noopener noreferrer"
         theme={itemTheme}
         blockStyle={itemBlockStyle}
+        fillGradient={fillGradient}
         titleColor={item.title_color || undefined}
         title={tc(item.label)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
@@ -247,6 +257,7 @@ export function LinksBlock({
           iconSource: sj?.icon_source as string | undefined,
           hasImage: !!item.image_url,
           avatarUrl: profileAvatar,
+          iconColor: sj?.icon_color as string | undefined,
         })}
         onClick={(e) => handleClick(e, item)}
       />

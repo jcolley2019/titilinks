@@ -35,7 +35,11 @@ const HOST_MAP: Array<[RegExp, string]> = [
 
 export function platformFromUrl(url: string | null | undefined): string | null {
   const raw = (url || '').trim();
-  if (!raw || raw.includes('@') || /^tel:/i.test(raw)) return null;
+  if (!raw || /^mailto:/i.test(raw) || /^tel:/i.test(raw)) return null;
+  // A bare email ("user@host.tld" — no scheme, no slashes) isn't a platform URL,
+  // but a social URL with an @handle in the PATH (tiktok.com/@user) IS — so bail
+  // only on the former, not on every '@'.
+  if (!/^https?:\/\//i.test(raw) && /^[^\s/]+@[^\s/]+$/.test(raw)) return null;
   try {
     const host = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`)
       .hostname.toLowerCase().replace(/^www\./, '');
