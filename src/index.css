@@ -5,6 +5,8 @@
 /* TitiLinks Design System - Luxurious dark theme with gold accents */
 
 /* Luxury font pairing: Playfair Display (headings) + DM Sans (body) */
+/* Landing "Make it yours" showcase faces */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Pacifico&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400;1,9..40,500&display=swap');
 
 @layer base {
@@ -631,5 +633,25 @@
       transition: none !important;
       transform: none !important;
     }
+  }
+}
+
+/* ── Landing hero: drifting phone marquee ───────────────────────────── */
+@keyframes hero-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+.hero-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: hero-marquee 44s linear infinite;
+  will-change: transform;
+}
+.hero-marquee-viewport:hover .hero-marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-marquee-track {
+    animation: none;
   }
 }

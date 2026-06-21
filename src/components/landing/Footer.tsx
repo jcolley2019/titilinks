@@ -2,91 +2,52 @@ import { Link } from 'react-router-dom';
 import { Link2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
+const GOLD = '#C9A55C';
+const BG = 'hsl(30 15% 6%)';
+
 export function Footer() {
   const { t } = useLanguage();
-
-  const footerLinks = {
-    [t('footer.product')]: [
-      { label: 'Features', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Demo', href: '#demo' },
-      { label: 'Changelog', href: '#' },
-    ],
-    [t('footer.company')]: [
-      { label: 'About', href: '#' },
-      { label: 'Blog', href: '#' },
-      { label: 'Careers', href: '#' },
-      { label: 'Press', href: '#' },
-    ],
-    [t('footer.resources')]: [
-      { label: 'Help Center', href: '#' },
-      { label: 'API Docs', href: '#' },
-      { label: 'Status', href: '#' },
-      { label: 'Contact', href: '#' },
-    ],
-    [t('footer.legal')]: [
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
-      { label: 'Cookies', href: '#' },
-      { label: 'Licenses', href: '#' },
-    ],
-  };
-
-  const socialLinks = [
-    { label: 'Twitter', emoji: '𝕏', href: '#' },
-    { label: 'Instagram', emoji: '📸', href: '#' },
-    { label: 'TikTok', emoji: '🎵', href: '#' },
-    { label: 'Discord', emoji: '💬', href: '#' },
-  ];
+  const year = new Date().getFullYear();
 
   return (
-    <footer className="py-20 px-4 relative" style={{ background: 'hsl(30 15% 6%)', borderTop: '1px solid hsl(43 65% 55% / 0.2)' }}>
-      <div className="container max-w-6xl mx-auto relative z-10">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
-          <div className="col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl border" style={{ background: 'hsl(43 65% 55% / 0.1)', borderColor: 'hsl(43 65% 55% / 0.3)' }}>
-                <Link2 className="h-5 w-5" style={{ color: 'hsl(43 65% 55%)' }} />
+    <footer className="px-5 py-16" style={{ backgroundColor: BG, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col items-center gap-8 text-center md:flex-row md:items-start md:justify-between md:text-left">
+          {/* Brand */}
+          <div className="max-w-xs">
+            <Link to="/" className="inline-flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-lg" style={{ backgroundColor: `${GOLD}1a`, border: `1px solid ${GOLD}4d` }}>
+                <Link2 className="h-4 w-4" style={{ color: GOLD }} />
               </div>
-              <span className="text-xl font-bold">
-                <span className="text-white">Titi</span><span className="text-[hsl(43,65%,55%)] italic">Links</span>
+              <span className="text-lg font-bold">
+                <span className="text-white">Titi</span>
+                <span className="font-display italic" style={{ color: GOLD }}>
+                  Links
+                </span>
               </span>
             </Link>
-            <p className="text-white/50 mb-4 font-body">{t('footer.tagline')}</p>
-            <div className="flex gap-3">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-colors text-white/60 hover:text-[hsl(43,65%,55%)]"
-                  style={{ background: 'hsl(30 12% 10%)', border: '1px solid hsl(43 65% 55% / 0.15)' }}
-                  aria-label={social.label}
-                >
-                  <span className="text-lg">{social.emoji}</span>
-                </a>
-              ))}
-            </div>
+            <p className="mt-3 text-sm text-white/45">{t('footer.tagline')}</p>
           </div>
 
-          {Object.entries(footerLinks).map(([category, links]) => (
-            <div key={category}>
-              <h4 className="font-semibold mb-4 text-white font-body uppercase tracking-wider text-xs">{category}</h4>
-              <ul className="space-y-2">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href} className="text-white/50 hover:text-white transition-colors text-sm font-body">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* Real links only */}
+          <nav className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+            <a href="#features" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.features')}</a>
+            <a href="#pricing" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.pricing')}</a>
+            <Link to="/templates" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.templates')}</Link>
+            <Link to="/login" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.login')}</Link>
+          </nav>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-center pt-8 gap-4" style={{ borderTop: '1px solid hsl(43 65% 55% / 0.15)' }}>
+        <div
+          className="mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 text-center sm:flex-row sm:text-left"
+          style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+        >
           <p className="text-sm text-white/40">
-            © {new Date().getFullYear()} <span className="text-white font-bold">Titi</span><span className="text-[hsl(43,65%,55%)] italic font-bold">Links</span>. {t('footer.copyright')}
+            © {year} <span className="font-bold text-white">Titi</span>
+            <span className="font-display font-bold italic" style={{ color: GOLD }}>
+              Links
+            </span>
+            . {t('footer.copyright')}
           </p>
           <p className="text-sm text-white/40">{t('footer.made')}</p>
         </div>
