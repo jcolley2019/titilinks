@@ -39,6 +39,7 @@ export function leadingIconFor({
   hasImage,
   avatarUrl,
   iconColor,
+  iconImage,
 }: {
   url: string | null | undefined;
   iconSource?: string | null;
@@ -47,9 +48,21 @@ export function leadingIconFor({
   /** 'brand' (or unset) keeps each platform's own color; 'white'/'black' force
    *  the glyph monochrome — same choice as the Manage Platforms icon color. */
   iconColor?: string | null;
+  /** A custom uploaded icon (URL) for this link — wins over platform/avatar. */
+  iconImage?: string | null;
 }): ReactNode {
   if (!hasImage) {
     if (iconSource === 'none') return null;
+    if (iconImage) {
+      return (
+        <img
+          src={iconImage}
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full rounded-full object-cover"
+        />
+      );
+    }
     if (iconSource === 'avatar' && avatarUrl) {
       return (
         <img

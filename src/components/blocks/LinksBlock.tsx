@@ -258,6 +258,7 @@ export function LinksBlock({
           hasImage: !!item.image_url,
           avatarUrl: profileAvatar,
           iconColor: sj?.icon_color as string | undefined,
+          iconImage: sj?.icon_image as string | undefined,
         })}
         onClick={(e) => handleClick(e, item)}
       />

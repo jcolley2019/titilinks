@@ -487,6 +487,7 @@ function LinkDetailPanel({
                     hasImage: false,
                     avatarUrl,
                     iconColor: active.style_json?.icon_color as string | undefined,
+                    iconImage: active.style_json?.icon_image as string | undefined,
                   })}
                   onClick={(e) => e.preventDefault()}
                 />
@@ -791,67 +792,96 @@ function LinkDetailPanel({
             );
           })()}
 
-          {/* Leading icon (buttons only) — the small glyph on the LEFT of a
-              button. Default auto-detects the platform from the URL; creators can
-              instead use their profile photo, or hide it. Stored on style_json. */}
-          {sizeTab !== 'cards' && (
-            <div className="space-y-2">
-              <p className="text-base font-semibold">Leading icon</p>
-              <div className="flex rounded-lg overflow-hidden border border-border">
-                {([
-                  { key: 'platform', label: 'Platform' },
-                  { key: 'avatar', label: 'Photo' },
-                  { key: 'none', label: 'None' },
-                ] as const).map(({ key, label }) => {
-                  const current = (active.style_json?.icon_source as string | undefined) || 'platform';
-                  const selected = current === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setStyleField('icon_source', key === 'platform' ? null : key)}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                        selected ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Photo uses your own profile picture.
-              </p>
-            </div>
-          )}
+          {/* Use link icon (buttons only) — Link.me style: a master toggle, then
+              Platform glyph / profile Photo / a custom Upload. A custom image
+              wins; Platform shows the Brand/White/Black color choice. */}
+          {sizeTab !== 'cards' && (() => {
+            const iconSource = (active.style_json?.icon_source as string | undefined) || 'platform';
+            const iconImage = active.style_json?.icon_image as string | undefined;
+            const on = iconSource !== 'none';
+            const selected = iconImage ? 'custom' : iconSource === 'avatar' ? 'photo' : 'platform';
+            return (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-semibold">Use link icon</span>
+                  <Switch
+                    checked={on}
+                    onCheckedChange={(v) => setStyleField('icon_source', v ? null : 'none')}
+                  />
+                </div>
 
-          {/* Icon color (buttons, platform glyph) — Brand keeps each platform's
-              own color; White/Black force it monochrome (like Manage Platforms). */}
-          {sizeTab !== 'cards' && ((active.style_json?.icon_source as string | undefined) || 'platform') === 'platform' && (
-            <div className="space-y-2">
-              <p className="text-base font-semibold">Icon color</p>
-              <div className="flex rounded-lg overflow-hidden border border-border">
-                {([
-                  { key: 'brand', label: 'Brand' },
-                  { key: 'white', label: 'White' },
-                  { key: 'black', label: 'Black' },
-                ] as const).map(({ key, label }) => {
-                  const current = (active.style_json?.icon_color as string | undefined) || 'brand';
-                  const selected = current === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setStyleField('icon_color', key === 'brand' ? null : key)}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                        selected ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+                {on && (
+                  <>
+                    <ThumbnailUpload
+                      value={iconImage}
+                      onChange={(url) => { setStyleField('icon_image', url); setStyleField('icon_source', null); }}
+                      renderTrigger={({ open, uploading }) => (
+                        <div className="flex rounded-lg overflow-hidden border border-border">
+                          {([
+                            { key: 'platform', label: 'Platform', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', null); } },
+                            { key: 'photo', label: 'Photo', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', 'avatar'); } },
+                            { key: 'custom', label: uploading ? 'Uploading…' : 'Upload', click: open },
+                          ] as const).map(({ key, label, click }) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={click}
+                              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                                selected === key ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    />
+
+                    {iconImage ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-border p-2">
+                        <img src={iconImage} alt="" className="h-9 w-9 rounded-md object-cover" />
+                        <span className="flex-1 truncate text-xs text-muted-foreground">Custom icon uploaded</span>
+                        <button
+                          type="button"
+                          onClick={() => setStyleField('icon_image', null)}
+                          className="text-xs font-medium text-destructive hover:text-destructive/80"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : selected === 'photo' ? (
+                      <p className="text-xs text-muted-foreground">Uses your profile picture.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-foreground">Icon color</p>
+                        <div className="flex rounded-lg overflow-hidden border border-border">
+                          {([
+                            { key: 'brand', label: 'Brand' },
+                            { key: 'white', label: 'White' },
+                            { key: 'black', label: 'Black' },
+                          ] as const).map(({ key, label }) => {
+                            const cur = (active.style_json?.icon_color as string | undefined) || 'brand';
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setStyleField('icon_color', key === 'brand' ? null : key)}
+                                className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                                  cur === key ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Per-link Border — stored on block_items.style_json (additive;
               takes precedence over the block-level Style Variants border) */}
