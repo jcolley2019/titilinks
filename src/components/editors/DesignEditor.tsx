@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BUTTON_SHAPES, shapeSwatchStyle } from '@/lib/button-shapes';
 import { Palette, Pipette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -1280,10 +1281,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           </>)}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="background">{t('design.tabBackground')}</TabsTrigger>
             <TabsTrigger value="title">{t('design.tabTitle')}</TabsTrigger>
             <TabsTrigger value="font">{t('design.tabFont')}</TabsTrigger>
+            <TabsTrigger value="buttons">{t('design.tabButtons') || 'Buttons'}</TabsTrigger>
           </TabsList>
 
           {/* Background Tab — solid color */}
@@ -1391,6 +1393,38 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 </button>
               ))}
             </div>
+          </TabsContent>
+
+          {/* Buttons Tab — GLOBAL button shape (applies to every button). */}
+          <TabsContent value="buttons" className="space-y-4">
+            <Label className="text-sm font-medium">{t('design.buttonShape') || 'Button shape'}</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {BUTTON_SHAPES.map(({ key, label }) => {
+                const selected = (theme.buttons.shape || 'rounded') === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateButtons({ shape: key as ThemeJson['buttons']['shape'] })}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-lg border-2 py-3 transition-all',
+                      selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-border hover:border-primary/50'
+                    )}
+                  >
+                    <span
+                      className="h-4 w-14"
+                      style={{ backgroundColor: selected ? '#C9A55C' : 'rgba(255,255,255,0.45)', ...shapeSwatchStyle(key) }}
+                    />
+                    <span className={cn('text-xs font-semibold', selected ? 'text-[#C9A55C]' : 'text-muted-foreground')}>
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('design.buttonShapeDesc') || 'Applies to every button on your page. Tap Update to save.'}
+            </p>
           </TabsContent>
 
         </Tabs>

@@ -28,7 +28,7 @@ export interface ThemeHeader {
 }
 
 export interface ThemeButtons {
-  shape: 'pill' | 'rounded' | 'square';
+  shape: 'pill' | 'rounded' | 'square' | 'sharp' | 'ticket' | 'cut' | 'torn';
   fill_color: string;
   text_color: string;
   border_enabled: boolean;
