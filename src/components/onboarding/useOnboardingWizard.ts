@@ -1,4 +1,4 @@
-import { useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 
 export interface OnboardingState {
   pageStyle: 'classic' | 'hero' | 'full_bleed' | null;
@@ -68,12 +68,51 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
   }
 }
 
-export function useOnboardingWizard() {
-  const [state, dispatch] = useReducer(reducer, initialState);
+// Restore in-progress wizard state (per user) saved by the persistence effect.
+// avatarFile is a File — not JSON-serializable — so it's always reset to null;
+// the uploaded/preview URL in avatarPreview survives instead.
+function loadPersisted(storageKey: string | undefined): OnboardingState {
+  if (!storageKey || typeof window === 'undefined') return initialState;
+  try {
+    const saved = window.sessionStorage.getItem(storageKey);
+    if (!saved) return initialState;
+    const parsed = JSON.parse(saved) as Partial<OnboardingState>;
+    return { ...initialState, ...parsed, avatarFile: null };
+  } catch {
+    return initialState;
+  }
+}
+
+export function useOnboardingWizard(userId?: string) {
+  const storageKey = userId ? `onboarding:${userId}` : undefined;
+  const [state, dispatch] = useReducer(reducer, storageKey, loadPersisted);
+
+  // Persist progress on every change so a mid-flow reload/remount restores the
+  // exact step + selections instead of resetting to step 1 (which previously
+  // stranded users on the Layout/Vibe steps with their preset lost).
+  useEffect(() => {
+    if (!storageKey || typeof window === 'undefined') return;
+    try {
+      const { avatarFile: _omit, ...serializable } = state;
+      window.sessionStorage.setItem(storageKey, JSON.stringify(serializable));
+    } catch {
+      /* storage unavailable / full — non-fatal, flow still works in-memory */
+    }
+  }, [state, storageKey]);
+
+  const clearPersisted = () => {
+    if (!storageKey || typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.removeItem(storageKey);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return {
     state,
     dispatch,
+    clearPersisted,
     goNext: () => dispatch({ type: 'GO_NEXT' }),
     goPrev: () => dispatch({ type: 'GO_PREV' }),
     goToStep: (step: number) => dispatch({ type: 'GO_TO_STEP', step }),

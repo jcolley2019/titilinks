@@ -28,7 +28,7 @@ export default function OnboardingFlow() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const { state, dispatch, goNext, goPrev, updateField, setSubStep } = useOnboardingWizard();
+  const { state, dispatch, goNext, goPrev, updateField, setSubStep, clearPersisted } = useOnboardingWizard(user?.id);
   const resumeChecked = useRef(false);
 
   const stepLabels = [
@@ -40,39 +40,45 @@ export default function OnboardingFlow() {
     t('onboardingFlow.stepLive'),
   ];
 
-  // Resume: check if user already has partial data (runs once)
+  // Resume: check if the user already has partial data (runs once).
   useEffect(() => {
     if (!user || resumeChecked.current) return;
     resumeChecked.current = true;
+    // If sessionStorage already restored in-progress state (after a reload or
+    // remount), it holds the correct step + selections — do NOT let the DB
+    // re-derive the step and bounce the user back (this was the "redirected to
+    // the beginning + stuck on Layout/Vibe" bug).
+    if (state.currentStep > 1) return;
     const checkExisting = async () => {
       const { data: profile } = await supabase
         .from('profiles')
         .select('page_style, username, display_name, avatar_url')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profile?.page_style) {
-        updateField('pageStyle', profile.page_style);
-        if (profile.display_name) updateField('displayName', profile.display_name);
-        if (profile.username) updateField('username', profile.username);
-        if (profile.avatar_url) updateField('avatarPreview', profile.avatar_url);
+      if (!profile?.page_style) return;
 
-        // Check if page already exists
-        const { data: page } = await supabase
-          .from('pages')
-          .select('id, handle')
-          .eq('user_id', user.id)
-          .maybeSingle();
+      // Pre-fill what we know so the steps show the user's existing data.
+      updateField('pageStyle', profile.page_style);
+      if (profile.display_name) updateField('displayName', profile.display_name);
+      if (profile.username) updateField('username', profile.username);
+      if (profile.avatar_url) updateField('avatarPreview', profile.avatar_url);
 
-        if (page) {
-          updateField('createdPageId', page.id);
-          updateField('createdHandle', page.handle);
-          dispatch({ type: 'GO_TO_STEP', step: 5 });
-        } else if (profile.username) {
-          dispatch({ type: 'GO_TO_STEP', step: 3 });
-        } else {
-          dispatch({ type: 'GO_TO_STEP', step: 2 });
-        }
+      // Only auto-advance when the page already exists — Add Links / You're Live
+      // need no earlier selections, so the user can't be stranded. For partial
+      // profile data (no page yet) we leave them at step 1 with fields
+      // pre-filled rather than jumping to a gated step whose local selection
+      // (preset/vibe) was never restored.
+      const { data: page } = await supabase
+        .from('pages')
+        .select('id, handle')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (page) {
+        updateField('createdPageId', page.id);
+        updateField('createdHandle', page.handle);
+        dispatch({ type: 'GO_TO_STEP', step: 5 });
       }
     };
     checkExisting();
@@ -425,6 +431,9 @@ export default function OnboardingFlow() {
       await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
       // Immediately update the cache so ProtectedRoute won't redirect back
       queryClient.setQueryData(['onboarding-status', user.id], { onboarding_complete: true });
+      // Onboarding is done — drop the persisted wizard state so a future visit
+      // (or a different account in this tab) starts clean.
+      clearPersisted();
       navigate('/dashboard/editor', { replace: true });
     } catch {
       toast.error(t('onboardingFlow.saveFailed'));
