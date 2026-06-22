@@ -1,21 +1,11 @@
+// ProductCardsEditor — a shoppable Gallery. Modeled on GalleryEditor: block
+// settings (layout / auto-scroll / speed + Show price / Show Buy toggles) live
+// as JSON in block.title; each product is a block_items row. The editor is a
+// 2-col tile grid with a "+" add square (exactly like Gallery); tapping a tile
+// opens that product's fields below (title, store link, optional price/badge/
+// buy). Product images upload to the `products` bucket.
+
 import { useState, useEffect, useRef } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -28,23 +18,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { toast } from 'sonner';
-import { 
-  Loader2, 
-  ShoppingBag, 
-  Plus, 
-  GripVertical, 
-  Trash2, 
-  ChevronDown,
-  ChevronUp,
-  ImagePlus,
-  X,
-  ShieldAlert,
-  DollarSign,
-  LayoutGrid,
-  LayoutList,
-} from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -52,7 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import { Loader2, Plus, Trash2, ShoppingBag, ImagePlus, ShieldAlert } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
 
@@ -77,279 +53,11 @@ interface ProductItem {
 }
 
 interface ProductCardsConfig {
-  layout: 'stacked' | 'split';
-}
-
-interface SortableProductItemProps {
-  item: ProductItem;
-  onUpdate: (id: string, field: keyof ProductItem, value: string | boolean | number | null) => void;
-  onDelete: (id: string) => void;
-  onImageChange: (id: string, file: File | null) => void;
-  errors: Record<string, string>;
-}
-
-function SortableProductItem({ item, onUpdate, onDelete, onImageChange, errors }: SortableProductItemProps) {
-  const [expanded, setExpanded] = useState(!item.url);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isOver,
-  } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
-      if (!validation.valid) {
-        toast.error(validation.error);
-        return;
-      }
-      onImageChange(item.id, file);
-    }
-  };
-
-  const imageUrl = item.imagePreview || item.image_url;
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={[
-        'border rounded-lg bg-card',
-        'transition-all duration-150 ease-out',
-        'motion-reduce:transition-none motion-reduce:transform-none',
-        isDragging
-          ? 'opacity-90 shadow-lg scale-[1.01] border-primary/50 z-10 relative'
-          : 'border-border',
-        isOver && !isDragging ? 'border-primary/40 bg-primary/5' : '',
-      ].filter(Boolean).join(' ')}
-    >
-      <div className="flex items-center gap-3 p-3">
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-
-        {/* Thumbnail */}
-        <div className="h-10 w-10 rounded bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0">
-          {imageUrl ? (
-            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{item.label || 'Untitled Product'}</p>
-          <p className="text-xs text-muted-foreground truncate">{item.url || 'No URL set'}</p>
-        </div>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setExpanded(!expanded)}
-          className="h-8 w-8"
-        >
-          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(item.id)}
-          className="h-8 w-8 text-destructive hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {expanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-          {/* Image Upload */}
-          <div className="space-y-2">
-            <Label className="text-xs">Product Image (optional)</Label>
-            <div className="flex items-start gap-3">
-              <div 
-                className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer hover:border-primary transition-colors flex-shrink-0"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {imageUrl ? (
-                  <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs"
-                >
-                  {imageUrl ? 'Change' : 'Upload'}
-                </Button>
-                {imageUrl && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onImageChange(item.id, null)}
-                    className="text-xs text-destructive"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.gif,.webp"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Label *</Label>
-              <Input
-                value={item.label}
-                onChange={(e) => onUpdate(item.id, 'label', e.target.value)}
-                placeholder="Product Name"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">URL *</Label>
-              <Input
-                value={item.url}
-                onChange={(e) => onUpdate(item.id, 'url', e.target.value)}
-                placeholder="https://..."
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Subtitle (optional)</Label>
-            <Input
-              value={item.subtitle || ''}
-              onChange={(e) => onUpdate(item.id, 'subtitle', e.target.value)}
-              placeholder="Your best seller"
-              className="h-8 text-sm"
-            />
-          </div>
-          {errors[item.id] && (
-            <p className="text-xs text-destructive">{errors[item.id]}</p>
-          )}
-
-          {/* Pricing Section */}
-          <div className="space-y-2 pt-2 border-t border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              <Label className="text-xs font-medium">Pricing</Label>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Price</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={item.price ?? ''}
-                  onChange={(e) => onUpdate(item.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="29.99"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Compare at</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={item.compare_at_price ?? ''}
-                  onChange={(e) => onUpdate(item.id, 'compare_at_price', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="39.99"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Currency</Label>
-                <Select
-                  value={item.currency || 'USD'}
-                  onValueChange={(value) => onUpdate(item.id, 'currency', value)}
-                >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
-                    <SelectItem value="JPY">JPY</SelectItem>
-                    <SelectItem value="CAD">CAD</SelectItem>
-                    <SelectItem value="AUD">AUD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Badge (optional)</Label>
-              <Input
-                value={item.badge || ''}
-                onChange={(e) => onUpdate(item.id, 'badge', e.target.value)}
-                placeholder="SALE"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">CTA Label</Label>
-              <Input
-                value={item.cta_label || ''}
-                onChange={(e) => onUpdate(item.id, 'cta_label', e.target.value)}
-                placeholder="Buy Now"
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Adult Content Toggle */}
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-xs font-normal text-muted-foreground">
-                18+ Link (shows warning before opening)
-              </Label>
-            </div>
-            <Switch
-              checked={item.is_adult || false}
-              onCheckedChange={(checked) => onUpdate(item.id, 'is_adult', checked)}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  layout: 'full' | 'filmstrip' | 'grid';
+  autoScroll: boolean;
+  speed: 'slow' | 'medium' | 'fast';
+  showPrice: boolean;
+  showBuy: boolean;
 }
 
 interface ProductCardsEditorProps {
@@ -366,60 +74,55 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<ProductItem[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [config, setConfig] = useState<ProductCardsConfig>({ layout: 'stacked' });
-  const [blockTitle, setBlockTitle] = useState<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [config, setConfig] = useState<ProductCardsConfig>({
+    layout: 'grid',
+    autoScroll: true,
+    speed: 'slow',
+    showPrice: true,
+    showBuy: true,
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      fetchItems();
-    }
+    if (open) fetchItems();
   }, [open, blockId]);
 
   const fetchItems = async () => {
     setLoading(true);
     try {
-      // Fetch block config
-      const { data: blockData, error: blockError } = await supabase
+      const { data: blockRow } = await supabase
         .from('blocks')
         .select('title')
         .eq('id', blockId)
-        .single();
-      
-      if (blockError) throw blockError;
-      
-      // Parse config from block title
-      if (blockData?.title) {
-        try {
-          const parsed = JSON.parse(blockData.title);
-          if (parsed.layout) {
-            setConfig({ layout: parsed.layout });
-          }
-        } catch {
-          // Not JSON, just a plain title
-          setBlockTitle(blockData.title);
+        .maybeSingle();
+      try {
+        const parsed = JSON.parse(blockRow?.title || '');
+        if (parsed && typeof parsed === 'object') {
+          setConfig({
+            // Migrate the legacy stacked/split layouts onto the Gallery set.
+            layout: parsed.layout === 'filmstrip' || parsed.layout === 'full' ? parsed.layout : 'grid',
+            autoScroll: parsed.autoScroll !== false,
+            speed: parsed.speed === 'fast' || parsed.speed === 'medium' ? parsed.speed : 'slow',
+            showPrice: parsed.showPrice !== false,
+            showBuy: parsed.showBuy !== false,
+          });
         }
-      }
+      } catch { /* plain title => defaults */ }
 
       const { data, error } = await supabase
         .from('block_items')
         .select('*')
         .eq('block_id', blockId)
         .order('order_index', { ascending: true });
-
       if (error) throw error;
 
       setExistingItems(data || []);
       setItems(
         (data || []).map((item) => ({
           id: item.id,
-          label: item.label,
-          url: item.url,
+          label: item.label || '',
+          url: item.url || '',
           image_url: item.image_url || undefined,
           subtitle: item.subtitle || '',
           badge: item.badge || '',
@@ -431,194 +134,143 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         }))
       );
     } catch (error) {
-      console.error('Error fetching items:', error);
+      console.error('Error fetching products:', error);
       toast.error('Failed to load products');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => item.id === active.id);
-      const newIndex = items.findIndex((item) => item.id === over.id);
-      setItems(arrayMove(items, oldIndex, newIndex));
-    }
-  };
-
-  const addProduct = () => {
+  // Tapping the "+" tile opens the file picker; the chosen image becomes a new
+  // product, auto-selected so its link/title fields show below (Gallery flow).
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file) return;
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} products allowed`);
+      toast.error(`Maximum ${MAX_ITEMS} products`);
       return;
     }
-    const newItem: ProductItem = {
-      id: `new-${Date.now()}-${Math.random()}`,
-      label: '',
-      url: '',
-      subtitle: '',
-      badge: '',
-      is_adult: false,
-      price: null,
-      compare_at_price: null,
-      currency: 'USD',
-      cta_label: '',
-    };
-    setItems([...items, newItem]);
-  };
-
-  const updateItem = (id: string, field: keyof ProductItem, value: string | boolean | number | null) => {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    );
-    if (errors[id]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
     }
+    const id = `new-${Date.now()}-${Math.random()}`;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setItems((prev) => [
+        ...prev,
+        {
+          id,
+          label: '',
+          url: '',
+          subtitle: '',
+          badge: '',
+          is_adult: false,
+          price: null,
+          compare_at_price: null,
+          currency: 'USD',
+          cta_label: '',
+          imageFile: file,
+          imagePreview: reader.result as string,
+        },
+      ]);
+      setSelectedId(id);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleImageChange = (id: string, file: File | null) => {
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              setItems((current) =>
-                current.map((i) =>
-                  i.id === id ? { ...i, imagePreview: reader.result as string } : i
-                )
-              );
-            };
-            reader.readAsDataURL(file);
-            return { ...item, imageFile: file };
-          } else {
-            return { ...item, imageFile: undefined, imagePreview: undefined, image_url: undefined };
-          }
-        }
-        return item;
-      })
-    );
+  const updateItem = (id: string, patch: Partial<ProductItem>) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   };
 
   const deleteItem = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    if (selectedId === id) setSelectedId(null);
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    let valid = true;
-
-    // Enforce item cap
-    if (items.length > MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} products allowed`);
-      return false;
+  const replaceImage = (id: string, file: File) => {
+    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
     }
-
-    items.forEach((item) => {
-      if (!item.label.trim()) {
-        newErrors[item.id] = 'Label is required';
-        valid = false;
-      } else if (item.label.length > 100) {
-        newErrors[item.id] = 'Label must be less than 100 characters';
-        valid = false;
-      } else {
-        const urlError = validateUrl(item.url);
-        if (urlError) {
-          newErrors[item.id] = urlError;
-          valid = false;
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return valid;
+    const reader = new FileReader();
+    reader.onload = () => updateItem(id, { imageFile: file, imagePreview: reader.result as string });
+    reader.readAsDataURL(file);
   };
 
   const uploadImage = async (file: File): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
-    
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
-
-    const { error } = await supabase.storage
-      .from('products')
-      .upload(filePath, file);
-
+    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true });
     if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('products')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
+    const { data } = supabase.storage.from('products').getPublicUrl(filePath);
+    return data.publicUrl;
   };
 
   const handleSave = async () => {
-    if (!validate()) {
-      toast.error('Please fix the errors before saving');
-      return;
+    // Each product needs a title + a valid store link.
+    for (const item of items) {
+      if (!item.label.trim()) {
+        toast.error('Every product needs a title');
+        setSelectedId(item.id);
+        return;
+      }
+      const urlError = validateUrl(item.url);
+      if (urlError) {
+        toast.error(urlError);
+        setSelectedId(item.id);
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      // Save block config (layout) to block title
-      const configJson = JSON.stringify({ layout: config.layout });
-      await supabase
-        .from('blocks')
-        .update({ title: configJson })
-        .eq('id', blockId);
-
-      // Delete removed items
-      const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
-      const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
-
+      // Delete removed items.
+      const keptIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
+      const toDelete = existingItems.filter((ei) => !keptIds.includes(ei.id));
       for (const item of toDelete) {
         const { error } = await supabase.from('block_items').delete().eq('id', item.id);
         if (error) throw error;
       }
 
-      // Update or create items
+      // Upsert kept items in display order.
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const isNew = item.id.startsWith('new-');
-
-        // Upload image if new file
-        let imageUrl = item.image_url;
-        if (item.imageFile) {
-          imageUrl = await uploadImage(item.imageFile);
-        }
+        let imageUrl = item.image_url || null;
+        if (item.imageFile) imageUrl = await uploadImage(item.imageFile);
 
         const itemData = {
-          block_id: blockId,
-          label: item.label,
-          url: item.url,
-          image_url: imageUrl || null,
-          subtitle: item.subtitle || null,
-          badge: item.badge || null,
+          label: item.label.trim(),
+          url: item.url.trim(),
+          image_url: imageUrl,
+          subtitle: item.subtitle?.trim() || null,
+          badge: item.badge?.trim() || null,
           is_adult: item.is_adult || false,
           order_index: i,
           price: item.price ?? null,
           compare_at_price: item.compare_at_price ?? null,
           currency: item.currency || 'USD',
-          cta_label: item.cta_label || null,
+          cta_label: item.cta_label?.trim() || null,
         };
 
-        if (isNew) {
-          const { error } = await supabase.from('block_items').insert(itemData);
+        if (item.id.startsWith('new-')) {
+          const { error } = await supabase.from('block_items').insert({ block_id: blockId, ...itemData });
           if (error) throw error;
         } else {
-          const { block_id: _, ...updateData } = itemData;
-          const { error } = await supabase
-            .from('block_items')
-            .update(updateData)
-            .eq('id', item.id);
+          const { error } = await supabase.from('block_items').update(itemData).eq('id', item.id);
           if (error) throw error;
         }
       }
+
+      const { error: cfgError } = await supabase
+        .from('blocks')
+        .update({ title: JSON.stringify(config) })
+        .eq('id', blockId);
+      if (cfgError) throw cfgError;
 
       toast.success('Products saved');
       onSave?.();
@@ -631,6 +283,8 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     }
   };
 
+  const selected = items.find((i) => i.id === selectedId) || null;
+
   const innerContent = (
     <>
       {loading ? (
@@ -639,121 +293,242 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Layout Selector */}
-          <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
-            <Label className="text-xs font-medium mb-2 block">Card Layout</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={config.layout === 'stacked' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setConfig({ ...config, layout: 'stacked' })}
-                className="flex-1 gap-2"
-              >
-                <LayoutGrid className="h-4 w-4" />
-                Stacked
-              </Button>
-              <Button
-                type="button"
-                variant={config.layout === 'split' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setConfig({ ...config, layout: 'split' })}
-                className="flex-1 gap-2"
-              >
-                <LayoutList className="h-4 w-4" />
-                Split
-              </Button>
-            </div>
-          </div>
-
-          {/* Add Product Button */}
+          {/* Layout picker — same set as the Gallery. */}
           <div className="mb-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addProduct}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Product
-            </Button>
-          </div>
-
-          {/* Items List */}
-          <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
-            {items.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No products yet.</p>
-                <p className="text-sm">Click "Add Product" to get started.</p>
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {items.map((item) => (
-                      <SortableProductItem
-                        key={item.id}
-                        item={item}
-                        onUpdate={updateItem}
-                        onDelete={deleteItem}
-                        onImageChange={handleImageChange}
-                        errors={errors}
-                      />
+            <p className="text-xs text-white/60 mb-2">Layout</p>
+            <div className="flex items-center gap-2">
+              {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setConfig((c) => ({ ...c, layout: opt }))}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                    config.layout === opt
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/5 text-foreground border border-white/10'
+                  }`}
+                >
+                  {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
+                </button>
+              ))}
+            </div>
+            {config.layout === 'filmstrip' && (
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/60">Auto-scroll</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfig((c) => ({ ...c, autoScroll: !c.autoScroll }))}
+                    className={`w-[33px] h-[18px] rounded-full relative transition-colors ${config.autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-[1.5px] left-[1.5px] w-[15px] h-[15px] rounded-full bg-white transition-transform ${config.autoScroll ? 'translate-x-[15px]' : ''}`} />
+                  </button>
+                </div>
+                {config.autoScroll && (
+                  <div className="flex items-center gap-1.5">
+                    {(['slow', 'medium', 'fast'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setConfig((c) => ({ ...c, speed: s }))}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                          config.speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
+                        }`}
+                      >
+                        {s}
+                      </button>
                     ))}
                   </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </ScrollArea>
-
-          {/* Preview Grid */}
-          {items.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2">Preview</p>
-              <div className="grid grid-cols-3 gap-2">
-                {items.slice(0, 6).map((item) => (
-                  <div key={item.id} className="aspect-square rounded-lg bg-secondary/50 overflow-hidden relative">
-                    {(item.imagePreview || item.image_url) ? (
-                      <img
-                        src={item.imagePreview || item.image_url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                    {item.badge && (
-                      <span className="absolute top-1 right-1 text-[8px] bg-primary text-primary-foreground px-1 rounded">
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                )}
               </div>
-              {items.length > 6 && (
-                <p className="text-xs text-muted-foreground mt-1 text-center">
-                  +{items.length - 6} more
+            )}
+          </div>
+
+          {/* Show price / Show Buy toggles. */}
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Show prices</span>
+              <Switch checked={config.showPrice} onCheckedChange={(v) => setConfig((c) => ({ ...c, showPrice: v }))} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Show Buy button</span>
+              <Switch checked={config.showBuy} onCheckedChange={(v) => setConfig((c) => ({ ...c, showBuy: v }))} />
+            </div>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.gif,.webp"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Tile grid + selected product's fields. */}
+          <ScrollArea className={panelMode ? 'flex-1 px-4 -mx-4' : 'flex-1 -mx-6 px-6'}>
+            <div>
+              <div className="grid grid-cols-2 gap-3">
+                {items.length < MAX_ITEMS && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-xl border-2 border-dashed border-[#C9A55C]/40 flex flex-col items-center justify-center gap-2 hover:border-[#C9A55C]/70 hover:bg-[#C9A55C]/5 transition-colors"
+                  >
+                    <Plus className="h-7 w-7 text-[#C9A55C]/70" />
+                    <span className="text-xs font-medium text-[#C9A55C]/80">Add product</span>
+                  </button>
+                )}
+                {items.map((item) => {
+                  const img = item.imagePreview || item.image_url;
+                  const isSel = item.id === selectedId;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedId(item.id)}
+                      className={`group relative aspect-square rounded-xl overflow-hidden bg-white/5 border-2 cursor-pointer transition-colors ${
+                        isSel ? 'border-[#C9A55C]' : 'border-transparent'
+                      }`}
+                    >
+                      {img ? (
+                        <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <ShoppingBag className="h-7 w-7 text-white/30" />
+                        </div>
+                      )}
+                      {item.badge && (
+                        <span className="absolute top-1.5 left-1.5 z-[1] text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#C9A55C] text-[#0e0c09]">
+                          {item.badge}
+                        </span>
+                      )}
+                      {item.label && (
+                        <span className="absolute inset-x-0 bottom-0 z-[1] px-2 pb-1.5 pt-5 text-left bg-gradient-to-t from-black/75 to-transparent">
+                          <span className="block truncate text-[11px] font-semibold text-white">{item.label}</span>
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                        aria-label="Remove product"
+                        className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/60 text-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {items.length === 0 && (
+                <p className="mt-3 text-center text-xs text-white/40">
+                  Tap “Add product”, then enter the store link &amp; title.
                 </p>
               )}
+
+              {/* Selected product's fields. */}
+              {selected && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Title *</Label>
+                    <Input
+                      value={selected.label}
+                      onChange={(e) => updateItem(selected.id, { label: e.target.value })}
+                      placeholder="Product name"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Store link *</Label>
+                    <Input
+                      value={selected.url}
+                      onChange={(e) => updateItem(selected.id, { url: e.target.value })}
+                      placeholder="https://…"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  {config.showPrice && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={selected.price ?? ''}
+                          onChange={(e) => updateItem(selected.id, { price: e.target.value ? parseFloat(e.target.value) : null })}
+                          placeholder="29.99"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Compare</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={selected.compare_at_price ?? ''}
+                          onChange={(e) => updateItem(selected.id, { compare_at_price: e.target.value ? parseFloat(e.target.value) : null })}
+                          placeholder="39.99"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Currency</Label>
+                        <Select value={selected.currency || 'USD'} onValueChange={(v) => updateItem(selected.id, { currency: v })}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'].map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={config.showBuy ? 'grid grid-cols-2 gap-2' : ''}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Badge (optional)</Label>
+                      <Input
+                        value={selected.badge || ''}
+                        onChange={(e) => updateItem(selected.id, { badge: e.target.value })}
+                        placeholder="Sale / New"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    {config.showBuy && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Buy label</Label>
+                        <Input
+                          value={selected.cta_label || ''}
+                          onChange={(e) => updateItem(selected.id, { cta_label: e.target.value })}
+                          placeholder="Buy now"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <ImageReplaceButton onPick={(file) => replaceImage(selected.id, file)} hasImage={!!(selected.imagePreview || selected.image_url)} />
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4 text-white/50" />
+                      <span className="text-xs text-white/50">18+</span>
+                      <Switch
+                        checked={selected.is_adult || false}
+                        onCheckedChange={(v) => updateItem(selected.id, { is_adult: v })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </ScrollArea>
 
           {/* Actions — pinned to the bottom of the panel while content scrolls. */}
-          <div className="sticky bottom-0 z-10 flex gap-3 pt-4 mt-4 border-t border-border bg-[#0e0c09]">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
+          <div className="sticky bottom-0 z-10 flex gap-3 pt-4 mt-4 border-t border-white/10 bg-[#0e0c09]">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button
@@ -765,7 +540,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Saving…
                 </>
               ) : (
                 'Save'
@@ -791,14 +566,32 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />
-            Edit Product Cards
+            Products
           </DialogTitle>
-          <DialogDescription>
-            Showcase products with links to external stores.
-          </DialogDescription>
+          <DialogDescription>A shoppable gallery — each tile links to your store.</DialogDescription>
         </DialogHeader>
         {innerContent}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** "Change photo" trigger with its own hidden file input. */
+function ImageReplaceButton({ onPick, hasImage }: { onPick: (file: File) => void; hasImage: boolean }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={ref}
+        type="file"
+        accept=".jpg,.jpeg,.png,.gif,.webp"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); if (ref.current) ref.current.value = ''; }}
+        className="hidden"
+      />
+      <Button type="button" variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => ref.current?.click()}>
+        <ImagePlus className="h-3.5 w-3.5" />
+        {hasImage ? 'Change photo' : 'Add photo'}
+      </Button>
+    </>
   );
 }

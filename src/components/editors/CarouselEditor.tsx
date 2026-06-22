@@ -1,8 +1,9 @@
 // CarouselEditor — edits a Carousel block (Pass 5). Modeled on GalleryEditor:
 // block-level settings (section title, card size, auto-scroll + speed) live in
 // block.title JSON; each card is a block_items row (url / label / image_url).
-// A card defaults its image to the icon derived from the link; a creator can
-// upload a custom photo per card (ThumbnailUpload, optional).
+// The cards are edited as a tile grid + tap-a-tile-to-edit (matching the Gallery
+// and Products editors); a card defaults its image to the icon derived from the
+// link, and a creator can upload a custom photo per card (optional).
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,13 +56,15 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
   const [saving, setSaving] = useState(false);
   const [links, setLinks] = useState<CarouselLink[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sectionTitle, setSectionTitle] = useState('');
   const [cardSize, setCardSize] = useState<'big' | 'small'>('big');
   const [autoScroll, setAutoScroll] = useState(true);
   const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('medium');
 
-  // Representative card for the top-of-menu size preview (first card with data).
-  const previewLink = links.find((l) => l.url || l.label || l.image_url);
+  const selected = links.find((l) => l.id === selectedId) || null;
+  // The top preview shows the card being edited, else the first card with data.
+  const previewCard = selected || links.find((l) => l.url || l.label || l.image_url) || null;
 
   useEffect(() => {
     if (open) fetchData();
@@ -109,12 +112,16 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
     }
   };
 
+  // "+" adds an empty card and selects it so its Link/Title fields open below
+  // (a carousel card's photo is optional — it falls back to the link's icon).
   const addLink = () => {
     if (links.length >= MAX_ITEMS) {
       toast.error(`Maximum ${MAX_ITEMS} cards`);
       return;
     }
-    setLinks((prev) => [...prev, { id: `new-${Date.now()}-${Math.random()}`, url: '', label: '', image_url: '' }]);
+    const id = `new-${Date.now()}-${Math.random()}`;
+    setLinks((prev) => [...prev, { id, url: '', label: '', image_url: '' }]);
+    setSelectedId(id);
   };
 
   const updateLink = (id: string, patch: Partial<CarouselLink>) => {
@@ -123,6 +130,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
   const deleteLink = (id: string) => {
     setLinks((prev) => prev.filter((l) => l.id !== id));
+    if (selectedId === id) setSelectedId(null);
   };
 
   const handleSave = async () => {
@@ -184,17 +192,15 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Card preview + size — a representative card at the selected size
-              (top of menu) over Big/Small blocks, like the Featured Links Style
-              selector. */}
+          {/* Card preview + size — the card being edited at the selected size,
+              over Large/Small blocks, like the Featured Links Style selector. */}
           <div className="mb-4 space-y-3">
             <div className="flex justify-center pt-1">
               {/* Exact copy of the Featured Links card previews, inside a fixed
                   16/10 footprint so switching Large↔Small never moves the menu.
                   Large = the big cover card (16/10, full width). Small = a single
                   Featured Links Small card (renderPairSlot): aspect-[4/3] at half
-                  width — NOT full width. The link's derived icon stands in for the
-                  camera (a carousel card's photo is uploaded in the list below). */}
+                  width — NOT full width. */}
               <div className="relative w-full" style={{ aspectRatio: '16 / 10' }}>
                 <div className="absolute inset-0 flex items-center justify-center">
                   {cardSize === 'small' ? (
@@ -202,8 +208,8 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                       className="relative aspect-[4/3] overflow-hidden rounded-[14px]"
                       style={{ width: 'calc(50% - 5px)' }}
                     >
-                      {previewLink?.image_url ? (
-                        <img src={previewLink.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      {previewCard?.image_url ? (
+                        <img src={previewCard.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
                       ) : (
                         <div
                           className="absolute inset-0"
@@ -211,14 +217,14 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                         />
                       )}
                       <div className="absolute inset-0 flex items-center justify-center">
-                        {previewIcon(previewLink?.url, 22)}
+                        {previewIcon(previewCard?.url, 22)}
                       </div>
                       <div
                         className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6 text-left"
                         style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
                       >
                         <span className="text-[13px] font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                          {previewLink?.label || 'Title'}
+                          {previewCard?.label || 'Title'}
                         </span>
                       </div>
                     </div>
@@ -231,11 +237,11 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                         background: 'linear-gradient(180deg, rgba(201,165,92,0.10) 0%, rgba(255,255,255,0.02) 100%)',
                       }}
                     >
-                      {previewLink?.image_url ? (
-                        <img src={previewLink.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      {previewCard?.image_url ? (
+                        <img src={previewCard.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          {previewIcon(previewLink?.url, 34)}
+                          {previewIcon(previewCard?.url, 34)}
                         </div>
                       )}
                       <div className="absolute left-4 right-4 bottom-3 text-left">
@@ -243,7 +249,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                           className="font-bold text-white/90"
                           style={{ fontSize: 17, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
                         >
-                          {previewLink?.label || 'Title'}
+                          {previewCard?.label || 'Title'}
                         </span>
                       </div>
                     </div>
@@ -294,9 +300,9 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
               <button
                 type="button"
                 onClick={() => setAutoScroll(!autoScroll)}
-                className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                className={`w-[33px] h-[18px] rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
               >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                <span className={`absolute top-[1.5px] left-[1.5px] w-[15px] h-[15px] rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-[15px]' : ''}`} />
               </button>
             </div>
             {autoScroll && (
@@ -317,61 +323,93 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
             )}
           </div>
 
-          {/* Cards */}
+          {/* Cards — tile grid (like Gallery/Products) + tap-a-tile to edit it. */}
           <ScrollArea className={panelMode ? 'flex-1 px-4 -mx-4' : 'flex-1 -mx-6 px-6'}>
-            <div className="space-y-2.5">
-              {links.length === 0 ? (
-                <div className="text-center py-8 text-white/50">
-                  <GalleryHorizontalEnd className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No cards yet. Add a link to get started.</p>
-                </div>
-              ) : (
-                links.map((link) => (
-                  <div key={link.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                    <div className="flex items-start gap-3">
-                      <ThumbnailUpload
-                        value={link.image_url || null}
-                        onChange={(url) => updateLink(link.id, { image_url: url || '' })}
-                        label="Photo"
-                      />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <input
-                          value={link.url}
-                          onChange={(e) => updateLink(link.id, { url: e.target.value })}
-                          placeholder="https://…"
-                          className={`${inputCls} truncate`}
-                        />
-                        <input
-                          value={link.label}
-                          onChange={(e) => updateLink(link.id, { label: e.target.value })}
-                          placeholder="Title (optional)"
-                          className={inputCls}
-                        />
-                      </div>
+            <div>
+              <div className="grid grid-cols-2 gap-3">
+                {links.length < MAX_ITEMS && (
+                  <button
+                    type="button"
+                    onClick={addLink}
+                    className="aspect-square rounded-xl border-2 border-dashed border-[#C9A55C]/40 flex flex-col items-center justify-center gap-2 hover:border-[#C9A55C]/70 hover:bg-[#C9A55C]/5 transition-colors"
+                  >
+                    <Plus className="h-7 w-7 text-[#C9A55C]/70" />
+                    <span className="text-xs font-medium text-[#C9A55C]/80">Add link</span>
+                  </button>
+                )}
+                {links.map((link) => {
+                  const isSel = link.id === selectedId;
+                  return (
+                    <div
+                      key={link.id}
+                      onClick={() => setSelectedId(link.id)}
+                      className={`group relative aspect-square rounded-xl overflow-hidden bg-white/5 border-2 cursor-pointer transition-colors ${
+                        isSel ? 'border-[#C9A55C]' : 'border-transparent'
+                      }`}
+                    >
+                      {link.image_url ? (
+                        <img src={link.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {previewIcon(link.url, 26)}
+                        </div>
+                      )}
+                      {link.label && (
+                        <span className="absolute inset-x-0 bottom-0 z-[1] px-2 pb-1.5 pt-5 text-left bg-gradient-to-t from-black/75 to-transparent">
+                          <span className="block truncate text-[11px] font-semibold text-white">{link.label}</span>
+                        </span>
+                      )}
                       <button
                         type="button"
-                        onClick={() => deleteLink(link.id)}
+                        onClick={(e) => { e.stopPropagation(); deleteLink(link.id); }}
                         aria-label="Remove card"
-                        className="mt-1 h-7 w-7 flex-shrink-0 rounded-full bg-black/40 text-white/70 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+                        className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/60 text-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
-                    {!link.image_url && (
-                      <p className="mt-2 text-[11px] text-white/35">No photo → the card uses the icon from the link.</p>
-                    )}
-                  </div>
-                ))
+                  );
+                })}
+              </div>
+
+              {links.length === 0 && (
+                <p className="mt-3 text-center text-xs text-white/40">
+                  Tap “Add link”, then enter the link &amp; title.
+                </p>
               )}
 
-              {links.length < MAX_ITEMS && (
-                <button
-                  type="button"
-                  onClick={addLink}
-                  className="w-full rounded-xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors inline-flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="h-4 w-4" /> Add link
-                </button>
+              {/* Selected card's fields. */}
+              {selected && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-white/60">Link *</p>
+                    <input
+                      value={selected.url}
+                      onChange={(e) => updateLink(selected.id, { url: e.target.value })}
+                      placeholder="https://…"
+                      className={`${inputCls} truncate`}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-white/60">Title (optional)</p>
+                    <input
+                      value={selected.label}
+                      onChange={(e) => updateLink(selected.id, { label: e.target.value })}
+                      placeholder="Card title"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="flex items-start gap-3 pt-1">
+                    <ThumbnailUpload
+                      value={selected.image_url || null}
+                      onChange={(url) => updateLink(selected.id, { image_url: url || '' })}
+                      label="Photo"
+                    />
+                    <p className="text-[11px] text-white/40 leading-relaxed">
+                      Photo optional — with no photo the card shows the icon from the link.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </ScrollArea>

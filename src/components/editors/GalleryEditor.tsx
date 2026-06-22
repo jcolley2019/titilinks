@@ -102,9 +102,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
     const filesToAdd = Array.from(files).slice(0, remaining);
 
     filesToAdd.forEach((file) => {
-      const error = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
-      if (error) {
-        toast.error(`${file.name}: ${error}`);
+      const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
+      if (!validation.valid) {
+        toast.error(`${file.name}: ${validation.error}`);
         return;
       }
 
@@ -251,9 +251,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                   <button
                     type="button"
                     onClick={() => setAutoScroll(!autoScroll)}
-                    className={`w-10 h-6 rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
+                    className={`w-[33px] h-[18px] rounded-full relative transition-colors ${autoScroll ? 'bg-[#C9A55C]' : 'bg-white/10'}`}
                   >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-4' : ''}`} />
+                    <span className={`absolute top-[1.5px] left-[1.5px] w-[15px] h-[15px] rounded-full bg-white transition-transform ${autoScroll ? 'translate-x-[15px]' : ''}`} />
                   </button>
                 </div>
                 {autoScroll && (
@@ -289,14 +289,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
 
           {/* Photo Grid */}
           <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
-            {photos.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No photos yet.</p>
-                <p className="text-sm">Click "Add Photos" to get started.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
+            {/* Always show the grid so the dashed "+ Add photos" box appears
+                immediately (even when empty) — no separate empty state. */}
+            <div className="grid grid-cols-2 gap-3">
                 {photos.length < MAX_ITEMS && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -324,8 +319,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                     </button>
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
           </ScrollArea>
 
           {/* Actions — pinned to the bottom of the panel while content scrolls. */}
