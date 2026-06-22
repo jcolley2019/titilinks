@@ -436,63 +436,100 @@ function LinkDetailPanel({
               big/medium/small show a TitiLinks-brand placeholder; once an image
               exists, or size=button, it renders the real LinkButton).
               ThumbnailUpload still owns the hidden input + upload via open(). */}
+          {/* Locked preview box — ONE box, identical height for EVERY size
+              (cards + buttons + pair). Fixed 16/9 footprint, overflow clipped,
+              content centered. Large cards render at 70% width so their 16/10
+              cover equals a full-width 16/7 Small card's height; both float at
+              the same height, buttons + pair center inside. The box never
+              resizes, so switching size never shifts the menu below. */}
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
           {isPair ? (
-            <div className="relative w-full" style={{ aspectRatio: '16 / 10' }}>
-              <div className="absolute inset-0 flex flex-col justify-center">
-                <div className="relative">
-                {/* Same grid as the live page (lb-row): two equal columns, 10px
-                    gap — so the cards size/space exactly as they render live. */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {renderPairSlot(cardA, 'a')}
-                  {renderPairSlot(cardB, 'b')}
+            <>
+              {/* Cards centered in the footprint; the caption floats at the
+                  bottom so the cards stay vertically centered (not pushed up). */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative w-full">
+                  {/* Same grid as the live page (lb-row): two equal columns, 10px
+                      gap — so the cards size/space exactly as they render live. */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {renderPairSlot(cardA, 'a')}
+                    {renderPairSlot(cardB, 'b')}
+                  </div>
+                  {/* Swap floats centered over the gap, slightly overlapping both
+                      cards, so it never changes the cards' size or spacing. */}
+                  <button
+                    type="button"
+                    onClick={swapCards}
+                    disabled={!cardB}
+                    aria-label="Swap cards"
+                    className="absolute left-1/2 top-1/2 z-10 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0e0c09] bg-[#C9A55C] shadow-lg shadow-black/40 flex items-center justify-center text-[#0e0c09] disabled:opacity-40 hover:bg-[#d9b86c] transition-colors"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </button>
                 </div>
-                {/* Swap floats centered over the gap, slightly overlapping both
-                    cards, so it never changes the cards' size or spacing. */}
-                <button
-                  type="button"
-                  onClick={swapCards}
-                  disabled={!cardB}
-                  aria-label="Swap cards"
-                  className="absolute left-1/2 top-1/2 z-10 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0e0c09] bg-[#C9A55C] shadow-lg shadow-black/40 flex items-center justify-center text-[#0e0c09] disabled:opacity-40 hover:bg-[#d9b86c] transition-colors"
-                >
-                  <ArrowLeftRight className="h-4 w-4" />
-                </button>
               </div>
-              <p className="mt-2 text-sm text-center text-[#C9A55C]">
+              <p className="absolute inset-x-0 bottom-1 text-sm text-center text-[#C9A55C]">
                 {!cardB
                   ? 'Now add your second small card link →'
                   : activeIsB
                   ? 'Editing the right card'
                   : 'Editing the left card'}
               </p>
-              </div>
-            </div>
+            </>
           ) : sizeTab === 'buttons' ? (
-            // Buttons: a compact live button preview — no image upload, no camera,
-            // natural height. The leading icon defaults to the platform glyph.
-            <div className="flex w-full justify-center py-3">
-              <div className="w-full max-w-[300px]">
-                <LinkButton
-                  as="button"
-                  type="button"
-                  theme={previewTheme}
-                  blockStyle={previewBlockStyle}
-                  fillGradient={gradFor(active)}
-                  titleColor={active.title_color || undefined}
-                  title={active.label || 'Title'}
-                  size={active.size === 'medium' ? 'medium' : 'button'}
-                  socialIcon={leadingIconFor({
-                    url: active.url,
-                    iconSource: active.style_json?.icon_source as string | undefined,
-                    hasImage: false,
-                    avatarUrl,
-                    iconColor: active.style_json?.icon_color as string | undefined,
-                    iconImage: active.style_json?.icon_image as string | undefined,
-                  })}
-                  onClick={(e) => e.preventDefault()}
-                />
-              </div>
-            </div>
+            // Buttons, centered in the shared box. Large (medium) can hold a
+            // profile Photo — tap the leading icon to upload/swap it; with no
+            // photo it shows the auto social/link icon. Small (button) shows the
+            // auto social/link icon ONLY (no photo, not tappable).
+            <ThumbnailUpload
+              value={(active.style_json?.icon_image as string | undefined) || null}
+              onChange={(url) => { setStyleField('icon_image', url); if (url) setStyleField('icon_source', null); }}
+              renderTrigger={({ open, uploading }) => {
+                const isMedium = active.size === 'medium';
+                const iconImg = active.style_json?.icon_image as string | undefined;
+                const iconsOn = (active.style_json?.icon_source as string | undefined) !== 'none';
+                return (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="relative w-full max-w-[300px]">
+                      <LinkButton
+                        as="button"
+                        type="button"
+                        theme={previewTheme}
+                        blockStyle={previewBlockStyle}
+                        fillGradient={gradFor(active)}
+                        titleColor={active.title_color || undefined}
+                        title={active.label || 'Title'}
+                        size={isMedium ? 'medium' : 'button'}
+                        socialIcon={leadingIconFor({
+                          url: active.url,
+                          iconSource: active.style_json?.icon_source as string | undefined,
+                          hasImage: false,
+                          avatarUrl,
+                          iconColor: active.style_json?.icon_color as string | undefined,
+                          iconImage: isMedium ? iconImg : undefined,
+                        })}
+                        onClick={(e) => e.preventDefault()}
+                      />
+                      {/* Large button: the leading-icon slot (48px at 12px left
+                          padding) shows the auto social/link icon — or the photo
+                          once added. Transparent tap target over it opens upload
+                          to add/swap a photo (spinner only while uploading). */}
+                      {isMedium && iconsOn && (
+                        <button
+                          type="button"
+                          onClick={open}
+                          disabled={uploading}
+                          aria-label={iconImg ? 'Replace photo' : 'Add photo'}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 h-12 w-12 rounded-[10px] flex items-center justify-center text-white transition-colors hover:bg-black/20"
+                        >
+                          {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
+            />
           ) : (
           <ThumbnailUpload
             value={active.image_url}
@@ -523,7 +560,7 @@ function LinkDetailPanel({
                 // Empty Big/Small → cover-shaped brand placeholder
                 body = (
                   <div
-                    className="relative w-full overflow-hidden border border-white/10"
+                    className={`relative ${active.size === 'big' ? 'w-[70%]' : 'w-full'} overflow-hidden border border-white/10`}
                     style={{
                       aspectRatio: active.size === 'big' ? '16 / 10' : '16 / 7',
                       borderRadius: active.size === 'big' ? 16 : 14,
@@ -548,7 +585,17 @@ function LinkDetailPanel({
                         {active.label || 'Title'}
                       </span>
                     </div>
-                    <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
+                    {/* Corner = auto link/social icon (a website link shows the
+                        link symbol; a detected platform shows its brand icon).
+                        No camera here — the cover photo is added via the center
+                        camera / by tapping the cover once a photo exists. */}
+                    <div
+                      className={`absolute top-2 left-2 z-10 flex items-center justify-center rounded-full bg-black/55 backdrop-blur-sm text-white ${
+                        active.size === 'big' ? 'h-7 w-7' : 'h-6 w-6'
+                      }`}
+                    >
+                      {leadingIconFor({ url: active.url, hasImage: true })}
+                    </div>
                   </div>
                 );
               } else if (noImage && active.size === 'medium') {
@@ -575,9 +622,21 @@ function LinkDetailPanel({
                   </div>
                 );
               } else {
-                // Button (no image) or any size WITH image → real LinkButton + corner camera
+                // Button (no image) or any size WITH image → real LinkButton + corner camera.
+                // Big renders at 70% width so its 16/10 cover matches the Small
+                // card's full-width 16/7 height — keeps every preview the same
+                // vertical size (no jump when switching Large↔Small↔Buttons).
                 body = (
-                  <div className="relative w-full flex items-center justify-center">
+                  // Cover-card WITH photo. The corner auto link/social icon is
+                  // rendered by LinkButton. Tap anywhere on the cover to replace
+                  // the photo — no camera button on the card.
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={open}
+                    aria-label="Replace photo"
+                    className={`relative ${active.size === 'big' ? 'w-[70%]' : 'w-full'} cursor-pointer flex items-center justify-center`}
+                  >
                     <LinkButton
                       as="button"
                       type="button"
@@ -605,24 +664,20 @@ function LinkDetailPanel({
                       size={active.size}
                       onClick={(e) => e.preventDefault()}
                     />
-                    <div className="absolute top-2 left-2 z-10">{camBtn(30, true)}</div>
                   </div>
                 );
               }
 
-              // Fixed footprint: always reserve the Big placeholder's 16/10
-              // height so switching sizes never resizes the preview area; the
-              // active card/placeholder is centered inside it.
+              // Centered inside the shared locked box (no own footprint).
               return (
-                <div className="relative w-full" style={{ aspectRatio: '16 / 10' }}>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {body}
-                  </div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {body}
                 </div>
               );
             }}
           />
           )}
+          </div>
           {/* Style — two groups: Link Cards (cover cards) and Buttons, each with
               a Large/Small choice. The underlying sizes stay big/small (cards)
               and medium/button (buttons); only labels + grouping change. Cards vs
@@ -848,7 +903,8 @@ function LinkDetailPanel({
             const iconSource = (active.style_json?.icon_source as string | undefined) || 'platform';
             const iconImage = active.style_json?.icon_image as string | undefined;
             const on = iconSource !== 'none';
-            const selected = iconImage ? 'custom' : iconSource === 'avatar' ? 'photo' : 'platform';
+            const isMedium = active.size === 'medium';
+            const selected = iconImage ? 'photo' : 'platform';
             return (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -861,35 +917,38 @@ function LinkDetailPanel({
 
                 {on && (
                   <>
-                    <ThumbnailUpload
-                      value={iconImage}
-                      onChange={(url) => { setStyleField('icon_image', url); setStyleField('icon_source', null); }}
-                      renderTrigger={({ open, uploading }) => (
-                        <div className="flex rounded-lg overflow-hidden border border-border">
-                          {([
-                            { key: 'platform', label: 'Platform', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', null); } },
-                            { key: 'photo', label: 'Photo', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', 'avatar'); } },
-                            { key: 'custom', label: uploading ? 'Uploading…' : 'Upload', click: open },
-                          ] as const).map(({ key, label, click }) => (
-                            <button
-                              key={key}
-                              type="button"
-                              onClick={click}
-                              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                                selected === key ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    />
+                    {/* Large button only: auto Platform glyph or upload a Photo.
+                        Small button is icon-only (no Photo option). */}
+                    {isMedium && (
+                      <ThumbnailUpload
+                        value={iconImage}
+                        onChange={(url) => { setStyleField('icon_image', url); setStyleField('icon_source', null); }}
+                        renderTrigger={({ open, uploading }) => (
+                          <div className="flex rounded-lg overflow-hidden border border-border">
+                            {([
+                              { key: 'platform', label: 'Platform', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', null); } },
+                              { key: 'photo', label: uploading ? 'Uploading…' : 'Photo', click: open },
+                            ] as const).map(({ key, label, click }) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={click}
+                                className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                                  selected === key ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      />
+                    )}
 
-                    {iconImage ? (
+                    {iconImage && isMedium ? (
                       <div className="flex items-center gap-2 rounded-lg border border-border p-2">
                         <img src={iconImage} alt="" className="h-9 w-9 rounded-md object-cover" />
-                        <span className="flex-1 truncate text-xs text-muted-foreground">Custom icon uploaded</span>
+                        <span className="flex-1 truncate text-xs text-muted-foreground">Photo added</span>
                         <button
                           type="button"
                           onClick={() => setStyleField('icon_image', null)}
@@ -898,8 +957,6 @@ function LinkDetailPanel({
                           Remove
                         </button>
                       </div>
-                    ) : selected === 'photo' ? (
-                      <p className="text-xs text-muted-foreground">Uses your profile picture.</p>
                     ) : (
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-foreground">Icon color</p>
@@ -973,8 +1030,10 @@ function LinkDetailPanel({
         </div>
       </ScrollArea>
 
-      {/* Save button — pinned to the bottom of the panel while content scrolls. */}
-      <div className="sticky bottom-0 z-10 pt-3 mt-3 border-t border-border bg-[#0e0c09]">
+      {/* Save button — pinned to the bottom of the panel while content scrolls.
+          px-4 matches the ScrollArea so the Add button aligns with the inputs
+          (the separator border still spans edge-to-edge). */}
+      <div className="sticky bottom-0 z-10 px-4 pt-3 mt-3 border-t border-border bg-[#0e0c09]">
         {confirmRevert && (
           <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
             <div className="flex items-start gap-2">
