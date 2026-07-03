@@ -7,11 +7,11 @@ import { useOnboardingWizard } from '@/components/onboarding/useOnboardingWizard
 import { OnboardingStepIndicator } from '@/components/onboarding/OnboardingStepIndicator';
 import { StepChooseStyle } from '@/components/onboarding/StepChooseStyle';
 import { StepYourProfile } from '@/components/onboarding/StepYourProfile';
-import { StepChoosePreset } from '@/components/onboarding/StepChoosePreset';
 import { StepPickYourVibe } from '@/components/onboarding/StepPickYourVibe';
 import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
+import { randomUUID } from '@/lib/utils';
 import type { ThemeTypography } from '@/lib/theme-defaults';
 import { BLOCK_PRESETS } from '@/lib/block-presets';
 import { useQueryClient } from '@tanstack/react-query';
@@ -34,7 +34,6 @@ export default function OnboardingFlow() {
   const stepLabels = [
     t('onboardingFlow.stepStyle'),
     t('onboardingFlow.stepProfile'),
-    t('onboardingFlow.stepLayout'),
     t('onboardingFlow.stepVibe'),
     t('onboardingFlow.stepLinks'),
     t('onboardingFlow.stepLive'),
@@ -78,7 +77,7 @@ export default function OnboardingFlow() {
       if (page) {
         updateField('createdPageId', page.id);
         updateField('createdHandle', page.handle);
-        dispatch({ type: 'GO_TO_STEP', step: 5 });
+        dispatch({ type: 'GO_TO_STEP', step: 4 });
       }
     };
     checkExisting();
@@ -114,7 +113,7 @@ export default function OnboardingFlow() {
       let avatarUrl = state.avatarPreview;
       if (state.avatarFile) {
         const ext = state.avatarFile.name.split('.').pop();
-        const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        const filePath = `${user.id}/${randomUUID()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, state.avatarFile);
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
@@ -488,15 +487,12 @@ export default function OnboardingFlow() {
               <StepYourProfile state={state} updateField={updateField} onNext={handleStep2Next} onPrev={goPrev} user={user} t={t} />
             )}
             {state.currentStep === 3 && (
-              <StepChoosePreset state={state} updateField={updateField} onNext={goNext} onPrev={goPrev} t={t} />
-            )}
-            {state.currentStep === 4 && (
               <StepPickYourVibe state={state} updateField={updateField} dispatch={dispatch} onNext={handleStep3Next} onPrev={goPrev} t={t} />
             )}
-            {state.currentStep === 5 && (
+            {state.currentStep === 4 && (
               <StepAddYourLinks state={state} updateField={updateField} onNext={handleStep4Next} onPrev={goPrev} t={t} />
             )}
-            {state.currentStep === 6 && (
+            {state.currentStep === 5 && (
               <StepYoureLive state={state} onFinish={handleFinish} onPrev={goPrev} t={t} />
             )}
           </motion.div>

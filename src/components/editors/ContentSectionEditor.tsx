@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
-import { cn } from '@/lib/utils';
+import { cn, randomUUID } from '@/lib/utils';
 
 const MAX_ITEMS = ITEM_CAPS.content_section;
 
@@ -413,7 +413,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
     if (!user) throw new Error('Not authenticated');
     
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${user.id}/${randomUUID()}.${fileExt}`;
 
     const { error } = await supabase.storage
       .from('page-assets')

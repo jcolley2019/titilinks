@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -136,7 +137,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
     if (!user) throw new Error('Not authenticated');
 
     const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+    const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('products')

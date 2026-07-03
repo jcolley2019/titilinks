@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/integrations/supabase/client';
+import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -383,7 +384,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
     if (!user) throw new Error('Not authenticated');
     
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${user.id}/${randomUUID()}.${fileExt}`;
 
     const { error } = await supabase.storage
       .from('products')

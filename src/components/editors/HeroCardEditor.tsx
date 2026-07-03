@@ -23,7 +23,7 @@ import {
   LayoutTemplate,
   Trash2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, randomUUID } from '@/lib/utils';
 import { validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 
 interface HeroCardConfig {
@@ -151,7 +151,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
     if (!user) throw new Error('Not authenticated');
     
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/hero-${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${user.id}/hero-${randomUUID()}.${fileExt}`;
 
     const { error } = await supabase.storage
       .from('page-assets')

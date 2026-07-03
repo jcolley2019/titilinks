@@ -24,6 +24,7 @@ import {
   GalleryHorizontalEnd,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { toast } from 'sonner';
@@ -363,7 +364,7 @@ export function ProfileDashboard({
     toast('Uploading video…');
     try {
       const fileExt = file.name.split('.').pop() || 'mp4';
-      const fileName = `${user.id}/hero-video-${crypto.randomUUID()}.${fileExt}`;
+      const fileName = `${user.id}/hero-video-${randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { upsert: true });

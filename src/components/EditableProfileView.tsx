@@ -48,7 +48,7 @@ import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/con
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
-import { cn } from '@/lib/utils';
+import { cn, randomUUID } from '@/lib/utils';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -1201,7 +1201,7 @@ export function EditableProfileView({
     for (const file of filesToAdd) {
       try {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('products')
@@ -1428,7 +1428,7 @@ export function EditableProfileView({
     setPhotoSaving(true);
     try {
       const fileExt = fileToUpload.name.split('.').pop();
-      const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+      const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, fileToUpload, { upsert: true });
@@ -1444,7 +1444,7 @@ export function EditableProfileView({
       let originalUrl: string | null = null;
       if (photoOriginalFile) {
         const origExt = photoOriginalFile.name.split('.').pop() || 'jpg';
-        const origFileName = `${user.id}/${crypto.randomUUID()}-original.${origExt}`;
+        const origFileName = `${user.id}/${randomUUID()}-original.${origExt}`;
         const { error: origUploadError } = await supabase.storage
           .from('avatars')
           .upload(origFileName, photoOriginalFile, { upsert: true });
@@ -1514,7 +1514,7 @@ export function EditableProfileView({
     setPhotoSaving(true);
     try {
       const fileExt = file.name.split('.').pop() || 'mp4';
-      const fileName = `${user.id}/hero-video-${crypto.randomUUID()}.${fileExt}`;
+      const fileName = `${user.id}/hero-video-${randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { upsert: true });
