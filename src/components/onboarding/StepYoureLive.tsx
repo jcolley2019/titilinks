@@ -1,15 +1,16 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, Share2 } from 'lucide-react';
+import { Copy, Check, Share2, ArrowLeft } from 'lucide-react';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
   state: OnboardingState;
   onFinish: () => void;
+  onPrev: () => void;
   t: (key: string) => string;
 }
 
-export function StepYoureLive({ state, onFinish, t }: Props) {
+export function StepYoureLive({ state, onFinish, onPrev, t }: Props) {
   const [copied, setCopied] = useState(false);
   const handle = state.createdHandle || state.username;
   const fullUrl = `https://titilinks.com/${handle}`;
@@ -134,6 +135,18 @@ export function StepYoureLive({ state, onFinish, t }: Props) {
           {t('onboardingFlow.goToDashboard')}
         </button>
       </motion.div>
+
+      {/* Back — lets the user return to earlier steps to tweak before finishing */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        onClick={onPrev}
+        className="mt-8 flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors font-body"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        {t('onboardingFlow.back')}
+      </motion.button>
     </div>
   );
 }

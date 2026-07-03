@@ -463,7 +463,9 @@
     font-size: 12px; color: rgba(255, 255, 255, 0.55);
     line-height: 1.2;
   }
-  .lb-velvet.lb-size-medium.no-thumb { padding: 10px 16px; }
+  /* No leading icon (e.g. primary CTA): match the 64px height of icon'd medium
+     buttons (48px icon + 8+8 padding) so a list mixing both stays uniform. */
+  .lb-velvet.lb-size-medium.no-thumb { padding: 10px 16px; min-height: 64px; }
   .lb-velvet.lb-size-medium.no-thumb .lb-text {
     padding-left: 0; text-align: center; align-items: center;
   }

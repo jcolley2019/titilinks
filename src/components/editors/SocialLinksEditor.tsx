@@ -99,6 +99,7 @@ const PLATFORM_CATEGORIES = [
       { label: 'Kick', icon: '🎯', placeholder: 'Kick username' },
       { label: 'Netflix', icon: '🎬', placeholder: 'Netflix profile URL' },
       { label: 'Steam', icon: '🕹️', placeholder: 'Steam profile URL' },
+      { label: 'Substack', icon: '📰', placeholder: 'Substack handle' },
     ],
   },
   {
@@ -133,6 +134,7 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Cash App': (h) => `https://cash.app/$${h.replace(/^\$/, '')}`,
   'Twitch': (h) => `https://twitch.tv/${h}`,
   'Kick': (h) => `https://kick.com/${h}`,
+  'Substack': (h) => `https://substack.com/@${h}`,
   'Depop': (h) => `https://depop.com/${h}`,
   'Etsy': (h) => `https://etsy.com/shop/${h}`,
 };

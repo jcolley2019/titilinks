@@ -230,7 +230,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/10 bg-[#0e0c09] group"
+          className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden border-2 border-white/10 bg-[#0e0c09] group"
         >
           {avatarSrc ? (
             <>

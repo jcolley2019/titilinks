@@ -267,6 +267,37 @@ export default function OnboardingFlow() {
   const handleStep3Next = async () => {
     if (!user) return;
     try {
+      // Map the Vibe choice into the theme background. A gradient goes into
+      // gradient_css with type:'gradient'; solid_color always keeps a real hex
+      // (the gradient's top color) so the hero photo's fade-out stays valid —
+      // a gradient string in solid_color produced an invalid nested gradient
+      // and silently killed the hero fade.
+      const isGradient = state.backgroundType === 'gradient';
+      const backgroundJson = {
+        type: isGradient ? ('gradient' as const) : ('solid' as const),
+        solid_color: isGradient ? state.gradientStart : (state.backgroundColor || '#0e0c09'),
+        gradient_css: isGradient ? `linear-gradient(135deg, ${state.gradientStart}, ${state.gradientEnd})` : '',
+        image_url: '',
+        overlay_color: '#000000',
+        overlay_opacity: 0.5,
+        source: null,
+      };
+
+      // Auto-contrast: dark name/text on light backgrounds, white on dark, so a
+      // light Vibe color never makes the name invisible. Gradients average their
+      // two stops.
+      const lum = (hex: string): number => {
+        const m = (hex || '').replace('#', '');
+        if (m.length < 6) return 0;
+        const r = parseInt(m.slice(0, 2), 16);
+        const g = parseInt(m.slice(2, 4), 16);
+        const b = parseInt(m.slice(4, 6), 16);
+        if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return 0;
+        return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      };
+      const bgLum = isGradient ? (lum(state.gradientStart) + lum(state.gradientEnd)) / 2 : lum(state.backgroundColor);
+      const textColor = bgLum > 0.6 ? '#0e0c09' : '#ffffff';
+
       // Check if page already exists
       const { data: existingPage } = await supabase
         .from('pages')
@@ -278,17 +309,9 @@ export default function OnboardingFlow() {
         // Update existing page theme
         await supabase.from('pages').update({
           theme_json: {
-            background: {
-              type: 'solid' as const,
-              solid_color: state.backgroundColor || '#0e0c09',
-              gradient_css: '',
-              image_url: '',
-              overlay_color: '#000000',
-              overlay_opacity: 0.5,
-              source: null,
-            },
+            background: backgroundJson,
             buttonStyle: state.buttonStyle,
-            typography: { font: state.fontChoice as ThemeTypography['font'], text_color: '#ffffff' },
+            typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
             pageStyle: state.pageStyle,
             linkLayout: state.linkLayout,
             linkCount: state.linkCount,
@@ -308,17 +331,9 @@ export default function OnboardingFlow() {
         display_name: state.displayName,
         avatar_url: state.avatarPreview || null,
         theme_json: {
-          background: {
-            type: 'solid' as const,
-            solid_color: state.backgroundColor || '#0e0c09',
-            gradient_css: '',
-            image_url: '',
-            overlay_color: '#000000',
-            overlay_opacity: 0.5,
-            source: null,
-          },
+          background: backgroundJson,
           buttonStyle: state.buttonStyle,
-          typography: { font: state.fontChoice as ThemeTypography['font'], text_color: '#ffffff' },
+          typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
           pageStyle: state.pageStyle,
           linkLayout: state.linkLayout,
           linkCount: state.linkCount,
@@ -482,7 +497,7 @@ export default function OnboardingFlow() {
               <StepAddYourLinks state={state} updateField={updateField} onNext={handleStep4Next} onPrev={goPrev} t={t} />
             )}
             {state.currentStep === 6 && (
-              <StepYoureLive state={state} onFinish={handleFinish} t={t} />
+              <StepYoureLive state={state} onFinish={handleFinish} onPrev={goPrev} t={t} />
             )}
           </motion.div>
         </AnimatePresence>

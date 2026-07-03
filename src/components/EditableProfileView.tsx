@@ -523,7 +523,7 @@ function EmptyState({ textColor }: { textColor: string }) {
 
 // Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
 const HEADER_NAME_TOP = 10;  // space above the name (the red-line anchor), px
-const HEADER_GAP_A = 0;      // fixed gap name -> handle, px
+const HEADER_GAP_A = -2;     // fixed gap name -> handle, px (negative = tighter)
 const HEADER_GAP_B = 10;      // fixed gap handle -> icons, px
 const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam; dial on a REAL phone (bigger = higher; content below rides up with them).
 const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
@@ -618,7 +618,7 @@ function NameHandleCard({
               caretColor: '#C9A55C',
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,0.9)' : localHandleColor, textShadow: 'none', margin: 0, marginTop: HEADER_GAP_A }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', margin: 0, marginTop: HEADER_GAP_A }}>
             @{page.handle}
           </p>
         </div>
@@ -1279,7 +1279,13 @@ export function EditableProfileView({
     const padding = 24;
     const availW = cw - padding * 2;
     const availH = ch - padding * 2;
-    const ratio = 1 / 1; // square — matches the visible hero display area
+    // WYSIWYG: derive the frame from the SAME formula as the hero
+    // window's CSS (width capped 640; height = 50dvh + HERO_EXTRA,
+    // capped 500 + HERO_EXTRA). With matching aspects, cover-fill of
+    // the saved crop displays exactly what was framed on this device.
+    const heroW = Math.min(window.innerWidth, 640);
+    const heroH = Math.min(window.innerHeight * 0.5 + 60, 560);
+    const ratio = heroW / heroH;
     let fw = availW;
     let fh = fw / ratio;
     if (fh > availH) { fh = availH; fw = fh * ratio; }
@@ -1931,6 +1937,24 @@ export function EditableProfileView({
     (b) => b.type === 'social_links' || b.type === 'social_icon_row'
   );
 
+  // Hero fade must END on a real color. New gradient pages keep the gradient in
+  // gradient_css, but legacy/early-onboarding pages stashed a gradient STRING in
+  // solid_color (type:'solid'); a gradient nested inside the fade is invalid CSS
+  // and silently kills the fade (hard line under the hero photo). So derive the
+  // page's effective bg, then pull its first hex when it's a gradient — the
+  // gradient's top color, which is what the hero seam sits against.
+  const heroBgValue = theme.background?.type === 'gradient' && theme.background?.gradient_css
+    ? theme.background.gradient_css
+    : (theme.background?.solid_color || '#0e0c09');
+  const heroFadeColor = heroBgValue.includes('gradient')
+    ? (heroBgValue.match(/#[0-9a-fA-F]{3,8}/)?.[0] || '#0e0c09')
+    : heroBgValue;
+  // Dark backgrounds (the fade's original design target) keep the long, gentle
+  // ramp — photo-into-dark is invisible. Colored/light backgrounds reach the bg
+  // color much higher up so the photo's brightness-mismatched lower edge is
+  // covered before it reads as a band at the seam.
+  const heroFadeStop = relativeLuminance(heroFadeColor) > 0.15 ? 45 : 80;
+
   const allSortableItems = displayBlocks.map(b => b.id);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -2005,11 +2029,15 @@ export function EditableProfileView({
             )}
           </div>
         )}
-        {editMode && photoStep === 'idle' && (heroImage || heroVideo) && (
+        {/* Controls render even with no hero media: the camera is the only
+            way to add a first photo; the pencil is inert until one exists. */}
+        {editMode && photoStep === 'idle' && (
           <div className="absolute top-3 right-3 z-[15] flex flex-col gap-2">
             {!heroVideo && (
               <button
                 onClick={() => {
+                  // No image yet — pencil is inert; the camera adds the first photo.
+                  if (!heroImage) return;
                   // Prefer the saved original (full-size) so the cropper has the
                   // unrestricted source. Falls back to the cropped hero for
                   // legacy photos uploaded before avatar_original_url existed.
@@ -2068,7 +2096,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '64px',
-            background: `linear-gradient(to bottom, transparent 0%, ${theme.background?.solid_color || '#0e0c09'} 80%)`,
+            background: `linear-gradient(to bottom, transparent 0%, ${heroFadeColor} ${heroFadeStop}%, ${heroFadeColor} 80%)`,
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -2090,7 +2118,7 @@ export function EditableProfileView({
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             const headerNameColor = headerConfig.nameColor && headerConfig.nameColor !== '#ffffff' ? headerConfig.nameColor : chrome.text;
-            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,0.9)';
+            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,1)';
             const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
               <div key={id} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
@@ -2154,7 +2182,7 @@ export function EditableProfileView({
           {editMode && (
             <>
 
-              {photoPreview && photoStep !== 'idle' && (
+              {photoPreview && photoStep !== 'idle' && createPortal(
                 <div
                   className="fixed inset-0 z-[130] flex flex-col bg-black/95"
                   style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
@@ -2384,6 +2412,7 @@ export function EditableProfileView({
                             <img
                               ref={cropImgRef}
                               src={photoPreview}
+                              crossOrigin="anonymous"
                               alt="Crop"
                               draggable={false}
                               className="max-w-none select-none pointer-events-none"
@@ -2407,7 +2436,7 @@ export function EditableProfileView({
                           );
                         })()}
 
-                        {/* Fixed 3:4 crop frame — centered, non-interactive */}
+                        {/* Crop frame — aspect matches the live hero display window (WYSIWYG); centered, non-interactive */}
                         {(() => {
                           const { fw, fh } = getCropFrameSize();
                           return (
@@ -2496,15 +2525,22 @@ export function EditableProfileView({
                         </button>
                         <button
                           onClick={async () => {
-                            const dataUrl = getCroppedCanvas();
-                            setPhotoPreview(dataUrl);
-                            setCropZoom(1);
-                            setCropPosition({ x: 0, y: 0 });
-                            const res = await fetch(dataUrl);
-                            const blob = await res.blob();
-                            const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
-                            setPhotoFile(file);
-                            await handlePhotoSave(file);
+                            try {
+                              const dataUrl = getCroppedCanvas();
+                              setPhotoPreview(dataUrl);
+                              setCropZoom(1);
+                              setCropPosition({ x: 0, y: 0 });
+                              const res = await fetch(dataUrl);
+                              const blob = await res.blob();
+                              const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
+                              setPhotoFile(file);
+                              await handlePhotoSave(file);
+                            } catch (err) {
+                              // Never let Apply fail silently (e.g. a tainted
+                              // canvas throwing from toDataURL).
+                              console.error('Apply crop failed:', err);
+                              toast.error('Crop failed — please try again');
+                            }
                           }}
                           className="flex-1 py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs"
                         >
@@ -2553,7 +2589,7 @@ export function EditableProfileView({
                   )}
 
                 </div>
-              )}
+              , document.body)}
             </>
           )}
           {page.bio && (
@@ -2676,7 +2712,7 @@ export function EditableProfileView({
         ) : (
           /* Full block content for view mode */
           <div
-            className="px-4 pb-20 flex flex-col gap-[6px]"
+            className="px-4 pb-20 flex flex-col gap-3"
             style={{ marginTop: `${-CARDS_LIFT}px` }}
           >
             {displayBlocks.length === 0 ? (

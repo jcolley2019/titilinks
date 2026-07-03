@@ -31,6 +31,7 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)airbnb\.(com|ca|co\.uk)$/, 'Airbnb'],
   [/(^|\.)onlyfans\.com$/, 'OnlyFans'],
   [/(^|\.)fansly\.com$/, 'Fansly'],
+  [/(^|\.)substack\.com$/, 'Substack'],
 ];
 
 export function platformFromUrl(url: string | null | undefined): string | null {

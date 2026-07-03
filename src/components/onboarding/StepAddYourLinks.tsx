@@ -1,4 +1,5 @@
 import { ArrowLeft, Check } from 'lucide-react';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -34,21 +35,9 @@ const PLATFORM_CATEGORIES = [
   },
   {
     label: 'Entertainment',
-    platforms: ['Twitch', 'Kick', 'Apple Podcasts'],
+    platforms: ['Twitch', 'Kick', 'Apple Podcasts', 'Substack'],
   },
 ];
-
-const PLATFORM_ICONS: Record<string, string> = {
-  Instagram: '📸', TikTok: '🎵', Twitter: '🐦', Facebook: '👤',
-  Pinterest: '📌', Snapchat: '👻', YouTube: '▶️', 'Truth Social': '🇺🇸',
-  Threads: '🧵', X: '𝕏', Discord: '💬', OnlyFans: '🔞',
-  Fansly: '⭐', Privacy: '🔒', LinkedIn: '💼', Skype: '📱',
-  Telegram: '✈️', WhatsApp: '💬', Calendly: '📅', GitHub: '🐙',
-  'Apple Music': '🍎', Spotify: '🎧', 'YouTube Music': '🎵',
-  'Amazon Music': '📦', SoundCloud: '☁️', Pandora: '🎵',
-  PayPal: '🅿️', Venmo: '💸', 'Cash App': '💵', Zelle: '⚡',
-  Twitch: '🎮', Kick: '🎯', 'Apple Podcasts': '🎙️',
-};
 
 export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Props) {
   const toggle = (platform: string) => {
@@ -90,7 +79,7 @@ export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Prop
                         : 'border-white/10 text-white/60 hover:border-white/20'
                     }`}
                   >
-                    <span>{PLATFORM_ICONS[platform] || '🔗'}</span>
+                    <PlatformIcon label={platform} size={16} />
                     <span>{platform}</span>
                     {isSelected && <Check className="w-3.5 h-3.5" />}
                   </button>

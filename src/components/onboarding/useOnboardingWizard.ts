@@ -7,6 +7,9 @@ export interface OnboardingState {
   avatarFile: File | null;
   avatarPreview: string | null;
   backgroundColor: string;
+  backgroundType: 'solid' | 'gradient';
+  gradientStart: string;
+  gradientEnd: string;
   buttonStyle: string;
   fontChoice: string;
   selectedSocialPlatforms: string[];
@@ -36,6 +39,9 @@ const initialState: OnboardingState = {
   avatarFile: null,
   avatarPreview: null,
   backgroundColor: '#0e0c09',
+  backgroundType: 'solid',
+  gradientStart: '#667eea',
+  gradientEnd: '#764ba2',
   buttonStyle: 'solid_rounded',
   fontChoice: 'modern',
   selectedSocialPlatforms: [],
@@ -56,7 +62,9 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value };
     case 'GO_NEXT':
-      return { ...state, currentStep: state.currentStep + 1, currentSubStep: 0, direction: 1 };
+      // Clamp at the last step (6) so a double-fire can never strand the
+      // wizard on a step that has no render branch.
+      return { ...state, currentStep: Math.min(6, state.currentStep + 1), currentSubStep: 0, direction: 1 };
     case 'GO_PREV':
       return { ...state, currentStep: Math.max(1, state.currentStep - 1), currentSubStep: 0, direction: -1 };
     case 'GO_TO_STEP':
@@ -77,7 +85,13 @@ function loadPersisted(storageKey: string | undefined): OnboardingState {
     const saved = window.sessionStorage.getItem(storageKey);
     if (!saved) return initialState;
     const parsed = JSON.parse(saved) as Partial<OnboardingState>;
-    return { ...initialState, ...parsed, avatarFile: null };
+    // Sanitize the restored step into the valid 1-6 range: rescues any
+    // session persisted while stranded out of range.
+    const restoredStep =
+      typeof parsed.currentStep === 'number' && Number.isFinite(parsed.currentStep)
+        ? Math.min(6, Math.max(1, Math.round(parsed.currentStep)))
+        : 1;
+    return { ...initialState, ...parsed, currentStep: restoredStep, avatarFile: null };
   } catch {
     return initialState;
   }
