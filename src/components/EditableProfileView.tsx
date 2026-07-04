@@ -894,6 +894,7 @@ function HeroVideo({
   playbackMode = 'once',
   audioMode = 'silent',
   voiceoverUrl = '',
+  overlayOnTop = false,
 }: {
   src: string;
   poster?: string;
@@ -903,6 +904,7 @@ function HeroVideo({
   playbackMode?: 'once' | 'loop' | 'bounce';
   audioMode?: 'silent' | 'clip' | 'voiceover';
   voiceoverUrl?: string;
+  overlayOnTop?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -1027,22 +1029,30 @@ function HeroVideo({
       {hasVoiceover && (
         <audio ref={audioRef} src={voiceoverUrl} preload="auto" />
       )}
-      {showReplay && (
-        <button
-          onClick={replay}
-          aria-label="Replay video"
-          className="absolute inset-0 z-[6] flex items-center justify-center"
-        >
-          <span className="flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25">
-            <Play className="h-6 w-6 text-white/45" fill="currentColor" />
-          </span>
-        </button>
-      )}
-      {hasSound && !showReplay && (
+      {showReplay && (() => {
+        const replayBtn = (
+          <button
+            onClick={replay}
+            aria-label="Replay video"
+            className={overlayOnTop
+              ? 'fixed inset-0 z-[40] flex items-start justify-center pt-[26vh]'
+              : 'absolute inset-0 z-[6] flex items-center justify-center'}
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25">
+              <Play className="h-6 w-6 text-white/45" fill="currentColor" />
+            </span>
+          </button>
+        );
+        return overlayOnTop ? createPortal(replayBtn, document.body) : replayBtn;
+      })()}
+      {hasSound && !showReplay && (() => {
+        const soundBtn = (
         <button
           onClick={toggleSound}
           aria-label={muted ? 'Unmute' : 'Mute'}
-          className="absolute bottom-3 right-3 z-10 bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90"
+          className={overlayOnTop
+            ? 'fixed bottom-3 right-3 z-[40] bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90'
+            : 'absolute bottom-3 right-3 z-10 bg-black/45 backdrop-blur-sm rounded-full p-2 transition-opacity hover:opacity-90'}
         >
           {muted ? (
             <VolumeX className="h-5 w-5 text-white" />
@@ -1050,7 +1060,9 @@ function HeroVideo({
             <Volume2 className="h-5 w-5 text-white" />
           )}
         </button>
-      )}
+        );
+        return overlayOnTop ? createPortal(soundBtn, document.body) : soundBtn;
+      })()}
     </>
   );
 }
@@ -2013,6 +2025,7 @@ export function EditableProfileView({
               playbackMode={heroPlayback}
               audioMode={heroAudio}
               voiceoverUrl={heroVoiceover}
+              overlayOnTop
             />
           ) : (
             <img src={heroImage} alt="" className="h-full w-full object-cover" />
