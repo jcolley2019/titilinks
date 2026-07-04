@@ -195,6 +195,13 @@ const sections: DashboardSection[] = [
         blockType: null,
         toastKey: 'dashboard.comingSoon',
       },
+      {
+        icon: <Type className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.nameEffects',
+        subtitleKey: 'dashboard.nameEffectsDesc',
+        blockType: null,
+        toastKey: 'dashboard.comingSoon',
+      },
     ],
   },
   {
@@ -293,6 +300,7 @@ export function ProfileDashboard({
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [videoProfileOpen, setVideoProfileOpen] = useState(false);
+  const [nameFxOpen, setNameFxOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
   const [pendingPreset, setPendingPreset] = useState<string | null>(null);
   const [page1LabelDraft, setPage1LabelDraft] = useState('');
@@ -556,6 +564,10 @@ export function ProfileDashboard({
         setVideoProfileOpen(true);
         return;
       }
+      if (row.titleKey === 'dashboard.nameEffects') {
+        setNameFxOpen(true);
+        return;
+      }
       if (row.titleKey === 'dashboard.pages') {
         setPagesOpen(true);
         return;
@@ -745,6 +757,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.pages')}</h2>
+                </>
+              ) : nameFxOpen ? (
+                <>
+                  <button
+                    onClick={() => setNameFxOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.nameEffects')}</h2>
                 </>
               ) : videoProfileOpen ? (
                 <>
@@ -946,6 +968,75 @@ export function ProfileDashboard({
                       ))}
                     </div>
                   </div>
+                </div>
+              ) : nameFxOpen ? (
+                <div className="dark text-foreground px-4 pt-4 space-y-6">
+                  {(() => {
+                    const fx = ((themeJson as any)?.typography?.text_effect) || {};
+                    const fxType = fx.type || 'none';
+                    const saveFx = async (patch: Record<string, unknown>) => {
+                      const existingTheme = (themeJson as any) || {};
+                      const existingTypo = existingTheme.typography || {};
+                      const next = { ...(existingTypo.text_effect || {}), ...patch };
+                      const { error } = await supabase
+                        .from('pages')
+                        .update({ theme_json: { ...existingTheme, typography: { ...existingTypo, text_effect: next } } })
+                        .eq('id', pageId);
+                      if (error) { toast.error('Could not save'); return; }
+                      onRefresh();
+                    };
+                    return (
+                      <>
+                        <div>
+                          <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Style</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(['none', 'shadow', 'outline'] as const).map((k) => (
+                              <button key={k} onClick={() => saveFx({ type: k })}
+                                className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold capitalize transition-all ${fxType === k ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
+                                {k}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {fxType === 'shadow' && (
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Shadow strength</p>
+                            <input type="range" min={10} max={100} step={5}
+                              defaultValue={typeof fx.intensity === 'number' ? fx.intensity : 60}
+                              onPointerUp={(e) => saveFx({ intensity: Number((e.target as HTMLInputElement).value) })}
+                              className="w-full accent-[#C9A55C]" />
+                          </div>
+                        )}
+                        {fxType === 'outline' && (
+                          <>
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline width</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {([['S', 1], ['M', 2], ['L', 3]] as const).map(([label, w]) => (
+                                  <button key={label} onClick={() => saveFx({ width: w })}
+                                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${(fx.width || 2) === w ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline color</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {([['Black', '#000000'], ['White', '#FFFFFF'], ['Gold', '#C9A55C']] as const).map(([label, c]) => (
+                                  <button key={label} onClick={() => saveFx({ color: c })}
+                                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${(fx.color || '#000000') === c ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        <p className="text-xs text-white/40">Applies to your name and handle on the live page.</p>
+                      </>
+                    );
+                  })()}
                 </div>
               ) : videoProfileOpen ? (
                 <div className="dark text-foreground px-4 pt-4 space-y-5">

@@ -1973,6 +1973,26 @@ export function EditableProfileView({
   // background instead of the sticky hero window.
   const isFullBleed = (page.theme_json as any)?.pageStyle === 'full_bleed';
 
+  // NAMEFX.1b: optional name/handle text effect from
+  // theme_json.typography.text_effect ({ type: 'none'|'shadow'|'outline',
+  // intensity?, width?, color? }). Shadow scales with intensity; outline
+  // paints a stroke BEHIND the fill (paint-order), width doubled so the
+  // visible outside edge matches the chosen 1/2/3px.
+  const nameFx: React.CSSProperties = (() => {
+    const fx = (page.theme_json as any)?.typography?.text_effect;
+    if (!fx || !fx.type || fx.type === 'none') return { textShadow: 'none' };
+    if (fx.type === 'shadow') {
+      const i = (typeof fx.intensity === 'number' ? fx.intensity : 60) / 100;
+      return { textShadow: `0 1px 3px rgba(0,0,0,${(0.85 * i).toFixed(2)}), 0 0 14px rgba(0,0,0,${(0.6 * i).toFixed(2)})` };
+    }
+    const w = (typeof fx.width === 'number' ? fx.width : 2) * 2;
+    return {
+      textShadow: 'none',
+      WebkitTextStroke: `${w}px ${fx.color || '#000000'}`,
+      paintOrder: 'stroke fill',
+    } as React.CSSProperties;
+  })();
+
   return (
     <ProfileAvatarContext.Provider value={linkAvatarUrl}>
     <div
@@ -2142,6 +2162,7 @@ export function EditableProfileView({
                     fontSize: `${headerConfig.nameSize}px`,
                     color: headerNameColor,
                     textShadow: 'none',
+                    ...nameFx,
                   }}
                 >
                   {page.display_name || `@${page.handle}`}
@@ -2151,6 +2172,7 @@ export function EditableProfileView({
                     fontSize: `${headerConfig.handleSize}px`,
                     color: headerHandleColor,
                     textShadow: 'none',
+                    ...nameFx,
                     margin: 0,
                     marginTop: HEADER_GAP_A,
                   }}
