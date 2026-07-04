@@ -1031,10 +1031,10 @@ function HeroVideo({
         <button
           onClick={replay}
           aria-label="Replay video"
-          className="absolute inset-0 z-[6] flex items-center justify-center bg-black/15"
+          className="absolute inset-0 z-[6] flex items-center justify-center"
         >
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
-            <Play className="h-7 w-7 text-white/90" fill="currentColor" />
+          <span className="flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25">
+            <Play className="h-6 w-6 text-white/45" fill="currentColor" />
           </span>
         </button>
       )}
@@ -1999,11 +1999,24 @@ export function EditableProfileView({
       className="relative max-w-[640px] mx-auto"
       style={{ fontFamily, color: theme.typography.text_color }}
     >
-      {/* FB.1a: full-bleed background — fixed to the viewport with a
-          legibility gradient; content floats above it. */}
-      {isFullBleed && heroImage && (
+      {/* FB.1a/FB.4a: full-bleed background — fixed to the viewport with
+          a legibility gradient; content floats above it. A profile video
+          (uploaded via the Pro Video Profile menu) takes precedence over
+          the photo. */}
+      {isFullBleed && (heroVideo || heroImage) && (
         <div aria-hidden="true" className="fixed inset-0 z-0">
-          <img src={heroImage} alt="" className="h-full w-full object-cover" />
+          {heroVideo ? (
+            <HeroVideo
+              src={heroVideo}
+              fit="fill"
+              imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              playbackMode={heroPlayback}
+              audioMode={heroAudio}
+              voiceoverUrl={heroVoiceover}
+            />
+          ) : (
+            <img src={heroImage} alt="" className="h-full w-full object-cover" />
+          )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
         </div>
       )}

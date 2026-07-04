@@ -1043,14 +1043,14 @@ export function ProfileDashboard({
                   {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">
                     {heroVideoUrl ? (
-                      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px]">
+                      <div className={`relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px] ${((themeJson as any)?.pageStyle === 'full_bleed') ? 'aspect-[9/19] mx-auto' : ''}`}>
                         <video
                           src={heroVideoUrl}
                           muted
                           loop
                           playsInline
                           autoPlay
-                          style={{ position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
+                          style={((themeJson as any)?.pageStyle === 'full_bleed') ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%', objectFit: 'cover' as const } : { position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
                         />
                       </div>
                     ) : (
