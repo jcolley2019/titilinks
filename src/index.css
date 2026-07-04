@@ -532,8 +532,9 @@
 
   /* Velvet: BUTTON */
   .lb-velvet.lb-size-button {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 8px 18px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    padding: 8px 44px;
     min-height: 44px;
   }
   .lb-velvet.lb-size-button .lb-text { text-align: center; }
@@ -542,6 +543,7 @@
     font-weight: 600; font-size: 14px; letter-spacing: 0.01em;
   }
   .lb-velvet.lb-size-button .lb-social {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
     width: 20px; height: 20px; background: transparent;
   }
   .lb-velvet.lb-size-button .lb-social svg { width: 18px; height: 18px; }

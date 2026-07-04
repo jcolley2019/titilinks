@@ -225,33 +225,26 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         </p>
       </div>
 
-      {/* Hero Photo Upload */}
-      <div className="w-full">
+      {/* Photo affordance — minimal; the ONB.10 live backdrop is the
+          preview, so no boxed image here. */}
+      <div className="w-full flex justify-center">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden border-2 border-white/10 bg-[#0e0c09] group"
+          className="flex flex-col items-center gap-2 py-4 px-8"
         >
-          {avatarSrc ? (
-            <>
-              <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
-              <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-xs font-semibold text-[#C9A55C] font-body opacity-0 group-hover:opacity-100 transition-opacity">
-                Change Photo
-              </div>
-            </>
+          {compressing ? (
+            <Loader2 className="w-8 h-8 animate-spin text-[#C9A55C]" />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-2">
-              <Camera className="w-8 h-8 text-[#C9A55C]" />
-              <span className="text-sm text-[#C9A55C] font-body">
-                {t('onboardingFlow.uploadPhoto')}
-              </span>
-              <span className="text-xs text-white/40 font-body">Hero Photo</span>
-            </div>
+            <Camera className="w-8 h-8 text-[#C9A55C]" />
           )}
-          {compressing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <Loader2 className="w-6 h-6 animate-spin text-[#C9A55C]" />
-            </div>
+          <span className="text-sm text-[#C9A55C] font-body">
+            {avatarSrc ? (t('onboardingFlow.changePhoto') || 'Change photo') : t('onboardingFlow.uploadPhoto')}
+          </span>
+          {!avatarSrc && (
+            <span className="text-xs text-white/40 font-body">
+              {state.pageStyle === 'full_bleed' ? 'Background Photo' : 'Hero Photo'}
+            </span>
           )}
         </button>
         <input
@@ -344,7 +337,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
       {/* Use Image Modal */}
       {modalStep === 'preview' && rawImageSrc && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 px-4 pb-4 sm:pb-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
           <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <span className="font-display text-lg font-semibold text-white">Use Image</span>
@@ -375,7 +368,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
       {/* Crop Modal */}
       {modalStep === 'crop' && rawImageSrc && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 px-4 pb-4 sm:pb-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
           <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <span className="font-display text-lg font-semibold text-white">Crop Image</span>

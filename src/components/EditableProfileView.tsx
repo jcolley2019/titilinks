@@ -1969,15 +1969,27 @@ export function EditableProfileView({
     onBlockReorder(newOrder);
   };
 
+  // FB.1a: full_bleed pages render the photo as a fixed full-viewport
+  // background instead of the sticky hero window.
+  const isFullBleed = (page.theme_json as any)?.pageStyle === 'full_bleed';
+
   return (
     <ProfileAvatarContext.Provider value={linkAvatarUrl}>
     <div
       className="relative max-w-[640px] mx-auto"
       style={{ fontFamily, color: theme.typography.text_color }}
     >
+      {/* FB.1a: full-bleed background — fixed to the viewport with a
+          legibility gradient; content floats above it. */}
+      {isFullBleed && heroImage && (
+        <div aria-hidden="true" className="fixed inset-0 z-0">
+          <img src={heroImage} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
+        </div>
+      )}
       {/* Fixed hero image — stays pinned while content scrolls over it */}
       <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(50dvh + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
-        {heroVideo ? (
+        {isFullBleed ? null : heroVideo ? (
           <HeroVideo
             src={heroVideo}
             fit={heroFitEffective}
@@ -2080,9 +2092,11 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          background: theme.background?.type === 'gradient' && theme.background?.gradient_css
-            ? theme.background.gradient_css
-            : (theme.background?.solid_color || '#0e0c09'),
+          background: isFullBleed
+            ? 'transparent'
+            : theme.background?.type === 'gradient' && theme.background?.gradient_css
+              ? theme.background.gradient_css
+              : (theme.background?.solid_color || '#0e0c09'),
           minHeight: '60vh',
           marginTop: '-2rem',
           paddingTop: '0',
@@ -2096,7 +2110,7 @@ export function EditableProfileView({
             left: 0,
             right: 0,
             height: '64px',
-            background: `linear-gradient(to bottom, transparent 0%, ${heroFadeColor} ${heroFadeStop}%, ${heroFadeColor} 80%)`,
+            background: isFullBleed ? 'none' : `linear-gradient(to bottom, transparent 0%, ${heroFadeColor} ${heroFadeStop}%, ${heroFadeColor} 80%)`,
             pointerEvents: 'none',
             zIndex: 1,
           }}

@@ -8,6 +8,7 @@ import { OnboardingStepIndicator } from '@/components/onboarding/OnboardingStepI
 import { StepChooseStyle } from '@/components/onboarding/StepChooseStyle';
 import { StepYourProfile } from '@/components/onboarding/StepYourProfile';
 import { StepPickYourVibe } from '@/components/onboarding/StepPickYourVibe';
+import { StepButtonSize } from '@/components/onboarding/StepButtonSize';
 import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +35,7 @@ export default function OnboardingFlow() {
   const stepLabels = [
     t('onboardingFlow.stepStyle'),
     t('onboardingFlow.stepProfile'),
-    t('onboardingFlow.stepVibe'),
+    state.pageStyle === 'full_bleed' ? t('onboardingFlow.stepButtons') : t('onboardingFlow.stepVibe'),
     t('onboardingFlow.stepLinks'),
     t('onboardingFlow.stepLive'),
   ];
@@ -157,6 +158,7 @@ export default function OnboardingFlow() {
         subtitle?: string;
         badge?: string;
         order_index: number;
+        size?: string;
       }> = [];
 
       // === SHOP MODE (Page 1) ===
@@ -184,13 +186,14 @@ export default function OnboardingFlow() {
         );
       }
 
-      // links
+      // links — full-bleed pages carry the onboarding size choice
       const shopLinks = getBlock(shopBlocks, 'links');
       if (shopLinks) {
+        const linkSize = state.pageStyle === 'full_bleed' ? state.buttonSize : undefined;
         itemsToInsert.push(
-          { block_id: shopLinks.id, label: 'My Website', url: 'https://example.com', subtitle: 'Check out my website', order_index: 0 },
-          { block_id: shopLinks.id, label: 'Latest Blog Post', url: 'https://example.com/blog', subtitle: 'Read my latest content', order_index: 1 },
-          { block_id: shopLinks.id, label: 'Work With Me', url: 'https://example.com/contact', subtitle: 'Collaborations & partnerships', badge: 'OPEN', order_index: 2 },
+          { block_id: shopLinks.id, label: 'My Website', url: 'https://example.com', subtitle: 'Check out my website', order_index: 0, size: linkSize },
+          { block_id: shopLinks.id, label: 'Latest Blog Post', url: 'https://example.com/blog', subtitle: 'Read my latest content', order_index: 1, size: linkSize },
+          { block_id: shopLinks.id, label: 'Work With Me', url: 'https://example.com/contact', subtitle: 'Collaborations & partnerships', badge: 'OPEN', order_index: 2, size: linkSize },
         );
       }
 
@@ -297,6 +300,19 @@ export default function OnboardingFlow() {
       const bgLum = isGradient ? (lum(state.gradientStart) + lum(state.gradientEnd)) / 2 : lum(state.backgroundColor);
       const textColor = bgLum > 0.6 ? '#0e0c09' : '#ffffff';
 
+      // Full-bleed archetype default: outline buttons with a soft
+      // translucent white fill (theme.buttons keys LinkButton honors).
+      // Users refine in the editor. Hero pages write none.
+      const fbButtons = state.pageStyle === 'full_bleed' ? {
+        variant: 'glass',
+        shape: state.buttonShape,
+        background_opacity: 0.35,
+        fill_color: '#FFFFFF',
+        text_color: '#FFFFFF',
+        border_enabled: true,
+        border_color: '#FFFFFF',
+      } : null;
+
       // Check if page already exists
       const { data: existingPage } = await supabase
         .from('pages')
@@ -309,6 +325,7 @@ export default function OnboardingFlow() {
         await supabase.from('pages').update({
           theme_json: {
             background: backgroundJson,
+            ...(fbButtons ? { buttons: fbButtons } : {}),
             buttonStyle: state.buttonStyle,
             typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
             pageStyle: state.pageStyle,
@@ -331,6 +348,7 @@ export default function OnboardingFlow() {
         avatar_url: state.avatarPreview || null,
         theme_json: {
           background: backgroundJson,
+          ...(fbButtons ? { buttons: fbButtons } : {}),
           buttonStyle: state.buttonStyle,
           typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
           pageStyle: state.pageStyle,
@@ -455,9 +473,24 @@ export default function OnboardingFlow() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0e0c09] text-white">
+    <div className="relative isolate min-h-screen bg-[#0e0c09] text-white">
+      {/* ONB.10: live page preview — once a photo is picked, the wizard
+          backdrop becomes the page being built, per chosen style. */}
+      {state.avatarPreview && state.currentStep >= 2 && (
+        state.pageStyle === 'full_bleed' ? (
+          <div aria-hidden="true" className="fixed inset-0 -z-10">
+            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)' }} />
+          </div>
+        ) : (
+          <div aria-hidden="true" className="fixed top-0 inset-x-0 -z-10" style={{ height: 'min(calc(50dvh + 60px), 560px)' }}>
+            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(14,12,9,0.15) 0%, rgba(14,12,9,0.35) 55%, #0e0c09 100%)' }} />
+          </div>
+        )
+      )}
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+      <div className="relative z-[60] flex items-center justify-between px-6 py-4 border-b border-white/5">
         <span className="text-xl font-bold">
           <span className="text-white font-display">Titi</span>
           <span className="italic text-[#C9A55C] font-display">Links</span>
@@ -487,7 +520,11 @@ export default function OnboardingFlow() {
               <StepYourProfile state={state} updateField={updateField} onNext={handleStep2Next} onPrev={goPrev} user={user} t={t} />
             )}
             {state.currentStep === 3 && (
-              <StepPickYourVibe state={state} updateField={updateField} dispatch={dispatch} onNext={handleStep3Next} onPrev={goPrev} t={t} />
+              state.pageStyle === 'full_bleed' ? (
+                <StepButtonSize state={state} updateField={updateField} onNext={handleStep3Next} onPrev={goPrev} t={t} />
+              ) : (
+                <StepPickYourVibe state={state} updateField={updateField} dispatch={dispatch} onNext={handleStep3Next} onPrev={goPrev} t={t} />
+              )
             )}
             {state.currentStep === 4 && (
               <StepAddYourLinks state={state} updateField={updateField} onNext={handleStep4Next} onPrev={goPrev} t={t} />

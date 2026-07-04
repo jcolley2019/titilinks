@@ -18,6 +18,8 @@ export interface OnboardingState {
   linkCount: number;
   selectedPreset: string | null;
   links: Array<{ platform: string; url: string }>;
+  buttonSize: 'medium' | 'button';
+  buttonShape: string;
   currentStep: number;
   currentSubStep: number;
   direction: number;
@@ -50,6 +52,8 @@ const initialState: OnboardingState = {
   linkCount: 3,
   selectedPreset: null,
   links: [],
+  buttonSize: 'medium',
+  buttonShape: 'pill',
   currentStep: 1,
   currentSubStep: 0,
   direction: 1,
