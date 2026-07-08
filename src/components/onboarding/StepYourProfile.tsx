@@ -214,6 +214,23 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
   const isValid = state.displayName.trim().length > 0 && state.username.trim().length >= 3 && usernameStatus !== 'taken' && usernameStatus !== 'checking';
 
+  // ONB.6: photo nudge — first Continue without a photo prompts to add
+  // one; a second attempt acknowledges the choice and proceeds.
+  const [photoModal, setPhotoModal] = useState<'none' | 'nudge' | 'skip'>('none');
+  const [photoNudged, setPhotoNudged] = useState(false);
+  const handleContinue = () => {
+    if (!avatarSrc) {
+      if (!photoNudged) {
+        setPhotoNudged(true);
+        setPhotoModal('nudge');
+        return;
+      }
+      setPhotoModal('skip');
+      return;
+    }
+    onNext();
+  };
+
   return (
     <div className="space-y-8 max-w-md mx-auto">
       <div className="text-center">
@@ -327,13 +344,67 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           {t('onboardingFlow.back')}
         </button>
         <button
-          onClick={onNext}
+          onClick={handleContinue}
           disabled={!isValid}
           className="px-8 py-3 rounded-lg bg-[#C9A55C] text-[#0e0c09] font-semibold font-body transition-opacity disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90"
         >
           {t('onboardingFlow.continue')}
         </button>
       </div>
+
+      {/* ONB.6 photo nudge — first Continue without a photo */}
+      {photoModal === 'nudge' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
+          <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <span className="font-display text-lg font-semibold text-white">{t('onboardingFlow.photoNudgeTitle')}</span>
+              <button onClick={() => setPhotoModal('none')} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-white/60 text-sm font-body mb-4">
+                {state.pageStyle === 'full_bleed' ? t('onboardingFlow.photoNudgeBodyFullBleed') : t('onboardingFlow.photoNudgeBodyHero')}
+              </p>
+              <button
+                onClick={() => { setPhotoModal('none'); fileInputRef.current?.click(); }}
+                className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body mb-2 hover:opacity-90 transition-opacity"
+              >
+                {t('onboardingFlow.photoNudgeAdd')}
+              </button>
+              <button
+                onClick={() => setPhotoModal('none')}
+                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body hover:bg-white/10 transition-colors"
+              >
+                {t('onboardingFlow.photoNudgeNotNow')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ONB.6 photo skip acknowledgment — second Continue without a photo */}
+      {photoModal === 'skip' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
+          <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <span className="font-display text-lg font-semibold text-white">{t('onboardingFlow.photoSkipTitle')}</span>
+              <button onClick={() => setPhotoModal('none')} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-white/60 text-sm font-body mb-4">{t('onboardingFlow.photoSkipBody')}</p>
+              <button
+                onClick={() => { setPhotoModal('none'); onNext(); }}
+                className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
+              >
+                {t('onboardingFlow.photoSkipContinue')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Use Image Modal */}
       {modalStep === 'preview' && rawImageSrc && (
