@@ -885,7 +885,7 @@ function SortablePreviewCard({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-function HeroVideo({
+export function HeroVideo({
   src,
   poster,
   fit,
@@ -895,6 +895,7 @@ function HeroVideo({
   audioMode = 'silent',
   voiceoverUrl = '',
   overlayOnTop = false,
+  overlayPortalEl = null,
 }: {
   src: string;
   poster?: string;
@@ -905,6 +906,7 @@ function HeroVideo({
   audioMode?: 'silent' | 'clip' | 'voiceover';
   voiceoverUrl?: string;
   overlayOnTop?: boolean;
+  overlayPortalEl?: HTMLElement | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -1035,15 +1037,17 @@ function HeroVideo({
             onClick={replay}
             aria-label="Replay video"
             className={overlayOnTop
-              ? 'fixed inset-0 z-[40] flex items-start justify-center pt-[26vh]'
+              ? 'fixed inset-0 z-[40]'
               : 'absolute inset-0 z-[6] flex items-center justify-center'}
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25">
+            <span className={overlayOnTop
+              ? 'absolute left-1/2 top-[25dvh] -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25'
+              : 'flex h-14 w-14 items-center justify-center rounded-full ring-1 ring-white/25'}>
               <Play className="h-6 w-6 text-white/45" fill="currentColor" />
             </span>
           </button>
         );
-        return overlayOnTop ? createPortal(replayBtn, document.body) : replayBtn;
+        return overlayOnTop ? createPortal(replayBtn, overlayPortalEl ?? document.body) : replayBtn;
       })()}
       {hasSound && !showReplay && (() => {
         const soundBtn = (
@@ -1061,7 +1065,7 @@ function HeroVideo({
           )}
         </button>
         );
-        return overlayOnTop ? createPortal(soundBtn, document.body) : soundBtn;
+        return overlayOnTop ? createPortal(soundBtn, overlayPortalEl ?? document.body) : soundBtn;
       })()}
     </>
   );
@@ -1862,6 +1866,10 @@ export function EditableProfileView({
   const heroPlayback: 'once' | 'loop' | 'bounce' =
     heroConfig.playback === 'loop' || heroConfig.playback === 'bounce' ? heroConfig.playback : 'once';
   const heroVoiceover: string = heroConfig.voiceover || '';
+  // FB.4f: portal host for full-bleed overlay controls — lives inside
+  // the component tree so a transformed ancestor (the desktop phone
+  // frame) contains the fixed overlays.
+  const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
   // Hero VIDEO position/zoom — its OWN config, decoupled from the image's fit/posY.
   // Absent on legacy videos → centered, no zoom.
   const heroVideoPos = heroConfig.videoPos || {};
@@ -2026,6 +2034,7 @@ export function EditableProfileView({
               audioMode={heroAudio}
               voiceoverUrl={heroVoiceover}
               overlayOnTop
+              overlayPortalEl={overlayHost}
             />
           ) : (
             <img src={heroImage} alt="" className="h-full w-full object-cover" />
@@ -2033,6 +2042,8 @@ export function EditableProfileView({
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
         </div>
       )}
+      {/* FB.4f: overlay portal host for full-bleed controls */}
+      {isFullBleed && <div ref={setOverlayHost} />}
       {/* Fixed hero image — stays pinned while content scrolls over it */}
       <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(50dvh + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
         {isFullBleed ? null : heroVideo ? (
