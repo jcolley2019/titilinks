@@ -112,7 +112,7 @@ export default function OnboardingFlow() {
       // Check username uniqueness against both profiles and pages
       const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
         supabase.from('profiles').select('id').eq('username', state.username).neq('id', user.id).maybeSingle(),
-        supabase.from('pages').select('id').eq('handle', state.username).maybeSingle(),
+        supabase.from('pages').select('id').eq('handle', state.username).neq('user_id', user.id).maybeSingle(),
       ]);
 
       if (profileMatch || pageMatch) {
@@ -188,15 +188,10 @@ export default function OnboardingFlow() {
         });
       }
 
-      // social_links
-      const shopSocial = getBlock(shopBlocks, 'social_links');
-      if (shopSocial) {
-        itemsToInsert.push(
-          { block_id: shopSocial.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', subtitle: 'Follow me on TikTok', order_index: 0 },
-          { block_id: shopSocial.id, label: 'Instagram', url: 'https://instagram.com/yourhandle', subtitle: 'Follow me on Instagram', order_index: 1 },
-          { block_id: shopSocial.id, label: 'YouTube', url: 'https://youtube.com/@yourhandle', subtitle: 'Subscribe to my channel', order_index: 2 },
-        );
-      }
+      // ONB.7g: social platforms are never seeded — the icon row shows
+      // only what the user picks in the Links step (empty = just the
+      // + circle). Placeholder handles pointing at dead URLs must not
+      // ship on real pages.
 
       // links — full-bleed pages carry the onboarding size choice
       const shopLinks = getBlock(shopBlocks, 'links');
@@ -262,13 +257,9 @@ export default function OnboardingFlow() {
           });
         }
 
-        if (newBlock && type === 'social_icon_row') {
-          await supabase.from('block_items').insert([
-            { block_id: newBlock.id, label: 'TikTok', url: 'https://tiktok.com/@yourhandle', order_index: 0 },
-            { block_id: newBlock.id, label: 'Instagram', url: 'https://instagram.com/yourhandle', order_index: 1 },
-            { block_id: newBlock.id, label: 'YouTube', url: 'https://youtube.com/@yourhandle', order_index: 2 },
-          ]);
-        }
+        // ONB.7g-b: the social_icon_row block is created EMPTY — icons
+        // come only from the user's step-4 picks, never from seeded
+        // placeholders.
       }
 
     } catch (error) {
@@ -493,7 +484,7 @@ export default function OnboardingFlow() {
   };
 
   return (
-    <div className="relative isolate min-h-screen bg-[#0e0c09] text-white">
+    <div className="relative isolate min-h-screen bg-[#0e0c09] text-white flex flex-col">
       {/* ONB.10: live page preview — once a photo is picked, the wizard
           backdrop becomes the page being built, per chosen style. */}
       {state.avatarPreview && state.currentStep >= 2 && (
@@ -522,9 +513,10 @@ export default function OnboardingFlow() {
       </div>
 
       {/* Step content */}
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="w-full max-w-3xl mx-auto px-6 pt-12 flex-1 flex flex-col">
         <AnimatePresence mode="wait" custom={state.direction}>
           <motion.div
+            className="flex-1 flex flex-col"
             key={state.currentStep}
             custom={state.direction}
             variants={slideVariants}

@@ -61,7 +61,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
   const [rawFile, setRawFile] = useState<File | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState<number>(1);
+  const [aspectRatio, setAspectRatio] = useState<number>(state.pageStyle === 'full_bleed' ? 9 / 16 : 1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       try {
         const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
           supabase.from('profiles').select('id').eq('username', state.username).neq('id', user?.id ?? '').maybeSingle(),
-          supabase.from('pages').select('id').eq('handle', state.username).maybeSingle(),
+          supabase.from('pages').select('id').eq('handle', state.username).neq('user_id', user?.id ?? '').maybeSingle(),
         ]);
         setUsernameStatus(profileMatch || pageMatch ? 'taken' : 'available');
       } catch {
@@ -200,12 +200,19 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     }
   };
 
-  const aspectRatioOptions = [
-    { label: 'Square', value: 1 },
-    { label: 'Free', value: 0 },
-    { label: '4:3', value: 4 / 3 },
-    { label: '3:2', value: 3 / 2 },
-  ];
+  // ONB.7e: a full-screen background is a portrait phone canvas —
+  // crop 9:16 (Free as escape hatch). Hero keeps the original set.
+  const aspectRatioOptions = state.pageStyle === 'full_bleed'
+    ? [
+        { label: '9:16', value: 9 / 16 },
+        { label: 'Free', value: 0 },
+      ]
+    : [
+        { label: 'Square', value: 1 },
+        { label: 'Free', value: 0 },
+        { label: '4:3', value: 4 / 3 },
+        { label: '3:2', value: 3 / 2 },
+      ];
 
   const avatarSrc = state.avatarPreview || user?.user_metadata?.avatar_url || null;
   const initials = state.displayName
@@ -232,7 +239,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
   };
 
   return (
-    <div className="space-y-8 max-w-md mx-auto">
+    <div className="flex flex-col gap-8 flex-1 w-full max-w-md mx-auto">
       <div className="text-center">
         <h2 className="font-display text-3xl font-bold text-white">
           {t('onboardingFlow.yourProfile')}
@@ -335,7 +342,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4">
+      <div className="mt-auto sticky bottom-0 z-20 -mx-6 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#0e0c09]/85 backdrop-blur-md border-t border-white/10 flex justify-between items-center">
         <button
           onClick={onPrev}
           className="flex items-center gap-2 px-4 py-3 rounded-lg text-white/60 hover:text-white transition-colors font-body"
@@ -428,7 +435,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
               </button>
               <button
                 onClick={handleUseOriginal}
-                className="w-full py-3 rounded-xl bg-white text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
+                className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
               >
                 Use Original
               </button>

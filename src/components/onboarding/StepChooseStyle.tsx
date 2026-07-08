@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Camera } from 'lucide-react';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -15,16 +16,25 @@ const styles = [
 
 function HeroMockup() {
   return (
-    <div className="flex flex-col">
-      <div className="h-28 bg-gradient-to-b from-[#C9A55C]/30 to-transparent relative">
-        <div className="absolute bottom-2 left-4">
-          <div className="w-16 h-2.5 rounded bg-white/40" />
-          <div className="w-12 h-1.5 rounded bg-white/20 mt-1" />
-        </div>
+    <div className="relative aspect-[9/16] w-full bg-[#141210]">
+      {/* Photo fills the TOP HALF, fading into the dark body. The
+          content grid below is IDENTICAL to Full Screen — only the
+          photo depth differs between the two styles. */}
+      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-br from-[#C9A55C]/60 via-[#8a6a35]/45 to-[#2a2118]" />
+      <div className="absolute inset-x-0 top-[34%] h-[16%] bg-gradient-to-b from-transparent to-[#141210]" />
+      <div className="absolute inset-x-0 top-[14%] flex justify-center">
+        <Camera className="w-7 h-7 text-white/85" />
       </div>
-      <div className="px-4 py-3 space-y-2">
-        <div className="h-8 rounded-lg bg-[#C9A55C]/30 border border-[#C9A55C]/20" />
-        <div className="h-8 rounded-lg bg-[#C9A55C]/30 border border-[#C9A55C]/20" />
+      <div className="absolute inset-x-0 top-[47%] flex flex-col items-center px-4">
+        <div className="w-20 h-2.5 rounded bg-white/80" />
+        <div className="w-12 h-1.5 rounded bg-white/40 mt-1" />
+        <div className="flex gap-1.5 my-2">
+          <div className="w-3 h-3 rounded-full bg-white/25" />
+          <div className="w-3 h-3 rounded-full bg-white/25" />
+          <div className="w-3 h-3 rounded-full bg-white/25" />
+        </div>
+        <div className="w-full h-8 rounded-lg bg-[#C9A55C]/80" />
+        <div className="w-full h-8 rounded-lg bg-[#C9A55C]/45 mt-2" />
       </div>
     </div>
   );
@@ -32,16 +42,23 @@ function HeroMockup() {
 
 function FullBleedMockup() {
   return (
-    <div className="relative h-full min-h-[200px] bg-gradient-to-b from-gray-700/40 to-[#0e0c09]">
-      <div className="absolute inset-0 bg-black/30" />
-      <div className="relative flex flex-col items-center justify-center h-full gap-2 py-8 px-4">
-        <div className="w-14 h-14 rounded-full bg-white/15 border border-white/20" />
-        <div className="w-20 h-2.5 rounded bg-white/40" />
-        <div className="w-16 h-1.5 rounded bg-white/20" />
-        <div className="w-full space-y-2 mt-3">
-          <div className="h-8 rounded-lg bg-white/10 border border-white/10" />
-          <div className="h-8 rounded-lg bg-white/10 border border-white/10" />
+    <div className="relative aspect-[9/16] w-full bg-gradient-to-br from-[#6d5a8e]/70 via-[#3d3550]/70 to-[#161320]">
+      {/* The photo IS the whole page — same content grid as Hero,
+          glass buttons floating on the photo. No avatar circle. */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.12) 40%, rgba(0,0,0,0.5) 100%)' }} />
+      <div className="absolute inset-x-0 top-[14%] flex justify-center">
+        <Camera className="w-7 h-7 text-white/85" />
+      </div>
+      <div className="absolute inset-x-0 top-[47%] flex flex-col items-center px-4">
+        <div className="w-20 h-2.5 rounded bg-white/85" />
+        <div className="w-12 h-1.5 rounded bg-white/40 mt-1" />
+        <div className="flex gap-1.5 my-2">
+          <div className="w-3 h-3 rounded-full bg-white/30" />
+          <div className="w-3 h-3 rounded-full bg-white/30" />
+          <div className="w-3 h-3 rounded-full bg-white/30" />
         </div>
+        <div className="w-full h-8 rounded-lg bg-white/15 border border-white/30" />
+        <div className="w-full h-8 rounded-lg bg-white/15 border border-white/30 mt-2" />
       </div>
     </div>
   );
@@ -54,7 +71,7 @@ const mockups: Record<string, React.FC> = {
 
 export function StepChooseStyle({ state, updateField, onNext, t }: Props) {
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8 flex-1">
       <div className="text-center">
         <h2 className="font-display text-3xl font-bold text-white">
           {t('onboardingFlow.chooseStyle')}
@@ -64,7 +81,7 @@ export function StepChooseStyle({ state, updateField, onNext, t }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {styles.map((style, i) => {
           const isSelected = state.pageStyle === style.value;
           const Mockup = mockups[style.value];
@@ -99,7 +116,7 @@ export function StepChooseStyle({ state, updateField, onNext, t }: Props) {
         })}
       </div>
 
-      <div className="flex justify-center">
+      <div className="mt-auto sticky bottom-0 z-20 -mx-6 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#0e0c09]/85 backdrop-blur-md border-t border-white/10 flex justify-center">
         <button
           onClick={onNext}
           disabled={!state.pageStyle}

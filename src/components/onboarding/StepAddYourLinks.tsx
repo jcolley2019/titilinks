@@ -49,7 +49,7 @@ export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Prop
   };
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto">
+    <div className="flex flex-col gap-6 flex-1 w-full max-w-lg mx-auto">
       <div className="text-center">
         <h2 className="font-display text-3xl font-bold text-white">
           {t('onboardingFlow.yourSocialPlatforms') || 'Your Social Platforms'}
@@ -91,7 +91,7 @@ export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Prop
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4">
+      <div className="mt-auto sticky bottom-0 z-20 -mx-6 px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#0e0c09]/85 backdrop-blur-md border-t border-white/10 flex justify-between items-center">
         <button
           onClick={onPrev}
           className="flex items-center gap-2 px-4 py-3 rounded-lg text-white/60 hover:text-white transition-colors font-body"
