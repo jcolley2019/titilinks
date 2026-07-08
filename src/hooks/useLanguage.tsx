@@ -795,6 +795,7 @@ const translations: Record<Language, Record<string, string>> = {
     'login.validationPassword': 'Password must be at least 6 characters',
     'login.errorAlreadyRegistered': 'This email is already registered. Try signing in instead.',
     'login.errorInvalidCredentials': 'Invalid email or password. Please try again.',
+    'login.newHereCta': 'New here? Create an account →',
     'login.errorGoogleFailed': 'Failed to sign in with Google',
 
     // Onboarding Form
@@ -1695,6 +1696,7 @@ const translations: Record<Language, Record<string, string>> = {
     'login.validationPassword': 'La contraseña debe tener al menos 6 caracteres',
     'login.errorAlreadyRegistered': 'Este correo ya está registrado. Intenta iniciar sesión.',
     'login.errorInvalidCredentials': 'Correo o contraseña inválidos. Intenta de nuevo.',
+    'login.newHereCta': '¿Eres nuevo? Crea una cuenta →',
     'login.errorGoogleFailed': 'Error al iniciar sesión con Google',
 
     // Onboarding Form

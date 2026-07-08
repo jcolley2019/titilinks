@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 
 export default function Login() {
@@ -16,7 +16,10 @@ export default function Login() {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const { t } = useLanguage();
   const { onboardingComplete, isLoading: onboardingLoading } = useOnboardingStatus();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(searchParams.get('mode') === 'signup' ? 'signup' : 'signin');
+  const [showPassword, setShowPassword] = useState(false);
+  const [offerSignup, setOfferSignup] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,8 +71,10 @@ export default function Login() {
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             setError(t('login.errorInvalidCredentials'));
+            setOfferSignup(true);
           } else {
             setError(error.message);
+            setOfferSignup(false);
           }
         }
       }
@@ -315,13 +320,21 @@ export default function Login() {
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         placeholder={t('login.passwordPlaceholder')}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
+                        className="pl-10 pr-10"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -333,6 +346,21 @@ export default function Login() {
                     >
                       {error}
                     </motion.p>
+                  )}
+                  {offerSignup && mode === 'signin' && (
+                    <motion.button
+                      type="button"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      onClick={() => {
+                        setMode('signup');
+                        setError(null);
+                        setOfferSignup(false);
+                      }}
+                      className="text-sm text-primary hover:underline text-left"
+                    >
+                      {t('login.newHereCta')}
+                    </motion.button>
                   )}
 
                   <Button

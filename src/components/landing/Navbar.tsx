@@ -63,7 +63,7 @@ export function Navbar() {
           <LanguageToggle />
           <Link to="/login" className="text-sm font-medium text-white/65 transition-colors hover:text-white">{t('nav.login')}</Link>
           <Link
-            to="/login"
+            to="/login?mode=signup"
             className="rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
             style={{ backgroundColor: GOLD, color: BG }}
           >
@@ -107,7 +107,7 @@ export function Navbar() {
                 <div className="my-2 h-px bg-white/10" />
                 <Link to="/login" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.login')}</Link>
                 <Link
-                  to="/login"
+                  to="/login?mode=signup"
                   onClick={() => setMenuOpen(false)}
                   className="mt-1 rounded-full px-4 py-3 text-center font-semibold"
                   style={{ backgroundColor: GOLD, color: BG }}

@@ -456,7 +456,7 @@ export function HeroSection() {
                 placeholder={t('hero.handlePlaceholder')}
                 className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-white/30 sm:text-base"
               />
-              <Link to="/login" className="shrink-0">
+              <Link to="/login?mode=signup" className="shrink-0">
                 <button
                   className="rounded-full px-6 py-2.5 text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
                   style={{ backgroundColor: '#C9A55C', color: BG }}

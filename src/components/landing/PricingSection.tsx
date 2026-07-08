@@ -176,7 +176,7 @@ export function PricingSection() {
                   </button>
                 ) : (
                   <Link
-                    to="/login"
+                    to="/login?mode=signup"
                     className="block w-full rounded-full py-2.5 text-center text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.99]"
                     style={
                       plan.popular
