@@ -84,20 +84,30 @@ export default function OnboardingFlow() {
     checkExisting();
   }, [user]);
 
+  // ONB.7a: re-entry guard — async step saves ignore repeat Continue
+  // clicks until the in-flight save settles (success or failure).
+  const stepSavingRef = useRef(false);
+
   // Step 1 save: page_style to profiles
   const handleStep1Next = async () => {
     if (!user || !state.pageStyle) return;
+    if (stepSavingRef.current) return;
+    stepSavingRef.current = true;
     try {
       await supabase.from('profiles').update({ page_style: state.pageStyle }).eq('id', user.id);
       goNext();
     } catch {
       toast.error(t('onboardingFlow.saveFailed'));
+    } finally {
+      stepSavingRef.current = false;
     }
   };
 
   // Step 2 save: display_name, username, avatar to profiles
   const handleStep2Next = async () => {
     if (!user) return;
+    if (stepSavingRef.current) return;
+    stepSavingRef.current = true;
     try {
       // Check username uniqueness against both profiles and pages
       const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
@@ -134,6 +144,8 @@ export default function OnboardingFlow() {
     } catch (err) {
       console.error('Step 2 save error:', err);
       toast.error(t('onboardingFlow.saveFailed'));
+    } finally {
+      stepSavingRef.current = false;
     }
   };
 
@@ -268,6 +280,8 @@ export default function OnboardingFlow() {
   // Step 3 save: create page + modes + blocks
   const handleStep3Next = async () => {
     if (!user) return;
+    if (stepSavingRef.current) return;
+    stepSavingRef.current = true;
     try {
       // Map the Vibe choice into the theme background. A gradient goes into
       // gradient_css with type:'gradient'; solid_color always keeps a real hex
@@ -396,6 +410,8 @@ export default function OnboardingFlow() {
     } catch (err) {
       console.error('Step 3 save error:', err);
       toast.error(t('onboardingFlow.saveFailed'));
+    } finally {
+      stepSavingRef.current = false;
     }
   };
 
@@ -406,6 +422,8 @@ export default function OnboardingFlow() {
       return;
     }
 
+    if (stepSavingRef.current) return;
+    stepSavingRef.current = true;
     try {
       // Find shop mode's social_links block
       const { data: modes } = await supabase
@@ -453,6 +471,8 @@ export default function OnboardingFlow() {
     } catch (err) {
       console.error('Step 4 save error:', err);
       toast.error(t('onboardingFlow.saveFailed'));
+    } finally {
+      stepSavingRef.current = false;
     }
   };
 
