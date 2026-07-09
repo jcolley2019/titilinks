@@ -3,6 +3,8 @@ import * as faceapi from '@vladmandic/face-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
+import Cropper from 'react-easy-crop';
+import { getCroppedImage, type Area as CropArea } from '@/lib/crop';
 import {
   DndContext,
   closestCenter,
@@ -1137,6 +1139,12 @@ export function EditableProfileView({
   const cropFrameRef = useRef<HTMLDivElement>(null);
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const [, setCropImgLoaded] = useState(0); // triggers re-render on img load
+  // CROP.2b: react-easy-crop state for the manual crop step —
+  // replaces the legacy pan/zoom interaction (which remains below
+  // as scaffolding for the AI paths until CROP.2d).
+  const [rcCrop, setRcCrop] = useState({ x: 0, y: 0 });
+  const [rcZoom, setRcZoom] = useState(1);
+  const [rcAreaPixels, setRcAreaPixels] = useState<CropArea | null>(null);
 
   // Lock body + inner container scroll when photo overlay is open
   useEffect(() => {
@@ -1657,6 +1665,7 @@ export function EditableProfileView({
       const face = await detectFace(img);
       if (!face) {
         toast.error('No face detected — try manual crop');
+        setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
         setPhotoStep('manual');
         return;
       }
@@ -1768,6 +1777,7 @@ export function EditableProfileView({
     } catch (err) {
       console.error('AI crop error:', err);
       toast.error(t('editor.aiCropFailed'));
+      setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
       setPhotoStep('manual');
     } finally {
       setAiProcessing(false);
@@ -1834,6 +1844,7 @@ export function EditableProfileView({
     setPhotoStep('idle');
     setPhotoOffset({ x: 50, y: 30 });
     setPhotoScale(1);
+    setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
   };
 
   // Get theme
@@ -2384,7 +2395,10 @@ export function EditableProfileView({
 
                       {/* Crop manually — secondary, optional */}
                       <button
-                        onClick={() => setPhotoStep('manual')}
+                        onClick={() => {
+                          setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
+                          setPhotoStep('manual');
+                        }}
                         className="w-full max-w-xs py-3 rounded-2xl border border-white/20 text-white/80 font-semibold text-sm"
                       >
                         {t('editor.cropImage')}
@@ -2428,6 +2442,7 @@ export function EditableProfileView({
                         <button
                           onClick={() => {
                             setAiPreviewData(null);
+                            setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
                             setPhotoStep('manual');
                           }}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
@@ -2469,122 +2484,31 @@ export function EditableProfileView({
                         </button>
                       </div>
 
-                      {/* Crop area — user drags image behind fixed frame */}
-                      <div
-                        ref={cropContainerRef}
-                        style={{ flexGrow: 1, flexShrink: 1, minHeight: 0, overflow: 'hidden', position: 'relative', backgroundColor: '#000', touchAction: 'none', cursor: 'grab' }}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          setIsDraggingCrop(true);
-                          setDragStart({ x: e.clientX - cropPosition.x, y: e.clientY - cropPosition.y });
-                          e.currentTarget.setPointerCapture(e.pointerId);
-                          e.currentTarget.style.cursor = 'grabbing';
-                        }}
-                        onPointerMove={(e) => {
-                          if (!isDraggingCrop) return;
-                          e.preventDefault();
-                          const rawX = e.clientX - dragStart.x;
-                          const rawY = e.clientY - dragStart.y;
-                          const clamped = clampCropPosition(rawX, rawY, Math.max(cropZoom, getCropMinZoom()));
-                          setCropPosition(clamped);
-                        }}
-                        onPointerUp={(e) => {
-                          e.preventDefault();
-                          setIsDraggingCrop(false);
-                          e.currentTarget.style.cursor = 'grab';
-                        }}
-                      >
-                        {/* Image — explicitly positioned, no object-fit, no CSS transform */}
-                        {photoPreview && (() => {
-                          const img = cropImgRef.current;
-                          const container = cropContainerRef.current;
-                          const nw = img?.naturalWidth || 1;
-                          const nh = img?.naturalHeight || 1;
-                          const cw = container?.clientWidth || 430;
-                          const ch = container?.clientHeight || 600;
-                          const baseScale = Math.min(cw / nw, ch / nh);
-                          const effectiveZoom = Math.max(cropZoom, getCropMinZoom());
-                          const dispW = nw * baseScale * effectiveZoom;
-                          const dispH = nh * baseScale * effectiveZoom;
-                          const imgL = (cw / 2 + cropPosition.x) - dispW / 2;
-                          const imgT = (ch / 2 + cropPosition.y) - dispH / 2;
-                          return (
-                            <img
-                              ref={cropImgRef}
-                              src={photoPreview}
-                              crossOrigin="anonymous"
-                              alt="Crop"
-                              draggable={false}
-                              className="max-w-none select-none pointer-events-none"
-                              onLoad={() => {
-                                setCropImgLoaded(n => n + 1);
-                                // Auto-set zoom to min on load
-                                const minZ = getCropMinZoom();
-                                if (cropZoom < minZ) setCropZoom(minZ);
-                                setCropPosition({ x: 0, y: 0 });
-                              }}
-                              style={{
-                                position: 'absolute',
-                                left: imgL,
-                                top: imgT,
-                                width: dispW,
-                                height: dispH,
-                                userSelect: 'none',
-                                WebkitUserSelect: 'none',
-                              }}
-                            />
-                          );
-                        })()}
-
-                        {/* Crop frame — aspect matches the live hero display window (WYSIWYG); centered, non-interactive */}
-                        {(() => {
-                          const { fw, fh } = getCropFrameSize();
-                          return (
-                            <div
-                              ref={cropFrameRef}
-                              className="absolute pointer-events-none"
-                              style={{
-                                width: fw,
-                                height: fh,
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                border: '2px solid #C9A55C',
-                                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-                                zIndex: 10,
-                              }}
-                            >
-                              {/* Rule of thirds grid lines */}
-                              <div className="absolute inset-0">
-                                <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/20" />
-                                <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/20" />
-                                <div className="absolute top-1/3 left-0 right-0 h-px bg-white/20" />
-                                <div className="absolute top-2/3 left-0 right-0 h-px bg-white/20" />
-                              </div>
-                            </div>
-                          );
-                        })()}
+                      {/* CROP.2b: react-easy-crop replaces the legacy pan/zoom interaction for the manual step */}
+                      <div className="relative bg-black rounded-xl overflow-hidden w-full" style={{ height: 'min(52dvh, 460px)' }}>
+                        <Cropper
+                          image={photoPreview || ''}
+                          crop={rcCrop}
+                          zoom={rcZoom}
+                          aspect={isFullBleed
+                            ? Math.min(window.innerWidth, 430) / Math.min(window.innerHeight, 932)
+                            : Math.min(window.innerWidth, 640) / Math.min(window.innerHeight * 0.5 + 60, 560)}
+                          onCropChange={setRcCrop}
+                          onZoomChange={setRcZoom}
+                          onCropComplete={(_, areaPixels) => setRcAreaPixels(areaPixels)}
+                        />
                       </div>
-
-                      {/* Zoom slider — positioned below the photo, above the AI row, so it isn't clipped by the iOS dynamic island/status bar */}
-                      <div className="flex items-center gap-2 px-3 border-t border-white/10" style={{ height: '40px', flexShrink: 0, paddingTop: '4px' }}>
-                        <span className="text-white/50 text-[10px] font-medium flex-shrink-0">Zoom</span>
+                      <div className="w-full flex items-center gap-3">
+                        <span className="text-white/40 text-[10px]">Zoom</span>
                         <input
                           type="range"
-                          min={getCropMinZoom()}
-                          max={Math.max(getCropMinZoom() * 4, 3)}
-                          step={0.01}
-                          value={Math.max(cropZoom, getCropMinZoom())}
-                          onChange={(e) => {
-                            const newZoom = Number(e.target.value);
-                            setCropZoom(newZoom);
-                            setCropPosition(prev => clampCropPosition(prev.x, prev.y, newZoom));
-                          }}
-                          className="flex-1 accent-[#C9A55C] h-1"
+                          min={1}
+                          max={3}
+                          step={0.05}
+                          value={rcZoom}
+                          onChange={(e) => setRcZoom(Number(e.target.value))}
+                          className="flex-1 accent-[#C9A55C]"
                         />
-                        <span className="text-white/70 text-[10px] font-mono w-8 text-right flex-shrink-0">
-                          {Math.max(cropZoom, getCropMinZoom()).toFixed(1)}x
-                        </span>
                       </div>
 
                       {/* AI Auto-Crop row */}
@@ -2630,15 +2554,14 @@ export function EditableProfileView({
                         <button
                           onClick={async () => {
                             try {
-                              const dataUrl = getCroppedCanvas();
+                              if (!photoPreview || !rcAreaPixels) return;
+                              const croppedFile = await getCroppedImage(photoPreview, rcAreaPixels);
+                              const dataUrl = URL.createObjectURL(croppedFile);
                               setPhotoPreview(dataUrl);
                               setCropZoom(1);
                               setCropPosition({ x: 0, y: 0 });
-                              const res = await fetch(dataUrl);
-                              const blob = await res.blob();
-                              const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' });
-                              setPhotoFile(file);
-                              await handlePhotoSave(file);
+                              setPhotoFile(croppedFile);
+                              await handlePhotoSave(croppedFile);
                             } catch (err) {
                               // Never let Apply fail silently (e.g. a tainted
                               // canvas throwing from toDataURL).
