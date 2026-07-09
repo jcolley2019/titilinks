@@ -1121,6 +1121,9 @@ export function EditableProfileView({
   const [heroPosYDraft, setHeroPosYDraft] = useState<number>(
     typeof (page.theme_json as any)?.[heroConfigKey]?.posY === 'number' ? (page.theme_json as any)[heroConfigKey].posY : 50
   );
+  const [heroPosXDraft, setHeroPosXDraft] = useState<number>(
+    typeof (page.theme_json as any)?.[heroConfigKey]?.posX === 'number' ? (page.theme_json as any)[heroConfigKey].posX : 50
+  );
   // Resync hero display drafts when the edited page (or inherit toggle) changes.
   useEffect(() => {
     const cfg = (page.theme_json as any)?.[heroConfigKey] || {};
@@ -1295,13 +1298,19 @@ export function EditableProfileView({
     const padding = 24;
     const availW = cw - padding * 2;
     const availH = ch - padding * 2;
-    // WYSIWYG: derive the frame from the SAME formula as the hero
-    // window's CSS (width capped 640; height = 50dvh + HERO_EXTRA,
-    // capped 500 + HERO_EXTRA). With matching aspects, cover-fill of
-    // the saved crop displays exactly what was framed on this device.
+    // WYSIWYG: derive the frame from the SAME formula as the target
+    // canvas. Hero pages use the hero window's CSS (width capped 640;
+    // height = 50dvh + HERO_EXTRA, capped 500 + HERO_EXTRA).
+    // Full-screen pages use the phone viewport — real dims on a
+    // phone, capped at 430x932 reference dims on desktop so the
+    // desktop editor never yields a landscape frame. With matching
+    // aspects, cover-fill of the saved crop displays exactly what was
+    // framed.
     const heroW = Math.min(window.innerWidth, 640);
     const heroH = Math.min(window.innerHeight * 0.5 + 60, 560);
-    const ratio = heroW / heroH;
+    const ratio = isFullBleed
+      ? Math.min(window.innerWidth, 430) / Math.min(window.innerHeight, 932)
+      : heroW / heroH;
     let fw = availW;
     let fh = fw / ratio;
     if (fh > availH) { fh = availH; fw = fh * ratio; }
@@ -1375,10 +1384,15 @@ export function EditableProfileView({
     const cw = container.clientWidth;
     const ch = container.clientHeight;
 
-    // Image display size
+    // Image display size — use the EFFECTIVE zoom, exactly as the
+    // on-screen transform, slider, and pan clamp do. Raw cropZoom
+    // can sit below the cover minimum (e.g. state still 1 while the
+    // display enforces minZoom), and computing with it maps the
+    // frame onto a larger region than the user saw.
     const baseScale = Math.min(cw / nw, ch / nh);
-    const dispW = nw * baseScale * cropZoom;
-    const dispH = nh * baseScale * cropZoom;
+    const effectiveZoom = Math.max(cropZoom, getCropMinZoom());
+    const dispW = nw * baseScale * effectiveZoom;
+    const dispH = nh * baseScale * effectiveZoom;
 
     // Image position (center of container + pan offset)
     const imgCX = cw / 2 + cropPosition.x;
@@ -1420,7 +1434,7 @@ export function EditableProfileView({
       const existingHero = existingTheme[heroConfigKey] || {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft } } })
         .eq('id', page.id);
       if (error) throw error;
       setPhotoStep('idle');
@@ -1480,7 +1494,7 @@ export function EditableProfileView({
         const nextTheme: any = {
           ...existingTheme,
           avatar_url_page2: urlData.publicUrl,
-          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft },
+          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft },
         };
         if (originalUrl) nextTheme.avatar_original_url_page2 = originalUrl;
         await supabase
@@ -1493,7 +1507,7 @@ export function EditableProfileView({
         delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
-          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft } },
+          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft } },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -2037,7 +2051,7 @@ export function EditableProfileView({
               overlayPortalEl={overlayHost}
             />
           ) : (
-            <img src={heroImage} alt="" className="h-full w-full object-cover" />
+            <img src={heroImage} alt="" className="h-full w-full object-cover" style={{ objectPosition: `${heroConfig.posX ?? 50}% ${heroConfig.posY ?? 50}%` }} />
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
         </div>
@@ -2259,16 +2273,11 @@ export function EditableProfileView({
                 <div
                   className="fixed inset-0 z-[130] flex flex-col bg-black/95"
                   style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                  onTouchMove={(e) => {
-                    // Prevent background scroll on touch devices
-                    // (manual crop step handles its own touch events)
-                    if (photoStep !== 'manual') e.preventDefault();
-                  }}
-                  onWheel={(e) => {
-                    // Prevent background scroll on mouse wheel
-                    if (photoStep !== 'manual') e.preventDefault();
-                  }}
                 >
+                  {/* Background scroll is blocked by touchAction +
+                      overscrollBehavior above — preventDefault in
+                      passive React listeners is a no-op and only
+                      spams console warnings. */}
 
                   {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
@@ -2278,7 +2287,7 @@ export function EditableProfileView({
                       </p>
 
                       {/* Live preview in the real hero shape — what you see is what publishes */}
-                      <div className="relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black">
+                      <div className={isFullBleed ? 'relative w-40 aspect-[430/932] rounded-2xl overflow-hidden border-2 border-white/20 bg-black' : 'relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black'}>
                         {heroFitDraft === 'fit' && (
                           <div
                             aria-hidden="true"
@@ -2297,14 +2306,16 @@ export function EditableProfileView({
                           alt="Preview"
                           className="absolute inset-0 w-full h-full"
                           style={
-                            heroFitDraft === 'fit'
+                            heroFitDraft === 'fit' && !isFullBleed
                               ? { objectFit: 'contain', objectPosition: 'center' }
-                              : { objectFit: 'cover', objectPosition: `50% ${heroPosYDraft}%` }
+                              : { objectFit: 'cover', objectPosition: `${isFullBleed ? heroPosXDraft : 50}% ${heroPosYDraft}%` }
                           }
                         />
                       </div>
 
-                      {/* Fill / Fit toggle */}
+                      {/* Fill / Fit toggle — hero only; full-screen
+                          backgrounds are always cover */}
+                      {!isFullBleed && (<>
                       <div className="flex w-full max-w-xs rounded-xl bg-white/5 p-1 gap-1">
                         <button
                           onClick={() => setHeroFitDraft('fill')}
@@ -2328,9 +2339,25 @@ export function EditableProfileView({
                           ? 'Fills the space. Drag to choose what stays centered.'
                           : 'Shows the whole photo, with a soft blurred backdrop.'}
                       </p>
+                      </>)}
 
-                      {/* Vertical position — Fill only */}
-                      {heroFitDraft === 'fill' && (
+                      {/* Horizontal position — full-screen only */}
+                      {isFullBleed && (
+                        <div className="w-full max-w-xs flex items-center gap-3">
+                          <span className="text-white/40 text-[10px]">Left</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={heroPosXDraft}
+                            onChange={(e) => setHeroPosXDraft(Number(e.target.value))}
+                            className="flex-1 accent-[#C9A55C]"
+                          />
+                          <span className="text-white/40 text-[10px]">Right</span>
+                        </div>
+                      )}
+                      {/* Vertical position — hero Fill, or full-screen */}
+                      {(heroFitDraft === 'fill' || isFullBleed) && (
                         <div className="w-full max-w-xs flex items-center gap-3">
                           <span className="text-white/40 text-[10px]">Top</span>
                           <input
@@ -2563,21 +2590,25 @@ export function EditableProfileView({
                       {/* AI Auto-Crop row */}
                       <div className="px-3" style={{ flexShrink: 0, paddingTop: '6px' }}>
                         <p className="text-white/40 text-[9px] font-semibold uppercase tracking-wider mb-1 text-center">AI Auto-Crop + Enhance</p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <button
-                            onClick={() => handleAiCrop('headshot')}
-                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
-                          >
-                            <span className="text-xs leading-tight">👤</span>
-                            Headshot
-                          </button>
-                          <button
-                            onClick={() => handleAiCrop('shoulders')}
-                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
-                          >
-                            <span className="text-xs leading-tight">🧑</span>
-                            Shoulders
-                          </button>
+                        <div className={`grid ${isFullBleed ? 'grid-cols-1' : 'grid-cols-3'} gap-1.5`}>
+                          {!isFullBleed && (
+                            <>
+                              <button
+                                onClick={() => handleAiCrop('headshot')}
+                                className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
+                              >
+                                <span className="text-xs leading-tight">👤</span>
+                                Headshot
+                              </button>
+                              <button
+                                onClick={() => handleAiCrop('shoulders')}
+                                className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
+                              >
+                                <span className="text-xs leading-tight">🧑</span>
+                                Shoulders
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => handleAiCrop('fullbody')}
                             className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
