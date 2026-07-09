@@ -113,7 +113,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
         {item.badge && (
           <span
             className="absolute top-2 left-2 z-[1] text-[10px] font-bold px-2 py-0.5 rounded"
-            style={{ backgroundColor: fill, color: theme.buttons.text_color }}
+            style={{ backgroundColor: '#C9A55C', color: '#0e0c09' }}
           >
             {tc(item.badge)}
           </span>

@@ -305,6 +305,7 @@ export default function PublicProfile() {
   const ogImage = (selectedMode === 'page2' && !heroInheritPublic && page2AvatarUrl)
     ? page2AvatarUrl
     : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
+  const isFullBleedPage = (page?.theme_json as any)?.pageStyle === 'full_bleed';
 
   return (
     <>
@@ -326,9 +327,9 @@ export default function PublicProfile() {
       </Helmet>
       <div className="min-h-screen bg-[#0e0c09]">
         {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
-        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${headerOpacity})` }}>
+        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${isFullBleedPage ? 0 : headerOpacity})` }}>
           <div className="flex items-center justify-between px-4 h-14">
-            <div className="min-w-0 flex-1" style={{ opacity: headerOpacity }}>
+            <div className="min-w-0 flex-1" style={{ opacity: headerOpacity, ...(isFullBleedPage ? { textShadow: '0 1px 8px rgba(0,0,0,0.7)' } : {}) }}>
               <p className="truncate text-white font-semibold text-[15px] leading-none">
                 {page?.display_name || page?.handle}
               </p>
