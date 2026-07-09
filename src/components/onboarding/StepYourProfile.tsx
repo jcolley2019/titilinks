@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Check, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCroppedImage } from '@/lib/crop';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
@@ -98,46 +99,6 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [state.username, user?.id]);
-
-  const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
-    const image = new Image();
-    image.src = imageSrc;
-    await new Promise((resolve) => { image.onload = resolve; });
-    const canvas = document.createElement('canvas');
-    const maxSize = 800;
-    const scaleX = image.naturalWidth / image.width || 1;
-    const scaleY = image.naturalHeight / image.height || 1;
-    let cropWidth = pixelCrop.width;
-    let cropHeight = pixelCrop.height;
-    if (cropWidth > maxSize || cropHeight > maxSize) {
-      const ratio = Math.min(maxSize / cropWidth, maxSize / cropHeight);
-      cropWidth = Math.round(cropWidth * ratio);
-      cropHeight = Math.round(cropHeight * ratio);
-    }
-    canvas.width = cropWidth;
-    canvas.height = cropHeight;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(
-      image,
-      pixelCrop.x * scaleX,
-      pixelCrop.y * scaleY,
-      pixelCrop.width * scaleX,
-      pixelCrop.height * scaleY,
-      0, 0,
-      cropWidth,
-      cropHeight
-    );
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error('Crop failed')); return; }
-          resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-        },
-        'image/jpeg',
-        0.8
-      );
-    });
-  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
