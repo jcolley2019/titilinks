@@ -345,6 +345,22 @@ export default function PublicProfile() {
           </div>
         </header>
 
+        {/* FS.HEADER-b: full-screen only — content melts away as it
+            scrolls under the transparent header, keeping the header
+            name legible. Sits below the header (z-50), above the
+            scrolling content. Hero pages: none. */}
+        {isFullBleedPage && (
+          <div
+            aria-hidden="true"
+            className="fixed top-0 left-0 right-0 z-40 pointer-events-none"
+            style={{
+              height: 'calc(env(safe-area-inset-top, 0px) + 96px)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.45) 45%, transparent 100%)',
+              opacity: headerOpacity,
+            }}
+          />
+        )}
+
         {/* Contact sheet — Save to Contacts (Step A) */}
         <AnimatePresence>
           {contactSheetOpen && (

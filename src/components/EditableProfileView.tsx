@@ -2498,81 +2498,87 @@ export function EditableProfileView({
                           onCropComplete={(_, areaPixels) => setRcAreaPixels(areaPixels)}
                         />
                       </div>
-                      <div className="w-full flex items-center gap-3">
-                        <span className="text-white/40 text-[10px]">Zoom</span>
-                        <input
-                          type="range"
-                          min={1}
-                          max={3}
-                          step={0.05}
-                          value={rcZoom}
-                          onChange={(e) => setRcZoom(Number(e.target.value))}
-                          className="flex-1 accent-[#C9A55C]"
-                        />
-                      </div>
+                      {/* CROP.2c: controls below the Cropper — padded, emoji-free, brand-styled */}
+                      <div className="px-5 pb-5 pt-4 flex flex-col gap-3" style={{ flexShrink: 0 }}>
+                        {/* Zoom row */}
+                        <div className="w-full flex items-center gap-3">
+                          <span className="text-white/40 text-xs font-semibold uppercase tracking-wider">Zoom</span>
+                          <input
+                            type="range"
+                            min={1}
+                            max={3}
+                            step={0.05}
+                            value={rcZoom}
+                            onChange={(e) => setRcZoom(Number(e.target.value))}
+                            className="flex-1 accent-[#C9A55C]"
+                          />
+                        </div>
 
-                      {/* AI Auto-Crop row */}
-                      <div className="px-3" style={{ flexShrink: 0, paddingTop: '6px' }}>
-                        <p className="text-white/40 text-[9px] font-semibold uppercase tracking-wider mb-1 text-center">AI Auto-Crop + Enhance</p>
-                        <div className={`grid ${isFullBleed ? 'grid-cols-1' : 'grid-cols-3'} gap-1.5`}>
-                          {!isFullBleed && (
-                            <>
-                              <button
-                                onClick={() => handleAiCrop('headshot')}
-                                className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
-                              >
-                                <span className="text-xs leading-tight">👤</span>
-                                Headshot
-                              </button>
-                              <button
-                                onClick={() => handleAiCrop('shoulders')}
-                                className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
-                              >
-                                <span className="text-xs leading-tight">🧑</span>
-                                Shoulders
-                              </button>
-                            </>
+                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">AI Auto-Crop + Enhance</p>
+
+                        {/* Hero mode: 3-column AI preset grid; full-screen folds Full Body into the button row below */}
+                        {!isFullBleed && (
+                          <div className="grid grid-cols-3 gap-1.5">
+                            <button
+                              onClick={() => handleAiCrop('headshot')}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                            >
+                              Headshot
+                            </button>
+                            <button
+                              onClick={() => handleAiCrop('shoulders')}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                            >
+                              Shoulders
+                            </button>
+                            <button
+                              onClick={() => handleAiCrop('fullbody')}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                            >
+                              Full Body
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Button row — full-screen: [Full Body] [Back] [Apply Crop]; hero: [Back] [Apply Crop] */}
+                        <div className={isFullBleed ? 'grid grid-cols-3 gap-2' : 'flex gap-2'}>
+                          {isFullBleed && (
+                            <button
+                              onClick={() => handleAiCrop('fullbody')}
+                              className="py-2.5 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-xs hover:bg-[#C9A55C]/20 transition-colors"
+                            >
+                              Full Body
+                            </button>
                           )}
                           <button
-                            onClick={() => handleAiCrop('fullbody')}
-                            className="py-1.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] flex flex-col items-center gap-0 hover:bg-[#C9A55C]/20 transition-colors"
+                            onClick={() => setPhotoStep('choose')}
+                            className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs`}
                           >
-                            <span className="text-xs leading-tight">🧍</span>
-                            Full Body
+                            Back
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (!photoPreview || !rcAreaPixels) return;
+                                const croppedFile = await getCroppedImage(photoPreview, rcAreaPixels);
+                                const dataUrl = URL.createObjectURL(croppedFile);
+                                setPhotoPreview(dataUrl);
+                                setCropZoom(1);
+                                setCropPosition({ x: 0, y: 0 });
+                                setPhotoFile(croppedFile);
+                                await handlePhotoSave(croppedFile);
+                              } catch (err) {
+                                // Never let Apply fail silently (e.g. a tainted
+                                // canvas throwing from toDataURL).
+                                console.error('Apply crop failed:', err);
+                                toast.error('Crop failed — please try again');
+                              }
+                            }}
+                            className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs`}
+                          >
+                            Apply Crop
                           </button>
                         </div>
-                      </div>
-
-                      {/* Bottom buttons */}
-                      <div className="flex gap-2 px-3" style={{ flexShrink: 0, paddingTop: '6px', paddingBottom: '12px' }}>
-                        <button
-                          onClick={() => setPhotoStep('choose')}
-                          className="flex-1 py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs"
-                        >
-                          Back
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              if (!photoPreview || !rcAreaPixels) return;
-                              const croppedFile = await getCroppedImage(photoPreview, rcAreaPixels);
-                              const dataUrl = URL.createObjectURL(croppedFile);
-                              setPhotoPreview(dataUrl);
-                              setCropZoom(1);
-                              setCropPosition({ x: 0, y: 0 });
-                              setPhotoFile(croppedFile);
-                              await handlePhotoSave(croppedFile);
-                            } catch (err) {
-                              // Never let Apply fail silently (e.g. a tainted
-                              // canvas throwing from toDataURL).
-                              console.error('Apply crop failed:', err);
-                              toast.error('Crop failed — please try again');
-                            }
-                          }}
-                          className="flex-1 py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs"
-                        >
-                          Apply Crop
-                        </button>
                       </div>
 
                     </div>
