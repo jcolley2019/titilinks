@@ -470,6 +470,8 @@ export default function OnboardingFlow() {
   // Step 5 finish: mark onboarding complete
   const handleFinish = async () => {
     if (!user) return;
+    if (stepSavingRef.current) return;
+    stepSavingRef.current = true;
     try {
       await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
       // Immediately update the cache so ProtectedRoute won't redirect back
@@ -480,6 +482,8 @@ export default function OnboardingFlow() {
       navigate('/dashboard/editor', { replace: true });
     } catch {
       toast.error(t('onboardingFlow.saveFailed'));
+    } finally {
+      stepSavingRef.current = false;
     }
   };
 
