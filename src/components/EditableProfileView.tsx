@@ -72,6 +72,7 @@ import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
 import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { resolveFontFamily } from '@/lib/fonts';
+import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -108,6 +109,9 @@ interface EditableProfileViewProps {
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
   onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
+  // Live-mirror (L4): the Name & Handle hub's in-progress edits. Present fields
+  // win over the saved values in the edit-mode preview; absent means "no override".
+  headerDraft?: HeaderDraft | null;
   stickyTop?: number | string;
 }
 
@@ -131,6 +135,26 @@ function getFontFamily(theme: ThemeJson): string {
     case 'space': return "'Space Grotesk', sans-serif";
     default: return "'Inter', sans-serif";
   }
+}
+
+// NAMEFX.1b: optional name/handle text effect from
+// theme_json.typography.text_effect ({ type: 'none'|'shadow'|'outline',
+// intensity?, width?, color? }). Shadow scales with intensity; outline
+// paints a stroke BEHIND the fill (paint-order), width doubled so the
+// visible outside edge matches the chosen 1/2/3px.
+// Pure so both the public header and the edit-mode name card can share it.
+function getNameFx(fx: any): React.CSSProperties {
+  if (!fx || !fx.type || fx.type === 'none') return { textShadow: 'none' };
+  if (fx.type === 'shadow') {
+    const i = (typeof fx.intensity === 'number' ? fx.intensity : 60) / 100;
+    return { textShadow: `0 1px 3px rgba(0,0,0,${(0.85 * i).toFixed(2)}), 0 0 14px rgba(0,0,0,${(0.6 * i).toFixed(2)})` };
+  }
+  const w = (typeof fx.width === 'number' ? fx.width : 2) * 2;
+  return {
+    textShadow: 'none',
+    WebkitTextStroke: `${w}px ${fx.color || '#000000'}`,
+    paintOrder: 'stroke fill',
+  } as React.CSSProperties;
 }
 
 // ─── SocialSvgIcon ───────────────────────────────────────────────────────────
@@ -546,12 +570,18 @@ function NameHandleCard({
   nameCardY, onNameCardYChange, onDragEnd,
   onSave,
   onDisplayNameChange,
+  draftDisplayName,
+  nameFx,
   chrome,
 }: {
   page: any;
   chrome: ChromeTokens;
   expanded: boolean;
   onToggleExpand: () => void;
+  draftDisplayName?: string;
+  // Text-effect style (shadow/outline) for the name + handle. Carries no layout
+  // properties, so it spreads over the text styles without moving anything.
+  nameFx?: React.CSSProperties;
   localNameSize: number; setLocalNameSize: (v: number) => void;
   localHandleSize: number; setLocalHandleSize: (v: number) => void;
   localNameColor: string; setLocalNameColor: (v: string) => void;
@@ -566,10 +596,11 @@ function NameHandleCard({
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
   const [localDisplayName, setLocalDisplayName] = useState(page.display_name || '');
-  // Re-seed the draft when a Name & Handle hub save refreshes the page prop.
+  // Re-seed the draft when a Name & Handle hub save refreshes the page prop; an
+  // in-progress hub draft (L4) wins until it clears.
   useEffect(() => {
-    setLocalDisplayName(page.display_name || '');
-  }, [page.display_name]);
+    setLocalDisplayName(draftDisplayName ?? (page.display_name || ''));
+  }, [page.display_name, draftDisplayName]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debouncedSave = () => {
@@ -622,9 +653,10 @@ function NameHandleCard({
               color: resolvedNameColor,
               textShadow: 'none',
               caretColor: '#C9A55C',
+              ...nameFx,
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', margin: 0, marginTop: HEADER_GAP_A }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: HEADER_GAP_A }}>
             @{page.handle}
           </p>
         </div>
@@ -1094,6 +1126,7 @@ export function EditableProfileView({
   onItemDelete,
   onItemAdd,
   onItemsReorder,
+  headerDraft,
   stickyTop = 0,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
@@ -1225,18 +1258,20 @@ export function EditableProfileView({
 
   // Same idea for the name/handle drafts — keep the editor preview in sync with
   // the Name & Handle menu (headerConfig.name*/handle*).
+  // An in-progress hub draft (L4) wins over the saved value; once it clears, the
+  // effect re-runs and falls back to headerConfig.
   useEffect(() => {
-    setLocalNameSize(headerConfig.nameSize ?? 28);
-  }, [headerConfig.nameSize]);
+    setLocalNameSize(headerDraft?.nameSize ?? headerConfig.nameSize ?? 28);
+  }, [headerDraft?.nameSize, headerConfig.nameSize]);
   useEffect(() => {
-    setLocalHandleSize(headerConfig.handleSize ?? 14);
-  }, [headerConfig.handleSize]);
+    setLocalHandleSize(headerDraft?.handleSize ?? headerConfig.handleSize ?? 14);
+  }, [headerDraft?.handleSize, headerConfig.handleSize]);
   useEffect(() => {
-    setLocalNameColor(headerConfig.nameColor ?? '#ffffff');
-  }, [headerConfig.nameColor]);
+    setLocalNameColor(headerDraft?.nameColor ?? headerConfig.nameColor ?? '#ffffff');
+  }, [headerDraft?.nameColor, headerConfig.nameColor]);
   useEffect(() => {
-    setLocalHandleColor(headerConfig.handleColor ?? '#ffffff99');
-  }, [headerConfig.handleColor]);
+    setLocalHandleColor(headerDraft?.handleColor ?? headerConfig.handleColor ?? '#ffffff99');
+  }, [headerDraft?.handleColor, headerConfig.handleColor]);
   useEffect(() => {
     setLocalNamePadTop(headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 0);
   }, [headerConfig.namePadTop, headerConfig.namePaddingY]);
@@ -1878,7 +1913,9 @@ export function EditableProfileView({
   // Get theme
   const rawTheme = getThemeWithDefaults(page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
-  const fontFamily = getFontFamily(theme);
+  // An in-progress hub font draft (L4) wins; resolveFontFamily returns undefined
+  // for an absent draft, so the saved font is the fallback.
+  const fontFamily = resolveFontFamily(headerDraft?.font) ?? getFontFamily(theme);
   const chrome = getChromeTokens(theme);
 
   const saveHeaderConfig = async (config: Record<string, unknown>) => {
@@ -2046,25 +2083,13 @@ export function EditableProfileView({
   // background instead of the sticky hero window.
   const isFullBleed = (page.theme_json as any)?.pageStyle === 'full_bleed';
 
-  // NAMEFX.1b: optional name/handle text effect from
-  // theme_json.typography.text_effect ({ type: 'none'|'shadow'|'outline',
-  // intensity?, width?, color? }). Shadow scales with intensity; outline
-  // paints a stroke BEHIND the fill (paint-order), width doubled so the
-  // visible outside edge matches the chosen 1/2/3px.
-  const nameFx: React.CSSProperties = (() => {
-    const fx = (page.theme_json as any)?.typography?.text_effect;
-    if (!fx || !fx.type || fx.type === 'none') return { textShadow: 'none' };
-    if (fx.type === 'shadow') {
-      const i = (typeof fx.intensity === 'number' ? fx.intensity : 60) / 100;
-      return { textShadow: `0 1px 3px rgba(0,0,0,${(0.85 * i).toFixed(2)}), 0 0 14px rgba(0,0,0,${(0.6 * i).toFixed(2)})` };
-    }
-    const w = (typeof fx.width === 'number' ? fx.width : 2) * 2;
-    return {
-      textShadow: 'none',
-      WebkitTextStroke: `${w}px ${fx.color || '#000000'}`,
-      paintOrder: 'stroke fill',
-    } as React.CSSProperties;
-  })();
+  // NAMEFX.1b: the public header's text effect, from the saved theme (see getNameFx).
+  const nameFx: React.CSSProperties = getNameFx((page.theme_json as any)?.typography?.text_effect);
+  // Same effect for the edit-mode name card, previewing the hub's in-progress
+  // draft (L4) when there is one, else the saved value.
+  const editNameFx: React.CSSProperties = getNameFx(
+    headerDraft?.textEffect ?? (page.theme_json as any)?.typography?.text_effect
+  );
 
   return (
     <ProfileAvatarContext.Provider value={linkAvatarUrl}>
@@ -2687,6 +2712,8 @@ export function EditableProfileView({
                     key={cardId}
                     chrome={chrome}
                     page={page}
+                    draftDisplayName={headerDraft?.displayName}
+                    nameFx={editNameFx}
                     expanded={expandedHeaderCard === '__name_handle__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}
                     localNameSize={localNameSize} setLocalNameSize={setLocalNameSize}

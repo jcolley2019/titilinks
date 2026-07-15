@@ -8,6 +8,7 @@ import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import type { LinkItem } from '@/components/editors/LinksEditor';
+import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,9 @@ export default function Editor() {
   const [draftItem, setDraftItem] = useState<{ blockId: string; item: LinkItem } | null>(null);
   // Live-mirror (L3): the editor's in-progress block.title config (Text/Bio), scoped to its block.
   const [draftTitle, setDraftTitle] = useState<{ blockId: string; title: string } | null>(null);
+  // Live-mirror (L4): the Name & Handle hub's in-progress header edits. Page-scoped,
+  // so unlike L2/L3 there's no block to pin it to — it goes straight to the preview.
+  const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
 
   // ── Data Fetching ──
 
@@ -322,6 +326,13 @@ export default function Editor() {
     setDraftTitle(title != null && editingBlock ? { blockId: editingBlock.id, title } : null);
   }, [editingBlock]);
 
+  // Live-mirror (L4): merge the hub's patch into the header draft, so a tab can
+  // publish just the field it owns. Null clears the mirror (panel close / cancel).
+  const handleHeaderDraftChange = useCallback((patch: HeaderDraft | null) => {
+    if (!patch) { setHeaderDraft(null); return; }
+    setHeaderDraft(prev => ({ ...prev, ...patch }));
+  }, []);
+
   // Merge the draft into the preview's blocks: replace the matching item by id,
   // or append it when it's a not-yet-persisted new- item. Cast bridges the
   // editor's LinkItem onto the preview's BlockItem row — preview reads only the
@@ -492,6 +503,7 @@ export default function Editor() {
             <EditableProfileView
               page={page}
               blocks={previewBlocks}
+              headerDraft={headerDraft}
               editMode={true}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
@@ -516,6 +528,7 @@ export default function Editor() {
           stickyTop="4rem"
           page={page}
           blocks={previewBlocks}
+          headerDraft={headerDraft}
           editMode={true}
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
@@ -547,6 +560,7 @@ export default function Editor() {
         openVideoProfile={openVideoProfile}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
+        onHeaderDraftChange={handleHeaderDraftChange}
         themeJson={page.theme_json}
         displayName={page.display_name ?? undefined}
         bio={page.bio ?? undefined}

@@ -34,6 +34,7 @@ import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
 import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { LinksEditor } from '@/components/editors/LinksEditor';
 import type { LinkItem } from '@/components/editors/LinksEditor';
+import type { HeaderDraft } from '@/lib/header-draft';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor } from '@/components/editors/GalleryEditor';
@@ -49,6 +50,7 @@ import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS } from '@/lib/block-presets';
+import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 
 export interface EditingBlockTarget {
   id: string;
@@ -89,11 +91,43 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L3): forwarded to Text/Bio editors so the in-progress
    *  block.title config reaches the preview before Save. */
   onTitleDraftChange?: (title: string | null) => void;
+  /** Live-mirror channel (L4): the Name & Handle hub's in-progress header edits,
+   *  merged as a patch so each tab publishes only the fields it owns. Null clears. */
+  onHeaderDraftChange?: (patch: HeaderDraft | null) => void;
   themeJson: unknown;
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
 }
+
+// Name & Handle hub tabs. All four write the same theme_json keys the rest of
+// the app already reads (typography.font / typography.text_effect,
+// headerConfig.name*/handle*) plus the pages.display_name column.
+type TypoTab = 'name' | 'font' | 'color' | 'effects';
+
+// Everything the hub owns, as one snapshot. Seeded when the hub opens; the live
+// drafts are compared against it for the dirty flag and restored from it on Cancel.
+type HubSeed = {
+  displayName: string;
+  nameSize: number;
+  handleSize: number;
+  nameColor: string;
+  handleColor: string;
+  font: string;
+  textEffect: NonNullable<HeaderDraft['textEffect']>;
+};
+
+const TYPO_TABS: { key: TypoTab; labelKey: string }[] = [
+  { key: 'name', labelKey: 'typoHub.tabName' },
+  { key: 'font', labelKey: 'typoHub.tabFont' },
+  { key: 'color', labelKey: 'typoHub.tabColor' },
+  { key: 'effects', labelKey: 'typoHub.tabEffects' },
+];
+
+// <input type="color"> only accepts #rrggbb. handleColor defaults to the
+// 8-digit '#ffffff99', so the swatch shows its opaque form while the hex field
+// beside it keeps the full value.
+const swatchHex = (v: string) => (/^#[0-9a-f]{6}/i.test(v) ? v.slice(0, 7) : '#ffffff');
 
 interface DashboardRow {
   icon: React.ReactNode;
@@ -283,6 +317,7 @@ export function ProfileDashboard({
   openVideoProfile,
   onDraftChange,
   onTitleDraftChange,
+  onHeaderDraftChange,
   themeJson,
   displayName,
   bio,
@@ -302,6 +337,20 @@ export function ProfileDashboard({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [videoProfileOpen, setVideoProfileOpen] = useState(false);
   const [nameFxOpen, setNameFxOpen] = useState(false);
+  // Name & Handle hub — drafts are seeded when the hub opens (not on every
+  // themeJson refresh) so a save's onRefresh can't clobber in-progress edits.
+  const [typoTab, setTypoTab] = useState<TypoTab>('name');
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSizeDraft, setNameSizeDraft] = useState(28);
+  const [handleSizeDraft, setHandleSizeDraft] = useState(14);
+  const [nameColorDraft, setNameColorDraft] = useState('#ffffff');
+  const [handleColorDraft, setHandleColorDraft] = useState('#ffffff99');
+  const [fontDraft, setFontDraft] = useState('inter');
+  const [fxDraft, setFxDraft] = useState<HubSeed['textEffect']>({ type: 'none' });
+  // The snapshot the drafts were seeded from — also the Cancel target. Null until
+  // the hub has been opened once.
+  const [hubSeed, setHubSeed] = useState<HubSeed | null>(null);
+  const [hubSaving, setHubSaving] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
   const [pendingPreset, setPendingPreset] = useState<string | null>(null);
   const [page1LabelDraft, setPage1LabelDraft] = useState('');
@@ -359,6 +408,7 @@ export function ProfileDashboard({
     setDesignOpen(false);
     setGalleryOpen(false);
     setVideoProfileOpen(false);
+    setNameFxOpen(false);
     setPagesOpen(false);
     setPendingPreset(null);
     onClose();
@@ -441,6 +491,142 @@ export function ProfileDashboard({
     toast.success('Hero video removed');
     onRefresh();
     setVideoProfileOpen(false);
+  };
+
+  // ── Name & Handle hub ──
+  // Push a seed snapshot into the live drafts. Used on open and on Cancel.
+  const applyHubSeed = (s: HubSeed) => {
+    setNameDraft(s.displayName);
+    setNameSizeDraft(s.nameSize);
+    setHandleSizeDraft(s.handleSize);
+    setNameColorDraft(s.nameColor);
+    setHandleColorDraft(s.handleColor);
+    setFontDraft(s.font);
+    setFxDraft(s.textEffect);
+  };
+
+  // Seed drafts when the hub opens (avoids clobbering mid-edit). Re-seeding on
+  // every open is what makes closing-with-unsaved-changes behave like Cancel.
+  useEffect(() => {
+    if (!nameFxOpen) return;
+    const theme = (themeJson as any) || {};
+    const hc = theme.headerConfig || {};
+    const typo = theme.typography || {};
+    const seed: HubSeed = {
+      displayName: displayName || '',
+      nameSize: typeof hc.nameSize === 'number' ? hc.nameSize : 28,
+      handleSize: typeof hc.handleSize === 'number' ? hc.handleSize : 14,
+      nameColor: hc.nameColor || '#ffffff',
+      handleColor: hc.handleColor || '#ffffff99',
+      font: typo.font || 'inter',
+      textEffect: { type: 'none', ...(typo.text_effect || {}) },
+    };
+    setTypoTab('name');
+    applyHubSeed(seed);
+    setHubSeed(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameFxOpen]);
+
+  // Draft differs from the snapshot it was seeded from.
+  const hubDirty = !!hubSeed && (
+    nameDraft !== hubSeed.displayName ||
+    nameSizeDraft !== hubSeed.nameSize ||
+    handleSizeDraft !== hubSeed.handleSize ||
+    nameColorDraft !== hubSeed.nameColor ||
+    handleColorDraft !== hubSeed.handleColor ||
+    fontDraft !== hubSeed.font ||
+    JSON.stringify(fxDraft) !== JSON.stringify(hubSeed.textEffect)
+  );
+
+  // Live-mirror (L4): publish the whole draft whenever any hub value moves, so
+  // the preview tracks every control without each one having to remember to.
+  // Gated on the hub being open — the clear effect below owns the closed case.
+  useEffect(() => {
+    if (!nameFxOpen || !open) return;
+    onHeaderDraftChange?.({
+      displayName: nameDraft,
+      nameSize: nameSizeDraft,
+      handleSize: handleSizeDraft,
+      nameColor: nameColorDraft,
+      handleColor: handleColorDraft,
+      font: fontDraft,
+      textEffect: fxDraft,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameFxOpen, open, nameDraft, nameSizeDraft, handleSizeDraft, nameColorDraft, handleColorDraft, fontDraft, fxDraft]);
+
+  // Live-mirror (L4): the header draft lives only as long as the hub is open.
+  // Clear it when the hub closes, when the whole dashboard closes (handleClose
+  // leaves nameFxOpen set), and on unmount — otherwise a stale draft would keep
+  // overriding the preview after the panel is gone. Closing with unsaved edits
+  // therefore behaves like Cancel: the draft dies, and the next open re-seeds.
+  useEffect(() => {
+    if (!nameFxOpen || !open) onHeaderDraftChange?.(null);
+  }, [nameFxOpen, open, onHeaderDraftChange]);
+  useEffect(() => () => { onHeaderDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Google Fonts for the Font tab's previews — loaded once, and only once the
+  // hub is opened (the dashboard itself is always mounted).
+  useEffect(() => {
+    if (!nameFxOpen) return;
+    const id = 'google-fonts-typo-hub';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap';
+    document.head.appendChild(link);
+  }, [nameFxOpen]);
+
+  // Commit the whole hub in one write: display_name (only when it changed) plus a
+  // single theme_json merge covering headerConfig and typography. Nothing else in
+  // the hub touches Supabase — every control just moves the draft.
+  const handleHubSave = async () => {
+    if (!hubSeed || !hubDirty || hubSaving) return;
+    setHubSaving(true);
+    const existingTheme = (themeJson as any) || {};
+    const existingHeader = existingTheme.headerConfig || {};
+    const existingTypo = existingTheme.typography || {};
+    const nextName = nameDraft.trim();
+    const update: Record<string, unknown> = {
+      theme_json: {
+        ...existingTheme,
+        headerConfig: {
+          ...existingHeader,
+          nameSize: nameSizeDraft,
+          handleSize: handleSizeDraft,
+          nameColor: nameColorDraft,
+          handleColor: handleColorDraft,
+        },
+        typography: { ...existingTypo, font: fontDraft, text_effect: fxDraft },
+      },
+    };
+    if (nextName !== hubSeed.displayName) update.display_name = nextName;
+    const { error } = await supabase.from('pages').update(update).eq('id', pageId);
+    setHubSaving(false);
+    if (error) { toast.error('Could not save'); return; }
+    // The saved values become the new baseline, so the form goes clean.
+    setNameDraft(nextName);
+    setHubSeed({
+      displayName: nextName,
+      nameSize: nameSizeDraft,
+      handleSize: handleSizeDraft,
+      nameColor: nameColorDraft,
+      handleColor: handleColorDraft,
+      font: fontDraft,
+      textEffect: fxDraft,
+    });
+    // Await the refetch before dropping the draft: clearing first would let the
+    // preview fall back to the stale themeJson prop and flash the old values.
+    await Promise.resolve(onRefresh());
+    onHeaderDraftChange?.(null);
+    toast.success(t('typoHub.saved'));
+  };
+
+  // Cancel — throw the draft away and put the seeded values back.
+  const handleHubCancel = () => {
+    if (hubSeed) applyHubSeed(hubSeed);
+    onHeaderDraftChange?.(null);
   };
 
   // ── Two-page (Pages) config ──
@@ -972,27 +1158,119 @@ export function ProfileDashboard({
                 </div>
               ) : nameFxOpen ? (
                 <div className="dark text-foreground px-4 pt-4 space-y-6">
-                  {(() => {
-                    const fx = ((themeJson as any)?.typography?.text_effect) || {};
+                  <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
+                    {TYPO_TABS.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setTypoTab(tab.key)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${typoTab === tab.key ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
+                      >
+                        {t(tab.labelKey)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {typoTab === 'name' && (
+                    <div className="space-y-5">
+                      <div>
+                        <label className="text-white/40 text-[10px] block mb-1">{t('typoHub.displayName')}</label>
+                        <input
+                          type="text"
+                          value={nameDraft}
+                          maxLength={50}
+                          onChange={(e) => setNameDraft(e.target.value)}
+                          style={{ fontFamily: resolveFontFamily(fontDraft) }}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-white/40 text-[10px]">{t('typoHub.nameSize')}</span>
+                          <span className="text-white/40 text-[10px]">{nameSizeDraft}px</span>
+                        </div>
+                        <input
+                          type="range" min={20} max={40} step={1} value={nameSizeDraft}
+                          onChange={(e) => setNameSizeDraft(Number(e.target.value))}
+                          className="w-full accent-[#C9A55C]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-white/40 text-[10px]">{t('typoHub.handleSize')}</span>
+                          <span className="text-white/40 text-[10px]">{handleSizeDraft}px</span>
+                        </div>
+                        <input
+                          type="range" min={10} max={20} step={1} value={handleSizeDraft}
+                          onChange={(e) => setHandleSizeDraft(Number(e.target.value))}
+                          className="w-full accent-[#C9A55C]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {typoTab === 'font' && (
+                    <div className="space-y-2">
+                      {FONT_OPTIONS.map((f) => {
+                        const active = fontDraft === f.value;
+                        return (
+                          <button
+                            key={f.value}
+                            onClick={() => setFontDraft(f.value)}
+                            className={`w-full text-left rounded-xl border-2 px-3 py-2.5 transition-all ${active ? 'border-[#C9A55C] bg-black/30' : 'border-white/10 hover:border-white/25'}`}
+                          >
+                            <span
+                              className={`block truncate text-base ${active ? 'text-white' : 'text-white/60'}`}
+                              style={{ fontFamily: f.fontFamily }}
+                            >
+                              {f.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {typoTab === 'color' && (
+                    <div className="space-y-5">
+                      {([
+                        { key: 'nameColor', labelKey: 'typoHub.nameColor', draft: nameColorDraft, set: setNameColorDraft },
+                        { key: 'handleColor', labelKey: 'typoHub.handleColor', draft: handleColorDraft, set: setHandleColorDraft },
+                      ] as const).map((row) => (
+                        <div key={row.key}>
+                          <label className="text-white/40 text-[10px] block mb-1">{t(row.labelKey)}</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={swatchHex(row.draft)}
+                              onChange={(e) => row.set(e.target.value)}
+                              className="h-10 w-12 flex-shrink-0 rounded-lg bg-white/5 border border-white/10 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={row.draft}
+                              placeholder="#FFFFFF"
+                              onChange={(e) => row.set(e.target.value)}
+                              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono uppercase placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {typoTab === 'effects' && (() => {
+                    const fx = fxDraft;
                     const fxType = fx.type || 'none';
-                    const saveFx = async (patch: Record<string, unknown>) => {
-                      const existingTheme = (themeJson as any) || {};
-                      const existingTypo = existingTheme.typography || {};
-                      const next = { ...(existingTypo.text_effect || {}), ...patch };
-                      const { error } = await supabase
-                        .from('pages')
-                        .update({ theme_json: { ...existingTheme, typography: { ...existingTypo, text_effect: next } } })
-                        .eq('id', pageId);
-                      if (error) { toast.error('Could not save'); return; }
-                      onRefresh();
-                    };
+                    // Draft-only: the single write lives in handleHubSave.
+                    const patchFx = (patch: Partial<HubSeed['textEffect']>) =>
+                      setFxDraft((prev) => ({ ...prev, ...patch }));
                     return (
                       <>
                         <div>
                           <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Style</p>
                           <div className="grid grid-cols-3 gap-2">
                             {(['none', 'shadow', 'outline'] as const).map((k) => (
-                              <button key={k} onClick={() => saveFx({ type: k })}
+                              <button key={k} onClick={() => patchFx({ type: k })}
                                 className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold capitalize transition-all ${fxType === k ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
                                 {k}
                               </button>
@@ -1003,8 +1281,8 @@ export function ProfileDashboard({
                           <div>
                             <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Shadow strength</p>
                             <input type="range" min={10} max={100} step={5}
-                              defaultValue={typeof fx.intensity === 'number' ? fx.intensity : 60}
-                              onPointerUp={(e) => saveFx({ intensity: Number((e.target as HTMLInputElement).value) })}
+                              value={typeof fx.intensity === 'number' ? fx.intensity : 60}
+                              onChange={(e) => patchFx({ intensity: Number(e.target.value) })}
                               className="w-full accent-[#C9A55C]" />
                           </div>
                         )}
@@ -1014,7 +1292,7 @@ export function ProfileDashboard({
                               <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline width</p>
                               <div className="grid grid-cols-3 gap-2">
                                 {([['S', 1], ['M', 2], ['L', 3]] as const).map(([label, w]) => (
-                                  <button key={label} onClick={() => saveFx({ width: w })}
+                                  <button key={label} onClick={() => patchFx({ width: w })}
                                     className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${(fx.width || 2) === w ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
                                     {label}
                                   </button>
@@ -1025,7 +1303,7 @@ export function ProfileDashboard({
                               <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline color</p>
                               <div className="grid grid-cols-3 gap-2">
                                 {([['Black', '#000000'], ['White', '#FFFFFF'], ['Gold', '#C9A55C']] as const).map(([label, c]) => (
-                                  <button key={label} onClick={() => saveFx({ color: c })}
+                                  <button key={label} onClick={() => patchFx({ color: c })}
                                     className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${(fx.color || '#000000') === c ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
                                     {label}
                                   </button>
@@ -1038,6 +1316,24 @@ export function ProfileDashboard({
                       </>
                     );
                   })()}
+
+                  {/* Every tab edits the draft; this is the only way to commit it.
+                      Sticky so it stays reachable however long a tab scrolls. */}
+                  <div className="sticky bottom-0 z-10 -mx-4 px-4 flex gap-3 pt-3 pb-3 border-t border-white/10 bg-[#0e0c09]">
+                    <button
+                      onClick={handleHubCancel}
+                      className="flex-1 py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
+                    >
+                      {t('typoHub.cancel')}
+                    </button>
+                    <button
+                      onClick={handleHubSave}
+                      disabled={!hubDirty || hubSaving}
+                      className="flex-1 py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm disabled:opacity-40"
+                    >
+                      {t('typoHub.save')}
+                    </button>
+                  </div>
                 </div>
               ) : videoProfileOpen ? (
                 <div className="dark text-foreground px-4 pt-4 space-y-5">
