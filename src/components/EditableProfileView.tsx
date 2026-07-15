@@ -566,6 +566,10 @@ function NameHandleCard({
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
   const [localDisplayName, setLocalDisplayName] = useState(page.display_name || '');
+  // Re-seed the draft when a Name & Handle hub save refreshes the page prop.
+  useEffect(() => {
+    setLocalDisplayName(page.display_name || '');
+  }, [page.display_name]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debouncedSave = () => {
@@ -1218,6 +1222,30 @@ export function EditableProfileView({
   useEffect(() => {
     setLocalIconColorMode(headerConfig.iconColorMode ?? 'color');
   }, [headerConfig.iconColorMode]);
+
+  // Same idea for the name/handle drafts — keep the editor preview in sync with
+  // the Name & Handle menu (headerConfig.name*/handle*).
+  useEffect(() => {
+    setLocalNameSize(headerConfig.nameSize ?? 28);
+  }, [headerConfig.nameSize]);
+  useEffect(() => {
+    setLocalHandleSize(headerConfig.handleSize ?? 14);
+  }, [headerConfig.handleSize]);
+  useEffect(() => {
+    setLocalNameColor(headerConfig.nameColor ?? '#ffffff');
+  }, [headerConfig.nameColor]);
+  useEffect(() => {
+    setLocalHandleColor(headerConfig.handleColor ?? '#ffffff99');
+  }, [headerConfig.handleColor]);
+  useEffect(() => {
+    setLocalNamePadTop(headerConfig.namePadTop ?? headerConfig.namePaddingY ?? 0);
+  }, [headerConfig.namePadTop, headerConfig.namePaddingY]);
+  useEffect(() => {
+    setLocalNamePadBottom(headerConfig.namePadBottom ?? headerConfig.namePaddingY ?? 0);
+  }, [headerConfig.namePadBottom, headerConfig.namePaddingY]);
+  useEffect(() => {
+    setLocalNameHandleGap(headerConfig.nameHandleGap ?? 2);
+  }, [headerConfig.nameHandleGap]);
 
   const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
