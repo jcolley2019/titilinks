@@ -65,12 +65,16 @@ interface DesignEditorProps {
   // LIVE.THEME.1 (L5): streams the in-progress draft theme to the phone
   // preview on every mutation; null clears the override.
   onThemeDraftChange?: (draft: ThemeJson | null) => void;
+  // FOOTER.3: Cancel closes the panel; the draft reverts because the
+  // component unmounts and LIVE.THEME.1 clears the preview override.
+  onClose?: () => void;
 }
 
-export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange }: DesignEditorProps) {
+export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange, onClose }: DesignEditorProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
+  const [confirmReset, setConfirmReset] = useState(false);
   // LIVE.THEME.1 (L5): every draft mutation streams to the preview. The
   // seed emission and post-save emissions equal the saved theme, so
   // they're visual no-ops. Unmount clears so a closed panel can't pin a
@@ -1456,27 +1460,61 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
         </Tabs>
 
-        {/* Update / Reset to Default — mt-auto parks it on the bottom edge when
-            a tab is short, sticky pins it while a tab scrolls. The negative
+        {/* Cancel / Save / Reset — mt-auto parks the strip on the bottom edge
+            when a tab is short, sticky pins it while a tab scrolls. The negative
             margins escape CardContent's p-6 so the strip spans the card's full
             width and reaches its bottom edge; the matching padding puts the
             buttons back exactly where they were. rounded-b-lg keeps the strip
-            inside the card's corner radius. */}
+            inside the card's corner radius. Reset is destructive, so it gets an
+            inline confirm (MENU.MAP §2.3 ruling). */}
         <div className="sticky bottom-0 z-10 mt-auto -mx-6 -mb-6 space-y-3 rounded-b-lg border-t border-border px-6 pt-4 pb-6 bg-card">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold tracking-wide"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('design.update')}
-          </Button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="w-full text-center text-sm font-semibold tracking-wide text-foreground/80 hover:text-foreground transition-colors py-1"
-          >
-            {t('design.resetToDefault')}
-          </button>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              onClick={() => onClose?.()}
+              className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20 font-semibold"
+            >
+              {t('blockEditor.cancel')}
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold tracking-wide disabled:opacity-40"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('blockEditor.save')}
+            </Button>
+          </div>
+          {confirmReset ? (
+            <div className="rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
+              <p className="text-[13px] leading-snug text-white/85">
+                {t('design.resetConfirm')}
+              </p>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(false)}
+                  className="rounded-md border border-white/20 px-3 py-1.5 text-[13px] font-medium text-white/80 hover:text-white hover:border-white/40 transition-colors"
+                >
+                  {t('blockEditor.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setConfirmReset(false); handleReset(); }}
+                  className="rounded-md bg-[#C9A55C] px-3 py-1.5 text-[13px] font-semibold text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
+                >
+                  {t('design.resetToDefault')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              className="w-full text-center text-sm font-semibold tracking-wide text-foreground/80 hover:text-foreground transition-colors py-1"
+            >
+              {t('design.resetToDefault')}
+            </button>
+          )}
         </div>
         </CardContent>
       </Card>

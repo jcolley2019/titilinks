@@ -1335,17 +1335,17 @@ export function ProfileDashboard({
                   {/* Every tab edits the draft; this is the only way to commit it.
                       mt-auto parks it on the bottom edge when a tab is short;
                       sticky keeps it reachable when a tab is long. */}
-                  <div className="sticky bottom-0 z-10 mt-auto -mx-4 px-4 flex gap-3 pt-3 pb-3 border-t border-white/10 bg-[#0e0c09]">
+                  <div className="sticky bottom-0 z-10 mt-auto -mx-4 px-4 flex gap-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
                     <button
                       onClick={handleHubCancel}
-                      className="flex-1 py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
+                      className="flex-1 h-12 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-semibold text-sm"
                     >
                       {t('typoHub.cancel')}
                     </button>
                     <button
                       onClick={handleHubSave}
                       disabled={!hubDirty || hubSaving}
-                      className="flex-1 py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm disabled:opacity-40"
+                      className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm disabled:opacity-40"
                     >
                       {t('typoHub.save')}
                     </button>
@@ -1515,6 +1515,7 @@ export function ProfileDashboard({
                     bio={bio}
                     avatarUrl={avatarUrl}
                     onThemeDraftChange={onThemeDraftChange}
+                    onClose={() => setDesignOpen(false)}
                   />
                 </div>
               ) : activeBlockId ? (

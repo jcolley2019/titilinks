@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -157,6 +158,7 @@ function LinkDetailPanel({
 }) {
   // Card A is the primary (left) item; Card B is the Small partner (right). The
   // tapped half is the initial active slot so editing starts where you clicked.
+  const { t } = useLanguage();
   const [cardA, setCardA] = useState<LinkItem>(item);
   const [cardB, setCardB] = useState<LinkItem | null>(partnerItem ?? null);
   const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
@@ -1070,11 +1072,11 @@ function LinkDetailPanel({
         )}
         <Button
           onClick={handleSave}
-          className="w-full gradient-primary text-primary-foreground"
+          className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold"
         >
           {isPair && cardB
-            ? (isNew ? 'Add pair' : 'Update pair')
-            : (isNew ? 'Add' : 'Update')}
+            ? (isNew ? t('blockEditor.addPair') : t('blockEditor.savePair'))
+            : (isNew ? t('blockEditor.add') : t('blockEditor.save'))}
         </Button>
         {/* Delete — labeled + confirm (replaces the confusing header trashcan). */}
         {!active.id.startsWith('new-') && (
