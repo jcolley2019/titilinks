@@ -199,7 +199,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .insert({
           user_id: user.id,
           name: newPresetName.trim(),
-          theme_json: JSON.parse(JSON.stringify(theme)),
+          // Presets capture the visual theme only — never the page's layout
+          // style. pageStyle rides in the merged theme since FS.SURFACE.1c;
+          // applying a preset must not flip hero <-> full_bleed.
+          theme_json: JSON.parse(JSON.stringify({ ...theme, pageStyle: undefined })),
         });
       
       if (error) throw error;

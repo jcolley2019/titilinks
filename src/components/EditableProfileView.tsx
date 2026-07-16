@@ -47,6 +47,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
+import { isFullBleedTheme } from '@/lib/surface';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -269,6 +270,13 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
+  // FS.SURFACE.1c: a full-bleed photo isn't guaranteed dark — the theme's
+  // text_color can be anything (it read black over Joey's photo). Force
+  // white + soft shadow over photos; hero pages keep the theme color.
+  const galleryLabelStyle = isFullBleedTheme(theme)
+    ? { color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
+    : { color: theme.typography.text_color };
+
   // Layout config stored as JSON in block.title (same pattern as BioBlock).
   // 'full' = current edge-to-edge carousel. Missing/invalid title => 'full' (no migration).
   let layout: 'full' | 'filmstrip' | 'grid' = 'full';
@@ -366,7 +374,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   if (layout === 'filmstrip' && count > 0) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+        <p className="text-sm font-semibold" style={galleryLabelStyle}>
           {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
         </p>
         <div
@@ -414,7 +422,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   if (layout === 'grid' && count > 0) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+        <p className="text-sm font-semibold" style={galleryLabelStyle}>
           {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -455,7 +463,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-semibold" style={{ color: theme.typography.text_color }}>
+      <p className="text-sm font-semibold" style={galleryLabelStyle}>
         {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
       </p>
 

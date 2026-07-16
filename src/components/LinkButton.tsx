@@ -2,6 +2,7 @@ import React from 'react';
 import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { relativeLuminance } from '@/lib/contrast';
+import { coerceFullBleedVariant } from '@/lib/surface';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -135,7 +136,9 @@ export function LinkButton(props: LinkButtonProps) {
   const themeButtons = buttons as Record<string, any> | undefined;
   const themeTypography = theme?.typography as Record<string, any> | undefined;
   const shape = props.buttonShape || buttons?.shape || 'rounded';
-  const variant = themeButtons?.variant ?? bs.variant ?? 'glass';
+  // FS.SURFACE.1c: full_bleed never renders a solid — coerce filled → glass
+  // at render so old data or a style switch can't leak a solid button.
+  const variant = coerceFullBleedVariant(theme, themeButtons?.variant ?? bs.variant ?? 'glass');
   const opacity = themeButtons?.background_opacity ?? bs.background_opacity ?? 1;
   const fontStyle = themeTypography?.font_style ?? bs.font_style;
   const letterSpacing = themeTypography?.letter_spacing ?? bs.letter_spacing;

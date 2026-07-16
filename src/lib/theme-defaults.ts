@@ -107,6 +107,9 @@ export interface ThemeJson {
   auto_contrast?: boolean;
   online_indicator?: boolean;
   canva_last_import?: CanvaImportMetadata;
+  // Page layout style. 'full_bleed' pages restrict card surfaces to the
+  // FS.SURFACE system (glass/clear/fade — never solid). Absent → hero.
+  pageStyle?: 'hero' | 'full_bleed';
   // Two-page feature + per-page hero. All optional; read via casts in components.
   pages?: PagesConfig;
   heroConfig?: HeroConfig;
@@ -269,6 +272,7 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
     },
     auto_contrast: parsed.auto_contrast ?? DEFAULT_THEME.auto_contrast,
     canva_last_import: parsed.canva_last_import,
+    pageStyle: parsed.pageStyle,
   };
 }
 
