@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import type { ThemeJson } from '@/lib/theme-defaults';
-import { coerceFullBleedVariant, ACTION_ACCENT, type ButtonVariant } from '@/lib/surface';
+import { coerceFullBleedVariant, ACTION_ACCENT, resolveButtonSurface, type ButtonVariant } from '@/lib/surface';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -72,10 +72,17 @@ export function ButtonSurfaceControls({
   const [outlineOpen, setOutlineOpen] = useState(false);
 
   const buttons = theme.buttons;
-  const v: ButtonVariant = (buttons.variant as ButtonVariant) ?? 'glass';
+  // FS.SURFACE.2d: chip state comes from the SAME resolver LinkButton
+  // renders from — parity is structural. rawV survives only for the
+  // legacy-'outline' write migrations on tap (2b.1/2b.2).
+  const rawV = buttons.variant;
+  const surface = resolveButtonSurface(theme);
   const bgSel: BgKey =
-    v === 'filled' ? 'solid' : v === 'fade' ? 'fade' : v === 'minimal' || v === 'outline' ? 'clear' : 'semi';
-  const effOutline: number = buttons.outline_width ?? (v === 'outline' ? 1 : 0);
+    surface.variant === 'filled' ? 'solid'
+    : surface.variant === 'fade' ? 'fade'
+    : surface.variant === 'minimal' || surface.variant === 'outline' ? 'clear'
+    : 'semi';
+  const effOutline: number = surface.outlineWidth;
   const fill = buttons.fill_color || '#ffffff';
   const outlineColor = buttons.border_color || fill;
 
@@ -111,7 +118,7 @@ export function ButtonSurfaceControls({
               <button
                 key={o.key}
                 type="button"
-                onClick={() => onPatch(v === 'outline' && buttons.outline_width === undefined ? { variant: o.variant, outline_width: 1 } : { variant: o.variant })}
+                onClick={() => onPatch(rawV === 'outline' && buttons.outline_width === undefined ? { variant: o.variant, outline_width: 1 } : { variant: o.variant })}
                 className={cn(
                   'flex flex-col items-center gap-1.5 rounded-lg border-2 py-3 transition-all',
                   selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-border hover:border-primary/50'
@@ -156,7 +163,7 @@ export function ButtonSurfaceControls({
               <button
                 key={o.w}
                 type="button"
-                onClick={() => onPatch(o.w === 0 && v === 'outline' ? { variant: 'minimal', outline_width: 0 } : { outline_width: o.w })}
+                onClick={() => onPatch(o.w === 0 && rawV === 'outline' ? { variant: 'minimal', outline_width: 0 } : { outline_width: o.w })}
                 className={cn(
                   'flex flex-col items-center gap-1.5 rounded-lg border-2 py-2.5 transition-all',
                   selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-border hover:border-primary/50'

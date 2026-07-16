@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { ThemeJson } from './theme-defaults';
+import { DEFAULT_BLOCK_STYLE } from './theme-defaults';
 
 /** Button variant union — mirrors ThemeJson buttons.variant. */
 export type ButtonVariant = 'filled' | 'outline' | 'glass' | 'minimal' | 'fade';
@@ -52,4 +53,50 @@ export function fullBleedText(theme: ThemeJson, fallback: string): CSSProperties
   return isFullBleedTheme(theme)
     ? { color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
     : { color: fallback };
+}
+
+/**
+ * FS.SURFACE.2d — THE one derivation of effective button-surface state.
+ * LinkButton renders from it and the Buttons-tab editor reads chip
+ * state from it. Anywhere the two would diverge is a chip that lies or
+ * a tap that silently mutates the design — deriving both from here
+ * makes parity structural instead of hand-maintained.
+ */
+export interface ButtonSurface {
+  /** Effective variant after full-bleed coercion. */
+  variant: ButtonVariant;
+  /** Outline the unified render pass draws. >0 = an explicit positive
+   *  outline_width, or a legacy 'outline' variant's implied border.
+   *  0 = the unified pass draws nothing; intrinsic variant skins
+   *  (glass hairline, filled decor) still apply — material, not
+   *  outline. */
+  outlineWidth: number;
+  /** Whether the drop shadow renders (theme flag gated by variant). */
+  shadow: boolean;
+}
+
+export function resolveButtonSurface(
+  theme: ThemeJson | undefined,
+  blockStyle?: { variant?: ButtonVariant; border_width?: number }
+): ButtonSurface {
+  const buttons = theme?.buttons as
+    | (ThemeJson['buttons'] & { outline_width?: number })
+    | undefined;
+  const raw: ButtonVariant =
+    (buttons?.variant as ButtonVariant | undefined) ??
+    blockStyle?.variant ??
+    DEFAULT_BLOCK_STYLE.variant;
+  const variant = coerceFullBleedVariant(theme, raw);
+  const explicit = buttons?.outline_width;
+  const outlineWidth =
+    explicit !== undefined && explicit > 0
+      ? explicit
+      : variant === 'outline'
+        ? Math.max(blockStyle?.border_width ?? 1, 1)
+        : 0;
+  const shadow =
+    (buttons?.shadow_enabled ?? false) &&
+    variant !== 'minimal' &&
+    variant !== 'fade';
+  return { variant, outlineWidth, shadow };
 }

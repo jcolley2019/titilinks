@@ -2,7 +2,7 @@ import React from 'react';
 import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { relativeLuminance } from '@/lib/contrast';
-import { coerceFullBleedVariant } from '@/lib/surface';
+import { resolveButtonSurface } from '@/lib/surface';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -136,9 +136,10 @@ export function LinkButton(props: LinkButtonProps) {
   const themeButtons = buttons as Record<string, any> | undefined;
   const themeTypography = theme?.typography as Record<string, any> | undefined;
   const shape = props.buttonShape || buttons?.shape || 'rounded';
-  // FS.SURFACE.1c: full_bleed never renders a solid — coerce filled → glass
-  // at render so old data or a style switch can't leak a solid button.
-  const variant = coerceFullBleedVariant(theme, themeButtons?.variant ?? bs.variant ?? 'glass');
+  // FS.SURFACE.2d: variant/outline/shadow come from the shared resolver
+  // (full-bleed coercion included) so render and editor cannot disagree.
+  const surface = resolveButtonSurface(theme, bs);
+  const variant = surface.variant;
   const opacity = themeButtons?.background_opacity ?? bs.background_opacity ?? 1;
   const fontStyle = themeTypography?.font_style ?? bs.font_style;
   const letterSpacing = themeTypography?.letter_spacing ?? bs.letter_spacing;
@@ -194,7 +195,7 @@ export function LinkButton(props: LinkButtonProps) {
       : '1px solid transparent';
   } else if (variant === 'outline') {
     style.background = 'transparent';
-    style.border = `${Math.max(borderWidth, 1)}px solid ${borderColor || fillColor}`;
+    // Border is drawn by the unified outline pass below (surface.outlineWidth).
   } else if (variant === 'minimal') {
     style.background = 'transparent';
     style.border = 'none';
@@ -208,17 +209,15 @@ export function LinkButton(props: LinkButtonProps) {
     style.border = 'none';
   }
 
-  // FS.SURFACE.2a/2b.1: only a POSITIVE outline_width overrides.
-  // undefined AND 0 both mean "no explicit outline" — the variant's
-  // intrinsic skin applies (glass keeps its hairline: that's material,
-  // not outline). Tapping the already-selected None chip is a true
-  // no-op. 1/2/3 = Thin/Medium/Thick.
-  const outlineWidth = themeButtons?.outline_width;
-  if (outlineWidth !== undefined && outlineWidth > 0) {
-    style.border = `${outlineWidth}px solid ${borderColor || fillColor}`;
+  // FS.SURFACE.2d unified outline pass: draws whenever the resolver
+  // says so — an explicit positive outline_width, or a legacy variant
+  // 'outline' whose border now renders here instead of in its branch.
+  // 0 = intrinsic skins stand (glass hairline is material, not outline).
+  if (surface.outlineWidth > 0) {
+    style.border = `${surface.outlineWidth}px solid ${borderColor || fillColor}`;
   }
 
-  if (shadowEnabled && variant !== 'minimal' && variant !== 'fade') {
+  if (surface.shadow) {
     style.boxShadow = `${style.boxShadow || ''}${style.boxShadow ? ', ' : ''}0 8px 24px -10px rgba(0,0,0,0.55)`;
   }
 
