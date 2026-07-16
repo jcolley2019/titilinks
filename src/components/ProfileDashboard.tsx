@@ -661,6 +661,31 @@ export function ProfileDashboard({
     onRefresh();
   };
 
+  // PAGES.STYLE.0: page style is structure, so its switcher and writer
+  // live here. Merge-safe: spreads the raw existing theme (BUG.THEME.1
+  // rule). Entering hero with no stored posY seeds 25 — faces live in
+  // the top third — so a style switch never beheads the photo.
+  const currentPageStyle: 'hero' | 'full_bleed' =
+    (themeJson as any)?.pageStyle === 'full_bleed' ? 'full_bleed' : 'hero';
+
+  const savePageStyle = async (newStyle: 'hero' | 'full_bleed') => {
+    if (newStyle === currentPageStyle) return;
+    const existingTheme = (themeJson as any) || {};
+    const nextTheme = { ...existingTheme, pageStyle: newStyle };
+    if (newStyle === 'hero') {
+      const existingHero = (existingTheme.heroConfig as Record<string, unknown>) || {};
+      if (typeof existingHero.posY !== 'number') {
+        nextTheme.heroConfig = { ...existingHero, posY: 25 };
+      }
+    }
+    const { error } = await supabase
+      .from('pages')
+      .update({ theme_json: nextTheme })
+      .eq('id', pageId);
+    if (error) { toast.error('Could not save'); return; }
+    onRefresh();
+  };
+
   // Ensure Page 2 (the page2 mode) exists before enabling it. New accounts
   // onboard with only Page 1, so the second page is created on demand here —
   // blank except header blocks; the user lays it out via the Presets picker
@@ -1032,6 +1057,30 @@ export function ProfileDashboard({
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               {pagesOpen ? (
                 <div className="dark text-foreground px-4 pt-5 pb-8 space-y-5">
+                  {/* PAGES.STYLE.0: Hero / Full Screen switcher */}
+                  <div>
+                    <p className="text-white/70 text-xs font-semibold mb-2">{t('design.pageStyle')}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { value: 'hero', label: t('design.styleHero'), desc: t('onboardingFlow.styleHeroDesc') },
+                        { value: 'full_bleed', label: t('design.styleFullBleed'), desc: t('onboardingFlow.styleFullBleedDesc') },
+                      ] as const).map((s) => {
+                        const selected = currentPageStyle === s.value;
+                        return (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => savePageStyle(s.value)}
+                            className={`flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-3 text-left transition-all ${selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-white/10 hover:border-white/30'}`}
+                          >
+                            <span className={`text-xs font-semibold ${selected ? 'text-[#C9A55C]' : 'text-white/80'}`}>{s.label}</span>
+                            <span className="text-[10px] leading-snug text-white/40">{s.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Enable second page — Pro feature */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
