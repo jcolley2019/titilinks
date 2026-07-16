@@ -666,44 +666,6 @@ function NameHandleCard({
             @{page.handle}
           </p>
         </div>
-        <button
-          onClick={onToggleExpand}
-          className="absolute right-2 top-1/2 -translate-y-1/2"
-        >
-          <ChevronRight className={cn(
-            "h-4 w-4 text-white/30 transition-transform duration-200",
-            expanded && "rotate-90"
-          )} />
-        </button>
-      </div>
-
-      {/* Compact settings row */}
-      <div
-        className={cn(
-          'overflow-hidden transition-all duration-200 ease-out',
-          expanded ? 'max-h-[120px] opacity-100' : 'max-h-0 opacity-0'
-        )}
-      >
-        <div className="px-6 pb-2 space-y-1.5">
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Name</label>
-            <input type="range" min={16} max={48} step={1} value={localNameSize}
-              onChange={(e) => { setLocalNameSize(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-            <input type="color" value={localNameColor}
-              onChange={(e) => { setLocalNameColor(e.target.value); debouncedSave(); }}
-              className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
-          </div>
-          <div className="flex gap-3 items-center">
-            <label className="text-[10px] text-white/40 w-12 flex-shrink-0">Handle</label>
-            <input type="range" min={10} max={24} step={1} value={localHandleSize}
-              onChange={(e) => { setLocalHandleSize(Number(e.target.value)); debouncedSave(); }}
-              className="flex-1 accent-[#C9A55C] h-1" />
-            <input type="color" value={localHandleColor.slice(0, 7)}
-              onChange={(e) => { setLocalHandleColor(e.target.value); debouncedSave(); }}
-              className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0" />
-          </div>
-        </div>
       </div>
     </div>
   );
