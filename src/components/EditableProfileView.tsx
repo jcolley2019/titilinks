@@ -2102,7 +2102,21 @@ export function EditableProfileView({
           (uploaded via the Pro Video Profile menu) takes precedence over
           the photo. */}
       {isFullBleed && (heroVideo || heroImage) && (
-        <div aria-hidden="true" className="fixed inset-0 z-0">
+        <div
+          aria-hidden="true"
+          className={editMode ? 'w-full' : 'fixed inset-0 z-0'}
+          // FS.PAGE.1: the editor preview lives inside a phone frame whose
+          // `transform: translateZ(0)` re-parents position:fixed, so the live
+          // page's fixed layer would scroll away with the content. In edit mode
+          // pin against the frame's own scroller instead: sticky at the top of
+          // the flow, with a negative margin cancelling its height so the
+          // content below still starts where it always did and scrolls over it.
+          style={
+            editMode
+              ? { position: 'sticky', top: 0, height: '100dvh', marginBottom: '-100dvh', zIndex: 0 }
+              : undefined
+          }
+        >
           {heroVideo ? (
             <HeroVideo
               src={heroVideo}
