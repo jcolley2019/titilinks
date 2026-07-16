@@ -94,6 +94,9 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L4): the Name & Handle hub's in-progress header edits,
    *  merged as a patch so each tab publishes only the fields it owns. Null clears. */
   onHeaderDraftChange?: (patch: HeaderDraft | null) => void;
+  // LIVE.THEME.1 (L5): pass-through for the theme editor's draft stream.
+  // Typed unknown to match this component's themeJson convention.
+  onThemeDraftChange?: (draft: unknown) => void;
   themeJson: unknown;
   displayName?: string;
   bio?: string;
@@ -318,6 +321,7 @@ export function ProfileDashboard({
   onDraftChange,
   onTitleDraftChange,
   onHeaderDraftChange,
+  onThemeDraftChange,
   themeJson,
   displayName,
   bio,
@@ -564,6 +568,12 @@ export function ProfileDashboard({
     if (!nameFxOpen || !open) onHeaderDraftChange?.(null);
   }, [nameFxOpen, open, onHeaderDraftChange]);
   useEffect(() => () => { onHeaderDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // LIVE.THEME.1 (L5): same discipline for the theme draft — belt and
+  // suspenders alongside DesignEditor's own unmount clear.
+  useEffect(() => {
+    if (!designOpen || !open) onThemeDraftChange?.(null);
+  }, [designOpen, open, onThemeDraftChange]);
+  useEffect(() => () => { onThemeDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Google Fonts for the Font tab's previews — loaded once, and only once the
   // hub is opened (the dashboard itself is always mounted).
@@ -1496,6 +1506,7 @@ export function ProfileDashboard({
                     displayName={displayName}
                     bio={bio}
                     avatarUrl={avatarUrl}
+                    onThemeDraftChange={onThemeDraftChange}
                   />
                 </div>
               ) : activeBlockId ? (

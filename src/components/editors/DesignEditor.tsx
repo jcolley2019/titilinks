@@ -62,12 +62,21 @@ interface DesignEditorProps {
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
+  // LIVE.THEME.1 (L5): streams the in-progress draft theme to the phone
+  // preview on every mutation; null clears the override.
+  onThemeDraftChange?: (draft: ThemeJson | null) => void;
 }
 
-export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl }: DesignEditorProps) {
+export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange }: DesignEditorProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
+  // LIVE.THEME.1 (L5): every draft mutation streams to the preview. The
+  // seed emission and post-save emissions equal the saved theme, so
+  // they're visual no-ops. Unmount clears so a closed panel can't pin a
+  // stale look on the preview (hub pattern).
+  useEffect(() => { onThemeDraftChange?.(theme); }, [theme, onThemeDraftChange]);
+  useEffect(() => () => { onThemeDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const currentPageStyle = (theme as any).pageStyle || 'hero';
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);

@@ -23,6 +23,14 @@ interface BlockWithItems extends Block {
   items: BlockItem[];
 }
 
+// The REAL theme type (background/buttons/typography/motion) — aliased
+// because the local skeleton below shares its name. The L5 draft must
+// use this one: it flows into EditableProfileView's themeDraft prop.
+import type { ThemeJson as FullThemeJson } from '@/lib/theme-defaults';
+
+// Local skeleton: only the keys this page reads off raw theme_json
+// (autoPopulatePlaceholders). NOT the real ThemeJson — do not pass
+// values typed with this into theme-consuming components.
 interface ThemeJson {
   pages?: {
     page1?: { label?: string };
@@ -52,6 +60,9 @@ export default function Editor() {
   // Live-mirror (L4): the Name & Handle hub's in-progress header edits. Page-scoped,
   // so unlike L2/L3 there's no block to pin it to — it goes straight to the preview.
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
+  // Live-mirror (L5): the Customize Profile panel's in-progress theme. Whole-object
+  // replace on every mutation, unlike L4's per-field patches.
+  const [themeDraft, setThemeDraft] = useState<FullThemeJson | null>(null);
 
   // ── Data Fetching ──
 
@@ -333,6 +344,10 @@ export default function Editor() {
     setHeaderDraft(prev => ({ ...prev, ...patch }));
   }, []);
 
+  const handleThemeDraftChange = useCallback((draft: unknown) => {
+    setThemeDraft(draft as FullThemeJson | null);
+  }, []);
+
   // Merge the draft into the preview's blocks: replace the matching item by id,
   // or append it when it's a not-yet-persisted new- item. Cast bridges the
   // editor's LinkItem onto the preview's BlockItem row — preview reads only the
@@ -504,6 +519,7 @@ export default function Editor() {
               page={page}
               blocks={previewBlocks}
               headerDraft={headerDraft}
+              themeDraft={themeDraft}
               editMode={true}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
@@ -529,6 +545,7 @@ export default function Editor() {
           page={page}
           blocks={previewBlocks}
           headerDraft={headerDraft}
+          themeDraft={themeDraft}
           editMode={true}
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
@@ -561,6 +578,7 @@ export default function Editor() {
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
         onHeaderDraftChange={handleHeaderDraftChange}
+        onThemeDraftChange={handleThemeDraftChange}
         themeJson={page.theme_json}
         displayName={page.display_name ?? undefined}
         bio={page.bio ?? undefined}

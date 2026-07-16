@@ -113,6 +113,9 @@ interface EditableProfileViewProps {
   // Live-mirror (L4): the Name & Handle hub's in-progress edits. Present fields
   // win over the saved values in the edit-mode preview; absent means "no override".
   headerDraft?: HeaderDraft | null;
+  // Live-mirror (L5): the Customize Profile panel's in-progress theme. When
+  // present it replaces the saved theme for the whole preview render.
+  themeDraft?: ThemeJson | null;
   stickyTop?: number | string;
 }
 
@@ -1130,6 +1133,7 @@ export function EditableProfileView({
   onItemAdd,
   onItemsReorder,
   headerDraft,
+  themeDraft,
   stickyTop = 0,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
@@ -1914,7 +1918,11 @@ export function EditableProfileView({
   };
 
   // Get theme
-  const rawTheme = getThemeWithDefaults(page.theme_json);
+  // LIVE.THEME.1 (L5): an in-progress Customize Profile draft overrides the
+  // saved theme for the whole preview (chrome tokens included). Raw
+  // theme_json readers (heroConfig/pages/headerConfig) intentionally stay on
+  // saved values — the theme editor never writes those keys.
+  const rawTheme = getThemeWithDefaults(themeDraft ?? page.theme_json);
   const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
   // An in-progress hub font draft (L4) wins; resolveFontFamily returns undefined
   // for an absent draft, so the saved font is the fallback.
