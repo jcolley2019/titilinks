@@ -1375,6 +1375,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 className="flex-1 font-mono uppercase"
               />
             </div>
+            <p className="text-xs text-muted-foreground">
+              {t('design.textColorDesc')}
+            </p>
           </TabsContent>
 
           {/* Font Tab — global font family */}
