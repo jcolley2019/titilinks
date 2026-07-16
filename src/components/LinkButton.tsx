@@ -199,9 +199,24 @@ export function LinkButton(props: LinkButtonProps) {
     style.background = 'transparent';
     style.border = 'none';
     style.boxShadow = 'none';
+  } else if (variant === 'fade') {
+    // FS.SURFACE.2a: tint dissolving downward to nothing — glass blur
+    // for legibility, no border so the edge stays soft.
+    style.background = `linear-gradient(to bottom, ${rgbaStr(fillColor, Math.max(0.08, opacity * 0.35))} 0%, ${rgbaStr(fillColor, 0)} 100%)`;
+    style.backdropFilter = 'blur(14px) saturate(1.3)';
+    style.WebkitBackdropFilter = 'blur(14px) saturate(1.3)';
+    style.border = 'none';
   }
 
-  if (shadowEnabled && variant !== 'minimal') {
+  // FS.SURFACE.2a: explicit outline override (written by the 2b controls
+  // UI). Legacy data (outline_width undefined) keeps the per-variant
+  // borders assigned above. 0 = None; 1/2/3 = Thin/Medium/Thick.
+  const outlineWidth = themeButtons?.outline_width;
+  if (outlineWidth !== undefined) {
+    style.border = outlineWidth > 0 ? `${outlineWidth}px solid ${borderColor || fillColor}` : 'none';
+  }
+
+  if (shadowEnabled && variant !== 'minimal' && variant !== 'fade') {
     style.boxShadow = `${style.boxShadow || ''}${style.boxShadow ? ', ' : ''}0 8px 24px -10px rgba(0,0,0,0.55)`;
   }
 

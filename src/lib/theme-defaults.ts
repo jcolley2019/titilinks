@@ -36,7 +36,11 @@ export interface ThemeButtons {
   shadow_enabled: boolean;
   density: 'compact' | 'normal' | 'roomy';
   // Link button style. When absent, LinkButton falls back to 'glass'.
-  variant?: 'filled' | 'outline' | 'glass' | 'minimal';
+  // 'fade' (FS.SURFACE.2a): tint gradient dissolving to transparent.
+  variant?: 'filled' | 'outline' | 'glass' | 'minimal' | 'fade';
+  // FS.SURFACE.2a: explicit outline weight (None/Thin/Medium/Thick).
+  // When undefined, LinkButton's legacy per-variant borders apply.
+  outline_width?: 0 | 1 | 2 | 3;
   // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
   // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
   variant_style?: 'velvet';

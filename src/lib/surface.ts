@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import type { ThemeJson } from './theme-defaults';
 
 /** Button variant union — mirrors ThemeJson buttons.variant. */
-export type ButtonVariant = 'filled' | 'outline' | 'glass' | 'minimal';
+export type ButtonVariant = 'filled' | 'outline' | 'glass' | 'minimal' | 'fade';
 
 /**
  * Brand-gold action accent — the one sanctioned solid fill for action
