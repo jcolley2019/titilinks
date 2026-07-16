@@ -101,7 +101,7 @@ export function ButtonSurfaceControls({
           border: `1px solid ${hexToRgba(fill, 0.35)}`,
         };
       case 'fade':
-        return { background: `linear-gradient(to bottom, ${hexToRgba(fill, 0.4)} 0%, ${hexToRgba(fill, 0)} 100%)` };
+        return { background: `linear-gradient(${surface.fadeDirection === 'top' ? 'to bottom' : 'to top'}, ${hexToRgba(fill, 0.8)} 0%, ${hexToRgba(fill, 0)} 100%)` };
       case 'clear':
         return { backgroundColor: 'transparent', border: '1px dashed rgba(255,255,255,0.3)' };
     }
@@ -134,6 +134,36 @@ export function ButtonSurfaceControls({
         </div>
         <p className="text-xs text-muted-foreground">{t('design.bgStyleDesc')}</p>
       </div>
+
+      {bgSel === 'fade' && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">{t('design.fadeFrom')}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {(['bottom', 'top'] as const).map((d) => {
+              const selected = surface.fadeDirection === d;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => onPatch({ fade_direction: d })}
+                  className={cn(
+                    'flex flex-col items-center gap-1.5 rounded-lg border-2 py-3 transition-all',
+                    selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-border hover:border-primary/50'
+                  )}
+                >
+                  <span
+                    className="h-4 w-14 rounded-full"
+                    style={{ background: `linear-gradient(${d === 'top' ? 'to bottom' : 'to top'}, ${hexToRgba(fill, 0.8)} 0%, ${hexToRgba(fill, 0)} 100%)` }}
+                  />
+                  <span className={cn('text-xs font-semibold', selected ? 'text-[#C9A55C]' : 'text-muted-foreground')}>
+                    {t(d === 'bottom' ? 'design.fadeFromBottom' : 'design.fadeFromTop')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {showTint && (
         <div className="space-y-2">

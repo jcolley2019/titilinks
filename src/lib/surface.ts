@@ -73,6 +73,10 @@ export interface ButtonSurface {
   outlineWidth: number;
   /** Whether the drop shadow renders (theme flag gated by variant). */
   shadow: boolean;
+  /** FS.SURFACE.2e: fade anchor. 'bottom' = tint pools at the base and
+   *  dissolves upward (default); 'top' = inverted. Only meaningful when
+   *  variant === 'fade'. */
+  fadeDirection: 'bottom' | 'top';
 }
 
 export function resolveButtonSurface(
@@ -98,5 +102,7 @@ export function resolveButtonSurface(
     (buttons?.shadow_enabled ?? false) &&
     variant !== 'minimal' &&
     variant !== 'fade';
-  return { variant, outlineWidth, shadow };
+  const fadeDirection: 'bottom' | 'top' =
+    buttons?.fade_direction === 'top' ? 'top' : 'bottom';
+  return { variant, outlineWidth, shadow, fadeDirection };
 }

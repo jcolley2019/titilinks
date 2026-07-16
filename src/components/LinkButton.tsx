@@ -201,9 +201,13 @@ export function LinkButton(props: LinkButtonProps) {
     style.border = 'none';
     style.boxShadow = 'none';
   } else if (variant === 'fade') {
-    // FS.SURFACE.2a: tint dissolving downward to nothing — glass blur
-    // for legibility, no border so the edge stays soft.
-    style.background = `linear-gradient(to bottom, ${rgbaStr(fillColor, Math.max(0.08, opacity * 0.35))} 0%, ${rgbaStr(fillColor, 0)} 100%)`;
+    // FS.SURFACE.2a/2e: tint dissolving to nothing — glass blur for
+    // legibility, no border so the edge stays soft. Direction comes
+    // from the resolver: 'bottom' (default) anchors the tint at the
+    // base like a product-tile scrim; 'top' is the inversion.
+    const fadeCss = surface.fadeDirection === 'top' ? 'to bottom' : 'to top';
+    // 2e.1: product-tile strength (tiles run black/80 → transparent).
+    style.background = `linear-gradient(${fadeCss}, ${rgbaStr(fillColor, Math.max(0.25, opacity * 0.8))} 0%, ${rgbaStr(fillColor, 0)} 100%)`;
     style.backdropFilter = 'blur(14px) saturate(1.3)';
     style.WebkitBackdropFilter = 'blur(14px) saturate(1.3)';
     style.border = 'none';

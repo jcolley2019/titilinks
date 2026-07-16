@@ -42,6 +42,10 @@ export interface ThemeButtons {
   // When undefined OR 0, LinkButton's intrinsic per-variant borders
   // apply (glass hairline = material, not outline).
   outline_width?: 0 | 1 | 2 | 3;
+  // FS.SURFACE.2e: where the fade tint anchors. 'bottom' (default,
+  // absent = bottom) pools at the base and dissolves upward, matching
+  // product-tile scrims; 'top' is the deliberate inversion.
+  fade_direction?: 'bottom' | 'top';
   // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
   // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
   variant_style?: 'velvet';
