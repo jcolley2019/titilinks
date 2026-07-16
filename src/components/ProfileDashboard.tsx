@@ -1026,10 +1026,12 @@ export function ProfileDashboard({
               </button>
             </div>
 
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide pb-8">
+            {/* Scrollable content. No pb here: a branch that anchors a footer
+                needs to reach the true bottom edge, so bottom breathing room is
+                each branch's own business (footer-less branches carry pb-8). */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
               {pagesOpen ? (
-                <div className="dark text-foreground px-4 pt-5 space-y-5">
+                <div className="dark text-foreground px-4 pt-5 pb-8 space-y-5">
                   {/* Enable second page — Pro feature */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -1167,7 +1169,10 @@ export function ProfileDashboard({
                   </div>
                 </div>
               ) : nameFxOpen ? (
-                <div className="dark text-foreground px-4 pt-4 space-y-6">
+                // Fills the scrollport so the footer's mt-auto has room to push
+                // against. gap-6 replaces space-y-6 deliberately: space-y sets
+                // margin-top at (0,3,0) specificity and would out-rank mt-auto.
+                <div className="dark text-foreground flex min-h-full flex-col gap-6 px-4 pt-4">
                   <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
                     {TYPO_TABS.map((tab) => (
                       <button
@@ -1328,8 +1333,9 @@ export function ProfileDashboard({
                   })()}
 
                   {/* Every tab edits the draft; this is the only way to commit it.
-                      Sticky so it stays reachable however long a tab scrolls. */}
-                  <div className="sticky bottom-0 z-10 -mx-4 px-4 flex gap-3 pt-3 pb-3 border-t border-white/10 bg-[#0e0c09]">
+                      mt-auto parks it on the bottom edge when a tab is short;
+                      sticky keeps it reachable when a tab is long. */}
+                  <div className="sticky bottom-0 z-10 mt-auto -mx-4 px-4 flex gap-3 pt-3 pb-3 border-t border-white/10 bg-[#0e0c09]">
                     <button
                       onClick={handleHubCancel}
                       className="flex-1 py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
@@ -1346,7 +1352,7 @@ export function ProfileDashboard({
                   </div>
                 </div>
               ) : videoProfileOpen ? (
-                <div className="dark text-foreground px-4 pt-4 space-y-5">
+                <div className="dark text-foreground px-4 pt-4 pb-8 space-y-5">
                   {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">
                     {heroVideoUrl ? (
@@ -1494,11 +1500,13 @@ export function ProfileDashboard({
                   )}
                 </div>
               ) : galleryOpen ? (
-                <div className="dark text-foreground">
+                <div className="dark text-foreground pb-8">
                   <TemplateGallery pageId={pageId} onApply={onRefresh} />
                 </div>
               ) : designOpen ? (
-                <div className="dark text-foreground">
+                // Height-filling column: the editor inside claims the full
+                // scrollport so its footer can sit on the true bottom edge.
+                <div className="dark text-foreground flex min-h-full flex-col">
                   <DesignEditor
                     pageId={pageId}
                     themeJson={themeJson}
@@ -1510,39 +1518,46 @@ export function ProfileDashboard({
                   />
                 </div>
               ) : activeBlockId ? (
-                <div className="dark text-foreground">{renderEditor()}</div>
+                // Same height-filling column. Editors that don't yet anchor
+                // their footer (FOOTER.2) are unaffected: an auto-height root
+                // still flows and overflows exactly as it did.
+                <div className="dark text-foreground flex min-h-full flex-col">{renderEditor()}</div>
               ) : (
-                sections.map((section) => (
-                  <div key={section.labelKey}>
-                    <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
-                      {t(section.labelKey)}
-                    </p>
-                    {section.rows.map((row) => (
-                      <button
-                        key={row.titleKey}
-                        onClick={() => handleRowTap(row)}
-                        className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
-                        style={{ width: 'calc(100% - 2rem)' }}
-                      >
-                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                          {row.icon}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-bold text-white flex items-center gap-1.5">
-                            {t(row.titleKey)}
-                            {row.pro && !canCarousel && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-1.5 py-0.5">
-                                <Lock className="h-2.5 w-2.5" /> PRO
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
-                        </div>
-                        <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                ))
+                // Footer-less branch: carries the bottom breathing room the
+                // scroller's pb-8 used to hand out.
+                <div className="pb-8">
+                  {sections.map((section) => (
+                    <div key={section.labelKey}>
+                      <p className="text-lg font-bold text-white px-4 pt-6 pb-3">
+                        {t(section.labelKey)}
+                      </p>
+                      {section.rows.map((row) => (
+                        <button
+                          key={row.titleKey}
+                          onClick={() => handleRowTap(row)}
+                          className="w-full mx-4 mb-2 flex items-center gap-4 bg-white/5 rounded-2xl px-4 py-4 hover:bg-white/10 transition-colors"
+                          style={{ width: 'calc(100% - 2rem)' }}
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                            {row.icon}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                              {t(row.titleKey)}
+                              {row.pro && !canCarousel && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-1.5 py-0.5">
+                                  <Lock className="h-2.5 w-2.5" /> PRO
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-white/50">{t(row.subtitleKey)}</p>
+                          </div>
+                          <Plus className="h-5 w-5 text-white/40 flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </motion.div>

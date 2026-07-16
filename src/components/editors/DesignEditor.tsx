@@ -497,10 +497,14 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   };
 
   return (
-    <div>
+    // FOOTER.1: the flex column is chained root → Card → CardContent so the
+    // footer's mt-auto measures against the panel, not against the content.
+    // No min-h-0 anywhere on this chain: content must be free to overflow and
+    // scroll the dashboard's scroller, which min-h-0 would suppress.
+    <div className="flex flex-1 flex-col">
       {/* Controls Panel */}
-      <Card className="bg-card border-border">
-        <CardContent>
+      <Card className="bg-card border-border flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col">
           {/* Page Style Picker */}
           {false && (
           <div className="mb-6 pb-6 border-b border-border">
@@ -1452,8 +1456,13 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
         </Tabs>
 
-        {/* Update / Reset to Default — pinned to the bottom while content scrolls. */}
-        <div className="sticky bottom-0 z-10 space-y-3 border-t border-border pt-4 bg-card">
+        {/* Update / Reset to Default — mt-auto parks it on the bottom edge when
+            a tab is short, sticky pins it while a tab scrolls. The negative
+            margins escape CardContent's p-6 so the strip spans the card's full
+            width and reaches its bottom edge; the matching padding puts the
+            buttons back exactly where they were. rounded-b-lg keeps the strip
+            inside the card's corner radius. */}
+        <div className="sticky bottom-0 z-10 mt-auto -mx-6 -mb-6 space-y-3 rounded-b-lg border-t border-border px-6 pt-4 pb-6 bg-card">
           <Button
             onClick={handleSave}
             disabled={saving}

@@ -425,11 +425,15 @@ function LinkDetailPanel({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    // FOOTER.1: h-full was inert here — it resolved against an auto-height
+    // ancestor, so the ScrollArea below never got a bound and the dashboard's
+    // scroller scrolled in its place, carrying the footer up with it.
+    // flex-1 + min-h-0 (continued onto the ScrollArea) is what bounds it.
+    <div className="flex flex-1 flex-col min-h-0">
       {/* One-page editor: the Big/Medium/Small/Button row drives Cards vs
           Buttons (no tab). Delete lives at the bottom. */}
 
-      <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
+      <ScrollArea className={panelMode ? 'flex-1 min-h-0 px-4' : 'flex-1 min-h-0 -mx-6 px-6'}>
         <div className="space-y-2.5">
           {/* Live Preview. Pair mode → two Small slots side-by-side with a swap
               control between them. Otherwise the single-card preview (EMPTY
@@ -1030,10 +1034,13 @@ function LinkDetailPanel({
         </div>
       </ScrollArea>
 
-      {/* Save button — pinned to the bottom of the panel while content scrolls.
-          px-4 matches the ScrollArea so the Add button aligns with the inputs
-          (the separator border still spans edge-to-edge). */}
-      <div className="sticky bottom-0 z-10 px-4 pt-3 mt-3 border-t border-border bg-[#0e0c09]">
+      {/* Save button — sits below the bounded ScrollArea, on the panel's bottom
+          edge. px-4 matches the ScrollArea so the Add button aligns with the
+          inputs (the separator border still spans edge-to-edge). mt-auto
+          replaces mt-3: both set margin-top, and the anchor has to win. pb-4
+          re-homes the bottom breathing room the panel root's py-4 used to give,
+          now that the strip owns the edge. */}
+      <div className="sticky bottom-0 z-10 mt-auto px-4 pt-3 pb-4 border-t border-border bg-[#0e0c09]">
         {confirmRevert && (
           <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
             <div className="flex items-start gap-2">
@@ -1476,7 +1483,11 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
+      // FOOTER.1: flex-1 + min-h-0 clamps this to the dashboard's scrollport
+      // instead of growing with content — that clamp is what finally gives
+      // LinkDetailPanel's ScrollArea a height to scroll inside of. pt-4 only:
+      // a bottom pad here would float the footer off the panel's edge.
+      <div className="flex flex-1 flex-col min-h-0 bg-[#0e0c09] text-white px-4 pt-4">
         {innerContent}
       </div>
     );
