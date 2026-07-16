@@ -15,7 +15,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 import { getChromeTokens } from '@/lib/contrast';
-import { ACTION_ACCENT, ACTION_ACCENT_TEXT } from '@/lib/surface';
+import { ACTION_ACCENT, ACTION_ACCENT_TEXT, fullBleedText } from '@/lib/surface';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
 
@@ -171,7 +171,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
       {config.title && (
         <p
           className="text-sm font-medium text-center"
-          style={{ color: theme.typography.text_color }}
+          style={fullBleedText(theme, theme.typography.text_color)}
         >
           {config.title}
         </p>

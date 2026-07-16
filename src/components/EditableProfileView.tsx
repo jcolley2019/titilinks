@@ -47,7 +47,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
-import { isFullBleedTheme } from '@/lib/surface';
+import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT } from '@/lib/surface';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -270,12 +270,8 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
 
-  // FS.SURFACE.1c: a full-bleed photo isn't guaranteed dark — the theme's
-  // text_color can be anything (it read black over Joey's photo). Force
-  // white + soft shadow over photos; hero pages keep the theme color.
-  const galleryLabelStyle = isFullBleedTheme(theme)
-    ? { color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }
-    : { color: theme.typography.text_color };
+  // FS.SURFACE.1c→1d: full-bleed-safe label (shared helper in lib/surface).
+  const galleryLabelStyle = fullBleedText(theme, theme.typography.text_color);
 
   // Layout config stored as JSON in block.title (same pattern as BioBlock).
   // 'full' = current edge-to-edge carousel. Missing/invalid title => 'full' (no migration).
@@ -519,12 +515,10 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
             style={{
               minWidth: '100%',
               aspectRatio: '1/1',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(12px)',
-              border: '2px dashed rgba(201,165,92,0.45)',
+              ...GLASS_TILE,
             }}
           >
-            <span className="text-4xl font-light" style={{ color: '#C9A55C', opacity: 0.7 }}>+</span>
+            <span className="text-4xl font-light" style={{ color: ACTION_ACCENT, opacity: 0.7 }}>+</span>
           </button>
         </div>
 
@@ -905,7 +899,7 @@ function SortablePreviewCard({
                   if (block.type === 'links' && onItemAdd) onItemAdd(block.id);
                   else onEdit();
                 }}
-                className="mt-3 w-full rounded-xl border border-dashed border-[#C9A55C]/40 bg-white/10 backdrop-blur-md py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/15 transition-colors"
+                className={`mt-3 w-full rounded-xl ${GLASS_AFFORDANCE}`}
               >
                 + {t('editor.addContent')}
               </button>

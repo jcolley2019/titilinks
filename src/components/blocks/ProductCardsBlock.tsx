@@ -10,6 +10,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { BlockItem, ThemedBlockProps } from './types';
+import { isFullBleedTheme } from '@/lib/surface';
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -74,6 +75,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
 
   const textColor = theme.typography.text_color;
   const fill = theme.buttons.fill_color;
+  const fullBleed = isFullBleedTheme(theme);
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
     const ok = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
@@ -95,7 +97,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
         onClick={(e) => handleClick(e, item)}
         onTouchStart={() => triggerHaptic('light')}
         className={`group relative block h-full w-full overflow-hidden ${rounded}`}
-        style={{ backgroundColor: `${fill}14` }}
+        style={fullBleed ? { backgroundColor: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(12px)' } : { backgroundColor: `${fill}14` }}
       >
         {item.image_url ? (
           <img
@@ -106,7 +108,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <ShoppingBag className="h-8 w-8 opacity-40" style={{ color: textColor }} />
+            <ShoppingBag className="h-8 w-8 opacity-40" style={{ color: fullBleed ? '#ffffff' : textColor }} />
           </div>
         )}
 
