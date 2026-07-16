@@ -30,6 +30,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 
 import { TemplateGallery } from './TemplateGallery';
 import { CanvaDesignPicker } from './CanvaDesignPicker';
+import { ButtonSurfaceControls } from './ButtonSurfaceControls';
 
 const GRADIENT_PRESETS = [
   { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
@@ -1437,6 +1438,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             <p className="text-xs text-muted-foreground">
               {t('design.buttonShapeDesc') || 'Applies to every button on your page. Tap Update to save.'}
             </p>
+            <ButtonSurfaceControls theme={theme} onPatch={updateButtons} />
           </TabsContent>
 
         </Tabs>

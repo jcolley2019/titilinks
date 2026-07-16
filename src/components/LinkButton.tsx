@@ -208,12 +208,14 @@ export function LinkButton(props: LinkButtonProps) {
     style.border = 'none';
   }
 
-  // FS.SURFACE.2a: explicit outline override (written by the 2b controls
-  // UI). Legacy data (outline_width undefined) keeps the per-variant
-  // borders assigned above. 0 = None; 1/2/3 = Thin/Medium/Thick.
+  // FS.SURFACE.2a/2b.1: only a POSITIVE outline_width overrides.
+  // undefined AND 0 both mean "no explicit outline" — the variant's
+  // intrinsic skin applies (glass keeps its hairline: that's material,
+  // not outline). Tapping the already-selected None chip is a true
+  // no-op. 1/2/3 = Thin/Medium/Thick.
   const outlineWidth = themeButtons?.outline_width;
-  if (outlineWidth !== undefined) {
-    style.border = outlineWidth > 0 ? `${outlineWidth}px solid ${borderColor || fillColor}` : 'none';
+  if (outlineWidth !== undefined && outlineWidth > 0) {
+    style.border = `${outlineWidth}px solid ${borderColor || fillColor}`;
   }
 
   if (shadowEnabled && variant !== 'minimal' && variant !== 'fade') {
