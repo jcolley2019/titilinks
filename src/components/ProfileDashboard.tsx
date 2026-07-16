@@ -1500,7 +1500,7 @@ export function ProfileDashboard({
                   )}
                 </div>
               ) : galleryOpen ? (
-                <div className="dark text-foreground pb-8">
+                <div className="dark text-foreground px-4 pb-8">
                   <TemplateGallery pageId={pageId} onApply={onRefresh} />
                 </div>
               ) : designOpen ? (

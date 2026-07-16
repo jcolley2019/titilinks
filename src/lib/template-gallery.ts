@@ -24,17 +24,17 @@ export type TemplateCategory =
   | 'minimal'
   | 'bold';
 
-export const TEMPLATE_CATEGORIES: { id: TemplateCategory; label: string; emoji: string }[] = [
-  { id: 'all', label: 'All', emoji: '✨' },
-  { id: 'fashion', label: 'Fashion', emoji: '👗' },
-  { id: 'influencer', label: 'Influencer', emoji: '⭐' },
-  { id: 'health', label: 'Health & Fitness', emoji: '💪' },
-  { id: 'marketing', label: 'Marketing', emoji: '📈' },
-  { id: 'social', label: 'Social Media', emoji: '📱' },
-  { id: 'music', label: 'Music', emoji: '🎵' },
-  { id: 'business', label: 'Small Business', emoji: '🏪' },
-  { id: 'minimal', label: 'Minimal', emoji: '◻️' },
-  { id: 'bold', label: 'Bold', emoji: '🔥' },
+export const TEMPLATE_CATEGORIES: { id: TemplateCategory; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'fashion', label: 'Fashion' },
+  { id: 'influencer', label: 'Influencer' },
+  { id: 'health', label: 'Health & Fitness' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'social', label: 'Social Media' },
+  { id: 'music', label: 'Music' },
+  { id: 'business', label: 'Small Business' },
+  { id: 'minimal', label: 'Minimal' },
+  { id: 'bold', label: 'Bold' },
 ];
 
 export const TEMPLATES: TemplateDefinition[] = [

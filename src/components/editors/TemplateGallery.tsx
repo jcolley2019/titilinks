@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Check, Loader2, Smartphone } from 'lucide-react';
+import { Check, Loader2, Smartphone, Sparkles, Shirt, Star, Dumbbell, TrendingUp, Music, Store, Square, Flame } from 'lucide-react';
 import {
   TEMPLATE_CATEGORIES,
   TEMPLATES,
@@ -17,6 +16,26 @@ import { cn } from '@/lib/utils';
 interface TemplateGalleryProps {
   pageId: string;
   onApply: () => void;
+}
+
+// GAL.2: premium line icons for the category chips — monochrome,
+// inheriting the chip's text color, replacing the emoji set.
+const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<{ className?: string }>> = {
+  all: Sparkles,
+  fashion: Shirt,
+  influencer: Star,
+  health: Dumbbell,
+  marketing: TrendingUp,
+  social: Smartphone,
+  music: Music,
+  business: Store,
+  minimal: Square,
+  bold: Flame,
+};
+
+function CategoryIcon({ id }: { id: TemplateCategory }) {
+  const Icon = CATEGORY_ICONS[id];
+  return <Icon className="mr-1.5 inline-block h-3.5 w-3.5 -mt-0.5" />;
 }
 
 export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
@@ -121,9 +140,11 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Category Chips */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-2 pb-2">
+      {/* Category Chips — GAL.2-v2: wrapping rows, all ten always
+          visible. The old horizontal ScrollArea overflowed without
+          actually scrolling, guillotining the last chips. */}
+      <div className="w-full">
+        <div className="flex flex-wrap gap-2 pb-2">
           {TEMPLATE_CATEGORIES.map((category) => (
             <button
               key={category.id}
@@ -137,12 +158,12 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
                   : 'bg-card text-muted-foreground hover:text-foreground'
               )}
             >
-              <span className="mr-1.5">{category.emoji}</span>
+              <CategoryIcon id={category.id} />
               {category.label}
             </button>
           ))}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Template Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
