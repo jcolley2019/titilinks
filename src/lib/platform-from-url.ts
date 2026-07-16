@@ -31,6 +31,9 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)airbnb\.(com|ca|co\.uk)$/, 'Airbnb'],
   [/(^|\.)onlyfans\.com$/, 'OnlyFans'],
   [/(^|\.)fansly\.com$/, 'Fansly'],
+  [/(^|\.)privacy\.com\.br$/, 'Privacy'],
+  [/(^|\.)fatalfans\.com$/, 'FatalFans'],
+  [/(^|\.)vrbo\.com$/, 'Vrbo'],
   [/(^|\.)substack\.com$/, 'Substack'],
 ];
 

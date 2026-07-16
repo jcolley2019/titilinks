@@ -17,8 +17,8 @@ const PLATFORM_CATEGORIES = [
                 'Snapchat', 'YouTube', 'Truth Social', 'Threads', 'X', 'Discord'],
   },
   {
-    label: 'Lifestyle',
-    platforms: ['OnlyFans', 'Fansly', 'Privacy'],
+    label: 'Adult (18+)',
+    platforms: ['OnlyFans', 'Fansly', 'Privacy', 'FatalFans'],
   },
   {
     label: 'Business',

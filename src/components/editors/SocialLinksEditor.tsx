@@ -104,12 +104,22 @@ const PLATFORM_CATEGORIES = [
     ],
   },
   {
+    label: 'ADULT (18+)',
+    platforms: [
+      { label: 'OnlyFans', icon: '', placeholder: 'OnlyFans username' },
+      { label: 'Fansly', icon: '', placeholder: 'Fansly username' },
+      { label: 'Privacy', icon: '', placeholder: 'Privacy username' },
+      { label: 'FatalFans', icon: '', placeholder: 'FatalFans username' },
+    ],
+  },
+  {
     label: 'LIFESTYLE',
     platforms: [
       { label: 'Depop', icon: '👗', placeholder: 'Depop username' },
       { label: 'Etsy', icon: '🛍️', placeholder: 'Etsy shop URL' },
       { label: 'Yelp', icon: '⭐', placeholder: 'Yelp business URL' },
       { label: 'Airbnb', icon: '🏠', placeholder: 'Airbnb profile URL' },
+      { label: 'Vrbo', icon: '', placeholder: 'Vrbo property URL' },
     ],
   },
 ];
@@ -138,6 +148,10 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Substack': (h) => `https://substack.com/@${h}`,
   'Depop': (h) => `https://depop.com/${h}`,
   'Etsy': (h) => `https://etsy.com/shop/${h}`,
+  'OnlyFans': (h) => `https://onlyfans.com/${h}`,
+  'Fansly': (h) => `https://fansly.com/${h}`,
+  'Privacy': (h) => `https://privacy.com.br/profile/${h}`,
+  'FatalFans': (h) => `https://fatalfans.com/${h}`,
 };
 
 // Turn whatever the user typed into a usable URL: full URLs pass through,
