@@ -263,10 +263,16 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         ...theme,
         pageStyle: newStyle,
       };
+      // BUG.THEME.1: merge over the existing raw json (same rule as
+      // saveTheme) so keys the theme editor doesn't manage — headerConfig,
+      // headerCardOrder, heroConfig, pages, avatar_url_page2 — survive a
+      // hero <-> full_bleed switch. updatedTheme spreads last, so the new
+      // pageStyle still wins.
+      const extras = (themeJson && typeof themeJson === 'object') ? (themeJson as Record<string, unknown>) : {};
       const { error } = await supabase
         .from('pages')
         .update({
-          theme_json: JSON.parse(JSON.stringify(updatedTheme))
+          theme_json: { ...extras, ...JSON.parse(JSON.stringify(updatedTheme)) }
         })
         .eq('id', pageId);
       if (error) throw error;

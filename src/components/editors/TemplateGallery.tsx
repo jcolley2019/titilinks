@@ -29,10 +29,28 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
   const applyTemplate = async (template: TemplateDefinition, applyBlockStyles: boolean = false) => {
     setApplying(template.id);
     try {
-      // Update page theme_json
+      // BUG.THEME.1: applying a template resets the VISUAL theme only
+      // (background/buttons/typography/motion — the keys templates define).
+      // Merge over the page's existing raw theme_json so structural keys
+      // (pageStyle, headerConfig, headerCardOrder, heroConfig, pages,
+      // avatar_url_page2, header image) survive. pageStyle is stripped from
+      // the template payload defensively — JSON.stringify drops undefined —
+      // so a template can never flip hero <-> full_bleed.
+      const { data: pageRow, error: fetchError } = await supabase
+        .from('pages')
+        .select('theme_json')
+        .eq('id', pageId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const existing = (pageRow?.theme_json && typeof pageRow.theme_json === 'object')
+        ? (pageRow.theme_json as Record<string, unknown>)
+        : {};
+
       const { error: pageError } = await supabase
         .from('pages')
-        .update({ theme_json: JSON.parse(JSON.stringify(template.theme)) })
+        .update({ theme_json: { ...existing, ...JSON.parse(JSON.stringify({ ...template.theme, pageStyle: undefined })) } })
         .eq('id', pageId);
 
       if (pageError) throw pageError;
