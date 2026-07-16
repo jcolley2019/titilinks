@@ -14,8 +14,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
+import { coerceLegibleText, getChromeTokens } from '@/lib/contrast';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
+
+type CSSVarStyle = React.CSSProperties & Record<`--${string}`, string>;
 
 interface EmailSubscribeBlockProps {
   block: BlockWithItems;
@@ -118,6 +121,27 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
     }
   };
 
+  // This button paints fill_color as an opaque surface (it does not honor
+  // theme.buttons.variant), so the label sits on the fill itself. Full-bleed
+  // themes ship fill_color and text_color both '#FFFFFF' — a coherent pair for
+  // a glass button, invisible on a solid one. Coerce against what we paint.
+  const safeButtonText = coerceLegibleText(theme.buttons.text_color, theme.buttons.fill_color);
+
+  // Placeholders rode on `placeholder:opacity-50`, which over a photo washed the
+  // text out to an unreadable grey. textMuted is the app's muted-chrome token
+  // (text_color @ 0.72) — same alpha the rest of the chrome uses.
+  const placeholderColor = getChromeTokens(theme).textMuted;
+
+  const inputStyle: CSSVarStyle = {
+    color: theme.typography.text_color,
+    borderRadius: getButtonRadius(),
+    '--es-placeholder': placeholderColor,
+  };
+
+  const inputClass =
+    'h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-inherit ' +
+    'placeholder:text-[color:var(--es-placeholder)] focus:outline-none focus:ring-2 focus:ring-white/30';
+
   if (success) {
     return (
       <motion.div
@@ -157,11 +181,8 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={config.name_placeholder}
-            className="w-full h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-inherit placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/30"
-            style={{
-              color: theme.typography.text_color,
-              borderRadius: getButtonRadius(),
-            }}
+            className={`w-full ${inputClass}`}
+            style={inputStyle}
           />
         )}
 
@@ -175,11 +196,8 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             }}
             placeholder={config.placeholder}
             required
-            className="flex-1 h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-inherit placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/30 min-w-0"
-            style={{
-              color: theme.typography.text_color,
-              borderRadius: getButtonRadius(),
-            }}
+            className={`flex-1 min-w-0 ${inputClass}`}
+            style={inputStyle}
           />
           <motion.button
             type="submit"
@@ -188,7 +206,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             className="h-11 px-5 font-medium flex items-center gap-2 flex-shrink-0 disabled:opacity-70"
             style={{
               backgroundColor: theme.buttons.fill_color,
-              color: theme.buttons.text_color,
+              color: safeButtonText,
               borderRadius: getButtonRadius(),
             }}
           >

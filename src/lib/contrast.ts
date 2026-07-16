@@ -70,3 +70,36 @@ export function getChromeTokens(theme: ThemeJson): ChromeTokens {
 export function contrastTextFor(fill: string): '#0e0c09' | '#ffffff' {
   return relativeLuminance(fill) > 0.5 ? '#0e0c09' : '#ffffff';
 }
+
+// --- Legibility coercion ---------------------------------------------------
+// scripts/contrast-audit.mjs validates presets/templates statically, resolving
+// a label's surface as `variant === 'filled' ? fill_color : page_bg`. That only
+// holds for blocks that honor `variant`. A block which paints `fill_color` as
+// an opaque surface regardless of variant sits on that fill, whatever the theme
+// calls itself — the audit can't see it, so it gets coerced here at render.
+
+/** WCAG contrast ratio (1–21) between two hex colors. */
+export function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Coerce `text` to a legible color on `surface`. Returns `text` untouched when
+ * it already clears `minRatio`, else flips to whichever of dark/light measures
+ * better. Threshold 3.2 rescues the truly unreadable cases without overriding
+ * intentional white-on-saturated looks.
+ *
+ * `surface` must be the color the caller ACTUALLY paints, not one inferred from
+ * `theme.buttons.variant` — see the note above.
+ */
+export function coerceLegibleText(text: string, surface: string, minRatio = 3.2): string {
+  // Non-hex input (rgba(), a gradient string) can't be measured: relativeLuminance
+  // floors to 0, which reads as black and would flip a perfectly fine color.
+  if (!parseHex(text) || !parseHex(surface)) return text;
+  if (contrastRatio(text, surface) >= minRatio) return text;
+  return contrastRatio('#0e0c09', surface) >= contrastRatio('#ffffff', surface)
+    ? '#0e0c09'
+    : '#ffffff';
+}
