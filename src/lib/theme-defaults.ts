@@ -65,7 +65,7 @@ export interface ThemeMotion {
 
 // Per-block style variants for link/button blocks
 export interface BlockStyleConfig {
-  variant: 'filled' | 'outline' | 'glass' | 'minimal';
+  variant: 'filled' | 'outline' | 'glass' | 'minimal' | 'fade';
   border_width: number;
   border_color: string;
   background_opacity: number;
