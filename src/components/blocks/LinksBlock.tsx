@@ -339,7 +339,7 @@ export function LinksBlock({
       <button
         type="button"
         onClick={() => onItemAdd?.()}
-        className="w-full rounded-2xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
+        className="w-full rounded-2xl border border-dashed border-[#C9A55C]/40 bg-white/10 backdrop-blur-md py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/15 transition-colors"
       >
         + Add link
       </button>

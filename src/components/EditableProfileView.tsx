@@ -511,11 +511,12 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
             style={{
               minWidth: '100%',
               aspectRatio: '1/1',
-              backgroundColor: `${theme.buttons.fill_color}08`,
-              border: `2px dashed ${theme.buttons.fill_color}30`,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              backdropFilter: 'blur(12px)',
+              border: '2px dashed rgba(201,165,92,0.45)',
             }}
           >
-            <span className="text-4xl font-light opacity-30" style={{ color: theme.typography.text_color }}>+</span>
+            <span className="text-4xl font-light" style={{ color: '#C9A55C', opacity: 0.7 }}>+</span>
           </button>
         </div>
 
@@ -889,14 +890,14 @@ function SortablePreviewCard({
             <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
           ) : block.items.length === 0 && block.type !== 'video_feed' && block.type !== 'text' ? (
             <div className="py-6 text-center">
-              <p className="text-xs text-white/30">{t(`blocks.${block.type}.subtitle`)}</p>
+              <p className="text-xs text-white/75">{t(`blocks.${block.type}.subtitle`)}</p>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   if (block.type === 'links' && onItemAdd) onItemAdd(block.id);
                   else onEdit();
                 }}
-                className="mt-3 w-full rounded-xl border border-dashed border-[#C9A55C]/40 py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
+                className="mt-3 w-full rounded-xl border border-dashed border-[#C9A55C]/40 bg-white/10 backdrop-blur-md py-3 text-xs font-semibold text-[#C9A55C] hover:bg-[#C9A55C]/15 transition-colors"
               >
                 + {t('editor.addContent')}
               </button>
