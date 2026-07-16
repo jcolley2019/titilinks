@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Youtube, Search } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 
 type FeedSource = 'channel' | 'playlist';
 
@@ -45,6 +46,7 @@ interface VideoFeedEditorProps {
 const COUNT_OPTIONS = [3, 6, 9, 12];
 
 export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode }: VideoFeedEditorProps) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [source, setSource] = useState<FeedSource>('channel');
@@ -181,7 +183,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-1 flex-col gap-4">
           <div className="space-y-2">
             <Label className="text-white">Source</Label>
             <div className="flex gap-2">
@@ -295,28 +297,27 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
             </div>
           )}
 
-          <div className="sticky bottom-0 z-10 flex gap-3 pt-3 mt-2 border-t border-white/10 bg-[#0e0c09]">
+          <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
             <Button
               type="button"
-              variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1 bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white"
+              className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
-              Cancel
+              {t('blockEditor.cancel')}
             </Button>
             <Button
               type="button"
               onClick={handleSave}
               disabled={saving || !resolved}
-              className="flex-1 gradient-primary text-primary-foreground"
+              className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('blockEditor.saving')}
                 </>
               ) : (
-                'Save'
+                t('blockEditor.save')
               )}
             </Button>
           </div>
@@ -327,7 +328,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
+      <div className="flex flex-1 flex-col bg-[#0e0c09] text-white px-4 pt-4">
         {innerContent}
       </div>
     );

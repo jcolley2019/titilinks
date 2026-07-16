@@ -23,6 +23,7 @@ import {
   LayoutTemplate,
   Trash2,
 } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import { cn, randomUUID } from '@/lib/utils';
 import { validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 
@@ -56,6 +57,7 @@ interface HeroCardEditorProps {
 
 export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode }: HeroCardEditorProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -471,18 +473,25 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
         )}
 
         {/* Footer — pinned to the bottom of the panel while content scrolls. */}
-        <div className="sticky bottom-0 z-10 flex justify-end gap-2 pt-4 border-t bg-[#0e0c09]">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+        <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
+          <Button
+            onClick={() => onOpenChange(false)}
+            className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20"
+          >
+            {t('blockEditor.cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={saving || loading}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
+          >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {uploading ? 'Uploading...' : 'Saving...'}
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {uploading ? 'Uploading...' : t('blockEditor.saving')}
               </>
             ) : (
-              'Save Hero Card'
+              t('blockEditor.save')
             )}
           </Button>
         </div>
@@ -491,7 +500,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
+      <div className="flex flex-1 flex-col bg-[#0e0c09] text-white px-4 pt-4">
         {innerContent}
       </div>
     );

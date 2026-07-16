@@ -43,6 +43,7 @@ import {
   Grid3X3,
   Rows3,
 } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { cn, randomUUID } from '@/lib/utils';
@@ -261,6 +262,7 @@ interface ContentSectionEditorProps {
 
 export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, panelMode }: ContentSectionEditorProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -520,7 +522,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="flex flex-col flex-1 min-h-0 space-y-4">
+          <div className="flex flex-1 flex-col gap-4 min-h-0">
             {/* Section Settings */}
             <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
               <div className="space-y-2">
@@ -591,7 +593,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             </Button>
 
             {/* Items List */}
-            <ScrollArea className={panelMode ? 'flex-1 px-4' : 'flex-1 -mx-6 px-6'}>
+            <ScrollArea className={panelMode ? 'flex-1 min-h-0 px-4' : 'flex-1 min-h-0 -mx-6 px-6'}>
               {items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <LayoutGrid className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -623,18 +625,25 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             </ScrollArea>
 
             {/* Footer — pinned to the bottom of the panel while content scrolls. */}
-            <div className="sticky bottom-0 z-10 flex justify-end gap-2 pt-4 border-t bg-[#0e0c09]">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+            <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
+              <Button
+                onClick={() => onOpenChange(false)}
+                className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              >
+                {t('blockEditor.cancel')}
               </Button>
-              <Button onClick={handleSave} disabled={saving || loading}>
+              <Button
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
+              >
                 {saving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('blockEditor.saving')}
                   </>
                 ) : (
-                  'Save Section'
+                  t('blockEditor.save')
                 )}
               </Button>
             </div>
@@ -645,7 +654,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
+      <div className="flex flex-1 flex-col min-h-0 bg-[#0e0c09] text-white px-4 pt-4">
         {innerContent}
       </div>
     );

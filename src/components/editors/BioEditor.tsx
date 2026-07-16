@@ -158,7 +158,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
           <Loader2 className="h-6 w-6 animate-spin text-white/40" />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-1 flex-col gap-4">
           <div className="space-y-1">
             <label className="text-xs text-white/60">{t('blockEditor.bio')}</label>
             <textarea
@@ -255,12 +255,12 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 flex gap-2 justify-end pt-3 mt-2 border-t border-white/10 bg-[#0e0c09]">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-white/60 hover:text-white hover:bg-white/10">
+          <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
+            <Button onClick={() => onOpenChange(false)} className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20">
               {t('blockEditor.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-[#C9A55C] text-black hover:bg-[#C9A55C]/90">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('blockEditor.save')}
+            <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40">
+              {saving ? (<><Loader2 className="h-4 w-4 animate-spin" />{t('blockEditor.saving')}</>) : t('blockEditor.save')}
             </Button>
           </div>
         </div>
@@ -270,7 +270,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
 
   if (panelMode) {
     return (
-      <div className="flex flex-col h-full bg-[#0e0c09] text-white px-4 py-4">
+      <div className="flex flex-1 flex-col bg-[#0e0c09] text-white px-4 pt-4">
         {innerContent}
       </div>
     );
