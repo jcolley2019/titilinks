@@ -14,7 +14,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
-import { coerceLegibleText, getChromeTokens } from '@/lib/contrast';
+import { getChromeTokens } from '@/lib/contrast';
+import { ACTION_ACCENT, ACTION_ACCENT_TEXT } from '@/lib/surface';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
 
@@ -121,25 +122,26 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
     }
   };
 
-  // This button paints fill_color as an opaque surface (it does not honor
-  // theme.buttons.variant), so the label sits on the fill itself. Full-bleed
-  // themes ship fill_color and text_color both '#FFFFFF' — a coherent pair for
-  // a glass button, invisible on a solid one. Coerce against what we paint.
-  const safeButtonText = coerceLegibleText(theme.buttons.text_color, theme.buttons.fill_color);
-
+  // FS.SURFACE.1a: the Subscribe button paints the brand-gold action accent
+  // (the one sanctioned solid on any page style) — a constant legible pair,
+  // so the old fill_color + coerceLegibleText pairing is gone.
+  //
   // Placeholders rode on `placeholder:opacity-50`, which over a photo washed the
   // text out to an unreadable grey. textMuted is the app's muted-chrome token
   // (text_color @ 0.72) — same alpha the rest of the chrome uses.
-  const placeholderColor = getChromeTokens(theme).textMuted;
+  const tokens = getChromeTokens(theme);
+  const placeholderColor = tokens.textMuted;
 
   const inputStyle: CSSVarStyle = {
     color: theme.typography.text_color,
     borderRadius: getButtonRadius(),
+    backgroundColor: tokens.surfaceStrong,
+    border: `1px solid ${tokens.border}`,
     '--es-placeholder': placeholderColor,
   };
 
   const inputClass =
-    'h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-inherit ' +
+    'h-11 px-4 rounded-lg text-inherit ' +
     'placeholder:text-[color:var(--es-placeholder)] focus:outline-none focus:ring-2 focus:ring-white/30';
 
   if (success) {
@@ -149,12 +151,13 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
         animate={{ opacity: 1, scale: 1 }}
         className="p-4 rounded-xl text-center"
         style={{
-          backgroundColor: `${theme.buttons.fill_color}15`,
+          backgroundColor: tokens.surfaceStrong,
+          border: `1px solid ${tokens.border}`,
           borderRadius: getButtonRadius(),
         }}
       >
-        <div className="flex items-center justify-center gap-2" style={{ color: theme.buttons.fill_color }}>
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center justify-center gap-2" style={{ color: tokens.text }}>
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: ACTION_ACCENT }}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <p className="font-medium">{config.success_message}</p>
@@ -205,8 +208,8 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             whileTap={{ scale: 0.98 }}
             className="h-11 px-5 font-medium flex items-center gap-2 flex-shrink-0 disabled:opacity-70"
             style={{
-              backgroundColor: theme.buttons.fill_color,
-              color: safeButtonText,
+              backgroundColor: ACTION_ACCENT,
+              color: ACTION_ACCENT_TEXT,
               borderRadius: getButtonRadius(),
             }}
           >
