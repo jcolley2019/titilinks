@@ -625,7 +625,7 @@ function NameHandleCard({
 
   // Dark glow lifts LIGHT text off the hero photo; on dark text (gold/light
   // themes) it smudges. Key the shadow off the resolved text color, not bg.
-  const resolvedNameColor = localNameColor === '#ffffff' ? chrome.text : localNameColor;
+  const resolvedNameColor = localNameColor || chrome.text;
   const lightHeaderText = relativeLuminance(resolvedNameColor) > 0.5;
 
   return (
@@ -2289,7 +2289,7 @@ export function EditableProfileView({
         >
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
-            const headerNameColor = headerConfig.nameColor && headerConfig.nameColor !== '#ffffff' ? headerConfig.nameColor : chrome.text;
+            const headerNameColor = headerConfig.nameColor || chrome.text;
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,1)';
             const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
