@@ -148,6 +148,9 @@ interface DashboardSection {
   rows: DashboardRow[];
 }
 
+// Ordering principle (MENU.4): most-commonly-used first, both within a group
+// and across groups. My Links leads because it is what people open the
+// dashboard to do; the commerce stubs trail because they are not built yet.
 const sections: DashboardSection[] = [
   {
     labelKey: 'dashboard.myLinks',
@@ -165,6 +168,30 @@ const sections: DashboardSection[] = [
         blockType: 'links',
       },
       {
+        icon: <User className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.bio.title',
+        subtitleKey: 'blocks.bio.subtitle',
+        blockType: 'bio',
+      },
+      {
+        icon: <ImageIcon className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.gallery.title',
+        subtitleKey: 'blocks.gallery.subtitle',
+        blockType: 'gallery',
+      },
+      {
+        icon: <Type className="h-6 w-6 text-white" />,
+        titleKey: 'blocks.text.title',
+        subtitleKey: 'blocks.text.subtitle',
+        blockType: 'text',
+      },
+      {
+        icon: <MousePointer className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.primaryCta',
+        subtitleKey: 'dashboard.primaryCtaDesc',
+        blockType: 'primary_cta',
+      },
+      {
         icon: <GalleryHorizontalEnd className="h-6 w-6 text-white" />,
         titleKey: 'blocks.carousel.title',
         subtitleKey: 'blocks.carousel.subtitle',
@@ -178,27 +205,22 @@ const sections: DashboardSection[] = [
         blockType: 'video_feed',
       },
       {
-        icon: <ImageIcon className="h-6 w-6 text-white" />,
-        titleKey: 'blocks.gallery.title',
-        subtitleKey: 'blocks.gallery.subtitle',
-        blockType: 'gallery',
+        icon: <Calendar className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.createEvent',
+        subtitleKey: 'dashboard.createEventDesc',
+        blockType: null,
+        toastKey: 'dashboard.comingSoon',
       },
       {
-        icon: <MousePointer className="h-6 w-6 text-white" />,
-        titleKey: 'dashboard.primaryCta',
-        subtitleKey: 'dashboard.primaryCtaDesc',
-        blockType: 'primary_cta',
-      },
-      {
-        icon: <User className="h-6 w-6 text-white" />,
-        titleKey: 'blocks.bio.title',
-        subtitleKey: 'blocks.bio.subtitle',
-        blockType: 'bio',
+        icon: <FileText className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.createForm',
+        subtitleKey: 'dashboard.createFormDesc',
+        blockType: 'email_subscribe',
       },
     ],
   },
   {
-    labelKey: 'dashboard.appearance',
+    labelKey: 'dashboard.style',
     rows: [
       {
         icon: <Files className="h-6 w-6 text-white" />,
@@ -207,17 +229,20 @@ const sections: DashboardSection[] = [
         blockType: null,
       },
       {
-        icon: <Type className="h-6 w-6 text-white" />,
-        titleKey: 'blocks.text.title',
-        subtitleKey: 'blocks.text.subtitle',
-        blockType: 'text',
-      },
-      {
+        // The toastKey is load-bearing: handleRowTap routes this row to the
+        // design panel by matching it, not by titleKey. It is not a toast.
         icon: <Palette className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.profileCustomization',
         subtitleKey: 'dashboard.profileCustomizationDesc',
         blockType: null,
         toastKey: 'dashboard.openDesignTab',
+      },
+      {
+        // Sits under Profile Customization pending NHC.2, which folds it in.
+        icon: <Type className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.nameEffects',
+        subtitleKey: 'dashboard.nameEffectsDesc',
+        blockType: null,
       },
       {
         icon: <LayoutGrid className="h-6 w-6 text-white" />,
@@ -231,13 +256,6 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.videoProfile',
         subtitleKey: 'dashboard.videoProfileDesc',
         blockType: null,
-        toastKey: 'dashboard.comingSoon',
-      },
-      {
-        icon: <Type className="h-6 w-6 text-white" />,
-        titleKey: 'dashboard.nameEffects',
-        subtitleKey: 'dashboard.nameEffectsDesc',
-        blockType: null,
       },
     ],
   },
@@ -250,11 +268,6 @@ const sections: DashboardSection[] = [
         subtitleKey: 'dashboard.newMerchDesc',
         blockType: 'product_cards',
       },
-    ],
-  },
-  {
-    labelKey: 'dashboard.products',
-    rows: [
       {
         icon: <Download className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.digitalProducts',
@@ -268,29 +281,6 @@ const sections: DashboardSection[] = [
         subtitleKey: 'dashboard.lockedProductsDesc',
         blockType: null,
         toastKey: 'dashboard.comingSoon',
-      },
-    ],
-  },
-  {
-    labelKey: 'dashboard.events',
-    rows: [
-      {
-        icon: <Calendar className="h-6 w-6 text-white" />,
-        titleKey: 'dashboard.createEvent',
-        subtitleKey: 'dashboard.createEventDesc',
-        blockType: null,
-        toastKey: 'dashboard.comingSoon',
-      },
-    ],
-  },
-  {
-    labelKey: 'dashboard.forms',
-    rows: [
-      {
-        icon: <FileText className="h-6 w-6 text-white" />,
-        titleKey: 'dashboard.createForm',
-        subtitleKey: 'dashboard.createFormDesc',
-        blockType: 'email_subscribe',
       },
     ],
   },
