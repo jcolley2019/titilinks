@@ -174,10 +174,27 @@ export default function Editor() {
     if (!error && data) setPage(data);
   };
 
-  // Combined refresh: page + blocks. Pass to children that may save data
-  // affecting either.
+  // Re-fetch the modes list. Modes were previously fetched only on mount, so a
+  // Page 2 created on demand (Second page toggle) never entered state — leaving
+  // its modeId prop null and its blocks unreachable by fetchBlocks until a full
+  // reload (the FIX.P2 noMode race). Refreshing here lets the born-complete
+  // Page 2 appear the moment the user switches to it. setModes re-fires the
+  // [modes] effect, which re-runs fetchBlocks with the fresh list.
+  const fetchModes = async () => {
+    const pid = page?.id;
+    if (!pid) return;
+    const { data, error } = await supabase
+      .from('modes')
+      .select('*')
+      .eq('page_id', pid);
+    if (!error && data) setModes(data);
+  };
+
+  // Combined refresh: page + modes + blocks. Pass to children that may save data
+  // affecting any of them (including creating a new page mode).
   const refresh = async () => {
     await refreshPage();
+    await fetchModes();
     await fetchBlocks();
   };
 

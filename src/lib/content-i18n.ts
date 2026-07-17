@@ -85,6 +85,11 @@ const CONTENT_MAP: Record<string, string> = {
   'Social Links': 'content.socialLinks',
   'Links': 'content.links',
   'Featured Media': 'content.featuredMedia',
+  // FIX.P2: the remaining titles the born-complete Page 2 / Default reset seed.
+  'Social Icons': 'content.socialIcons',
+  'Gallery': 'content.gallery',
+  'Videos': 'content.videos',
+  'About': 'content.about',
 };
 
 /**

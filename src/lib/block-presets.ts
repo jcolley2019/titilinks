@@ -23,16 +23,21 @@ export interface BlockPreset {
 /**
  * Shared preset registry — the SINGLE source of truth for "preset → blocks".
  *
- * Consumed today by the editor's Pages menu (ProfileDashboard). Onboarding and
- * the AI setup flow will read these same definitions, so updating a preset here
- * propagates everywhere — no per-surface copies that drift apart.
+ * Consumed by the editor's Pages menu (ProfileDashboard) as the "reset this
+ * page to the default blocks" set, by onboarding's Page 1 seed, and by
+ * ensureSecondPage's born-complete Page 2 seed. One definition, so the default
+ * composition can't drift between where it's applied.
  *
- * Uses only real, wired block types (see `Enums<'block_type'>`). "Custom Events"
- * has no dedicated block type yet, so it composes content_section + links + CTA.
+ * FIX.P2: the four alternate presets (Social Links / New Merch / Custom Events
+ * / Forms) were ratified DEAD (Joey, July 2026). `default` is the only preset;
+ * `BLOCK_PRESETS` stays an array so its consumers (find-by-key, map) are
+ * unchanged. Uses only real, wired block types (see `Enums<'block_type'>`).
  */
+export const DEFAULT_PRESET_KEY = 'default';
+
 export const BLOCK_PRESETS: BlockPreset[] = [
   {
-    key: 'default',
+    key: DEFAULT_PRESET_KEY,
     label: 'Default',
     desc: "All link cards — turn off the ones you don't want",
     blocks: [
@@ -42,44 +47,6 @@ export const BLOCK_PRESETS: BlockPreset[] = [
       { type: 'gallery', title: 'Gallery' },
       { type: 'video_feed', title: 'Videos' },
       { type: 'bio', title: 'About' },
-    ],
-  },
-  {
-    key: 'social',
-    label: 'Social Links',
-    desc: 'A clean set focused on your links',
-    blocks: [
-      { type: 'bio', title: 'About' },
-      { type: 'links', title: 'My Links' },
-    ],
-  },
-  {
-    key: 'store',
-    label: 'New Merch / Store',
-    desc: 'Set up for selling products',
-    blocks: [
-      { type: 'primary_cta', title: 'Shop Now' },
-      { type: 'product_cards', title: 'Products' },
-      { type: 'gallery', title: 'Gallery' },
-    ],
-  },
-  {
-    key: 'events',
-    label: 'Custom Events',
-    desc: 'Share event details and RSVP links',
-    blocks: [
-      { type: 'content_section', title: 'Event Details' },
-      { type: 'links', title: 'RSVP & Tickets' },
-      { type: 'primary_cta', title: 'Get Tickets' },
-    ],
-  },
-  {
-    key: 'forms',
-    label: 'Forms',
-    desc: 'Capture contact info from visitors',
-    blocks: [
-      { type: 'email_subscribe', title: 'Get in Touch' },
-      { type: 'content_section', title: 'Details' },
     ],
   },
 ];

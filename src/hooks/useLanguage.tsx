@@ -580,6 +580,10 @@ const translations: Record<Language, Record<string, string>> = {
     'content.socialLinks': 'Social Links',
     'content.links': 'Links',
     'content.featuredMedia': 'Featured Media',
+    'content.socialIcons': 'Social Icons',
+    'content.gallery': 'Gallery',
+    'content.videos': 'Videos',
+    'content.about': 'About',
 
     // Editor Page
     'editor.title': 'Link Editor',
@@ -715,6 +719,16 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.templateGalleryDesc': 'Browse and apply page templates',
     'dashboard.noMode': 'No mode found',
     'dashboard.blockNotCreated': "This block hasn't been created yet.",
+    // FIX.P2 — Pages panel reset action (replaces the retired preset picker).
+    'pages.resetHeading': 'Reset page',
+    'pages.resetDesc': 'Restore this page to the default set of blocks. Your header links stay.',
+    'pages.resetAction': 'Default',
+    'pages.resetActionDesc': 'Reset this page to the default blocks',
+    'pages.resetConfirm': "Replace this page's blocks with the default set? This removes the current blocks on this page.",
+    'pages.resetCancel': 'Cancel',
+    'pages.resetConfirmYes': 'Reset',
+    'pages.resetDone': 'Page reset to the default blocks',
+    'pages.resetFailed': 'Could not reset this page',
     'dashboard.failedOpen': 'Failed to open editor',
 
     // Analytics Page
@@ -1527,6 +1541,10 @@ const translations: Record<Language, Record<string, string>> = {
     'content.socialLinks': 'Redes Sociales',
     'content.links': 'Enlaces',
     'content.featuredMedia': 'Media Destacada',
+    'content.socialIcons': 'Iconos Sociales',
+    'content.gallery': 'Galería',
+    'content.videos': 'Videos',
+    'content.about': 'Acerca de',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',
@@ -1662,6 +1680,16 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.templateGalleryDesc': 'Explora y aplica plantillas de página',
     'dashboard.noMode': 'No se encontró modo',
     'dashboard.blockNotCreated': 'Este bloque aún no ha sido creado.',
+    // FIX.P2 — acción de restablecer del panel de Páginas.
+    'pages.resetHeading': 'Restablecer página',
+    'pages.resetDesc': 'Restaura esta página al conjunto de bloques predeterminado. Tus enlaces de encabezado se conservan.',
+    'pages.resetAction': 'Predeterminado',
+    'pages.resetActionDesc': 'Restablece esta página a los bloques predeterminados',
+    'pages.resetConfirm': '¿Reemplazar los bloques de esta página con el conjunto predeterminado? Esto elimina los bloques actuales de esta página.',
+    'pages.resetCancel': 'Cancelar',
+    'pages.resetConfirmYes': 'Restablecer',
+    'pages.resetDone': 'Página restablecida a los bloques predeterminados',
+    'pages.resetFailed': 'No se pudo restablecer esta página',
     'dashboard.failedOpen': 'Error al abrir editor',
 
     // Analytics Page

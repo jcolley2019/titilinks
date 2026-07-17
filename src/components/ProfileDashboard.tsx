@@ -51,7 +51,7 @@ import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
-import { BLOCK_PRESETS } from '@/lib/block-presets';
+import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 
 export interface EditingBlockTarget {
@@ -702,39 +702,67 @@ export function ProfileDashboard({
     onRefresh();
   };
 
-  // Ensure Page 2 (the page2 mode) exists before enabling it. New accounts
-  // onboard with only Page 1, so the second page is created on demand here —
-  // blank except header blocks; the user lays it out via the Presets picker
-  // below (switch to Page 2, then choose a preset).
-  const ensureSecondPage = async () => {
-    if (!pageId) return;
+  // Ensure Page 2 (the page2 mode) exists, born COMPLETE. New accounts onboard
+  // with only Page 1; the second page is created on demand here with the two
+  // header social blocks PLUS the full Default block set — the same composition
+  // the reset action and onboarding seed from — so an enabled Page 2 is never
+  // blank. Returns the mode id (existing or new) so a caller need not wait for
+  // Editor's modes refetch to act on it.
+  const ensureSecondPage = async (): Promise<string | null> => {
+    if (!pageId) return null;
     const { data: existing } = await supabase
       .from('modes')
       .select('id')
       .eq('page_id', pageId)
       .eq('type', 'page2')
       .maybeSingle();
-    if (existing) return;
+    if (existing) return existing.id;
     const { data: newMode, error } = await supabase
       .from('modes')
       .insert({ page_id: pageId, type: 'page2' })
       .select('id')
       .single();
-    if (error || !newMode) { toast.error('Could not create Page 2'); return; }
-    await supabase.from('blocks').insert([
-      { mode_id: newMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 0 },
-      { mode_id: newMode.id, type: 'social_icon_row', title: 'Social Icons', is_enabled: true, order_index: 1 },
-    ]);
+    if (error || !newMode) { toast.error('Could not create Page 2'); return null; }
+    // Header social blocks first (order 0–1), then the Default content set from
+    // the shared registry — so a born Page 2 is identical to a freshly-reset one.
+    const defaultBlocks = BLOCK_PRESETS.find((p) => p.key === DEFAULT_PRESET_KEY)?.blocks ?? [];
+    const header = [
+      { type: 'social_links', title: 'Social Links' },
+      { type: 'social_icon_row', title: 'Social Icons' },
+    ];
+    const seed = [...header, ...defaultBlocks].map((b, i) => ({
+      mode_id: newMode.id,
+      type: b.type as any,
+      title: b.title,
+      is_enabled: true,
+      order_index: i,
+    }));
+    await supabase.from('blocks').insert(seed);
+    return newMode.id;
   };
 
   const setPageEnabled = async (enabled: boolean) => {
     // Two pages is Pro-gated; Free users get an upsell instead of enabling.
     if (enabled && !canTwoPages) return;
-    // New accounts have only Page 1 — create a blank Page 2 before enabling.
+    // New accounts have only Page 1 — create a born-complete Page 2 first.
     if (enabled) await ensureSecondPage();
     // Disabling Page 2 while editing it bounces editing back to Page 1.
     if (!enabled && selectedMode === 'page2') onSelectedModeChange?.('page1');
-    savePages({ enabled });
+    // ONE theme_json write for the enabled flag + the dialed-in Page 2 hero
+    // seed. Folded together deliberately: a separate heroConfig_page2 write
+    // would be clobbered by the stale-prop spread here (this and savePages both
+    // spread the themeJson prop, which hasn't refreshed yet). The posY-25 seed
+    // rule keeps faces in the top third so a born hero Page 2 renders through
+    // the same dialed-in pipeline as Page 1. Untyped: theme_json write (TS2322).
+    const existingTheme = (themeJson as any) || {};
+    const existingPages = existingTheme.pages || {};
+    const nextTheme: any = { ...existingTheme, pages: { ...existingPages, enabled } };
+    if (enabled && !existingTheme.heroConfig_page2) {
+      nextTheme.heroConfig_page2 = { fit: 'fill', posY: 25 };
+    }
+    const { error } = await supabase.from('pages').update({ theme_json: nextTheme }).eq('id', pageId);
+    if (error) { toast.error('Could not save'); return; }
+    onRefresh();
   };
   const setPageLabel = (which: 'page1' | 'page2', label: string) => {
     const existing = (pagesCfg as any)?.[which] || {};
@@ -745,18 +773,32 @@ export function ProfileDashboard({
     savePages({ page2: { ...existing, heroInherit: inherit } });
   };
 
-  // Apply a preset to the ACTIVE page (modeId): replace its content blocks with
-  // the preset's tailored set. Header social blocks are preserved.
+  // Reset the ACTIVE page to a preset's block set: replace its content blocks,
+  // preserving the header social blocks. Today only the Default preset remains.
   const applyPreset = async (presetKey: string) => {
     setPendingPreset(null);
-    if (!modeId) { toast.error(t('dashboard.noMode')); return; }
+    // The modeId prop can lag a freshly-created Page 2: Editor refetches modes
+    // on refresh, but a reset tapped immediately after enabling can beat that.
+    // Resolve the active mode from the DB when the prop is null so the reset
+    // still lands instead of firing the noMode toast (the FIX.P2 race repro).
+    let activeModeId = modeId;
+    if (!activeModeId && pageId) {
+      const { data } = await supabase
+        .from('modes')
+        .select('id')
+        .eq('page_id', pageId)
+        .eq('type', activePageId)
+        .maybeSingle();
+      activeModeId = data?.id ?? null;
+    }
+    if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
     const preset = BLOCK_PRESETS.find((p) => p.key === presetKey);
     if (!preset) return;
     try {
       const { data: existing, error: fErr } = await supabase
         .from('blocks')
         .select('id, type')
-        .eq('mode_id', modeId);
+        .eq('mode_id', activeModeId);
       if (fErr) throw fErr;
       // Preserve the header social blocks; replace everything else.
       const removableIds = (existing || [])
@@ -769,7 +811,7 @@ export function ProfileDashboard({
         if (bErr) throw bErr;
       }
       const inserts = preset.blocks.map((b, i) => ({
-        mode_id: modeId,
+        mode_id: activeModeId,
         type: b.type as any,
         title: b.title,
         is_enabled: true,
@@ -777,11 +819,11 @@ export function ProfileDashboard({
       }));
       const { error: insErr } = await supabase.from('blocks').insert(inserts);
       if (insErr) throw insErr;
-      toast.success(`${preset.label} preset applied`);
+      toast.success(t('pages.resetDone'));
       onRefresh();
     } catch (e) {
       console.error('apply preset failed', e);
-      toast.error('Could not apply preset');
+      toast.error(t('pages.resetFailed'));
     }
   };
 
@@ -1211,45 +1253,38 @@ export function ProfileDashboard({
                     </>
                   )}
 
-                  {/* Preset configurations — replace the active page's content blocks */}
+                  {/* FIX.P2: single reset action — the four alternate presets
+                      were retired. Resets the active page to the Default block
+                      set, preserving the header social blocks. */}
                   <div>
-                    <p className="text-white/70 text-xs font-semibold mb-1">Preset configurations</p>
-                    <p className="text-white/40 text-[11px] mb-2">
-                      Sets up <span className="text-white/70 font-semibold">{selectedMode === 'page2' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span> with a tailored set of blocks, replacing the link blocks on this page.
-                    </p>
+                    <p className="text-white/70 text-xs font-semibold mb-1">{t('pages.resetHeading')}</p>
+                    <p className="text-white/40 text-[11px] mb-2">{t('pages.resetDesc')}</p>
                     {pendingPreset && (
                       <div className="rounded-xl border border-[#C9A55C]/40 bg-[#C9A55C]/10 p-3 mb-2 space-y-2">
-                        <p className="text-white text-xs">
-                          Replace <span className="font-semibold">{selectedMode === 'page2' ? (page2LabelDraft || 'Page 2') : (page1LabelDraft || 'Page 1')}</span>'s link blocks with the <span className="font-semibold">{BLOCK_PRESETS.find((p) => p.key === pendingPreset)?.label}</span> layout? This removes the current link blocks on this page.
-                        </p>
+                        <p className="text-white text-xs">{t('pages.resetConfirm')}</p>
                         <div className="flex gap-2">
                           <button
                             onClick={() => setPendingPreset(null)}
                             className="flex-1 py-2 rounded-lg text-xs font-semibold border border-white/15 text-white/80"
                           >
-                            Cancel
+                            {t('pages.resetCancel')}
                           </button>
                           <button
-                            onClick={() => applyPreset(pendingPreset)}
+                            onClick={() => applyPreset(DEFAULT_PRESET_KEY)}
                             className="flex-1 py-2 rounded-lg text-xs font-bold bg-[#C9A55C] text-[#0e0c09]"
                           >
-                            Replace
+                            {t('pages.resetConfirmYes')}
                           </button>
                         </div>
                       </div>
                     )}
-                    <div className="space-y-2">
-                      {BLOCK_PRESETS.map((p) => (
-                        <button
-                          key={p.key}
-                          onClick={() => setPendingPreset(p.key)}
-                          className="w-full text-left bg-white/5 rounded-xl px-3 py-2.5 hover:bg-white/10 transition-colors"
-                        >
-                          <p className="text-sm font-semibold text-white truncate">{p.label}</p>
-                          <p className="text-[11px] text-white/50">{p.desc}</p>
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      onClick={() => setPendingPreset(DEFAULT_PRESET_KEY)}
+                      className="w-full text-left bg-white/5 rounded-xl px-3 py-2.5 hover:bg-white/10 transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-white truncate">{t('pages.resetAction')}</p>
+                      <p className="text-[11px] text-white/50">{t('pages.resetActionDesc')}</p>
+                    </button>
                   </div>
                 </div>
               ) : nameFxOpen ? (
