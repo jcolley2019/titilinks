@@ -5,10 +5,11 @@
 // No i18n wrapping needed — labels are platform names, not user copy.
 
 import { ThumbnailImage } from '@/components/ThumbnailImage';
+import { gatedHref } from '@/lib/adult-gate';
 import { SocialSvgIcon } from './SocialSvgIcon';
 import type { BlockItem, ThemedBlockProps } from './types';
 
-export function SocialLinksBlock({ block, onOutboundClick, theme: _theme }: ThemedBlockProps) {
+export function SocialLinksBlock({ block, onOutboundClick, theme: _theme, editMode }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
@@ -29,7 +30,7 @@ export function SocialLinksBlock({ block, onOutboundClick, theme: _theme }: Them
       {block.items.map((item) => (
         <a
           key={item.id}
-          href={item.url}
+          href={gatedHref(item.url, item.is_adult, editMode)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full transition-colors relative overflow-hidden"

@@ -42,7 +42,11 @@ interface ButtonLinkButtonProps extends BaseLinkButtonProps {
 
 interface AnchorLinkButtonProps extends BaseLinkButtonProps {
   as: 'a';
-  href: string;
+  /** Optional so an 18+ gated item can render its anchor with no href at all
+   *  (ADULT.2a) — React omits the attribute entirely when this is undefined,
+   *  which is the point: the URL must not reach the DOM. Such items open via
+   *  window.open once the visitor confirms their age. */
+  href?: string;
   target?: React.HTMLAttributeAnchorTarget;
   rel?: string;
   type?: never;

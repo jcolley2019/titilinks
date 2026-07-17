@@ -16,6 +16,7 @@ import { Link as LinkChainIcon } from 'lucide-react';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { ThemedBlockProps, BlockItem } from './types';
+import { gatedHref } from '@/lib/adult-gate';
 
 /** The icon "from the link": platform brand glyph, or a generic link chain. */
 function DerivedIcon({ url, size, color }: { url: string | null | undefined; size: number; color?: string }) {
@@ -25,7 +26,7 @@ function DerivedIcon({ url, size, color }: { url: string | null | undefined; siz
     : <LinkChainIcon size={size} color={color} />;
 }
 
-export function CarouselBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function CarouselBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const stripRef = useRef<HTMLDivElement>(null);
   const pausedUntil = useRef(0);
   const count = block.items.length;
@@ -105,7 +106,7 @@ export function CarouselBlock({ block, onOutboundClick, theme }: ThemedBlockProp
         {stripItems.map((item, i) => (
           <a
             key={`${item.id}-${i}`}
-            href={item.url}
+            href={gatedHref(item.url, item.is_adult, editMode)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => handleClick(e, item)}

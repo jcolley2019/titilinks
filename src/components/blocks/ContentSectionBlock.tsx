@@ -18,8 +18,9 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 import type { BlockItem, ThemedBlockProps } from './types';
+import { gatedHref } from '@/lib/adult-gate';
 
-export function ContentSectionBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
@@ -89,7 +90,7 @@ export function ContentSectionBlock({ block, onOutboundClick, theme }: ThemedBlo
   const renderItem = (item: BlockItem, isCarousel = false) => (
     <a
       key={item.id}
-      href={item.url}
+      href={gatedHref(item.url, item.is_adult, editMode)}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => handleClick(e, item)}
@@ -224,7 +225,7 @@ export function ContentSectionBlock({ block, onOutboundClick, theme }: ThemedBlo
             {block.items.map((item) => (
               <a
                 key={item.id}
-                href={item.url}
+                href={gatedHref(item.url, item.is_adult, editMode)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => handleClick(e, item)}

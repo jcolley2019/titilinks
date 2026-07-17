@@ -52,6 +52,7 @@ import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
 import { cn, randomUUID } from '@/lib/utils';
+import { isEffectivelyGated } from '@/lib/adult-gate';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -187,7 +188,7 @@ function BlockRenderer({
   onItemAdd?: () => void;
   onItemsReorder?: (orderedItemIds: string[]) => void;
 }) {
-  const blockProps = { block, onOutboundClick, theme };
+  const blockProps = { block, onOutboundClick, theme, editMode };
 
   switch (block.type) {
     case 'primary_cta':
@@ -2258,9 +2259,10 @@ export function EditableProfileView({
               </div>
             );
             if (id === '__social_icons__') {
-              const allSocialItems = socialBlocks.flatMap(b => b.items);
+              // Each icon keeps its parent block so a click can be attributed.
+              const allSocialItems = socialBlocks.flatMap(b => b.items.map(item => ({ item, block: b })));
               const seenLabels = new Set<string>();
-              const dedupedItems = allSocialItems.filter(item => {
+              const dedupedItems = allSocialItems.filter(({ item }) => {
                 const key = item.label.toLowerCase();
                 if (seenLabels.has(key)) return false;
                 seenLabels.add(key);
@@ -2275,16 +2277,62 @@ export function EditableProfileView({
               const resolvedIconBg = iconColorMode === 'color' ? chrome.iconBg : 'transparent';
               return (
                 <div key={id} style={{ marginTop: HEADER_GAP_B }} className="flex flex-wrap justify-center gap-3">
-                  {dedupedItems.map((item) => (
-                    <span
-                      key={item.id}
-                      className={cn('flex items-center justify-center rounded-full', containerMap[iSize])}
-                      style={{ background: resolvedIconBg }}
-                      title={item.label}
-                    >
-                      <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={resolvedIconColor} />
-                    </span>
-                  ))}
+                  {dedupedItems.map(({ item, block }) => {
+                    // ADULT.2a: these are the page's real platform links. A
+                    // gated one carries NO href — the destination stays in JS
+                    // and opens only once the 18+ modal is confirmed, so a
+                    // crawler reading this DOM never sees an adult URL.
+                    //
+                    // The interactive element must stay layout-neutral: it
+                    // reuses the span's exact classes and style, and <a> (unlike
+                    // <button>) adds no UA padding, border, or margin, so the
+                    // box next to the protected header geometry is unchanged.
+                    const gated = isEffectivelyGated(item);
+                    const href = gated ? undefined : item.url || undefined;
+                    const boxClass = cn('flex items-center justify-center rounded-full', containerMap[iSize]);
+                    const icon = <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={resolvedIconColor} />;
+
+                    // No destination and nothing to gate — stays decorative.
+                    if (!gated && !href) {
+                      return (
+                        <span key={item.id} className={boxClass} style={{ background: resolvedIconBg }} title={item.label}>
+                          {icon}
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <a
+                        key={item.id}
+                        href={href}
+                        target={href ? '_blank' : undefined}
+                        rel={href ? 'noopener noreferrer' : undefined}
+                        role={gated ? 'button' : undefined}
+                        tabIndex={0}
+                        title={item.label}
+                        className={cn(boxClass, 'cursor-pointer')}
+                        style={{ background: resolvedIconBg }}
+                        onClick={(e) => {
+                          if (gated) {
+                            e.preventDefault();
+                            onOutboundClick?.(block.type, block.id, item.id, item.url, true);
+                            return;
+                          }
+                          if (onOutboundClick && !onOutboundClick(block.type, block.id, item.id, item.url, false)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (gated && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            onOutboundClick?.(block.type, block.id, item.id, item.url, true);
+                          }
+                        }}
+                      >
+                        {icon}
+                      </a>
+                    );
+                  })}
                 </div>
               );
             }

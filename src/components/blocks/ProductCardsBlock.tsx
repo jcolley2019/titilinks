@@ -11,6 +11,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { isFullBleedTheme } from '@/lib/surface';
+import { gatedHref } from '@/lib/adult-gate';
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -35,7 +36,7 @@ function parseConfig(title: string | null | undefined): ProductConfig {
   return cfg;
 }
 
-export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
   const tc = (text: string | null | undefined) => translateContent(text, t);
   const cfg = parseConfig(block.title);
@@ -91,7 +92,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme }: ThemedBlock
     const onSale = !!(cfg.showPrice && item.compare_at_price && item.price && item.compare_at_price > item.price);
     return (
       <a
-        href={item.url}
+        href={gatedHref(item.url, item.is_adult, editMode)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => handleClick(e, item)}

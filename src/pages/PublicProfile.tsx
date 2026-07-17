@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
-import { AdultContentDialog, hasAdultConsent } from '@/components/AdultContentDialog';
+import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
@@ -120,12 +120,14 @@ export default function PublicProfile() {
     url: string,
     isAdult?: boolean
   ) => {
-    // If adult content and user hasn't consented, show dialog
-    if (isAdult && !hasAdultConsent()) {
+    // ADULT.2a: a gated link never carries its URL in the DOM, so there is
+    // nothing to navigate to — the gate takes the confirmation and opens it.
+    // Unconditional by design: consent is not remembered across loads.
+    if (isAdult) {
       setPendingAdultLink({ url, blockType, blockId, itemId });
       return false; // Prevent navigation
     }
-    
+
     // Track the click
     trackOutboundClick(blockType, blockId, itemId, url);
     return true; // Allow navigation
@@ -470,6 +472,12 @@ export default function PublicProfile() {
           selectedMode={selectedMode}
           onModeChange={setSelectedMode}
           onOutboundClick={handleOutboundClick}
+        />
+        <AdultGateModal
+          open={!!pendingAdultLink}
+          onOpenChange={(o) => { if (!o) handleAdultCancel(); }}
+          onConfirm={handleAdultConfirm}
+          onCancel={handleAdultCancel}
         />
       </div>
     </>

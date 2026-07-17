@@ -27,6 +27,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
+import { gatedHref, isGated, openGated } from '@/lib/adult-gate';
+import { AdultCardGate } from './AdultCardGate';
 import { leadingIconFor, useProfileAvatar } from './link-leading-icon';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import { planLinkLayout, VALID_SIZES, type ItemSize } from '@/lib/link-layout';
@@ -142,6 +144,13 @@ export function LinksBlock({
   // leading icon (see leadingIconFor / icon_source).
   const profileAvatar = useProfileAvatar();
 
+  // ADULT.2a: ids the visitor has age-confirmed in-card. Deliberately component
+  // state — the reveal lasts the session and is never persisted, so a fresh
+  // load always re-gates.
+  const [revealedAdult, setRevealedAdult] = useState<ReadonlySet<string>>(() => new Set());
+  const revealAdult = (id: string) =>
+    setRevealedAdult((prev) => new Set(prev).add(id));
+
   // Item-level drag sensors — nested inside the block-level DndContext. Handle-
   // only activation with an 8px threshold so a stationary press still taps.
   const itemSensors = useSensors(
@@ -163,13 +172,24 @@ export function LinksBlock({
   }
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    // A gated card only reaches this handler once it has been revealed, i.e.
+    // the visitor already confirmed their age in-card. So it does not re-enter
+    // the modal gate (isAdult is reported false, which still tracks the click)
+    // — but its URL is absent from the DOM by design, so nothing would happen
+    // on its own. The open has to be made here, client-side.
+    const gated = isGated(item, editMode);
     const shouldNavigate = onOutboundClick(
       block.type,
       block.id,
       item.id,
       item.url,
-      item.is_adult || false
+      gated ? false : item.is_adult || false
     );
+    if (gated) {
+      e.preventDefault();
+      if (shouldNavigate) openGated(item.url);
+      return;
+    }
     if (!shouldNavigate) {
       e.preventDefault();
     }
@@ -194,6 +214,20 @@ export function LinksBlock({
   // Build a single link card. renderSize is the size to ACTUALLY render (a lone
   // Small is promoted to 'big'); span controls half- vs full-width.
   const buildLinkButton = (item: BlockItem, renderSize: ItemSize, span: 'full' | 'half') => {
+    // ADULT.2a: a gated card shows its disclaimer in place of the real card
+    // until the visitor confirms their age. The URL is not handed to the gate,
+    // so nothing about the destination is rendered pre-reveal.
+    if (isGated(item, editMode) && !revealedAdult.has(item.id)) {
+      return (
+        <AdultCardGate
+          imageUrl={item.image_url}
+          size={renderSize}
+          span={span}
+          onContinue={() => revealAdult(item.id)}
+        />
+      );
+    }
+
     // Per-item style overrides (style_json): border, leading-icon, gradient.
     const sj = (item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json))
       ? (item.style_json as Record<string, any>)
@@ -232,7 +266,7 @@ export function LinksBlock({
     return (
       <LinkButton
         as="a"
-        href={item.url}
+        href={gatedHref(item.url, item.is_adult, editMode)}
         target="_blank"
         rel="noopener noreferrer"
         theme={itemTheme}

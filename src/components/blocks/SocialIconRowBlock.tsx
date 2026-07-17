@@ -17,10 +17,11 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
+import { gatedHref } from '@/lib/adult-gate';
 import { SocialSvgIcon } from './SocialSvgIcon';
 import type { BlockItem, ThemedBlockProps } from './types';
 
-export function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function SocialIconRowBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   if (block.items.length === 0) return null;
 
   const { t } = useLanguage();
@@ -84,7 +85,7 @@ export function SocialIconRowBlock({ block, onOutboundClick, theme }: ThemedBloc
       {block.items.map((item) => (
         <motion.a
           key={item.id}
-          href={item.url}
+          href={gatedHref(item.url, item.is_adult, editMode)}
           target="_blank"
           rel="noopener noreferrer"
           whileTap={{ scale: 0.95 }}

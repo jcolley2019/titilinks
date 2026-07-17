@@ -696,6 +696,16 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.trackingPixelsDesc': 'Add Meta, TikTok, or GA tags',
     'dashboard.comingSoon': 'Coming soon!',
     'dashboard.openDesignTab': 'Open the Design tab',
+
+    // 18+ gating (ADULT.2a)
+    'adultGate.modalTitle': '18+ Content Warning',
+    'adultGate.modalBody': 'This link leads to mature content. You must be 18 or older to continue.',
+    'adultGate.continue': 'Continue (18+)',
+    'adultGate.dismiss': 'Go back',
+    'adultGate.cardTitle': 'Mature Content Disclaimer',
+    'adultGate.cardBody': '18+ only. Tap to confirm your age.',
+    'adultGate.editorTip': 'Tip: keep your page photos non-explicit. Social platforms review the pages their bio links lead to.',
+    'adultGate.lockedHint': 'This platform is always 18+, so the gate stays on.',
     'dashboard.templateGallery': 'Template Gallery',
     'dashboard.templateGalleryDesc': 'Browse and apply page templates',
     'dashboard.noMode': 'No mode found',
@@ -1628,6 +1638,16 @@ const translations: Record<Language, Record<string, string>> = {
     'dashboard.trackingPixelsDesc': 'Agrega etiquetas de Meta, TikTok o GA',
     'dashboard.comingSoon': '¡Próximamente!',
     'dashboard.openDesignTab': 'Abre la pestaña de Diseño',
+
+    // Restricción 18+ (ADULT.2a)
+    'adultGate.modalTitle': 'Aviso de contenido +18',
+    'adultGate.modalBody': 'Este enlace lleva a contenido para adultos. Debes tener 18 años o más para continuar.',
+    'adultGate.continue': 'Continuar (+18)',
+    'adultGate.dismiss': 'Volver',
+    'adultGate.cardTitle': 'Aviso de contenido para adultos',
+    'adultGate.cardBody': 'Solo +18. Toca para confirmar tu edad.',
+    'adultGate.editorTip': 'Consejo: mantén las fotos de tu página sin contenido explícito. Las redes sociales revisan las páginas a las que llevan los enlaces de tu bio.',
+    'adultGate.lockedHint': 'Esta plataforma siempre es +18, así que el aviso permanece activo.',
     'dashboard.templateGallery': 'Galería de plantillas',
     'dashboard.templateGalleryDesc': 'Explora y aplica plantillas de página',
     'dashboard.noMode': 'No se encontró modo',

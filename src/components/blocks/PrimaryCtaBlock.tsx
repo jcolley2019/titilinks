@@ -8,8 +8,9 @@ import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import type { ThemedBlockProps } from './types';
+import { gatedHref } from '@/lib/adult-gate';
 
-export function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function PrimaryCtaBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
   const tc = (text: string | null | undefined) => translateContent(text, t);
 
@@ -44,7 +45,7 @@ export function PrimaryCtaBlock({ block, onOutboundClick, theme }: ThemedBlockPr
     <div data-block-type="primary_cta">
       <LinkButton
         as="a"
-        href={item.url}
+        href={gatedHref(item.url, item.is_adult, editMode)}
         target="_blank"
         rel="noopener noreferrer"
         theme={theme}

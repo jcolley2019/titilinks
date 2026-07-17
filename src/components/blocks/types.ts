@@ -25,4 +25,8 @@ export interface ThemedBlockProps {
   block: BlockWithItems;
   onOutboundClick: ClickHandler;
   theme: ThemeJson;
+  /** ADULT.2a: gated items keep their URL out of the DOM in public/view mode.
+   *  Edit mode is exempt — the threat model is the public page, and the editor
+   *  needs its real links. */
+  editMode?: boolean;
 }

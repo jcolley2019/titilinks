@@ -38,6 +38,8 @@ import { LinkButton } from '@/components/LinkButton';
 import { InlineColorPicker } from '@/components/ui/color-picker';
 import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
+import { platformFromUrl } from '@/lib/platform-from-url';
+import { isAdultPlatformLabel, isAdultUrl } from '@/lib/adult-gate';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
 
@@ -194,7 +196,21 @@ function LinkDetailPanel({
     else setCardA(updater);
   };
   const update = (field: keyof LinkItem, value: any) => {
-    setActive(prev => ({ ...prev, [field]: value }));
+    setActive(prev => {
+      const next = { ...prev, [field]: value };
+      // ADULT.2a auto-flag: adopting an adult platform's URL gates the link.
+      // Keyed on the platform CHANGING, not on every keystroke or save — so a
+      // creator who un-gates an auto-flagged link keeps that choice, and the
+      // 18+ toggle below stays the override in both directions.
+      if (field === 'url') {
+        const wasPlatform = platformFromUrl(prev.url);
+        const nowPlatform = platformFromUrl(value);
+        if (nowPlatform && nowPlatform !== wasPlatform && isAdultPlatformLabel(nowPlatform)) {
+          next.is_adult = true;
+        }
+      }
+      return next;
+    });
   };
 
   // Choose the size for the whole link group (Card A). Picking Small opens pair
@@ -996,18 +1012,33 @@ function LinkDetailPanel({
           })()}
 
           {/* 18+ Toggle */}
-          <div className="flex items-center justify-between py-3 border-t border-border">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm font-normal text-muted-foreground">
-                18+ Link
-              </Label>
-            </div>
-            <Switch
-              checked={active.is_adult || false}
-              onCheckedChange={(checked) => update('is_adult', checked)}
-            />
-          </div>
+          {(() => {
+            // Render-time gating owns the truth: an adult-domain link gates
+            // itself whatever the flag says. So the toggle reports ON and
+            // locks, rather than offering an off state the public page would
+            // ignore. It can still ADD gating to any other link.
+            const domainLocked = isAdultUrl(active.url);
+            return (
+              <div className="py-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-normal text-muted-foreground">
+                      18+ Link
+                    </Label>
+                  </div>
+                  <Switch
+                    checked={domainLocked || active.is_adult || false}
+                    disabled={domainLocked}
+                    onCheckedChange={(checked) => update('is_adult', checked)}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-snug text-muted-foreground/70">
+                  {domainLocked ? t('adultGate.lockedHint') : t('adultGate.editorTip')}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Animations PRO Upsell — on-brand locked state (visual only) */}
           <div className="rounded-xl border border-[#C9A55C]/30 bg-black/30 overflow-hidden">

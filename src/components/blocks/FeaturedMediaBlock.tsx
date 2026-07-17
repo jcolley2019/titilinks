@@ -22,8 +22,9 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import type { BlockItem, ThemedBlockProps } from './types';
+import { gatedHref } from '@/lib/adult-gate';
 
-export function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBlockProps) {
+export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
   const tc = (text: string | null | undefined) => translateContent(text, t);
 
@@ -62,7 +63,7 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme }: ThemedBloc
         {block.items.map((item) => (
           <a
             key={item.id}
-            href={item.url}
+            href={gatedHref(item.url, item.is_adult, editMode)}
             target="_blank"
             rel="noopener noreferrer"
             className="block group"

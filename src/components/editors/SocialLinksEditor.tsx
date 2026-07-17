@@ -46,6 +46,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { PLATFORM_CATALOG as PLATFORM_CATEGORIES } from '@/lib/platform-catalog';
+import { isAdultPlatformLabel } from '@/lib/adult-gate';
 
 const MAX_ITEMS = ITEM_CAPS.social_links;
 
@@ -114,6 +115,7 @@ const itemSchema = z.object({
   subtitle: z.string().max(100).optional(),
   badge: z.string().max(20).optional(),
   image_url: z.string().nullable().optional(),
+  is_adult: z.boolean().optional(),
 });
 
 type SocialItem = z.infer<typeof itemSchema>;
@@ -307,6 +309,11 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
           subtitle: item.subtitle || '',
           badge: item.badge || '',
           image_url: item.image_url || null,
+          // ADULT.2a auto-flag. Additive only: it can gate an adult platform
+          // that predates this system, and never un-gates anything. This
+          // editor's rows are platform-locked and carry no 18+ toggle, so
+          // there is no manual choice here for it to overwrite.
+          is_adult: item.is_adult || isAdultPlatformLabel(item.label),
         }))
       );
     } catch (error) {
@@ -338,6 +345,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       subtitle: '',
       badge: '',
       image_url: null,
+      // ADULT.2a auto-flag on add: picking an ADULT (18+) platform gates it.
+      is_adult: isAdultPlatformLabel(platform.label),
     };
     setItems([...items, newItem]);
   };
@@ -410,7 +419,15 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     // Expand bare handles into full profile URLs before validating + saving.
     const normalized = items.map((it) => ({ ...it, url: buildSocialUrl(it.label, it.url) }));
     if (normalized.some((it, i) => it.url !== items[i].url)) setItems(normalized);
-    if (!validate(normalized)) {
+
+    // A platform row with no URL is an unfilled placeholder from the preset
+    // picker, not a link. Drop those from the save set instead of validating
+    // them: an untouched seeded row must never block saving the rows that are
+    // real. Rows that carry a URL are still validated as strictly as before.
+    const filled = normalized.filter((it) => it.url.trim().length > 0);
+    const skipped = normalized.length - filled.length;
+
+    if (!validate(filled)) {
       toast.error('Please fix the errors before saving. Expand items to see details.');
       return;
     }
@@ -418,7 +435,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     setSaving(true);
     try {
       // Delete removed items
-      const currentIds = normalized.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
+      const currentIds = filled.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
 
       for (const item of toDelete) {
@@ -427,8 +444,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       }
 
       // Update or create items
-      for (let i = 0; i < normalized.length; i++) {
-        const item = normalized[i];
+      for (let i = 0; i < filled.length; i++) {
+        const item = filled[i];
         const isNew = item.id.startsWith('new-');
 
         if (isNew) {
@@ -439,6 +456,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             subtitle: item.subtitle || null,
             badge: item.badge || null,
             image_url: item.image_url || null,
+            is_adult: item.is_adult ?? false,
             order_index: i,
           });
           if (error) throw error;
@@ -451,6 +469,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
               subtitle: item.subtitle || null,
               badge: item.badge || null,
               image_url: item.image_url || null,
+              is_adult: item.is_adult ?? false,
               order_index: i,
             })
             .eq('id', item.id);
@@ -458,7 +477,11 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         }
       }
 
-      toast.success('Social links saved');
+      toast.success(
+        skipped > 0
+          ? `Social links saved — ${skipped} platform${skipped === 1 ? '' : 's'} with no link ${skipped === 1 ? 'was' : 'were'} skipped`
+          : 'Social links saved'
+      );
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
