@@ -18,6 +18,7 @@ export const PLATFORM_CATALOG = [
       { label: 'Lemon8', icon: '', placeholder: 'Lemon8 username' },
       { label: 'RedNote', icon: '', placeholder: 'RedNote profile URL' },
       { label: 'BeReal', icon: '', placeholder: 'BeReal username' },
+      { label: 'Kwai', icon: '', placeholder: 'Kwai profile link' },
     ],
   },
   {
@@ -27,6 +28,7 @@ export const PLATFORM_CATALOG = [
       { label: 'GitHub', icon: '🐙', placeholder: 'GitHub username' },
       { label: 'Telegram', icon: '✈️', placeholder: 'Telegram username' },
       { label: 'WhatsApp', icon: '💬', placeholder: 'WhatsApp number' },
+      { label: 'Messenger', icon: '', placeholder: 'Messenger username' },
       { label: 'Calendly', icon: '📅', placeholder: 'Calendly username' },
       { label: 'Discord', icon: '🎮', placeholder: 'Discord invite URL' },
     ],
@@ -50,6 +52,7 @@ export const PLATFORM_CATALOG = [
       { label: 'Patreon', icon: '', placeholder: 'Patreon username' },
       { label: 'Ko-fi', icon: '', placeholder: 'Ko-fi username' },
       { label: 'Buy Me a Coffee', icon: '', placeholder: 'Buy Me a Coffee username' },
+      { label: 'Whop', icon: '', placeholder: 'Whop store slug' },
     ],
   },
   {
@@ -59,6 +62,7 @@ export const PLATFORM_CATALOG = [
       { label: 'Kick', icon: '🎯', placeholder: 'Kick username' },
       { label: 'Netflix', icon: '🎬', placeholder: 'Netflix link' },
       { label: 'Steam', icon: '🕹️', placeholder: 'Steam profile URL' },
+      { label: 'Roblox', icon: '', placeholder: 'Roblox profile URL' },
       { label: 'Substack', icon: '📰', placeholder: 'Substack handle' },
       { label: 'Apple Podcasts', icon: '', placeholder: 'Apple Podcasts show URL' },
     ],
@@ -67,7 +71,9 @@ export const PLATFORM_CATALOG = [
     label: 'LIFESTYLE',
     platforms: [
       { label: 'Depop', icon: '👗', placeholder: 'Depop username' },
+      { label: 'Vinted', icon: '', placeholder: 'Vinted profile URL' },
       { label: 'Etsy', icon: '🛍️', placeholder: 'Etsy shop URL' },
+      { label: 'Amazon', icon: '', placeholder: 'Amazon wishlist or store URL' },
       { label: 'Yelp', icon: '⭐', placeholder: 'Yelp business URL' },
       { label: 'Airbnb', icon: '🏠', placeholder: 'Airbnb profile URL' },
       { label: 'Vrbo', icon: '', placeholder: 'Vrbo property URL' },

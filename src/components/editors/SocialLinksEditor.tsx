@@ -86,6 +86,8 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Patreon': (h) => `https://patreon.com/${h}`,
   'Ko-fi': (h) => `https://ko-fi.com/${h}`,
   'Buy Me a Coffee': (h) => `https://buymeacoffee.com/${h}`,
+  'Messenger': (h) => `https://m.me/${h}`,
+  'Whop': (h) => `https://whop.com/${h}`,
 };
 
 // Turn whatever the user typed into a usable URL: full URLs pass through,

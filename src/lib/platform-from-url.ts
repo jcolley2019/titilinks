@@ -45,6 +45,12 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)patreon\.com$/, 'Patreon'],
   [/(^|\.)ko-fi\.com$/, 'Ko-fi'],
   [/(^|\.)buymeacoffee\.com$/, 'Buy Me a Coffee'],
+  [/(^|\.)(m\.me|messenger\.com)$/, 'Messenger'],
+  [/(^|\.)vinted\.(com|es|fr|it|co\.uk|de|pl|nl|pt|lt)$/, 'Vinted'],
+  [/(^|\.)(kwai\.com|kwai-video\.com|kuaishou\.com)$/, 'Kwai'],
+  [/(^|\.)roblox\.com$/, 'Roblox'],
+  [/(^|\.)whop\.com$/, 'Whop'],
+  [/(^|\.)amazon\.(com|co\.uk|es|it|fr|de|com\.br|com\.mx|ca)$/, 'Amazon'],
   [/(^|\.)substack\.com$/, 'Substack'],
 ];
 

@@ -85,6 +85,12 @@ const ORDER_RULES = [
     after: 'YouTube',
     why: 'music.youtube.com also matches the general .youtube.com rule',
   },
+  {
+    name: 'music.amazon.com precedes amazon.com',
+    before: 'Amazon Music',
+    after: 'Amazon',
+    why: 'music.amazon.com also matches the general .amazon.com rule',
+  },
 ];
 
 console.log('\nRULE ORDER:');

@@ -6,7 +6,7 @@ import {
   SiCashapp, SiTwitch, SiKick, SiNetflix, SiSteam, SiEtsy, SiYelp,
   SiAirbnb, SiOnlyfans, SiPandora, SiApplepodcasts, SiSubstack,
   SiBluesky, SiReddit, SiXiaohongshu, SiBereal, SiPatreon, SiKofi,
-  SiBuymeacoffee,
+  SiBuymeacoffee, SiMessenger, SiVinted, SiKuaishou, SiRoblox,
 } from 'react-icons/si';
 import { FaLinkedin, FaSkype, FaTwitter, FaAmazon } from 'react-icons/fa';
 import { Link as LinkIcon, Globe } from 'lucide-react';
@@ -88,6 +88,11 @@ const PLATFORMS: Record<string, PlatformMeta> = {
   'Patreon': { Icon: SiPatreon, color: '#FFFFFF' },
   'Ko-fi': { Icon: SiKofi, color: '#FF6433' },
   'Buy Me a Coffee': { Icon: SiBuymeacoffee, color: '#FFDD00' },
+  'Messenger': { Icon: SiMessenger, color: '#0866FF' },
+  'Vinted': { Icon: SiVinted, color: '#007782' },
+  'Kwai': { Icon: SiKuaishou, color: '#FF4906' },
+  'Roblox': { Icon: SiRoblox, color: '#FFFFFF' },
+  'Amazon': { Icon: FaAmazon, color: '#FF9900' },
 };
 
 // Lowercase + strip any parenthetical suffix so variant labels resolve:
