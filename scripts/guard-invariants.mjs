@@ -17,9 +17,32 @@ const checks = [
     needs:[/isEditorPage\s*\?\s*'overflow-x-clip'\s*:\s*'overflow-x-hidden'/] },
   { name:'PUBLICPROFILE-WRAP', file:'pages/PublicProfile.tsx',
     needs:[/min-h-screen bg-\[#0e0c09\]/] },
+  // ES-SWEEP.1 Task 3: en/es dictionary parity — the 9th invariant. A Spanish
+  // session must never fall back to a raw key, so the two maps must hold the
+  // identical key set. Fails loudly, naming the offending keys.
+  { name:'I18N-PARITY', parity:true },
 ];
 let failed = 0;
 for (const c of checks) {
+  if (c.parity) {
+    const dict = readFileSync(F('hooks/useLanguage.tsx'), 'utf8');
+    const enStart = dict.indexOf('  en: {');
+    const esStart = dict.indexOf('  es: {');
+    const keysOf = (s) => [...s.matchAll(/^\s*'([^']+)':/gm)].map((m) => m[1]);
+    const en = new Set(keysOf(dict.slice(enStart, esStart)));
+    const es = new Set(keysOf(dict.slice(esStart)));
+    const onlyEn = [...en].filter((k) => !es.has(k));
+    const onlyEs = [...es].filter((k) => !en.has(k));
+    if (onlyEn.length || onlyEs.length) {
+      failed++;
+      console.error(`x ${c.name} - en/es dictionaries diverge`);
+      if (onlyEn.length) console.error(`      missing in ES: ${onlyEn.join(', ')}`);
+      if (onlyEs.length) console.error(`      missing in EN: ${onlyEs.join(', ')}`);
+    } else {
+      console.log(`ok ${c.name} (${en.size} keys, en/es identical)`);
+    }
+    continue;
+  }
   let src;
   try { src = readFileSync(F(c.file), 'utf8'); }
   catch { console.error(`x ${c.name}: cannot read ${F(c.file)}`); failed++; continue; }

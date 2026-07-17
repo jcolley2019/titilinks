@@ -8,8 +8,12 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const translations: Record<Language, Record<string, string>> = {
+export const translations: Record<Language, Record<string, string>> = {
   en: {
+    'content.badgeNew': 'NEW',
+    'content.badgeOpen': 'OPEN',
+    'content.badgeSale': 'SALE',
+    'content.emailSubscribeTitle': 'Email Subscribe',
     'editor.photo.deleteFailed': 'Failed to delete photo',
     'editor.photo.removed': 'Photo removed',
     'editor.photo.uploadFailed': 'Failed to upload photo',
@@ -1488,6 +1492,10 @@ const translations: Record<Language, Record<string, string>> = {
     'templates.category.whatsapp': 'Whatsapp',
   },
   es: {
+    'content.badgeNew': 'NUEVO',
+    'content.badgeOpen': 'DISPONIBLE',
+    'content.badgeSale': 'OFERTA',
+    'content.emailSubscribeTitle': 'Suscripción por correo',
     'editor.photo.deleteFailed': 'No se pudo eliminar la foto',
     'editor.photo.removed': 'Foto eliminada',
     'editor.photo.uploadFailed': 'No se pudo subir la foto',

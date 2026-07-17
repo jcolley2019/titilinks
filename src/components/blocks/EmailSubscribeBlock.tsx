@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import { getChromeTokens } from '@/lib/contrast';
 import { ACTION_ACCENT, ACTION_ACCENT_TEXT, fullBleedText } from '@/lib/surface';
 import type { BlockWithItems } from './types';
@@ -29,6 +30,11 @@ interface EmailSubscribeBlockProps {
 
 export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBlockProps) {
   const { t } = useLanguage();
+  // ES-SWEEP.1 Task 3: stored config from the badge JSON overrides the t()
+  // defaults below, so a seeded block would render its English seed values.
+  // tc() routes each rendered config string through CONTENT_MAP — seeded
+  // defaults translate, custom user copy passes through unchanged.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -160,7 +166,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: ACTION_ACCENT }}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          <p className="font-medium">{config.success_message}</p>
+          <p className="font-medium">{tc(config.success_message)}</p>
         </div>
       </motion.div>
     );
@@ -173,7 +179,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
           className="text-sm font-medium text-center"
           style={fullBleedText(theme, theme.typography.text_color)}
         >
-          {config.title}
+          {tc(config.title)}
         </p>
       )}
 
@@ -183,7 +189,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={config.name_placeholder}
+            placeholder={tc(config.name_placeholder)}
             className={`w-full ${inputClass}`}
             style={inputStyle}
           />
@@ -197,7 +203,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
               setEmail(e.target.value);
               setError('');
             }}
-            placeholder={config.placeholder}
+            placeholder={tc(config.placeholder)}
             required
             className={`flex-1 min-w-0 ${inputClass}`}
             style={inputStyle}
@@ -219,7 +225,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : (
-              config.button_label
+              tc(config.button_label)
             )}
           </motion.button>
         </div>

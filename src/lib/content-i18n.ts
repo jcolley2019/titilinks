@@ -4,7 +4,7 @@
  * the translated version is returned. Custom user content passes through unchanged.
  */
 
-const CONTENT_MAP: Record<string, string> = {
+export const CONTENT_MAP: Record<string, string> = {
   // Primary CTA
   'Shop My Collection': 'content.shopMyCollection',
   'New arrivals every week': 'content.newArrivalsEveryWeek',
@@ -90,6 +90,18 @@ const CONTENT_MAP: Record<string, string> = {
   'Gallery': 'content.gallery',
   'Videos': 'content.videos',
   'About': 'content.about',
+
+  // ES-SWEEP.1 Task 3: badges + email-subscribe config defaults that the
+  // OnboardingFlow seeds and blocks render from stored data. NEW/OPEN/SALE flow
+  // through each block's tc(item.badge); the email placeholders reuse the
+  // existing emailSubscribe.default* keys so a seeded block matches an unseeded
+  // one. 'Email Subscribe' is the seeded block title (mapped for completeness).
+  'NEW': 'content.badgeNew',
+  'OPEN': 'content.badgeOpen',
+  'SALE': 'content.badgeSale',
+  'Email Subscribe': 'content.emailSubscribeTitle',
+  'your@email.com': 'emailSubscribe.defaultPlaceholder',
+  'Your name': 'emailSubscribe.defaultName',
 };
 
 /**
