@@ -13,6 +13,11 @@ export const PLATFORM_CATALOG = [
       { label: 'Snapchat', icon: '👻', placeholder: 'Snapchat username' },
       { label: 'Threads', icon: '🧵', placeholder: 'Threads username' },
       { label: 'Pinterest', icon: '📌', placeholder: 'Pinterest username' },
+      { label: 'Bluesky', icon: '', placeholder: 'Bluesky handle' },
+      { label: 'Reddit', icon: '', placeholder: 'Reddit username' },
+      { label: 'Lemon8', icon: '', placeholder: 'Lemon8 username' },
+      { label: 'RedNote', icon: '', placeholder: 'RedNote profile URL' },
+      { label: 'BeReal', icon: '', placeholder: 'BeReal username' },
     ],
   },
   {
@@ -42,6 +47,9 @@ export const PLATFORM_CATALOG = [
       { label: 'PayPal', icon: '🅿️', placeholder: 'PayPal.me link' },
       { label: 'Venmo', icon: '💸', placeholder: 'Venmo username' },
       { label: 'Cash App', icon: '💵', placeholder: 'Cash App $cashtag' },
+      { label: 'Patreon', icon: '', placeholder: 'Patreon username' },
+      { label: 'Ko-fi', icon: '', placeholder: 'Ko-fi username' },
+      { label: 'Buy Me a Coffee', icon: '', placeholder: 'Buy Me a Coffee username' },
     ],
   },
   {

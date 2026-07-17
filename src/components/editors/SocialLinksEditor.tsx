@@ -79,6 +79,13 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Fansly': (h) => `https://fansly.com/${h}`,
   'Privacy': (h) => `https://privacy.com.br/@${h}`,
   'FatalFans': (h) => `https://fatalfans.com/${h}`,
+  'Bluesky': (h) => `https://bsky.app/profile/${h}`,
+  'Reddit': (h) => `https://reddit.com/user/${h}`,
+  'Lemon8': (h) => `https://lemon8-app.com/@${h}`,
+  'BeReal': (h) => `https://bere.al/${h}`,
+  'Patreon': (h) => `https://patreon.com/${h}`,
+  'Ko-fi': (h) => `https://ko-fi.com/${h}`,
+  'Buy Me a Coffee': (h) => `https://buymeacoffee.com/${h}`,
 };
 
 // Turn whatever the user typed into a usable URL: full URLs pass through,

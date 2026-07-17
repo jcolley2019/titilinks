@@ -37,6 +37,14 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)privacy\.com\.br$/, 'Privacy'],
   [/(^|\.)fatalfans\.com$/, 'FatalFans'],
   [/(^|\.)vrbo\.com$/, 'Vrbo'],
+  [/(^|\.)bsky\.app$/, 'Bluesky'],
+  [/(^|\.)reddit\.com$/, 'Reddit'],
+  [/(^|\.)lemon8-app\.com$/, 'Lemon8'],
+  [/(^|\.)(xiaohongshu\.com|xhslink\.com)$/, 'RedNote'],
+  [/(^|\.)(bere\.al|bereal\.com)$/, 'BeReal'],
+  [/(^|\.)patreon\.com$/, 'Patreon'],
+  [/(^|\.)ko-fi\.com$/, 'Ko-fi'],
+  [/(^|\.)buymeacoffee\.com$/, 'Buy Me a Coffee'],
   [/(^|\.)substack\.com$/, 'Substack'],
 ];
 

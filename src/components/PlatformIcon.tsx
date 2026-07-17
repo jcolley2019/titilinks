@@ -5,6 +5,8 @@ import {
   SiSpotify, SiApplemusic, SiSoundcloud, SiYoutubemusic, SiPaypal, SiVenmo,
   SiCashapp, SiTwitch, SiKick, SiNetflix, SiSteam, SiEtsy, SiYelp,
   SiAirbnb, SiOnlyfans, SiPandora, SiApplepodcasts, SiSubstack,
+  SiBluesky, SiReddit, SiXiaohongshu, SiBereal, SiPatreon, SiKofi,
+  SiBuymeacoffee,
 } from 'react-icons/si';
 import { FaLinkedin, FaSkype, FaTwitter, FaAmazon } from 'react-icons/fa';
 import { Link as LinkIcon, Globe } from 'lucide-react';
@@ -79,6 +81,13 @@ const PLATFORMS: Record<string, PlatformMeta> = {
   'Depop': { Icon: DepopIcon, color: '#FD2801' },
   'Vrbo': { Icon: VrboIcon, color: '#02CEC6' },
   'Substack': { Icon: SiSubstack, color: '#FF6719' },
+  'Bluesky': { Icon: SiBluesky, color: '#1185FE' },
+  'Reddit': { Icon: SiReddit, color: '#FF4500' },
+  'RedNote': { Icon: SiXiaohongshu, color: '#FF2442' },
+  'BeReal': { Icon: SiBereal, color: '#FFFFFF' },
+  'Patreon': { Icon: SiPatreon, color: '#FFFFFF' },
+  'Ko-fi': { Icon: SiKofi, color: '#FF6433' },
+  'Buy Me a Coffee': { Icon: SiBuymeacoffee, color: '#FFDD00' },
 };
 
 // Lowercase + strip any parenthetical suffix so variant labels resolve:
