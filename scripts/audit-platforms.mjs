@@ -1,15 +1,27 @@
 // audit-platforms.mjs — TEST.1a catalog coverage audit (read-only).
-// Cross-references the platform catalog against URL builders, the
-// PlatformIcon map, and platform-from-url detection. Run:
+// Cross-references the platform catalog (src/lib/platform-catalog.ts) against
+// URL builders, the PlatformIcon map, and platform-from-url detection. Run:
 //   node scripts/audit-platforms.mjs
 import { readFileSync } from 'fs';
 
+const catalog = readFileSync('src/lib/platform-catalog.ts', 'utf8');
 const editor = readFileSync('src/components/editors/SocialLinksEditor.tsx', 'utf8');
 const icons = readFileSync('src/components/PlatformIcon.tsx', 'utf8');
 const fromUrl = readFileSync('src/lib/platform-from-url.ts', 'utf8');
 
+// These text anchors are what the parse hangs on. If one moves, the slice below
+// silently yields nothing and the audit passes vacuously — so fail loudly instead.
+const anchor = (src, marker, where) => {
+  const i = src.indexOf(marker);
+  if (i === -1) {
+    console.error(`FAIL — anchor '${marker}' not found in ${where}. The audit is parsing nothing; fix the anchor.`);
+    process.exit(1);
+  }
+  return i;
+};
+
 // --- catalog: categories + platforms + placeholders ---
-const catBlock = editor.slice(editor.indexOf('const PLATFORM_CATEGORIES'), editor.indexOf('const SOCIAL_URL_BUILDERS'));
+const catBlock = catalog.slice(anchor(catalog, 'export const PLATFORM_CATALOG', 'src/lib/platform-catalog.ts'));
 const platforms = [];
 let currentCat = null;
 for (const line of catBlock.split('\n')) {
@@ -19,9 +31,15 @@ for (const line of catBlock.split('\n')) {
   if (p) platforms.push({ label: p[1], cat: currentCat, placeholder: p[2] });
 }
 
-// --- builders ---
-const bBlock = editor.slice(editor.indexOf('const SOCIAL_URL_BUILDERS'), editor.indexOf('const buildSocialUrl'));
+// --- builders (still declared in the editor) ---
+const E = 'src/components/editors/SocialLinksEditor.tsx';
+const bBlock = editor.slice(anchor(editor, 'const SOCIAL_URL_BUILDERS', E), anchor(editor, 'const buildSocialUrl', E));
 const builders = new Set([...bBlock.matchAll(/'([^']+)':\s*\(h\)/g)].map(m => m[1]));
+
+if (platforms.length === 0) {
+  console.error('FAIL — parsed 0 platforms from the catalog. The literal\'s shape changed; fix the parse.');
+  process.exit(1);
+}
 
 // --- icon map (mimic PlatformIcon normalize: lowercase, strip parenthetical) ---
 const norm = (s) => s.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();

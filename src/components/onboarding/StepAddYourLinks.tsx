@@ -1,5 +1,6 @@
 import { ArrowLeft, Check } from 'lucide-react';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { PLATFORM_CATALOG } from '@/lib/platform-catalog';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -10,34 +11,10 @@ interface Props {
   t: (key: string) => string;
 }
 
-const PLATFORM_CATEGORIES = [
-  {
-    label: 'Social Media',
-    platforms: ['Instagram', 'TikTok', 'Twitter', 'Facebook', 'Pinterest',
-                'Snapchat', 'YouTube', 'Truth Social', 'Threads', 'X', 'Discord'],
-  },
-  {
-    label: 'Adult (18+)',
-    platforms: ['OnlyFans', 'Fansly', 'Privacy', 'FatalFans'],
-  },
-  {
-    label: 'Business',
-    platforms: ['LinkedIn', 'Skype', 'Telegram', 'WhatsApp', 'Calendly', 'GitHub'],
-  },
-  {
-    label: 'Music',
-    platforms: ['Apple Music', 'Spotify', 'YouTube Music', 'Amazon Music',
-                'SoundCloud', 'Pandora'],
-  },
-  {
-    label: 'Payment',
-    platforms: ['PayPal', 'Venmo', 'Cash App'],
-  },
-  {
-    label: 'Entertainment',
-    platforms: ['Twitch', 'Kick', 'Apple Podcasts', 'Substack'],
-  },
-];
+const PLATFORM_CATEGORIES = PLATFORM_CATALOG.map((c) => ({
+  label: c.label,
+  platforms: c.platforms.map((p) => p.label),
+}));
 
 export function StepAddYourLinks({ state, updateField, onNext, onPrev, t }: Props) {
   const toggle = (platform: string) => {

@@ -18,6 +18,8 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)(discord\.gg|discord\.com)$/, 'Discord'],
   [/(^|\.)spotify\.com$/, 'Spotify'],
   [/(^|\.)music\.apple\.com$/, 'Apple Music'],
+  [/(^|\.)podcasts\.apple\.com$/, 'Apple Podcasts'],
+  [/(^|\.)music\.amazon\.com$/, 'Amazon Music'],
   [/(^|\.)soundcloud\.com$/, 'SoundCloud'],
   [/(^|\.)(paypal\.com|paypal\.me)$/, 'PayPal'],
   [/(^|\.)venmo\.com$/, 'Venmo'],

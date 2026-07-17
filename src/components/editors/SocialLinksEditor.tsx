@@ -45,83 +45,11 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { PLATFORM_CATALOG as PLATFORM_CATEGORIES } from '@/lib/platform-catalog';
 
 const MAX_ITEMS = ITEM_CAPS.social_links;
 
 type BlockItem = Tables<'block_items'>;
-
-const PLATFORM_CATEGORIES = [
-  {
-    label: 'SOCIAL',
-    platforms: [
-      { label: 'TikTok', icon: '🎵', placeholder: 'TikTok username' },
-      { label: 'Instagram', icon: '📸', placeholder: 'Instagram username' },
-      { label: 'YouTube', icon: '▶️', placeholder: 'YouTube channel URL' },
-      { label: 'Facebook', icon: '👤', placeholder: 'Facebook profile URL' },
-      { label: 'X (Twitter)', icon: '𝕏', placeholder: 'X username' },
-      { label: 'Snapchat', icon: '👻', placeholder: 'Snapchat username' },
-      { label: 'Threads', icon: '🧵', placeholder: 'Threads username' },
-      { label: 'Pinterest', icon: '📌', placeholder: 'Pinterest username' },
-    ],
-  },
-  {
-    label: 'BUSINESS',
-    platforms: [
-      { label: 'LinkedIn', icon: '💼', placeholder: 'LinkedIn profile URL' },
-      { label: 'GitHub', icon: '🐙', placeholder: 'GitHub username' },
-      { label: 'Telegram', icon: '✈️', placeholder: 'Telegram username' },
-      { label: 'WhatsApp', icon: '💬', placeholder: 'WhatsApp number' },
-      { label: 'Calendly', icon: '📅', placeholder: 'Calendly username' },
-      { label: 'Discord', icon: '🎮', placeholder: 'Discord invite URL' },
-    ],
-  },
-  {
-    label: 'MUSIC',
-    platforms: [
-      { label: 'Spotify', icon: '🎧', placeholder: 'Spotify profile URL' },
-      { label: 'Apple Music', icon: '🍎', placeholder: 'Apple Music URL' },
-      { label: 'SoundCloud', icon: '☁️', placeholder: 'SoundCloud username' },
-      { label: 'YouTube Music', icon: '🎵', placeholder: 'YouTube Music URL' },
-    ],
-  },
-  {
-    label: 'PAYMENT',
-    platforms: [
-      { label: 'PayPal', icon: '🅿️', placeholder: 'PayPal.me link' },
-      { label: 'Venmo', icon: '💸', placeholder: 'Venmo username' },
-      { label: 'Cash App', icon: '💵', placeholder: 'Cash App $cashtag' },
-    ],
-  },
-  {
-    label: 'ENTERTAINMENT',
-    platforms: [
-      { label: 'Twitch', icon: '🎮', placeholder: 'Twitch username' },
-      { label: 'Kick', icon: '🎯', placeholder: 'Kick username' },
-      { label: 'Netflix', icon: '🎬', placeholder: 'Netflix link' },
-      { label: 'Steam', icon: '🕹️', placeholder: 'Steam profile URL' },
-      { label: 'Substack', icon: '📰', placeholder: 'Substack handle' },
-    ],
-  },
-  {
-    label: 'ADULT (18+)',
-    platforms: [
-      { label: 'OnlyFans', icon: '', placeholder: 'OnlyFans username' },
-      { label: 'Fansly', icon: '', placeholder: 'Fansly username' },
-      { label: 'Privacy', icon: '', placeholder: 'Privacy username' },
-      { label: 'FatalFans', icon: '', placeholder: 'FatalFans username' },
-    ],
-  },
-  {
-    label: 'LIFESTYLE',
-    platforms: [
-      { label: 'Depop', icon: '👗', placeholder: 'Depop username' },
-      { label: 'Etsy', icon: '🛍️', placeholder: 'Etsy shop URL' },
-      { label: 'Yelp', icon: '⭐', placeholder: 'Yelp business URL' },
-      { label: 'Airbnb', icon: '🏠', placeholder: 'Airbnb profile URL' },
-      { label: 'Vrbo', icon: '', placeholder: 'Vrbo property URL' },
-    ],
-  },
-];
 
 // Maps a platform's bare handle/username to its full profile URL.
 const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
