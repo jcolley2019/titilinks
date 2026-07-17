@@ -47,7 +47,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
-import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT } from '@/lib/surface';
+import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT, withEffectivePageStyle, isFullBleedTheme } from '@/lib/surface';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -1861,7 +1861,14 @@ export function EditableProfileView({
   // theme_json readers (heroConfig/pages/headerConfig) intentionally stay on
   // saved values — the theme editor never writes those keys.
   const rawTheme = getThemeWithDefaults(themeDraft ?? page.theme_json);
-  const theme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
+  const contrastTheme = rawTheme.auto_contrast ? applyAutoContrast(rawTheme) : rawTheme;
+  // PAGES.STYLE.1: THE swap for the render tree. Everything below (LinkButton,
+  // the blocks, every full-bleed predicate) reads `theme.pageStyle`, so
+  // resolving it to the ACTIVE page's style here — once — makes the whole page
+  // follow the edited page with no id threaded through the tree. Resolved from
+  // the SAVED raw json on purpose: per-page style lives under `pages`, a key
+  // getThemeWithDefaults drops and the theme editor never drafts.
+  const theme = withEffectivePageStyle(contrastTheme, page.theme_json, selectedMode);
   // An in-progress hub font draft (L4) wins; resolveFontFamily returns undefined
   // for an absent draft, so the saved font is the fallback.
   const fontFamily = resolveFontFamily(headerDraft?.font) ?? getFontFamily(theme);
@@ -2030,7 +2037,9 @@ export function EditableProfileView({
 
   // FB.1a: full_bleed pages render the photo as a fixed full-viewport
   // background instead of the sticky hero window.
-  const isFullBleed = (page.theme_json as any)?.pageStyle === 'full_bleed';
+  // PAGES.STYLE.1: derived from the effective theme, so Page 2 can be
+  // full-bleed while Page 1 stays hero.
+  const isFullBleed = isFullBleedTheme(theme);
 
   // NAMEFX.1b: the public header's text effect, from the saved theme (see getNameFx).
   const nameFx: React.CSSProperties = getNameFx((page.theme_json as any)?.typography?.text_effect);

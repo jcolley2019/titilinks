@@ -22,6 +22,10 @@ export interface PlanEntitlements {
   label: string;
   /** Max profile pages. 1 = single page; 2 = both pages. */
   maxPages: number;
+  /** Style a page differently from the profile-level default (PAGES.STYLE.1) —
+   *  e.g. a hero Page 1 with a full-bleed Page 2. Distinct from `maxPages`:
+   *  having a second page and giving it a look of its own are separate sells. */
+  perPageStyle: boolean;
   /** Max link items per links block. `Infinity` = unlimited. */
   maxLinks: number;
   premiumThemes: boolean;
@@ -42,6 +46,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
   free: {
     label: 'Free',
     maxPages: 1,
+    perPageStyle: false,
     maxLinks: 5,
     premiumThemes: false,
     analytics: false,
@@ -57,6 +62,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
   pro: {
     label: 'Pro',
     maxPages: 2,
+    perPageStyle: true,
     maxLinks: Infinity,
     premiumThemes: true,
     analytics: true,
@@ -72,6 +78,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
   business: {
     label: 'Business',
     maxPages: 2,
+    perPageStyle: true,
     maxLinks: Infinity,
     premiumThemes: true,
     analytics: true,

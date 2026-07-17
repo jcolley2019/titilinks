@@ -99,12 +99,23 @@ export interface HeroConfig {
   videoPos?: { scale?: number; posX?: number; posY?: number };
 }
 
+/** Page layout style. The union is shared by the profile-level default and
+ *  each page's own override (PAGES.STYLE.1). */
+export type PageStyle = 'hero' | 'full_bleed';
+
+/** The two pages a profile can have. Doubles as the key into PagesConfig and
+ *  as the `activePageId` every effective-style derivation is keyed to. */
+export type PageId = 'page1' | 'page2';
+
 // Two-page feature. `enabled` gates the visitor switcher; each page carries an
 // optional label, and Page 2 can mirror Page 1's hero via `heroInherit`.
+// PAGES.STYLE.1: `style` is a page's own layout style. Absent = inherit the
+// profile-level `pageStyle` — which is what every pre-PAGES.STYLE.1 row looks
+// like, so the fallback IS the migration.
 export interface PagesConfig {
   enabled?: boolean;
-  page1?: { label?: string };
-  page2?: { label?: string; heroInherit?: boolean };
+  page1?: { label?: string; style?: PageStyle };
+  page2?: { label?: string; heroInherit?: boolean; style?: PageStyle };
 }
 
 export interface ThemeJson {
@@ -116,9 +127,13 @@ export interface ThemeJson {
   auto_contrast?: boolean;
   online_indicator?: boolean;
   canva_last_import?: CanvaImportMetadata;
-  // Page layout style. 'full_bleed' pages restrict card surfaces to the
-  // FS.SURFACE system (glass/clear/fade — never solid). Absent → hero.
-  pageStyle?: 'hero' | 'full_bleed';
+  // Profile-level page layout style — the DEFAULT a page falls back to when
+  // it has no `pages.<id>.style` of its own. 'full_bleed' pages restrict card
+  // surfaces to the FS.SURFACE system (glass/clear/fade — never solid).
+  // Absent → hero. PAGES.STYLE.1: never read this directly to decide what a
+  // page looks like — go through resolveEffectivePageStyle(), which keys off
+  // the ACTIVE page and treats this as the fallback it is.
+  pageStyle?: PageStyle;
   // Two-page feature + per-page hero. All optional; read via casts in components.
   pages?: PagesConfig;
   heroConfig?: HeroConfig;

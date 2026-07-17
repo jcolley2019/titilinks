@@ -23,7 +23,8 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography, type PageId } from '@/lib/theme-defaults';
+import { withEffectivePageStyle } from '@/lib/surface';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -69,12 +70,21 @@ interface DesignEditorProps {
   // FOOTER.3: Cancel closes the panel; the draft reverts because the
   // component unmounts and LIVE.THEME.1 clears the preview override.
   onClose?: () => void;
+  // PAGES.STYLE.1: the page being edited. This tab's option sets derive from
+  // its effective style, so the Buttons tab can never offer a look the active
+  // page won't render. Absent → page1.
+  activePageId?: PageId;
 }
 
-export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange, onClose }: DesignEditorProps) {
+export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange, onClose, activePageId = 'page1' }: DesignEditorProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
+  // PAGES.STYLE.1: what the MENUS render from — `theme` with pageStyle
+  // resolved to the active page. The `theme` draft itself stays the raw write
+  // vehicle: saveTheme persists it, and a resolved pageStyle written back would
+  // silently become the profile-level default.
+  const effectiveTheme = withEffectivePageStyle(theme, themeJson, activePageId);
   const [confirmReset, setConfirmReset] = useState(false);
   // LIVE.THEME.1 (L5): every draft mutation streams to the preview. The
   // seed emission and post-save emissions equal the saved theme, so
@@ -1310,7 +1320,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             <p className="text-xs text-muted-foreground">
               {t('design.buttonShapeDesc') || 'Applies to every button on your page. Tap Update to save.'}
             </p>
-            <ButtonSurfaceControls theme={theme} onPatch={updateButtons} />
+            <ButtonSurfaceControls theme={effectiveTheme} onPatch={updateButtons} />
           </TabsContent>
 
         </Tabs>

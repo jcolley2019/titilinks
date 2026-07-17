@@ -229,6 +229,11 @@ const translations: Record<Language, Record<string, string>> = {
     'design.designTools': 'Design Tools',
     'design.pageStyle': 'Page Style',
     'design.pageStyleDesc': 'Choose how your profile looks to visitors',
+    // PAGES.STYLE.1 — the switcher styles the page you're editing, not the profile.
+    'design.pageStylePerPage': 'Applies to the page you\'re editing. Each page can have its own style.',
+    'design.pageStyleProHint': 'Giving a page its own style is part of Pro. Upgrade to style your pages separately.',
+    'design.perPageStylePro': 'Per-page styles are a Pro feature',
+    'design.perPageStyleProDesc': 'Upgrade to Pro to give this page a style of its own.',
     'design.styleClassic': 'Classic',
     'design.styleClassicDesc': 'Circle avatar, centered',
     'design.styleHero': 'Hero',
@@ -1171,6 +1176,11 @@ const translations: Record<Language, Record<string, string>> = {
     'design.designTools': 'Herramientas de diseño',
     'design.pageStyle': 'Estilo de Página',
     'design.pageStyleDesc': 'Elige cómo se ve tu perfil a los visitantes',
+    // PAGES.STYLE.1 — el selector aplica a la página que editas, no al perfil.
+    'design.pageStylePerPage': 'Se aplica a la página que estás editando. Cada página puede tener su propio estilo.',
+    'design.pageStyleProHint': 'Dar a una página su propio estilo es parte de Pro. Mejora tu plan para diseñar cada página por separado.',
+    'design.perPageStylePro': 'Los estilos por página son una función Pro',
+    'design.perPageStyleProDesc': 'Mejora a Pro para dar a esta página un estilo propio.',
     'design.styleClassic': 'Clásico',
     'design.styleClassicDesc': 'Avatar circular, centrado',
     'design.styleHero': 'Hero',

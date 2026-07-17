@@ -28,6 +28,8 @@ import { randomUUID } from '@/lib/utils';
 import { HeroVideo } from '@/components/EditableProfileView';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveEffectivePageStyle } from '@/lib/surface';
+import type { PageId, PageStyle } from '@/lib/theme-defaults';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
@@ -323,6 +325,8 @@ export function ProfileDashboard({
   const { entitlements } = useEntitlements();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
+  // PAGES.STYLE.1: giving a page a look unlike the profile default is Pro.
+  const canPerPageStyle = entitlements.perPageStyle;
   // Carousel is a Pro/Business feature (gates the menu row + its tap).
   const canCarousel = entitlements.carousel;
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -650,21 +654,44 @@ export function ProfileDashboard({
     onRefresh();
   };
 
-  // PAGES.STYLE.0: page style is structure, so its switcher and writer
-  // live here. Merge-safe: spreads the raw existing theme (BUG.THEME.1
-  // rule). Entering hero with no stored posY seeds 25 — faces live in
-  // the top third — so a style switch never beheads the photo.
-  const currentPageStyle: 'hero' | 'full_bleed' =
+  // PAGES.STYLE.0/1: page style is structure, so its switcher and writer live
+  // here. PAGES.STYLE.1 made it per-page — the switcher now reads and writes
+  // the ACTIVE page's style. The profile-level `pageStyle` is left alone as the
+  // fallback for any page that never set one (which is every page that existed
+  // before this shipped).
+  const activePageId: PageId = selectedMode ?? 'page1';
+  const currentPageStyle: PageStyle = resolveEffectivePageStyle(themeJson, activePageId);
+  // The default a page falls back to. Diverging from it is the Pro line.
+  const profileDefaultStyle: PageStyle =
     (themeJson as any)?.pageStyle === 'full_bleed' ? 'full_bleed' : 'hero';
 
-  const savePageStyle = async (newStyle: 'hero' | 'full_bleed') => {
+  const savePageStyle = async (newStyle: PageStyle) => {
     if (newStyle === currentPageStyle) return;
+    // Pro gate: a page styled unlike the profile default is a Pro capability.
+    // Free never reaches this with Page 2 (two pages is already Pro) — it bites
+    // on a downgraded account whose Page 2 outlived its plan.
+    if (newStyle !== profileDefaultStyle && !canPerPageStyle) {
+      toast(t('design.perPageStylePro'), { description: t('design.perPageStyleProDesc') });
+      return;
+    }
+    // Merge-safe: spreads the raw existing theme (BUG.THEME.1 rule) and the
+    // existing pages map, so a style write can't drop a label or heroInherit.
+    // Untyped on purpose: a typed theme_json write trips TS2322 against the
+    // generated Json type (the pages row is Json, not ThemeJson).
     const existingTheme = (themeJson as any) || {};
-    const nextTheme = { ...existingTheme, pageStyle: newStyle };
+    const existingPages = existingTheme.pages || {};
+    const existingPage = existingPages[activePageId] || {};
+    const nextTheme: any = {
+      ...existingTheme,
+      pages: { ...existingPages, [activePageId]: { ...existingPage, style: newStyle } },
+    };
+    // Entering hero with no stored posY seeds 25 — faces live in the top third
+    // — so a style switch never beheads the photo. Per page: Page 2 seeds its
+    // own heroConfig_page2 unless it inherits Page 1's hero (heroConfigKey).
     if (newStyle === 'hero') {
-      const existingHero = (existingTheme.heroConfig as Record<string, unknown>) || {};
+      const existingHero = (existingTheme[heroConfigKey] as Record<string, unknown>) || {};
       if (typeof existingHero.posY !== 'number') {
-        nextTheme.heroConfig = { ...existingHero, posY: 25 };
+        nextTheme[heroConfigKey] = { ...existingHero, posY: 25 };
       }
     }
     const { error } = await supabase
@@ -1046,28 +1073,47 @@ export function ProfileDashboard({
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               {pagesOpen ? (
                 <div className="dark text-foreground px-4 pt-5 pb-8 space-y-5">
-                  {/* PAGES.STYLE.0: Hero / Full Screen switcher */}
+                  {/* PAGES.STYLE.0/1: Hero / Full Screen switcher — writes the
+                      ACTIVE page's style. Diverging from the profile default is
+                      Pro, so the off-default option wears the lock. */}
                   <div>
-                    <p className="text-white/70 text-xs font-semibold mb-2">{t('design.pageStyle')}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-white/70 text-xs font-semibold">{t('design.pageStyle')}</p>
+                      {pagesEnabled && !canPerPageStyle && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
+                          <Lock className="h-2.5 w-2.5" /> PRO
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {([
                         { value: 'hero', label: t('design.styleHero'), desc: t('onboardingFlow.styleHeroDesc') },
                         { value: 'full_bleed', label: t('design.styleFullBleed'), desc: t('onboardingFlow.styleFullBleedDesc') },
                       ] as const).map((s) => {
                         const selected = currentPageStyle === s.value;
+                        const gated = !canPerPageStyle && s.value !== profileDefaultStyle;
                         return (
                           <button
                             key={s.value}
                             type="button"
                             onClick={() => savePageStyle(s.value)}
+                            aria-disabled={gated}
                             className={`flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-3 text-left transition-all ${selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-white/10 hover:border-white/30'}`}
                           >
-                            <span className={`text-xs font-semibold ${selected ? 'text-[#C9A55C]' : 'text-white/80'}`}>{s.label}</span>
+                            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${selected ? 'text-[#C9A55C]' : gated ? 'text-white/30' : 'text-white/80'}`}>
+                              {gated && <Lock className="h-2.5 w-2.5 shrink-0" />}
+                              {s.label}
+                            </span>
                             <span className="text-[10px] leading-snug text-white/40">{s.desc}</span>
                           </button>
                         );
                       })}
                     </div>
+                    {pagesEnabled && (
+                      <p className="text-white/40 text-[11px] mt-1.5">
+                        {canPerPageStyle ? t('design.pageStylePerPage') : t('design.pageStyleProHint')}
+                      </p>
+                    )}
                   </div>
 
                   {/* Enable second page — Pro feature */}
@@ -1394,14 +1440,14 @@ export function ProfileDashboard({
                   {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">
                     {heroVideoUrl ? (
-                      <div className={`relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px] ${((themeJson as any)?.pageStyle === 'full_bleed') ? 'aspect-[9/19] mx-auto' : ''}`}>
+                      <div className={`relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px] ${currentPageStyle === 'full_bleed' ? 'aspect-[9/19] mx-auto' : ''}`}>
                         <HeroVideo
                           src={heroVideoUrl}
                           fit="fill"
                           playbackMode={heroPlaybackMode}
                           audioMode={heroAudioMode}
                           voiceoverUrl={heroCfg.voiceover || ''}
-                          imgStyle={((themeJson as any)?.pageStyle === 'full_bleed') ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%', objectFit: 'cover' as const } : { position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
+                          imgStyle={currentPageStyle === 'full_bleed' ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%', objectFit: 'cover' as const } : { position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
                         />
                       </div>
                     ) : (
@@ -1554,6 +1600,7 @@ export function ProfileDashboard({
                     avatarUrl={avatarUrl}
                     onThemeDraftChange={onThemeDraftChange}
                     onClose={() => setDesignOpen(false)}
+                    activePageId={selectedMode}
                   />
                 </div>
               ) : activeBlockId ? (

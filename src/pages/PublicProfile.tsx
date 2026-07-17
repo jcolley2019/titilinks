@@ -16,6 +16,7 @@ import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson } from '@/lib/theme-defaults';
+import { resolveEffectivePageStyle } from '@/lib/surface';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
@@ -314,7 +315,10 @@ export default function PublicProfile() {
   const ogImage = (selectedMode === 'page2' && !heroInheritPublic && page2AvatarUrl)
     ? page2AvatarUrl
     : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
-  const isFullBleedPage = (page?.theme_json as any)?.pageStyle === 'full_bleed';
+  // PAGES.STYLE.1: the page in view renders its OWN effective style — the
+  // visitor switching pages re-derives this, so a full-bleed Page 2 keeps its
+  // transparent header even when Page 1 is hero.
+  const isFullBleedPage = resolveEffectivePageStyle(page?.theme_json, selectedMode) === 'full_bleed';
 
   return (
     <>
