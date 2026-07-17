@@ -564,17 +564,10 @@ const HERO_EXTRA = 60;       // px added to hero height; gradient follows down w
 
 function NameHandleCard({
   page,
-  expanded,
-  onToggleExpand,
-  localNameSize, setLocalNameSize,
-  localHandleSize, setLocalHandleSize,
-  localNameColor, setLocalNameColor,
-  localHandleColor, setLocalHandleColor,
-  localNamePadTop, setLocalNamePadTop,
-  localNamePadBottom, setLocalNamePadBottom,
-  localNameHandleGap, setLocalNameHandleGap,
-  nameCardY, onNameCardYChange, onDragEnd,
-  onSave,
+  localNameSize,
+  localHandleSize,
+  localNameColor,
+  localHandleColor,
   onDisplayNameChange,
   draftDisplayName,
   nameFx,
@@ -582,25 +575,16 @@ function NameHandleCard({
 }: {
   page: any;
   chrome: ChromeTokens;
-  expanded: boolean;
-  onToggleExpand: () => void;
   draftDisplayName?: string;
   // Text-effect style (shadow/outline) for the name + handle. Carries no layout
   // properties, so it spreads over the text styles without moving anything.
   nameFx?: React.CSSProperties;
-  localNameSize: number; setLocalNameSize: (v: number) => void;
-  localHandleSize: number; setLocalHandleSize: (v: number) => void;
-  localNameColor: string; setLocalNameColor: (v: string) => void;
-  localHandleColor: string; setLocalHandleColor: (v: string) => void;
-  localNamePadTop: number; setLocalNamePadTop: (v: number) => void;
-  localNamePadBottom: number; setLocalNamePadBottom: (v: number) => void;
-  localNameHandleGap: number; setLocalNameHandleGap: (v: number) => void;
-  nameCardY: number; onNameCardYChange: (v: number) => void; onDragEnd: () => void;
-  onSave: () => void;
+  localNameSize: number;
+  localHandleSize: number;
+  localNameColor: string;
+  localHandleColor: string;
   onDisplayNameChange: (name: string) => void;
 }) {
-  const { t } = useLanguage();
-  const dragStart = useRef({ y: 0, cardY: 0 });
   const [localDisplayName, setLocalDisplayName] = useState(page.display_name || '');
   // Re-seed the draft when a Name & Handle hub save refreshes the page prop; an
   // in-progress hub draft (L4) wins until it clears.
@@ -608,29 +592,20 @@ function NameHandleCard({
     setLocalDisplayName(draftDisplayName ?? (page.display_name || ''));
   }, [page.display_name, draftDisplayName]);
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const debouncedSave = () => {
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(onSave, 500);
-  };
-
   const nameSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debouncedNameSave = (name: string) => {
     clearTimeout(nameSaveTimer.current);
     nameSaveTimer.current = setTimeout(() => onDisplayNameChange(name), 500);
   };
 
-  // Dark glow lifts LIGHT text off the hero photo; on dark text (gold/light
-  // themes) it smudges. Key the shadow off the resolved text color, not bg.
   const resolvedNameColor = localNameColor || chrome.text;
-  const lightHeaderText = relativeLuminance(resolvedNameColor) > 0.5;
 
   return (
     <div
       style={{ position: 'relative', zIndex: 20 }}
       className="relative"
     >
-      {/* Content — tap name to edit inline, tap handle area to expand settings */}
+      {/* Content — tap name to edit inline. */}
       <div
         className="relative"
         style={{ paddingTop: HEADER_NAME_TOP, textAlign: 'center' }}
@@ -2255,7 +2230,6 @@ export function EditableProfileView({
           {!editMode && headerCardOrder.map(id => {
             const headerNameColor = headerConfig.nameColor || chrome.text;
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,1)';
-            const headerLightText = relativeLuminance(headerNameColor) > 0.5;
             if (id === '__name_handle__') return (
               <div key={id} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
                 <h1
@@ -2701,26 +2675,10 @@ export function EditableProfileView({
                     page={page}
                     draftDisplayName={headerDraft?.displayName}
                     nameFx={editNameFx}
-                    expanded={expandedHeaderCard === '__name_handle__'}
-                    onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__name_handle__' ? null : '__name_handle__')}
-                    localNameSize={localNameSize} setLocalNameSize={setLocalNameSize}
-                    localHandleSize={localHandleSize} setLocalHandleSize={setLocalHandleSize}
-                    localNameColor={localNameColor} setLocalNameColor={setLocalNameColor}
-                    localHandleColor={localHandleColor} setLocalHandleColor={setLocalHandleColor}
-                    localNamePadTop={localNamePadTop} setLocalNamePadTop={setLocalNamePadTop}
-                    localNamePadBottom={localNamePadBottom} setLocalNamePadBottom={setLocalNamePadBottom}
-                    localNameHandleGap={localNameHandleGap} setLocalNameHandleGap={setLocalNameHandleGap}
-                    nameCardY={nameCardY} onNameCardYChange={setNameCardY}
-                    onDragEnd={() => saveHeaderConfig({ nameCardY })}
-                    onSave={() => saveHeaderConfig({
-                      nameSize: localNameSize,
-                      handleSize: localHandleSize,
-                      nameColor: localNameColor,
-                      handleColor: localHandleColor,
-                      namePadTop: localNamePadTop,
-                      namePadBottom: localNamePadBottom,
-                      nameHandleGap: localNameHandleGap,
-                    })}
+                    localNameSize={localNameSize}
+                    localHandleSize={localHandleSize}
+                    localNameColor={localNameColor}
+                    localHandleColor={localHandleColor}
                     onDisplayNameChange={async (name) => {
                       await supabase.from('pages').update({ display_name: name }).eq('id', page.id);
                       onRefresh();

@@ -148,7 +148,6 @@ export function LinkButton(props: LinkButtonProps) {
   const borderEnabled = buttons?.border_enabled ?? false;
   const borderColor = bs.border_color || buttons?.border_color;
   const borderWidth = bs.border_width ?? 1;
-  const shadowEnabled = buttons?.shadow_enabled ?? false;
 
   // Contrast guard: if the stored label color is unreadable on the surface it
   // actually sits on (filled => the fill; glass/outline/minimal => the page bg),

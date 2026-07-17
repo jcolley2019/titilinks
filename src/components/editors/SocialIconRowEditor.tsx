@@ -50,25 +50,26 @@ const MAX_ITEMS = ITEM_CAPS.social_icon_row;
 
 type BlockItem = Tables<'block_items'>;
 
-// Social platform icons using emoji (matches existing pattern)
+// The platforms offered in the Add Icon tray. Rendering goes through
+// PlatformIcon, which keys off the label — these carry no icon of their own.
 const SOCIAL_PRESETS = [
-  { label: 'TikTok', icon: '🎵' },
-  { label: 'Instagram', icon: '📸' },
-  { label: 'YouTube', icon: '▶️' },
-  { label: 'Facebook', icon: '👤' },
-  { label: 'Snapchat', icon: '👻' },
-  { label: 'Kick', icon: '🎮' },
-  { label: 'Twitch', icon: '🎮' },
-  { label: 'Discord', icon: '💬' },
-  { label: 'X', icon: '𝕏' },
-  { label: 'Spotify', icon: '🎧' },
-  { label: 'Apple Music', icon: '🍎' },
-  { label: 'LinkedIn', icon: '💼' },
-  { label: 'Pinterest', icon: '📌' },
-  { label: 'Threads', icon: '🧵' },
-  { label: 'WhatsApp', icon: '💬' },
-  { label: 'Telegram', icon: '✈️' },
-  { label: 'Website', icon: '🌐' },
+  { label: 'TikTok' },
+  { label: 'Instagram' },
+  { label: 'YouTube' },
+  { label: 'Facebook' },
+  { label: 'Snapchat' },
+  { label: 'Kick' },
+  { label: 'Twitch' },
+  { label: 'Discord' },
+  { label: 'X' },
+  { label: 'Spotify' },
+  { label: 'Apple Music' },
+  { label: 'LinkedIn' },
+  { label: 'Pinterest' },
+  { label: 'Threads' },
+  { label: 'WhatsApp' },
+  { label: 'Telegram' },
+  { label: 'Website' },
 ];
 
 interface IconRowConfig {
@@ -113,8 +114,6 @@ function SortableIconItem({ item, onUpdate, onDelete, error }: SortableIconItemP
     transform: CSS.Transform.toString(transform),
     transition,
   };
-
-  const preset = SOCIAL_PRESETS.find(p => p.label === item.label);
 
   return (
     <div
@@ -511,7 +510,6 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
                 <Label className="text-xs mb-2 block">Preview</Label>
                 <div className={cn('flex flex-wrap justify-center', getPreviewGap())}>
                   {(items.length > 0 ? items.slice(0, 5) : [{ label: 'TikTok' }, { label: 'Instagram' }, { label: 'YouTube' }]).map((item, i) => {
-                    const preset = SOCIAL_PRESETS.find(p => p.label === item.label);
                     return (
                       <div
                         key={i}

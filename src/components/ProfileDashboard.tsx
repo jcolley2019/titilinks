@@ -238,7 +238,6 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.nameEffects',
         subtitleKey: 'dashboard.nameEffectsDesc',
         blockType: null,
-        toastKey: 'dashboard.comingSoon',
       },
     ],
   },

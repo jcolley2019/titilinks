@@ -326,7 +326,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     }
   };
 
-  const addPreset = (platform: { label: string; icon: string; placeholder?: string }) => {
+  const addPreset = (platform: { label: string; placeholder?: string }) => {
     if (items.length >= MAX_ITEMS) {
       toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
       return;

@@ -27,7 +27,7 @@ let currentCat = null;
 for (const line of catBlock.split('\n')) {
   const cat = line.match(/label:\s*'([^']+)',\s*$/);
   if (cat) { currentCat = cat[1]; continue; }
-  const p = line.match(/\{\s*label:\s*'([^']+)',\s*icon:\s*'[^']*',\s*placeholder:\s*'([^']+)'/);
+  const p = line.match(/\{\s*label:\s*'([^']+)',\s*placeholder:\s*'([^']+)'/);
   if (p) platforms.push({ label: p[1], cat: currentCat, placeholder: p[2] });
 }
 

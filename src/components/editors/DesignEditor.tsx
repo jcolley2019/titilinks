@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BUTTON_SHAPES, shapeSwatchStyle } from '@/lib/button-shapes';
-import { Palette, Pipette, Type, MousePointer, Save, Loader2, Upload, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
+import { Palette, Pipette, Type, MousePointer, Save, Loader2, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -32,11 +32,12 @@ import { TemplateGallery } from './TemplateGallery';
 import { CanvaDesignPicker } from './CanvaDesignPicker';
 import { ButtonSurfaceControls } from './ButtonSurfaceControls';
 
-const GRADIENT_PRESETS = [
-  { name: 'Midnight', css: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
-  { name: 'Sunset', css: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #ff9ff3 100%)' },
-  { name: 'Ocean', css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B8DD6 100%)' },
-];
+// The Canva and custom-preset panels below are parked behind `{false && …}`.
+// Their queries were still firing on every editor mount, so each open of the
+// design panel cost two Supabase round-trips feeding UI nobody can reach.
+// Gate the fetches on the same flags, so query and panel wake up together.
+const CANVA_UI_ENABLED: boolean = false;
+const CUSTOM_PRESETS_UI_ENABLED: boolean = false;
 
 // Helper to format relative time
 function formatRelativeTime(dateString: string, t: (key: string) => string, language: string): string {
@@ -81,12 +82,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   // stale look on the preview (hub pattern).
   useEffect(() => { onThemeDraftChange?.(theme); }, [theme, onThemeDraftChange]);
   useEffect(() => () => { onThemeDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const currentPageStyle = (theme as any).pageStyle || 'hero';
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('background');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Custom presets state
   const [customPresets, setCustomPresets] = useState<Array<{ id: string; name: string; theme_json: unknown }>>([]);
   const [loadingPresets, setLoadingPresets] = useState(true);
@@ -135,11 +133,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   // Check Canva connection status on mount and handle callback params
   useEffect(() => {
     const checkCanvaConnection = async () => {
-      if (!user) {
+      if (!CANVA_UI_ENABLED || !user) {
         setCanvaLoading(false);
         return;
       }
-      
+
       try {
         const { data, error } = await supabase
           .from('canva_connections')
@@ -182,7 +180,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   // Fetch custom presets
   const fetchCustomPresets = async () => {
-    if (!user) return;
+    if (!CUSTOM_PRESETS_UI_ENABLED || !user) {
+      setLoadingPresets(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('custom_theme_presets')
@@ -271,34 +272,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }
   };
 
-  const savePageStyle = async (newStyle: string) => {
-    try {
-      const updatedTheme = {
-        ...theme,
-        pageStyle: newStyle,
-      };
-      // BUG.THEME.1: merge over the existing raw json (same rule as
-      // saveTheme) so keys the theme editor doesn't manage — headerConfig,
-      // headerCardOrder, heroConfig, pages, avatar_url_page2 — survive a
-      // hero <-> full_bleed switch. updatedTheme spreads last, so the new
-      // pageStyle still wins.
-      const extras = (themeJson && typeof themeJson === 'object') ? (themeJson as Record<string, unknown>) : {};
-      const { error } = await supabase
-        .from('pages')
-        .update({
-          theme_json: { ...extras, ...JSON.parse(JSON.stringify(updatedTheme)) }
-        })
-        .eq('id', pageId);
-      if (error) throw error;
-      setTheme(updatedTheme as ThemeJson);
-      toast.success(t('design.designSaved'));
-      onUpdate();
-    } catch (error) {
-      console.error('Error saving page style:', error);
-      toast.error(t('design.designSaveFailed'));
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
     await saveTheme(theme);
@@ -363,55 +336,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       }
       return newTheme;
     });
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(t('design.imgSizeError'));
-      return;
-    }
-
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error(t('design.imgTypeError'));
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/bg-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('page-assets')
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('page-assets')
-        .getPublicUrl(fileName);
-
-      updateBackground({ image_url: urlData.publicUrl }, true);
-      toast.success(t('design.bgImageUploaded'));
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(t('design.bgUploadFailed'));
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const removeBackgroundImage = () => {
-    updateBackground({ image_url: '' }, true);
   };
 
   const connectToCanva = async () => {
@@ -509,75 +433,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       {/* Controls Panel */}
       <Card className="bg-card border-border flex flex-1 flex-col">
         <CardContent className="flex flex-1 flex-col">
-          {/* Page Style Picker */}
-          {false && (
-          <div className="mb-6 pb-6 border-b border-border">
-            <Label className="text-sm font-medium mb-3 block flex items-center gap-2">
-              <LayoutTemplate className="h-4 w-4 text-primary" />
-              {t('design.pageStyle') || 'Page Style'}
-            </Label>
-            <p className="text-xs text-muted-foreground mb-3">
-              {t('design.pageStyleDesc') || 'Choose how your profile page looks to visitors'}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                {
-                  value: 'hero',
-                  label: t('design.styleHero') || 'Hero',
-                  desc: t('design.styleHeroDesc') || 'Full-width photo with name overlay',
-                  preview: (
-                    <div className="relative h-12 w-full rounded overflow-hidden bg-white/10">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-1 left-0 right-0 flex flex-col items-center">
-                        <div className="w-10 h-1.5 rounded bg-white/60" />
-                      </div>
-                    </div>
-                  )
-                },
-                {
-                  value: 'full_bleed',
-                  label: t('design.styleFullBleed') || 'Full Bleed',
-                  desc: t('design.styleFullBleedDesc') || 'Immersive full-screen photo',
-                  preview: (
-                    <div className="relative h-12 w-full rounded overflow-hidden bg-white/10">
-                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80" />
-                      <div className="absolute bottom-1 left-0 right-0 flex flex-col items-center gap-0.5">
-                        <div className="w-12 h-1.5 rounded bg-white/80" />
-                        <div className="w-8 h-1 rounded bg-white/40" />
-                      </div>
-                    </div>
-                  )
-                },
-              ].map((style) => (
-                <button
-                  key={style.value}
-                  type="button"
-                  onClick={() => savePageStyle(style.value)}
-                  className={cn(
-                    'flex flex-col rounded-xl border-2 overflow-hidden transition-all text-left',
-                    currentPageStyle === style.value
-                      ? 'border-[#C9A55C] bg-[#C9A55C]/5'
-                      : 'border-border hover:border-primary/50'
-                  )}
-                >
-                  {style.preview}
-                  <div className="p-2">
-                    <div className={cn(
-                      'text-xs font-semibold',
-                      currentPageStyle === style.value ? 'text-[#C9A55C]' : 'text-foreground'
-                    )}>
-                      {style.label}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                      {style.desc}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-          )}
-
           {/* Design Tools Section */}
           {false && (
           <div className="mb-6 pb-6 border-b border-border">
