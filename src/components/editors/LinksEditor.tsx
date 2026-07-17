@@ -113,6 +113,7 @@ function ClearableInput({
   className,
   ...props
 }: React.ComponentProps<typeof Input> & { onClear: () => void }) {
+  const { t } = useLanguage();
   const hasValue = typeof props.value === 'string' && props.value.length > 0;
   return (
     <div className="relative">
@@ -120,7 +121,7 @@ function ClearableInput({
       {hasValue && (
         <button
           type="button"
-          aria-label="Clear"
+          aria-label={t('linksEditor.clear')}
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           onClick={onClear}
@@ -358,7 +359,7 @@ function LinkDetailPanel({
           className="relative aspect-[4/3] w-full rounded-[14px] border-2 border-dashed border-[#C9A55C]/40 bg-[#C9A55C]/5 flex flex-col items-center justify-center gap-1 text-[#C9A55C] hover:bg-[#C9A55C]/10 transition-colors"
         >
           <Plus className="h-6 w-6" />
-          <span className="text-xs font-semibold">Add second</span>
+          <span className="text-xs font-semibold">{t('linksEditor.addSecond')}</span>
         </button>
       );
     }
@@ -399,7 +400,7 @@ function LinkDetailPanel({
               type="button"
               onClick={(e) => { e.stopPropagation(); setActiveSlot(slot); open(); }}
               disabled={uploading}
-              aria-label={card.image_url ? 'Replace image' : 'Add image'}
+              aria-label={card.image_url ? t('linksEditor.replaceImage') : t('linksEditor.addImage')}
               className="absolute top-1.5 left-1.5 h-7 w-7 rounded-full bg-black/55 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-60"
             >
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
@@ -483,7 +484,7 @@ function LinkDetailPanel({
                     type="button"
                     onClick={swapCards}
                     disabled={!cardB}
-                    aria-label="Swap cards"
+                    aria-label={t('linksEditor.swapCards')}
                     className="absolute left-1/2 top-1/2 z-10 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0e0c09] bg-[#C9A55C] shadow-lg shadow-black/40 flex items-center justify-center text-[#0e0c09] disabled:opacity-40 hover:bg-[#d9b86c] transition-colors"
                   >
                     <ArrowLeftRight className="h-4 w-4" />
@@ -492,10 +493,10 @@ function LinkDetailPanel({
               </div>
               <p className="absolute inset-x-0 bottom-1 text-sm text-center text-[#C9A55C]">
                 {!cardB
-                  ? 'Now add your second small card link →'
+                  ? t('linksEditor.addSecondSmallCard')
                   : activeIsB
-                  ? 'Editing the right card'
-                  : 'Editing the left card'}
+                  ? t('linksEditor.editingRightCard')
+                  : t('linksEditor.editingLeftCard')}
               </p>
             </>
           ) : sizeTab === 'buttons' ? (
@@ -520,7 +521,7 @@ function LinkDetailPanel({
                         blockStyle={previewBlockStyle}
                         fillGradient={gradFor(active)}
                         titleColor={active.title_color || undefined}
-                        title={active.label || 'Title'}
+                        title={active.label || t('linksEditor.title')}
                         size={isMedium ? 'medium' : 'button'}
                         socialIcon={leadingIconFor({
                           url: active.url,
@@ -541,7 +542,7 @@ function LinkDetailPanel({
                           type="button"
                           onClick={open}
                           disabled={uploading}
-                          aria-label={iconImg ? 'Replace photo' : 'Add photo'}
+                          aria-label={iconImg ? t('linksEditor.replacePhoto') : t('linksEditor.addPhoto')}
                           className="absolute left-3 top-1/2 -translate-y-1/2 h-12 w-12 rounded-[10px] flex items-center justify-center text-white transition-colors hover:bg-black/20"
                         >
                           {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -564,7 +565,7 @@ function LinkDetailPanel({
                   type="button"
                   onClick={open}
                   disabled={uploading}
-                  aria-label={noImage ? 'Add image' : 'Replace image'}
+                  aria-label={noImage ? t('linksEditor.addImage') : t('linksEditor.replaceImage')}
                   style={{ height: px, width: px }}
                   className="rounded-full bg-black/50 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/70 transition-colors disabled:opacity-60"
                 >
@@ -604,7 +605,7 @@ function LinkDetailPanel({
                           textShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}
                       >
-                        {active.label || 'Title'}
+                        {active.label || t('linksEditor.title')}
                       </span>
                     </div>
                     {/* Corner = auto link/social icon (a website link shows the
@@ -631,7 +632,7 @@ function LinkDetailPanel({
                       type="button"
                       onClick={open}
                       disabled={uploading}
-                      aria-label="Add image"
+                      aria-label={t('linksEditor.addImage')}
                       className="shrink-0 h-12 w-12 rounded-[10px] bg-black/40 border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors disabled:opacity-60"
                     >
                       {uploading
@@ -639,7 +640,7 @@ function LinkDetailPanel({
                         : <Camera className="h-5 w-5" />}
                     </button>
                     <span className="font-semibold text-white/90 text-[15px]">
-                      {active.label || 'Title'}
+                      {active.label || t('linksEditor.title')}
                     </span>
                   </div>
                 );
@@ -656,7 +657,7 @@ function LinkDetailPanel({
                     role="button"
                     tabIndex={0}
                     onClick={open}
-                    aria-label="Replace photo"
+                    aria-label={t('linksEditor.replacePhoto')}
                     className={`relative ${active.size === 'big' ? 'w-[70%]' : 'w-full'} cursor-pointer flex items-center justify-center`}
                   >
                     <LinkButton
@@ -665,7 +666,7 @@ function LinkDetailPanel({
                       theme={previewTheme}
                       blockStyle={previewBlockStyle}
                       titleColor={active.title_color || undefined}
-                      title={active.label || 'Title'}
+                      title={active.label || t('linksEditor.title')}
                       subtitle={active.subtitle || undefined}
                       media={active.image_url ? { kind: 'image', src: active.image_url } : undefined}
                       socialIcon={leadingIconFor({
@@ -705,11 +706,11 @@ function LinkDetailPanel({
               and medium/button (buttons); only labels + grouping change. Cards vs
               Buttons is still derived from the chosen size. */}
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-foreground">Style</p>
+            <p className="text-sm font-medium text-foreground">{t('linksEditor.style')}</p>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { group: 'Link Cards', options: [{ key: 'big', label: 'Large' }, { key: 'small', label: 'Small' }] },
-                { group: 'Buttons', options: [{ key: 'medium', label: 'Large' }, { key: 'button', label: 'Small' }] },
+                { group: t('linksEditor.linkCards'), options: [{ key: 'big', label: t('linksEditor.large') }, { key: 'small', label: t('linksEditor.small') }] },
+                { group: t('linksEditor.buttons'), options: [{ key: 'medium', label: t('linksEditor.large') }, { key: 'button', label: t('linksEditor.small') }] },
               ] as const).map(({ group, options }) => (
                 <div key={group} className="space-y-1.5">
                   <p className="text-center text-xs font-medium text-muted-foreground">{group}</p>
@@ -744,14 +745,13 @@ function LinkDetailPanel({
                   : 'invisible'
               }`}
             >
-              This will display as a button because there's no image. Add an image to use the{' '}
-              {active.size === 'big' ? 'large' : 'small'} thumbnail.
+              {t('linksEditor.noImageAdvisory').replace('{size}', active.size === 'big' ? t('linksEditor.largeLower') : t('linksEditor.smallLower'))}
             </p>
           )}
 
           {/* URL Input */}
           <div className="space-y-1">
-            <Label className="text-sm">Link, phone number, or email</Label>
+            <Label className="text-sm">{t('linksEditor.linkPhoneOrEmail')}</Label>
             <ClearableInput
               value={active.url}
               onChange={(e) => update('url', e.target.value)}
@@ -763,19 +763,19 @@ function LinkDetailPanel({
             {unfurling && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Fetching link details…</span>
+                <span>{t('linksEditor.fetchingLinkDetails')}</span>
               </div>
             )}
           </div>
 
           {/* Title Input */}
           <div className="space-y-1">
-            <Label className="text-sm">Title</Label>
+            <Label className="text-sm">{t('linksEditor.title')}</Label>
             <ClearableInput
               value={active.label}
               onChange={(e) => { unfurlState.current[activeKey].titleEdited = true; update('label', e.target.value); }}
               onClear={() => { unfurlState.current[activeKey].titleEdited = true; update('label', ''); }}
-              placeholder="My Link"
+              placeholder={t('linksEditor.myLink')}
               className="h-10"
             />
           </div>
@@ -813,7 +813,7 @@ function LinkDetailPanel({
                   onClick={() => setColorOpen((o) => !o)}
                   className="flex w-full items-center justify-between py-1"
                 >
-                  <span className="text-base font-semibold">Customize Color</span>
+                  <span className="text-base font-semibold">{t('linksEditor.customizeColor')}</span>
                   <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${colorOpen ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -829,7 +829,7 @@ function LinkDetailPanel({
                             tab === tabKey ? 'bg-secondary text-foreground' : 'text-muted-foreground'
                           }`}
                         >
-                          {tabKey}
+                          {tabKey === 'title' ? t('linksEditor.title') : tabKey === 'background' ? t('linksEditor.background') : t('linksEditor.border')}
                         </button>
                       ))}
                     </div>
@@ -838,7 +838,7 @@ function LinkDetailPanel({
                     <div className="flex items-center gap-4">
                       {isButtons && (
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">Color Gradient</span>
+                          <span className="text-sm font-medium text-foreground">{t('linksEditor.colorGradient')}</span>
                           <Switch
                             checked={gradientOn}
                             onCheckedChange={(on) =>
@@ -848,7 +848,7 @@ function LinkDetailPanel({
                         </div>
                       )}
                       <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <span className="shrink-0 text-sm text-muted-foreground">Width {borderWidth}px</span>
+                        <span className="shrink-0 text-sm text-muted-foreground">{t('linksEditor.width').replace('{n}', String(borderWidth))}</span>
                         <Slider
                           value={[borderWidth]}
                           onValueChange={([v]) => setStyleField('border_width', v)}
@@ -876,7 +876,7 @@ function LinkDetailPanel({
                                 gradientStop === stop ? 'bg-secondary text-foreground' : 'text-muted-foreground'
                               }`}
                             >
-                              {stop === 'from' ? 'Start' : 'End'}
+                              {stop === 'from' ? t('linksEditor.start') : t('linksEditor.end')}
                             </button>
                           ))}
                         </div>
@@ -895,7 +895,7 @@ function LinkDetailPanel({
                           onClick={() => setStyleField('border_color', null)}
                           className="w-full py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
                         >
-                          No color
+                          {t('linksEditor.noColor')}
                         </button>
                       </>
                     ) : (
@@ -908,7 +908,7 @@ function LinkDetailPanel({
                           onClick={() => update(solidField, null)}
                           className="w-full py-2 text-sm font-medium text-muted-foreground border border-border rounded-lg hover:bg-secondary"
                         >
-                          No color
+                          {t('linksEditor.noColor')}
                         </button>
                       </>
                     )}
@@ -930,7 +930,7 @@ function LinkDetailPanel({
             return (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold">Use link icon</span>
+                  <span className="text-base font-semibold">{t('linksEditor.useLinkIcon')}</span>
                   <Switch
                     checked={on}
                     onCheckedChange={(v) => setStyleField('icon_source', v ? null : 'none')}
@@ -948,8 +948,8 @@ function LinkDetailPanel({
                         renderTrigger={({ open, uploading }) => (
                           <div className="flex rounded-lg overflow-hidden border border-border">
                             {([
-                              { key: 'platform', label: 'Platform', click: () => { setStyleField('icon_image', null); setStyleField('icon_source', null); } },
-                              { key: 'photo', label: uploading ? 'Uploading…' : 'Photo', click: open },
+                              { key: 'platform', label: t('linksEditor.platform'), click: () => { setStyleField('icon_image', null); setStyleField('icon_source', null); } },
+                              { key: 'photo', label: uploading ? t('linksEditor.uploading') : t('linksEditor.photo'), click: open },
                             ] as const).map(({ key, label, click }) => (
                               <button
                                 key={key}
@@ -970,23 +970,23 @@ function LinkDetailPanel({
                     {iconImage && isMedium ? (
                       <div className="flex items-center gap-2 rounded-lg border border-border p-2">
                         <img src={iconImage} alt="" className="h-9 w-9 rounded-md object-cover" />
-                        <span className="flex-1 truncate text-xs text-muted-foreground">Photo added</span>
+                        <span className="flex-1 truncate text-xs text-muted-foreground">{t('linksEditor.photoAdded')}</span>
                         <button
                           type="button"
                           onClick={() => setStyleField('icon_image', null)}
                           className="text-xs font-medium text-destructive hover:text-destructive/80"
                         >
-                          Remove
+                          {t('linksEditor.remove')}
                         </button>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-foreground">Icon color</p>
+                        <p className="text-sm font-medium text-foreground">{t('linksEditor.iconColor')}</p>
                         <div className="flex rounded-lg overflow-hidden border border-border">
                           {([
-                            { key: 'brand', label: 'Brand' },
-                            { key: 'white', label: 'White' },
-                            { key: 'black', label: 'Black' },
+                            { key: 'brand', label: t('linksEditor.brand') },
+                            { key: 'white', label: t('linksEditor.white') },
+                            { key: 'black', label: t('linksEditor.black') },
                           ] as const).map(({ key, label }) => {
                             const cur = (active.style_json?.icon_color as string | undefined) || 'brand';
                             return (
@@ -1024,7 +1024,7 @@ function LinkDetailPanel({
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="h-4 w-4 text-muted-foreground" />
                     <Label className="text-sm font-normal text-muted-foreground">
-                      18+ Link
+                      {t('linksEditor.adultLink')}
                     </Label>
                   </div>
                   <Switch
@@ -1046,21 +1046,20 @@ function LinkDetailPanel({
               <div>
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-[#C9A55C]" />
-                  <p className="text-base font-semibold text-white">Animations</p>
+                  <p className="text-base font-semibold text-white">{t('linksEditor.animations')}</p>
                 </div>
                 <p className="text-sm text-white/70">
-                  Add motion to your link to draw attention.
+                  {t('linksEditor.animationsSubtitle')}
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-white/50" />
             </div>
             <div className="p-4">
               <p className="text-sm text-white/90 mb-3">
-                Animations are part of TitiLinks Pro. Upgrade to unlock
-                motion effects for your links.
+                {t('linksEditor.animationsUpsell')}
               </p>
               <button className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors">
-                Upgrade to Pro
+                {t('linksEditor.upgradeToPro')}
               </button>
             </div>
           </div>
@@ -1079,8 +1078,7 @@ function LinkDetailPanel({
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#C9A55C]" />
               <p className="text-[13px] leading-snug text-white/85">
-                Only one card is filled in. Fill out the second small card to keep
-                the pair — otherwise it saves as a single large card.
+                {t('linksEditor.pairIncompleteWarning')}
               </p>
             </div>
             <div className="mt-3 flex items-center justify-end gap-2">
@@ -1089,14 +1087,14 @@ function LinkDetailPanel({
                 onClick={() => setConfirmRevert(false)}
                 className="rounded-md border border-white/20 px-3 py-1.5 text-[13px] font-medium text-white/80 hover:text-white hover:border-white/40 transition-colors"
               >
-                Fill out second card
+                {t('linksEditor.fillOutSecondCard')}
               </button>
               <button
                 type="button"
                 onClick={proceedRevert}
                 className="rounded-md bg-[#C9A55C] px-3 py-1.5 text-[13px] font-semibold text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
               >
-                Save as large
+                {t('linksEditor.saveAsLarge')}
               </button>
             </div>
           </div>
@@ -1113,21 +1111,21 @@ function LinkDetailPanel({
         {!active.id.startsWith('new-') && (
           confirmDelete ? (
             <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
-              <p className="mb-2 text-[13px] text-white/85">Delete this link? This can't be undone.</p>
+              <p className="mb-2 text-[13px] text-white/85">{t('linksEditor.confirmDelete')}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
                   className="flex-1 rounded-md border border-white/20 py-1.5 text-[13px] font-medium text-white/80 hover:border-white/40 hover:text-white transition-colors"
                 >
-                  Cancel
+                  {t('linksEditor.cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={() => onDelete(active.id)}
                   className="flex-1 rounded-md bg-destructive py-1.5 text-[13px] font-semibold text-white hover:bg-destructive/90 transition-colors"
                 >
-                  Delete
+                  {t('linksEditor.delete')}
                 </button>
               </div>
             </div>
@@ -1137,7 +1135,7 @@ function LinkDetailPanel({
               onClick={() => setConfirmDelete(true)}
               className="mt-2 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
             >
-              <Trash2 className="h-4 w-4" /> Delete link
+              <Trash2 className="h-4 w-4" /> {t('linksEditor.deleteLink')}
             </button>
           )
         )}
@@ -1171,6 +1169,7 @@ interface LinksEditorProps {
 }
 
 export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl }: LinksEditorProps) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -1294,7 +1293,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
       }
     } catch (error) {
       console.error('Error fetching items:', error);
-      toast.error('Failed to load links');
+      toast.error(t('linksEditor.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -1332,7 +1331,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // this item; does not touch block.title style or sibling rows.
   const saveSingleItem = async (item: LinkItem) => {
     if (item.label.length > 100) {
-      toast.error('Title must be less than 100 characters');
+      toast.error(t('linksEditor.titleTooLong'));
       return;
     }
     const urlError = validateUrl(normalizeUrl(item.url));
@@ -1359,12 +1358,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           .eq('id', item.id);
         if (error) throw error;
       }
-      toast.success('Link saved');
+      toast.success(t('linksEditor.linkSaved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving link:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('linksEditor.failedToSave'));
     } finally {
       setSaving(false);
     }
@@ -1395,7 +1394,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // per the shared rule, and a swap in the panel persists as this reorder.
   const saveSmallPair = async (a: LinkItem, b: LinkItem) => {
     for (const it of [a, b]) {
-      if (it.label.length > 100) { toast.error('Title must be less than 100 characters'); return; }
+      if (it.label.length > 100) { toast.error(t('linksEditor.titleTooLong')); return; }
       const urlError = validateUrl(normalizeUrl(it.url));
       if (urlError) { toast.error(urlError); return; }
     }
@@ -1418,12 +1417,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
         await supabase.from('block_items').update({ order_index: i }).eq('id', ids[i]);
       }
 
-      toast.success('Cards saved');
+      toast.success(t('linksEditor.cardsSaved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving cards:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('linksEditor.failedToSave'));
     } finally {
       setSaving(false);
     }
@@ -1440,12 +1439,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
     try {
       const { error } = await supabase.from('block_items').delete().eq('id', itemId);
       if (error) throw error;
-      toast.success('Link deleted');
+      toast.success(t('linksEditor.linkDeleted'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error deleting link:', error);
-      toast.error(error.message || 'Failed to delete');
+      toast.error(error.message || t('linksEditor.failedToDelete'));
     } finally {
       setSaving(false);
     }
@@ -1488,10 +1487,10 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <LinkIcon className="h-5 w-5 text-primary" />
-                Edit Links
+                {t('linksEditor.editLinks')}
               </DialogTitle>
               <DialogDescription>
-                Add custom links to display on your page.
+                {t('linksEditor.addLinksDescription')}
               </DialogDescription>
             </DialogHeader>
           )}

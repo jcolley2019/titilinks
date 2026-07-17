@@ -3,6 +3,7 @@ import { type ThemeJson, applyAutoContrast } from '@/lib/theme-defaults';
 import { PageBackground } from '@/components/PageBackground';
 import { SmoothImage } from '@/components/SmoothImage';
 import { DeviceFrame, DeviceSelector, type DeviceType } from '@/components/DeviceFrame';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface ThemePreviewProps {
   theme: ThemeJson;
@@ -32,6 +33,7 @@ function getPreviewTileStyle(theme: ThemeJson): CSSProperties {
 }
 
 export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: ThemePreviewProps) {
+  const { t } = useLanguage();
   const [deviceType, setDeviceType] = useState<DeviceType>('iphone');
 
   // Apply auto-contrast adjustments if enabled
@@ -71,7 +73,7 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
                 {avatarUrl ? (
                   <SmoothImage
                     src={avatarUrl}
-                    alt={displayName || 'Profile'}
+                    alt={displayName || t('themePreview.profileAlt')}
                     containerClassName="w-full h-full"
                     className="rounded-full"
                     skeletonClassName="rounded-full"
@@ -91,7 +93,7 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
 
               {/* Name */}
               <h2 className="text-xl font-bold mb-1" style={{ color: theme.typography.text_color }}>
-                {displayName || 'Your Name'}
+                {displayName || t('themePreview.yourName')}
               </h2>
 
               {/* Bio */}
@@ -99,26 +101,26 @@ export function ThemePreview({ theme: rawTheme, displayName, bio, avatarUrl }: T
                 className="text-sm text-center opacity-80 mb-6 max-w-[200px]"
                 style={{ color: theme.typography.text_color }}
               >
-                {bio || 'Your bio goes here'}
+                {bio || t('themePreview.yourBioGoesHere')}
               </p>
 
               {/* Sample preview tiles — visual swatches, not actionable */}
               <div className="w-full space-y-3 max-w-[280px]">
-                <div style={getPreviewTileStyle(theme)}>Primary Link</div>
+                <div style={getPreviewTileStyle(theme)}>{t('themePreview.primaryLink')}</div>
                 <div style={getPreviewTileStyle(theme)}>
                   <img
                     src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=80&h=80&fit=crop"
                     alt=""
                     style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
                   />
-                  Shop My Store
+                  {t('themePreview.shopMyStore')}
                 </div>
-                <div style={getPreviewTileStyle(theme)}>Follow Me</div>
+                <div style={getPreviewTileStyle(theme)}>{t('themePreview.followMe')}</div>
               </div>
 
               {/* Footer label */}
               <div className="mt-8 text-xs opacity-50">
-                Live Preview
+                {t('themePreview.livePreview')}
               </div>
             </div>
           </PageBackground>

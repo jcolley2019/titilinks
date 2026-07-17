@@ -12,6 +12,7 @@ import {
   type TemplateDefinition,
 } from '@/lib/template-gallery';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface TemplateGalleryProps {
   pageId: string;
@@ -39,6 +40,7 @@ function CategoryIcon({ id }: { id: TemplateCategory }) {
 }
 
 export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
+  const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory>('all');
   const [applying, setApplying] = useState<string | null>(null);
   const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null);
@@ -125,14 +127,14 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
       }
 
       setAppliedTemplate(template.id);
-      toast.success(`Applied "${template.name}" template!`);
+      toast.success(t('templateGallery.appliedToast').replace('{name}', template.name));
       onApply();
 
       // Reset applied indicator after a delay
       setTimeout(() => setAppliedTemplate(null), 2000);
     } catch (error) {
       console.error('Error applying template:', error);
-      toast.error('Failed to apply template');
+      toast.error(t('templateGallery.applyFailed'));
     } finally {
       setApplying(null);
     }
@@ -182,7 +184,7 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
 
       {templates.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          <p>No templates in this category yet.</p>
+          <p>{t('templateGallery.emptyCategory')}</p>
         </div>
       )}
     </div>
@@ -197,6 +199,7 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCardProps) {
+  const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
 
   // Generate inline preview styles
@@ -293,15 +296,15 @@ function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCard
                   {isApplying ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Applying...
+                      {t('templateGallery.applying')}
                     </>
                   ) : isApplied ? (
                     <>
                       <Check className="h-4 w-4" />
-                      Applied!
+                      {t('templateGallery.applied')}
                     </>
                   ) : (
-                    'Apply'
+                    t('templateGallery.apply')
                   )}
                 </Button>
               </motion.div>

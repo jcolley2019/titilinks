@@ -117,7 +117,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
       }
     } catch (error) {
       console.error('Error fetching hero card:', error);
-      toast.error('Failed to load hero card');
+      toast.error(t('heroCardEditor.loadError'));
     } finally {
       setLoading(false);
     }
@@ -211,12 +211,12 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
         if (error) throw error;
       }
 
-      toast.success('Hero card saved');
+      toast.success(t('heroCardEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving hero card:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('heroCardEditor.saveError'));
     } finally {
       setSaving(false);
       setUploading(false);
@@ -226,9 +226,9 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
   const displayImage = imagePreview || imageUrl;
 
   const radiusOptions: { value: HeroCardConfig['card_radius']; label: string }[] = [
-    { value: 'sm', label: 'Small' },
-    { value: 'md', label: 'Medium' },
-    { value: 'lg', label: 'Large' },
+    { value: 'sm', label: t('blockEditor.small') },
+    { value: 'md', label: t('blockEditor.medium') },
+    { value: 'lg', label: t('blockEditor.large') },
   ];
 
   const alignmentOptions: { value: HeroCardConfig['text_alignment']; icon: typeof AlignLeft }[] = [
@@ -243,10 +243,10 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutTemplate className="h-5 w-5 text-primary" />
-            Edit Hero Card
+            {t('heroCardEditor.title')}
           </DialogTitle>
           <DialogDescription>
-            Create a stunning hero section at the top of your page.
+            {t('heroCardEditor.description')}
           </DialogDescription>
         </DialogHeader>
       )}
@@ -259,7 +259,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
           <div className="flex-1 overflow-y-auto space-y-6 py-4">
             {/* Image Upload */}
             <div className="space-y-3">
-              <Label>Hero Image</Label>
+              <Label>{t('heroCardEditor.heroImage')}</Label>
               <div 
                 className={cn(
                   "relative w-full aspect-square rounded-xl border-2 border-dashed border-border",
@@ -272,7 +272,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
                   <>
                     <img 
                       src={displayImage} 
-                      alt="Hero preview" 
+                      alt={t('heroCardEditor.heroPreviewAlt')} 
                       className="w-full h-full object-cover"
                     />
                     <div 
@@ -295,8 +295,8 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <ImagePlus className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Click to upload hero image</p>
-                    <p className="text-xs opacity-75">Recommended: 1200x1200px (1:1)</p>
+                    <p className="text-sm">{t('heroCardEditor.uploadPrompt')}</p>
+                    <p className="text-xs opacity-75">{t('heroCardEditor.recommendedSize')}</p>
                   </div>
                 )}
               </div>
@@ -311,31 +311,31 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
             {/* Headline */}
             <div className="space-y-2">
-              <Label htmlFor="headline">Headline (optional)</Label>
+              <Label htmlFor="headline">{t('heroCardEditor.headline')}</Label>
               <Input
                 id="headline"
                 value={config.headline}
                 onChange={(e) => setConfig({ ...config, headline: e.target.value })}
-                placeholder="Welcome to my page"
+                placeholder={t('heroCardEditor.headlinePlaceholder')}
                 maxLength={100}
               />
             </div>
 
             {/* Subheadline */}
             <div className="space-y-2">
-              <Label htmlFor="subheadline">Subheadline (optional)</Label>
+              <Label htmlFor="subheadline">{t('heroCardEditor.subheadline')}</Label>
               <Input
                 id="subheadline"
                 value={config.subheadline}
                 onChange={(e) => setConfig({ ...config, subheadline: e.target.value })}
-                placeholder="Creator • Entrepreneur • Dreamer"
+                placeholder={t('heroCardEditor.subheadlinePlaceholder')}
                 maxLength={150}
               />
             </div>
 
             {/* Card Radius */}
             <div className="space-y-3">
-              <Label>Card Corners</Label>
+              <Label>{t('heroCardEditor.cardCorners')}</Label>
               <div className="flex gap-2">
                 {radiusOptions.map((opt) => (
                   <Button
@@ -354,7 +354,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
             {/* Text Alignment */}
             <div className="space-y-3">
-              <Label>Text Alignment</Label>
+              <Label>{t('heroCardEditor.textAlignment')}</Label>
               <div className="flex gap-2">
                 {alignmentOptions.map((opt) => {
                   const Icon = opt.icon;
@@ -376,7 +376,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
             {/* Text Color */}
             <div className="space-y-3">
-              <Label>Text Color</Label>
+              <Label>{t('design.textColor')}</Label>
               <div className="flex items-center gap-3">
                 <input
                   type="color"
@@ -395,7 +395,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
             {/* Overlay Opacity */}
             <div className="space-y-3">
-              <Label>Image Overlay</Label>
+              <Label>{t('heroCardEditor.imageOverlay')}</Label>
               <div className="flex items-center gap-4">
                 <Slider
                   value={[config.overlay_opacity * 100]}
@@ -410,16 +410,16 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Darken the image for better text readability
+                {t('heroCardEditor.overlayHint')}
               </p>
             </div>
 
             {/* Show Avatar Toggle */}
             <div className="flex items-center justify-between py-2">
               <div>
-                <Label htmlFor="show-avatar">Show Profile Avatar</Label>
+                <Label htmlFor="show-avatar">{t('heroCardEditor.showAvatar')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Display your avatar in the hero section
+                  {t('heroCardEditor.showAvatarHint')}
                 </p>
               </div>
               <Switch
@@ -432,7 +432,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
             {/* Live Preview */}
             {displayImage && (
               <div className="space-y-2">
-                <Label>Preview</Label>
+                <Label>{t('design.preview')}</Label>
                 <div 
                   className={cn(
                     "relative w-full aspect-square overflow-hidden",
@@ -443,7 +443,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
                 >
                   <img 
                     src={displayImage} 
-                    alt="Preview" 
+                    alt={t('heroCardEditor.previewAlt')} 
                     className="w-full h-full object-cover"
                   />
                   <div 
@@ -488,7 +488,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {uploading ? 'Uploading...' : t('blockEditor.saving')}
+                {uploading ? t('design.uploading') : t('blockEditor.saving')}
               </>
             ) : (
               t('blockEditor.save')

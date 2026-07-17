@@ -88,7 +88,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load settings');
+      toast.error(t('emailSubscribeEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -119,12 +119,12 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         if (error) throw error;
       }
 
-      toast.success('Email subscribe block saved');
+      toast.success(t('emailSubscribeEditor.saveSuccess'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('emailSubscribeEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -140,12 +140,12 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         <div className="flex-1 overflow-y-auto space-y-5 py-4">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t('emailSubscribeEditor.titleLabel')}</Label>
             <Input
               id="title"
               value={config.title}
               onChange={(e) => setConfig({ ...config, title: e.target.value })}
-              placeholder="Stay up to date"
+              placeholder={t('emailSubscribeEditor.titlePlaceholder')}
               maxLength={100}
             />
           </div>
@@ -153,9 +153,9 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
           {/* Collect Name Toggle */}
           <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-muted/30">
             <div>
-              <Label htmlFor="collect-name">Collect Name</Label>
+              <Label htmlFor="collect-name">{t('emailSubscribeEditor.collectName')}</Label>
               <p className="text-xs text-muted-foreground">
-                Add a name field before email
+                {t('emailSubscribeEditor.collectNameHint')}
               </p>
             </div>
             <Switch
@@ -168,12 +168,12 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
           {/* Name Placeholder (if enabled) */}
           {config.collect_name && (
             <div className="space-y-2">
-              <Label htmlFor="name-placeholder">Name Placeholder</Label>
+              <Label htmlFor="name-placeholder">{t('emailSubscribeEditor.namePlaceholderLabel')}</Label>
               <Input
                 id="name-placeholder"
                 value={config.name_placeholder}
                 onChange={(e) => setConfig({ ...config, name_placeholder: e.target.value })}
-                placeholder="Your name"
+                placeholder={t('emailSubscribeEditor.namePlaceholder')}
                 maxLength={50}
               />
             </div>
@@ -181,36 +181,36 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
 
           {/* Email Placeholder */}
           <div className="space-y-2">
-            <Label htmlFor="placeholder">Email Placeholder</Label>
+            <Label htmlFor="placeholder">{t('emailSubscribeEditor.emailPlaceholderLabel')}</Label>
             <Input
               id="placeholder"
               value={config.placeholder}
               onChange={(e) => setConfig({ ...config, placeholder: e.target.value })}
-              placeholder="your@email.com"
+              placeholder={t('emailSubscribeEditor.emailPlaceholder')}
               maxLength={50}
             />
           </div>
 
           {/* Button Label */}
           <div className="space-y-2">
-            <Label htmlFor="button-label">Button Label</Label>
+            <Label htmlFor="button-label">{t('emailSubscribeEditor.buttonLabel')}</Label>
             <Input
               id="button-label"
               value={config.button_label}
               onChange={(e) => setConfig({ ...config, button_label: e.target.value })}
-              placeholder="Subscribe"
+              placeholder={t('emailSubscribeEditor.subscribe')}
               maxLength={30}
             />
           </div>
 
           {/* Success Message */}
           <div className="space-y-2">
-            <Label htmlFor="success-message">Success Message</Label>
+            <Label htmlFor="success-message">{t('emailSubscribeEditor.successMessageLabel')}</Label>
             <Textarea
               id="success-message"
               value={config.success_message}
               onChange={(e) => setConfig({ ...config, success_message: e.target.value })}
-              placeholder="Thanks for subscribing! 🎉"
+              placeholder={t('emailSubscribeEditor.successMessagePlaceholder')}
               maxLength={200}
               rows={2}
             />
@@ -218,7 +218,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
 
           {/* Redirect URL */}
           <div className="space-y-2">
-            <Label htmlFor="redirect-url">Redirect URL (optional)</Label>
+            <Label htmlFor="redirect-url">{t('emailSubscribeEditor.redirectUrl')}</Label>
             <Input
               id="redirect-url"
               value={config.redirect_url}
@@ -227,13 +227,13 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
               type="url"
             />
             <p className="text-xs text-muted-foreground">
-              Redirect to this URL after successful subscription
+              {t('emailSubscribeEditor.redirectUrlHint')}
             </p>
           </div>
 
           {/* Live Preview */}
           <div className="space-y-2 pt-4 border-t border-border">
-            <Label>Preview</Label>
+            <Label>{t('emailSubscribeEditor.preview')}</Label>
             <div className="p-4 rounded-xl bg-muted/50 border border-border">
               {config.title && (
                 <p className="text-sm font-medium text-center mb-3">{config.title}</p>
@@ -244,19 +244,19 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
               )}>
                 {config.collect_name && (
                   <Input
-                    placeholder={config.name_placeholder || 'Your name'}
+                    placeholder={config.name_placeholder || t('emailSubscribeEditor.namePlaceholder')}
                     className="h-10"
                     disabled
                   />
                 )}
                 <div className="flex gap-2 flex-1">
                   <Input
-                    placeholder={config.placeholder || 'your@email.com'}
+                    placeholder={config.placeholder || t('emailSubscribeEditor.emailPlaceholder')}
                     className="h-10 flex-1"
                     disabled
                   />
                   <Button className="h-10 px-4" disabled>
-                    {config.button_label || 'Subscribe'}
+                    {config.button_label || t('emailSubscribeEditor.subscribe')}
                   </Button>
                 </div>
               </div>
@@ -266,7 +266,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
             <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
               <div className="flex items-center justify-center gap-2 text-green-600">
                 <Check className="h-5 w-5" />
-                <p className="text-sm font-medium">{config.success_message || 'Thanks for subscribing! 🎉'}</p>
+                <p className="text-sm font-medium">{config.success_message || t('emailSubscribeEditor.successMessagePlaceholder')}</p>
               </div>
             </div>
           </div>
@@ -313,10 +313,10 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-primary" />
-            Edit Email Subscribe
+            {t('emailSubscribeEditor.dialogTitle')}
           </DialogTitle>
           <DialogDescription>
-            Collect email subscribers from your page visitors.
+            {t('emailSubscribeEditor.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
         {innerContent}

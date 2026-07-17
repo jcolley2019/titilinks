@@ -86,7 +86,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
       );
     } catch (error) {
       console.error('Error fetching gallery:', error);
-      toast.error('Failed to load gallery');
+      toast.error(t('galleryEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
 
     const remaining = MAX_ITEMS - photos.length;
     if (remaining <= 0) {
-      toast.error(`Maximum ${MAX_ITEMS} photos allowed`);
+      toast.error(t('galleryEditor.maxPhotos').replace('{count}', String(MAX_ITEMS)));
       return;
     }
 
@@ -209,12 +209,12 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         .eq('id', blockId);
       if (layoutError) throw layoutError;
 
-      toast.success('Gallery saved');
+      toast.success(t('galleryEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving gallery:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('galleryEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -230,7 +230,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         <div className="flex flex-col flex-1 min-h-0">
           {/* Layout picker */}
           <div className="mb-4">
-            <p className="text-xs text-muted-foreground mb-2">Layout</p>
+            <p className="text-xs text-muted-foreground mb-2">{t('galleryEditor.layout')}</p>
             <div className="flex items-center gap-2">
               {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
                 <button
@@ -243,14 +243,14 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                       : 'bg-white/5 text-foreground border border-white/10'
                   }`}
                 >
-                  {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
+                  {opt === 'full' ? t('galleryEditor.layoutFull') : opt === 'filmstrip' ? t('galleryEditor.layoutFilmstrip') : t('galleryEditor.layoutGrid')}
                 </button>
               ))}
             </div>
             {layout === 'filmstrip' && (
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Auto-scroll</span>
+                  <span className="text-xs text-muted-foreground">{t('galleryEditor.autoScroll')}</span>
                   <button
                     type="button"
                     onClick={() => setAutoScroll(!autoScroll)}
@@ -270,7 +270,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                           speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
                         }`}
                       >
-                        {s}
+                        {s === 'slow' ? t('galleryEditor.speedSlow') : s === 'medium' ? t('galleryEditor.speedMedium') : t('galleryEditor.speedFast')}
                       </button>
                     ))}
                   </div>
@@ -301,7 +301,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                     className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
                   >
                     <Plus className="h-7 w-7 text-muted-foreground/60" />
-                    <span className="text-xs font-medium text-muted-foreground/70">Add photos</span>
+                    <span className="text-xs font-medium text-muted-foreground/70">{t('galleryEditor.addPhotos')}</span>
                   </button>
                 )}
                 {photos.map((photo) => (
@@ -311,7 +311,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                   >
                     <img
                       src={photo.imagePreview || photo.image_url}
-                      alt="Gallery photo"
+                      alt={t('galleryEditor.photoAlt')}
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                     <button
@@ -369,10 +369,10 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-primary" />
-            Gallery
+            {t('galleryEditor.title')}
           </DialogTitle>
           <DialogDescription>
-            Upload photos to display on your page. ({photos.length}/{MAX_ITEMS})
+            {t('galleryEditor.dialogDescription')} ({photos.length}/{MAX_ITEMS})
           </DialogDescription>
         </DialogHeader>
         {innerContent}

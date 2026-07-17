@@ -128,6 +128,7 @@ interface SortableItemProps {
 }
 
 function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   // Auto-expand when there's an error for this item
@@ -198,7 +199,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
           onClick={() => setExpanded(!expanded)}
         >
           <p className="font-medium text-sm truncate">{item.label}</p>
-          <p className="text-xs text-muted-foreground truncate">{item.url || 'No URL set'}</p>
+          <p className="text-xs text-muted-foreground truncate">{item.url || t('socialLinksEditor.noUrlSet')}</p>
         </div>
 
         <Button
@@ -226,11 +227,11 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
           <div className="grid grid-cols-1 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Label</Label>
+              <Label className="text-xs">{t('socialLinksEditor.label')}</Label>
               <Input
                 value={item.label}
                 onChange={(e) => onUpdate(item.id, 'label', e.target.value)}
-                placeholder="Label"
+                placeholder={t('socialLinksEditor.label')}
                 className="h-8 text-sm"
               />
             </div>
@@ -264,6 +265,19 @@ interface SocialLinksEditorProps {
   iconColorMode?: 'color' | 'black' | 'white';
   onIconColorModeChange?: (v: 'color' | 'black' | 'white') => void;
 }
+
+// Localized display labels for the platform-catalog category headers. The
+// catalog labels stay in English (they double as identity keys); only the
+// header text shown here is translated.
+const CATEGORY_LABEL_KEY: Record<string, string> = {
+  'SOCIAL': 'platformCategory.social',
+  'BUSINESS': 'platformCategory.business',
+  'MUSIC': 'platformCategory.music',
+  'PAYMENT': 'platformCategory.payment',
+  'ENTERTAINMENT': 'platformCategory.entertainment',
+  'LIFESTYLE': 'platformCategory.lifestyle',
+  'ADULT (18+)': 'platformCategory.adult',
+};
 
 export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange }: SocialLinksEditorProps) {
   const { t } = useLanguage();
@@ -318,7 +332,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       );
     } catch (error) {
       console.error('Error fetching items:', error);
-      toast.error('Failed to load social links');
+      toast.error(t('socialLinksEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -335,7 +349,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
   const addPreset = (platform: { label: string; placeholder?: string }) => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      toast.error(t('socialLinksEditor.maxItems').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const newItem: SocialItem = {
@@ -353,7 +367,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
   const addCustom = () => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      toast.error(t('socialLinksEditor.maxItems').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const newItem: SocialItem = {
@@ -391,16 +405,16 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
     // Enforce item cap
     if (list.length > MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} social links allowed`);
+      toast.error(t('socialLinksEditor.maxItems').replace('{max}', String(MAX_ITEMS)));
       return false;
     }
 
     list.forEach((item) => {
       if (!item.label.trim()) {
-        newErrors[item.id] = 'Label is required';
+        newErrors[item.id] = t('socialLinksEditor.labelRequired');
         valid = false;
       } else if (item.label.length > 50) {
-        newErrors[item.id] = 'Label must be less than 50 characters';
+        newErrors[item.id] = t('socialLinksEditor.labelTooLong');
         valid = false;
       } else {
         const urlError = validateUrl(item.url);
@@ -428,7 +442,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     const skipped = normalized.length - filled.length;
 
     if (!validate(filled)) {
-      toast.error('Please fix the errors before saving. Expand items to see details.');
+      toast.error(t('socialLinksEditor.fixErrors'));
       return;
     }
 
@@ -479,14 +493,17 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
       toast.success(
         skipped > 0
-          ? `Social links saved — ${skipped} platform${skipped === 1 ? '' : 's'} with no link ${skipped === 1 ? 'was' : 'were'} skipped`
-          : 'Social links saved'
+          ? (skipped === 1
+              ? t('socialLinksEditor.savedSkippedOne')
+              : t('socialLinksEditor.savedSkippedMany')
+            ).replace('{count}', String(skipped))
+          : t('socialLinksEditor.saved')
       );
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving social links:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('socialLinksEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -502,7 +519,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         <div className="flex flex-col flex-1 min-h-0">
           {/* Icon Size — global, saved to page headerConfig.iconSize */}
           <div className="mb-4">
-            <label className="text-xs text-white/50 block mb-1.5">Icon Size</label>
+            <label className="text-xs text-white/50 block mb-1.5">{t('socialLinksEditor.iconSize')}</label>
             <div className="flex gap-1.5">
               {(['small', 'medium', 'large'] as const).map((sz) => (
                 <button
@@ -515,7 +532,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                       : 'bg-white/10 text-white/50'
                   }`}
                 >
-                  {sz.charAt(0).toUpperCase() + sz.slice(1)}
+                  {t(`socialLinksEditor.size${sz.charAt(0).toUpperCase() + sz.slice(1)}`)}
                 </button>
               ))}
             </div>
@@ -523,12 +540,12 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
           {/* Icon Color — global, saved to page headerConfig.iconColorMode */}
           <div className="mb-4">
-            <label className="text-xs text-white/50 block mb-1.5">Icon Color</label>
+            <label className="text-xs text-white/50 block mb-1.5">{t('socialLinksEditor.iconColor')}</label>
             <div className="flex gap-1.5">
               {([
-                { value: 'color', label: 'Brand' },
-                { value: 'black', label: 'Black' },
-                { value: 'white', label: 'White' },
+                { value: 'color', label: t('socialLinksEditor.colorBrand') },
+                { value: 'black', label: t('socialLinksEditor.colorBlack') },
+                { value: 'white', label: t('socialLinksEditor.colorWhite') },
               ] as const).map((opt) => (
                 <button
                   key={opt.value}
@@ -557,7 +574,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             >
               <span className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Add Platform
+                {t('socialLinksEditor.addPlatform')}
               </span>
               <ChevronDown className={`h-4 w-4 transition-transform ${showPlatformPicker ? 'rotate-180' : ''}`} />
             </Button>
@@ -572,7 +589,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search platforms..."
+                    placeholder={t('socialLinksEditor.searchPlatforms')}
                     className="pl-9 h-9 text-sm"
                   />
                 </div>
@@ -580,7 +597,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                   <p className="text-xs text-muted-foreground mt-2">
                     {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
                       p.label.toLowerCase().includes(search.toLowerCase())
-                    ).length} platforms found
+                    ).length} {t('socialLinksEditor.platformsFound')}
                   </p>
                 )}
               </div>
@@ -614,7 +631,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                       p.label.toLowerCase().includes(search.toLowerCase())
                     ).length === 0 && (
                       <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        No platforms found for &quot;{search}&quot;
+                        {t('socialLinksEditor.noPlatformsFound').replace('{query}', search)}
                       </div>
                     )}
                   </div>
@@ -638,10 +655,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                           </div>
                           <div className="text-left">
                             <p className="text-xs font-semibold uppercase tracking-wide text-[#C9A55C]">
-                              {category.label}
+                              {CATEGORY_LABEL_KEY[category.label] ? t(CATEGORY_LABEL_KEY[category.label]) : category.label}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {category.platforms.length} platforms
+                              {category.platforms.length} {t('socialLinksEditor.platforms')}
                             </p>
                           </div>
                         </div>
@@ -692,8 +709,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 >
                   <span className="text-xl w-8 text-center">🔗</span>
                   <div>
-                    <p className="text-sm font-medium">Custom Link</p>
-                    <p className="text-xs text-muted-foreground">Add any URL</p>
+                    <p className="text-sm font-medium">{t('socialLinksEditor.customLink')}</p>
+                    <p className="text-xs text-muted-foreground">{t('socialLinksEditor.addAnyUrl')}</p>
                   </div>
                 </button>
               </div>
@@ -705,8 +722,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             {items.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No social links yet.</p>
-                <p className="text-sm">Use Quick Add above to get started.</p>
+                <p>{t('socialLinksEditor.emptyTitle')}</p>
+                <p className="text-sm">{t('socialLinksEditor.emptyHint')}</p>
               </div>
             ) : (
               <DndContext
@@ -775,10 +792,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5 text-primary" />
-            Edit Social Links
+            {t('socialLinksEditor.dialogTitle')}
           </DialogTitle>
           <DialogDescription>
-            Add your social media profiles and other links.
+            {t('socialLinksEditor.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
         {innerContent}

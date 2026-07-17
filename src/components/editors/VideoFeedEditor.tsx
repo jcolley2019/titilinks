@@ -89,7 +89,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
           setLimit(savedLimit);
         }
       } catch {
-        if (!cancelled) toast.error('Failed to load block data');
+        if (!cancelled) toast.error(t('videoFeedEditor.loadError'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -104,8 +104,8 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
     if (!value) {
       setResolveError(
         source === 'playlist'
-          ? 'Enter a YouTube playlist URL or ID.'
-          : 'Enter a YouTube channel URL, @handle, or ID.',
+          ? t('videoFeedEditor.enterPlaylist')
+          : t('videoFeedEditor.enterChannel'),
       );
       return;
     }
@@ -117,7 +117,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
       const res = data as (ResolvedFeed & { error?: string }) | null;
       const ok = res && (res.channel_id || res.playlist_id) && Array.isArray(res.videos) && res.videos.length > 0;
       if (error || !ok) {
-        setResolveError(res?.error || 'Could not find that. Try the full URL.');
+        setResolveError(res?.error || t('videoFeedEditor.notFound'));
       } else {
         setResolved({
           source: res!.source ?? source,
@@ -130,7 +130,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
         if (res!.source) setSource(res!.source);
       }
     } catch {
-      setResolveError('Something went wrong. Please try again.');
+      setResolveError(t('videoFeedEditor.genericError'));
     } finally {
       setResolving(false);
     }
@@ -138,7 +138,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
 
   const handleSave = async () => {
     if (!resolved) {
-      setResolveError('Preview first.');
+      setResolveError(t('videoFeedEditor.previewFirst'));
       return;
     }
     setSaving(true);
@@ -161,11 +161,11 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
         .update({ title: JSON.stringify(configJson) })
         .eq('id', blockId);
       if (error) throw error;
-      toast.success('Video feed saved');
+      toast.success(t('videoFeedEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to save');
+      toast.error(e?.message || t('videoFeedEditor.saveError'));
     } finally {
       setSaving(false);
     }
@@ -185,7 +185,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
       ) : (
         <div className="flex flex-1 flex-col gap-4">
           <div className="space-y-2">
-            <Label className="text-white">Source</Label>
+            <Label className="text-white">{t('videoFeedEditor.source')}</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -193,7 +193,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
                 className={segBtn(source === 'channel')}
                 onClick={() => { setSource('channel'); setResolved(null); setResolveError(null); }}
               >
-                Latest from channel
+                {t('videoFeedEditor.latestFromChannel')}
               </Button>
               <Button
                 type="button"
@@ -201,14 +201,14 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
                 className={segBtn(source === 'playlist')}
                 onClick={() => { setSource('playlist'); setResolved(null); setResolveError(null); }}
               >
-                Playlist
+                {t('videoFeedEditor.playlist')}
               </Button>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="yt-input" className="text-white">
-              {source === 'playlist' ? 'YouTube playlist' : 'YouTube channel'}
+              {source === 'playlist' ? t('videoFeedEditor.youtubePlaylist') : t('videoFeedEditor.youtubeChannel')}
             </Label>
             <div className="flex gap-2">
               <Input
@@ -237,14 +237,14 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
             </div>
             <p className="text-xs text-white/60">
               {source === 'playlist'
-                ? 'Paste a playlist URL or ID, then preview.'
-                : 'Paste a channel URL, @handle, or channel ID, then preview.'}
+                ? t('videoFeedEditor.pastePlaylistHint')
+                : t('videoFeedEditor.pasteChannelHint')}
             </p>
             {resolveError && <p className="text-sm text-destructive">{resolveError}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white">Number of videos</Label>
+            <Label className="text-white">{t('videoFeedEditor.numberOfVideos')}</Label>
             <div className="flex gap-2">
               {COUNT_OPTIONS.map((n) => (
                 <Button
@@ -267,9 +267,9 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
                   <img src={resolved.channel_avatar} alt="" className="h-9 w-9 rounded-full object-cover" />
                 )}
                 <div>
-                  <p className="text-sm font-medium text-white">{resolved.channel_title || 'Found'}</p>
+                  <p className="text-sm font-medium text-white">{resolved.channel_title || t('videoFeedEditor.found')}</p>
                   <p className="text-xs text-white/50">
-                    {resolved.source === 'playlist' ? 'Playlist' : 'Latest videos'}
+                    {resolved.source === 'playlist' ? t('videoFeedEditor.playlist') : t('videoFeedEditor.latestVideos')}
                   </p>
                 </div>
               </div>
@@ -288,11 +288,11 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
                     ))}
                   </div>
                   <p className="text-xs text-white/60">
-                    Showing the latest {limit} videos. Updates automatically.
+                    {t('videoFeedEditor.showingLatest').replace('{count}', String(limit))}
                   </p>
                 </>
               ) : (
-                <p className="text-xs text-white/60">Found — videos will appear on your page.</p>
+                <p className="text-xs text-white/60">{t('videoFeedEditor.foundVideosWillAppear')}</p>
               )}
             </div>
           )}
@@ -340,10 +340,10 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Youtube className="h-5 w-5 text-primary" />
-            Video Feed
+            {t('videoFeedEditor.title')}
           </DialogTitle>
           <DialogDescription>
-            Show your latest YouTube videos or a playlist. They update automatically.
+            {t('videoFeedEditor.description')}
           </DialogDescription>
         </DialogHeader>
         {innerContent}

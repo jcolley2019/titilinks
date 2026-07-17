@@ -138,7 +138,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       );
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
+      toast.error(t('productCardsEditor.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -151,7 +151,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} products`);
+      toast.error(t('productCardsEditor.maxProducts').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
@@ -218,7 +218,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     // Each product needs a title + a valid store link.
     for (const item of items) {
       if (!item.label.trim()) {
-        toast.error('Every product needs a title');
+        toast.error(t('productCardsEditor.titleRequired'));
         setSelectedId(item.id);
         return;
       }
@@ -275,12 +275,12 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         .eq('id', blockId);
       if (cfgError) throw cfgError;
 
-      toast.success('Products saved');
+      toast.success(t('productCardsEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving products:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('productCardsEditor.failedToSave'));
     } finally {
       setSaving(false);
     }
@@ -298,7 +298,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         <div className="flex flex-col flex-1 min-h-0">
           {/* Layout picker — same set as the Gallery. */}
           <div className="mb-4">
-            <p className="text-xs text-white/60 mb-2">Layout</p>
+            <p className="text-xs text-white/60 mb-2">{t('productCardsEditor.layout')}</p>
             <div className="flex items-center gap-2">
               {(['full', 'filmstrip', 'grid'] as const).map((opt) => (
                 <button
@@ -311,14 +311,14 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                       : 'bg-white/5 text-foreground border border-white/10'
                   }`}
                 >
-                  {opt === 'full' ? 'Full' : opt === 'filmstrip' ? 'Filmstrip' : 'Grid'}
+                  {opt === 'full' ? t('productCardsEditor.layoutFull') : opt === 'filmstrip' ? t('productCardsEditor.layoutFilmstrip') : t('productCardsEditor.layoutGrid')}
                 </button>
               ))}
             </div>
             {config.layout === 'filmstrip' && (
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-white/60">Auto-scroll</span>
+                  <span className="text-xs text-white/60">{t('productCardsEditor.autoScroll')}</span>
                   <button
                     type="button"
                     onClick={() => setConfig((c) => ({ ...c, autoScroll: !c.autoScroll }))}
@@ -338,7 +338,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                           config.speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
                         }`}
                       >
-                        {s}
+                        {t(`productCardsEditor.speed${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
                       </button>
                     ))}
                   </div>
@@ -350,11 +350,11 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           {/* Show price / Show Buy toggles. */}
           <div className="mb-4 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-white/60">Show prices</span>
+              <span className="text-xs text-white/60">{t('productCardsEditor.showPrices')}</span>
               <Switch checked={config.showPrice} onCheckedChange={(v) => setConfig((c) => ({ ...c, showPrice: v }))} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-white/60">Show Buy button</span>
+              <span className="text-xs text-white/60">{t('productCardsEditor.showBuyButton')}</span>
               <Switch checked={config.showBuy} onCheckedChange={(v) => setConfig((c) => ({ ...c, showBuy: v }))} />
             </div>
           </div>
@@ -378,7 +378,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                     className="aspect-square rounded-xl border-2 border-dashed border-[#C9A55C]/40 flex flex-col items-center justify-center gap-2 hover:border-[#C9A55C]/70 hover:bg-[#C9A55C]/5 transition-colors"
                   >
                     <Plus className="h-7 w-7 text-[#C9A55C]/70" />
-                    <span className="text-xs font-medium text-[#C9A55C]/80">Add product</span>
+                    <span className="text-xs font-medium text-[#C9A55C]/80">{t('productCardsEditor.addProduct')}</span>
                   </button>
                 )}
                 {items.map((item) => {
@@ -412,7 +412,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
-                        aria-label="Remove product"
+                        aria-label={t('productCardsEditor.removeProduct')}
                         className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/60 text-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -424,7 +424,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
 
               {items.length === 0 && (
                 <p className="mt-3 text-center text-xs text-white/40">
-                  Tap “Add product”, then enter the store link &amp; title.
+                  {t('productCardsEditor.emptyState')}
                 </p>
               )}
 
@@ -432,16 +432,16 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
               {selected && (
                 <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Title *</Label>
+                    <Label className="text-xs">{t('productCardsEditor.title')}</Label>
                     <Input
                       value={selected.label}
                       onChange={(e) => updateItem(selected.id, { label: e.target.value })}
-                      placeholder="Product name"
+                      placeholder={t('productCardsEditor.productNamePlaceholder')}
                       className="h-9 text-sm"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Store link *</Label>
+                    <Label className="text-xs">{t('productCardsEditor.storeLink')}</Label>
                     <Input
                       value={selected.url}
                       onChange={(e) => updateItem(selected.id, { url: e.target.value })}
@@ -453,7 +453,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                   {config.showPrice && (
                     <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Price</Label>
+                        <Label className="text-xs">{t('productCardsEditor.price')}</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -465,7 +465,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Compare</Label>
+                        <Label className="text-xs">{t('productCardsEditor.compare')}</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -477,7 +477,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Currency</Label>
+                        <Label className="text-xs">{t('productCardsEditor.currency')}</Label>
                         <Select value={selected.currency || 'USD'} onValueChange={(v) => updateItem(selected.id, { currency: v })}>
                           <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -492,21 +492,21 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
 
                   <div className={config.showBuy ? 'grid grid-cols-2 gap-2' : ''}>
                     <div className="space-y-1">
-                      <Label className="text-xs">Badge (optional)</Label>
+                      <Label className="text-xs">{t('productCardsEditor.badge')}</Label>
                       <Input
                         value={selected.badge || ''}
                         onChange={(e) => updateItem(selected.id, { badge: e.target.value })}
-                        placeholder="Sale / New"
+                        placeholder={t('productCardsEditor.badgePlaceholder')}
                         className="h-9 text-sm"
                       />
                     </div>
                     {config.showBuy && (
                       <div className="space-y-1">
-                        <Label className="text-xs">Buy label</Label>
+                        <Label className="text-xs">{t('productCardsEditor.buyLabel')}</Label>
                         <Input
                           value={selected.cta_label || ''}
                           onChange={(e) => updateItem(selected.id, { cta_label: e.target.value })}
-                          placeholder="Buy now"
+                          placeholder={t('productCardsEditor.buyNowPlaceholder')}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -573,9 +573,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />
-            Products
+            {t('productCardsEditor.dialogTitle')}
           </DialogTitle>
-          <DialogDescription>A shoppable gallery — each tile links to your store.</DialogDescription>
+          <DialogDescription>{t('productCardsEditor.dialogDescription')}</DialogDescription>
         </DialogHeader>
         {innerContent}
       </DialogContent>
@@ -585,6 +585,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
 
 /** "Change photo" trigger with its own hidden file input. */
 function ImageReplaceButton({ onPick, hasImage }: { onPick: (file: File) => void; hasImage: boolean }) {
+  const { t } = useLanguage();
   const ref = useRef<HTMLInputElement>(null);
   return (
     <>
@@ -597,7 +598,7 @@ function ImageReplaceButton({ onPick, hasImage }: { onPick: (file: File) => void
       />
       <Button type="button" variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => ref.current?.click()}>
         <ImagePlus className="h-3.5 w-3.5" />
-        {hasImage ? 'Change photo' : 'Add photo'}
+        {hasImage ? t('productCardsEditor.changePhoto') : t('productCardsEditor.addPhoto')}
       </Button>
     </>
   );

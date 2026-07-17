@@ -85,6 +85,7 @@ interface SortableContentItemProps {
 }
 
 function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }: SortableContentItemProps) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(!item.url);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -144,8 +145,8 @@ function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }:
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{item.title || 'Untitled'}</p>
-          <p className="text-xs text-muted-foreground truncate">{item.meta_left || 'No meta'}</p>
+          <p className="font-medium text-sm truncate">{item.title || t('contentSectionEditor.untitled')}</p>
+          <p className="text-xs text-muted-foreground truncate">{item.meta_left || t('contentSectionEditor.noMeta')}</p>
         </div>
 
         <Button
@@ -191,7 +192,7 @@ function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }:
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xs"
               >
-                {imageUrl ? 'Change' : 'Upload'}
+                {imageUrl ? t('contentSectionEditor.change') : t('contentSectionEditor.upload')}
               </Button>
               {imageUrl && (
                 <Button
@@ -201,7 +202,7 @@ function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }:
                   onClick={() => onImageChange(item.id, null)}
                   className="text-xs text-destructive"
                 >
-                  Remove
+                  {t('contentSectionEditor.remove')}
                 </Button>
               )}
             </div>
@@ -216,27 +217,27 @@ function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }:
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Title *</Label>
+              <Label className="text-xs">{t('contentSectionEditor.titleLabel')} *</Label>
               <Input
                 value={item.title}
                 onChange={(e) => onUpdate(item.id, 'title', e.target.value)}
-                placeholder="Recipe name"
+                placeholder={t('contentSectionEditor.titlePlaceholder')}
                 className="h-8 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Meta (e.g., "30 min")</Label>
+              <Label className="text-xs">{t('contentSectionEditor.metaLabel')}</Label>
               <Input
                 value={item.meta_left || ''}
                 onChange={(e) => onUpdate(item.id, 'meta_left', e.target.value)}
-                placeholder="30 min"
+                placeholder={t('contentSectionEditor.metaPlaceholder')}
                 className="h-8 text-sm"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">URL *</Label>
+            <Label className="text-xs">{t('contentSectionEditor.urlLabel')} *</Label>
             <Input
               value={item.url}
               onChange={(e) => onUpdate(item.id, 'url', e.target.value)}
@@ -321,7 +322,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
       );
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load content section');
+      toast.error(t('contentSectionEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -338,7 +339,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
 
   const addItem = () => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} items allowed`);
+      toast.error(t('contentSectionEditor.maxItems').replace('{count}', String(MAX_ITEMS)));
       return;
     }
     const newItem: ContentItem = {
@@ -396,7 +397,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
 
     items.forEach((item) => {
       if (!item.title.trim()) {
-        newErrors[item.id] = 'Title is required';
+        newErrors[item.id] = t('contentSectionEditor.titleRequired');
         valid = false;
       } else {
         const urlError = validateUrl(item.url);
@@ -432,7 +433,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix the errors before saving');
+      toast.error(t('contentSectionEditor.fixErrors'));
       return;
     }
 
@@ -486,21 +487,21 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
         }
       }
 
-      toast.success('Content section saved');
+      toast.success(t('contentSectionEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('contentSectionEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const layoutOptions: { value: ContentSectionConfig['layout']; icon: typeof List; label: string }[] = [
-    { value: 'carousel', icon: Rows3, label: 'Carousel' },
-    { value: 'grid', icon: Grid3X3, label: 'Grid' },
-    { value: 'list', icon: List, label: 'List' },
+    { value: 'carousel', icon: Rows3, label: t('contentSectionEditor.layoutCarousel') },
+    { value: 'grid', icon: Grid3X3, label: t('contentSectionEditor.layoutGrid') },
+    { value: 'list', icon: List, label: t('contentSectionEditor.layoutList') },
   ];
 
   const innerContent = (
@@ -509,10 +510,10 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary" />
-            Edit Content Section
+            {t('contentSectionEditor.editTitle')}
           </DialogTitle>
           <DialogDescription>
-            Create a section with cards in carousel, grid, or list layout.
+            {t('contentSectionEditor.editDescription')}
           </DialogDescription>
         </DialogHeader>
       )}
@@ -526,26 +527,26 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             {/* Section Settings */}
             <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
               <div className="space-y-2">
-                <Label>Section Title</Label>
+                <Label>{t('contentSectionEditor.sectionTitle')}</Label>
                 <Input
                   value={config.section_title}
                   onChange={(e) => setConfig({ ...config, section_title: e.target.value })}
-                  placeholder="Recipes"
+                  placeholder={t('contentSectionEditor.sectionTitlePlaceholder')}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-xs">View All Label</Label>
+                  <Label className="text-xs">{t('contentSectionEditor.viewAllLabel')}</Label>
                   <Input
                     value={config.view_all_label}
                     onChange={(e) => setConfig({ ...config, view_all_label: e.target.value })}
-                    placeholder="View all"
+                    placeholder={t('contentSectionEditor.viewAllPlaceholder')}
                     className="h-8 text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">View All URL</Label>
+                  <Label className="text-xs">{t('contentSectionEditor.viewAllUrl')}</Label>
                   <Input
                     value={config.view_all_url}
                     onChange={(e) => setConfig({ ...config, view_all_url: e.target.value })}
@@ -557,7 +558,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
 
               {/* Layout Selector */}
               <div className="space-y-2">
-                <Label>Layout</Label>
+                <Label>{t('contentSectionEditor.layout')}</Label>
                 <div className="flex gap-2">
                   {layoutOptions.map((opt) => {
                     const Icon = opt.icon;
@@ -589,7 +590,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              Add Item ({items.length}/{MAX_ITEMS})
+              {t('contentSectionEditor.addItem')} ({items.length}/{MAX_ITEMS})
             </Button>
 
             {/* Items List */}
@@ -597,8 +598,8 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
               {items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <LayoutGrid className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No items yet</p>
-                  <p className="text-xs">Add content items above</p>
+                  <p className="text-sm">{t('contentSectionEditor.noItems')}</p>
+                  <p className="text-xs">{t('contentSectionEditor.addItemsHint')}</p>
                 </div>
               ) : (
                 <DndContext

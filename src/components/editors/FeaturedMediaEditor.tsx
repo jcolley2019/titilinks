@@ -65,6 +65,7 @@ interface SortableMediaItemProps {
 }
 
 function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: SortableMediaItemProps) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(!item.url);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -129,8 +130,8 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{item.label || 'Untitled Media'}</p>
-          <p className="text-xs text-muted-foreground truncate">{item.url || 'No URL set'}</p>
+          <p className="font-medium text-sm truncate">{item.label || t('featuredMediaEditor.untitled')}</p>
+          <p className="text-xs text-muted-foreground truncate">{item.url || t('featuredMediaEditor.noUrl')}</p>
         </div>
 
         <Button
@@ -158,7 +159,7 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
           {/* Image Upload */}
           <div className="space-y-2">
-            <Label className="text-xs">Cover Image (optional)</Label>
+            <Label className="text-xs">{t('featuredMediaEditor.coverImage')}</Label>
             <div className="flex items-start gap-3">
               <div 
                 className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer hover:border-primary transition-colors flex-shrink-0"
@@ -178,7 +179,7 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
                   onClick={() => fileInputRef.current?.click()}
                   className="text-xs"
                 >
-                  {imageUrl ? 'Change' : 'Upload'}
+                  {imageUrl ? t('featuredMediaEditor.change') : t('featuredMediaEditor.upload')}
                 </Button>
                 {imageUrl && (
                   <Button
@@ -188,7 +189,7 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
                     onClick={() => onImageChange(item.id, null)}
                     className="text-xs text-destructive"
                   >
-                    Remove
+                    {t('design.remove')}
                   </Button>
                 )}
               </div>
@@ -204,16 +205,16 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs">Label *</Label>
+              <Label className="text-xs">{t('featuredMediaEditor.labelField')}</Label>
               <Input
                 value={item.label}
                 onChange={(e) => onUpdate(item.id, 'label', e.target.value)}
-                placeholder="Featured Content"
+                placeholder={t('featuredMediaEditor.labelPlaceholder')}
                 className="h-8 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">URL *</Label>
+              <Label className="text-xs">{t('featuredMediaEditor.urlField')}</Label>
               <Input
                 value={item.url}
                 onChange={(e) => onUpdate(item.id, 'url', e.target.value)}
@@ -283,7 +284,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
       );
     } catch (error) {
       console.error('Error fetching items:', error);
-      toast.error('Failed to load media items');
+      toast.error(t('featuredMediaEditor.loadError'));
     } finally {
       setLoading(false);
     }
@@ -300,7 +301,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
 
   const addMedia = () => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} items allowed`);
+      toast.error(t('featuredMediaEditor.maxItems').replace('{count}', String(MAX_ITEMS)));
       return;
     }
     const newItem: MediaItem = {
@@ -358,16 +359,16 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
 
     // Enforce item cap
     if (items.length > MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} items allowed`);
+      toast.error(t('featuredMediaEditor.maxItems').replace('{count}', String(MAX_ITEMS)));
       return false;
     }
 
     items.forEach((item) => {
       if (!item.label.trim()) {
-        newErrors[item.id] = 'Label is required';
+        newErrors[item.id] = t('featuredMediaEditor.labelRequired');
         valid = false;
       } else if (item.label.length > 100) {
-        newErrors[item.id] = 'Label must be less than 100 characters';
+        newErrors[item.id] = t('featuredMediaEditor.labelTooLong');
         valid = false;
       } else {
         const urlError = validateUrl(item.url);
@@ -403,7 +404,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix the errors before saving');
+      toast.error(t('featuredMediaEditor.fixErrors'));
       return;
     }
 
@@ -452,12 +453,12 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
         }
       }
 
-      toast.success('Featured media saved');
+      toast.success(t('featuredMediaEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving media:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('featuredMediaEditor.saveError'));
     } finally {
       setSaving(false);
     }
@@ -469,10 +470,10 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-primary" />
-            Edit Featured Media
+            {t('featuredMediaEditor.title')}
           </DialogTitle>
           <DialogDescription>
-            Showcase up to {MAX_ITEMS} featured items with cover images.
+            {t('featuredMediaEditor.description').replace('{count}', String(MAX_ITEMS))}
           </DialogDescription>
         </DialogHeader>
       )}
@@ -494,7 +495,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Add Media ({items.length}/{MAX_ITEMS})
+                {t('featuredMediaEditor.addMedia')} ({items.length}/{MAX_ITEMS})
               </Button>
             </div>
 
@@ -502,8 +503,8 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
               {items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <ImageIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No media items yet</p>
-                  <p className="text-xs mt-1">Add up to {MAX_ITEMS} featured items</p>
+                  <p className="text-sm">{t('featuredMediaEditor.emptyTitle')}</p>
+                  <p className="text-xs mt-1">{t('featuredMediaEditor.emptyHint').replace('{count}', String(MAX_ITEMS))}</p>
                 </div>
               ) : (
                 <DndContext

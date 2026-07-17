@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
 interface ThumbnailUploadProps {
@@ -27,6 +28,7 @@ interface ThumbnailUploadProps {
 
 export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTrigger }: ThumbnailUploadProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,14 +38,14 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
 
     // Validate file size (2MB max for thumbnails)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image must be 2MB or less');
+      toast.error(t('thumbnailUpload.imageTooLarge'));
       return;
     }
 
     // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      toast.error('Only JPEG, PNG, GIF, and WebP images are allowed');
+      toast.error(t('thumbnailUpload.invalidType'));
       return;
     }
 
@@ -63,10 +65,10 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
         .getPublicUrl(fileName);
 
       onChange(urlData.publicUrl);
-      toast.success('Thumbnail uploaded!');
+      toast.success(t('thumbnailUpload.uploaded'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload image');
+      toast.error(t('thumbnailUpload.uploadFailed'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -113,7 +115,7 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
       {value ? (
         <div className="relative group">
           <Avatar className={avatarSize}>
-            <AvatarImage src={value} alt="Thumbnail" />
+            <AvatarImage src={value} alt={t('thumbnailUpload.thumbnailAlt')} />
             <AvatarFallback>
               <ImageIcon className="h-4 w-4 text-muted-foreground" />
             </AvatarFallback>
@@ -140,7 +142,7 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
           ) : (
             <Upload className="h-3 w-3" />
           )}
-          <span className="text-sm">{label || 'Thumb'}</span>
+          <span className="text-sm">{label || t('thumbnailUpload.thumb')}</span>
         </Button>
       )}
     </div>

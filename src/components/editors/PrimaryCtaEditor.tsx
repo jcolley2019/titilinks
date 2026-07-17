@@ -34,13 +34,15 @@ interface CtaBlockConfig {
   style: BlockStyleConfig;
 }
 
-const formSchema = z.object({
-  label: z.string().min(1, 'Label is required').max(50, 'Label must be less than 50 characters'),
+// Schema is a factory so its validation messages resolve through t() (the
+// panel renders form.formState.errors.<field>.message directly).
+const makeFormSchema = (t: (key: string) => string) => z.object({
+  label: z.string().min(1, t('primaryCtaEditor.errLabelRequired')).max(50, t('primaryCtaEditor.errLabelTooLong')),
   url: z.string()
-    .min(1, 'URL is required')
+    .min(1, t('primaryCtaEditor.errUrlRequired'))
     .refine(
       (val) => val.startsWith('http://') || val.startsWith('https://'),
-      'URL must include protocol (http:// or https://)'
+      t('primaryCtaEditor.errUrlProtocol')
     )
     .refine(
       (val) => {
@@ -51,13 +53,13 @@ const formSchema = z.object({
           return false;
         }
       },
-      'Please enter a valid URL'
+      t('primaryCtaEditor.errUrlInvalid')
     ),
-  subtitle: z.string().max(100, 'Subtitle must be less than 100 characters').optional(),
-  badge: z.string().max(20, 'Badge must be less than 20 characters').optional(),
+  subtitle: z.string().max(100, t('primaryCtaEditor.errSubtitleTooLong')).optional(),
+  badge: z.string().max(20, t('primaryCtaEditor.errBadgeTooLong')).optional(),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = z.infer<ReturnType<typeof makeFormSchema>>;
 
 interface PrimaryCtaEditorProps {
   blockId: string;
@@ -76,7 +78,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const [styleExpanded, setStyleExpanded] = useState(false);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(makeFormSchema(t)),
     defaultValues: {
       label: '',
       url: '',
@@ -142,7 +144,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
       }
     } catch (error) {
       console.error('Error fetching block item:', error);
-      toast.error('Failed to load block data');
+      toast.error(t('primaryCtaEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -189,12 +191,12 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
         if (error) throw error;
       }
 
-      toast.success('Primary CTA saved');
+      toast.success(t('primaryCtaEditor.saveSuccess'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving block item:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('primaryCtaEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -214,7 +216,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
               <Button variant="outline" size="sm" className="w-full justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Palette className="h-4 w-4 text-primary" />
-                  <span>Style Variants</span>
+                  <span>{t('primaryCtaEditor.styleVariants')}</span>
                 </div>
                 {styleExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
@@ -223,7 +225,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
               {/* Variant Select */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Button Variant</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.buttonVariant')}</Label>
                   <Select
                     value={styleConfig.variant}
                     onValueChange={(value: 'filled' | 'outline' | 'glass' | 'minimal') =>
@@ -234,15 +236,15 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="filled">Filled</SelectItem>
-                      <SelectItem value="outline">Outline</SelectItem>
-                      <SelectItem value="glass">Glass</SelectItem>
-                      <SelectItem value="minimal">Minimal</SelectItem>
+                      <SelectItem value="filled">{t('primaryCtaEditor.variantFilled')}</SelectItem>
+                      <SelectItem value="outline">{t('primaryCtaEditor.variantOutline')}</SelectItem>
+                      <SelectItem value="glass">{t('primaryCtaEditor.variantGlass')}</SelectItem>
+                      <SelectItem value="minimal">{t('primaryCtaEditor.variantMinimal')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Font Style</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.fontStyle')}</Label>
                   <Select
                     value={styleConfig.font_style}
                     onValueChange={(value: 'normal' | 'mono' | 'serif') =>
@@ -253,9 +255,9 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="mono">Monospace</SelectItem>
-                      <SelectItem value="serif">Serif</SelectItem>
+                      <SelectItem value="normal">{t('primaryCtaEditor.fontNormal')}</SelectItem>
+                      <SelectItem value="mono">{t('primaryCtaEditor.fontMono')}</SelectItem>
+                      <SelectItem value="serif">{t('primaryCtaEditor.fontSerif')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -264,7 +266,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
               {/* Border Width & Color */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Border Width ({styleConfig.border_width}px)</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.borderWidth').replace('{value}', String(styleConfig.border_width))}</Label>
                   <Slider
                     value={[styleConfig.border_width]}
                     onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, border_width: value }))}
@@ -275,7 +277,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Border Color</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.borderColor')}</Label>
                   <Input
                     type="color"
                     value={styleConfig.border_color || '#ffffff'}
@@ -288,7 +290,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
               {/* Background Opacity & Letter Spacing */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Background Opacity ({Math.round(styleConfig.background_opacity * 100)}%)</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.backgroundOpacity').replace('{value}', String(Math.round(styleConfig.background_opacity * 100)))}</Label>
                   <Slider
                     value={[styleConfig.background_opacity]}
                     onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, background_opacity: value }))}
@@ -299,7 +301,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Letter Spacing ({styleConfig.letter_spacing.toFixed(2)}em)</Label>
+                  <Label className="text-xs">{t('primaryCtaEditor.letterSpacing').replace('{value}', styleConfig.letter_spacing.toFixed(2))}</Label>
                   <Slider
                     value={[styleConfig.letter_spacing]}
                     onValueChange={([value]) => setStyleConfig(prev => ({ ...prev, letter_spacing: value }))}
@@ -315,11 +317,11 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
 
           <div className="space-y-2">
             <Label htmlFor="label">
-              Button Label <span className="text-destructive">*</span>
+              {t('primaryCtaEditor.buttonLabel')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="label"
-              placeholder="Shop Now"
+              placeholder={t('primaryCtaEditor.shopNowPlaceholder')}
               {...form.register('label')}
             />
             {form.formState.errors.label && (
@@ -329,7 +331,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
 
           <div className="space-y-2">
             <Label htmlFor="url">
-              URL <span className="text-destructive">*</span>
+              {t('primaryCtaEditor.url')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="url"
@@ -342,10 +344,10 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="subtitle">Subtitle (optional)</Label>
+            <Label htmlFor="subtitle">{t('primaryCtaEditor.subtitle')}</Label>
             <Input
               id="subtitle"
-              placeholder="Free shipping on orders over $50"
+              placeholder={t('primaryCtaEditor.subtitlePlaceholder')}
               {...form.register('subtitle')}
             />
             {form.formState.errors.subtitle && (
@@ -354,10 +356,10 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="badge">Badge (optional)</Label>
+            <Label htmlFor="badge">{t('primaryCtaEditor.badge')}</Label>
             <Input
               id="badge"
-              placeholder="NEW"
+              placeholder={t('primaryCtaEditor.badgePlaceholder')}
               {...form.register('badge')}
             />
             {form.formState.errors.badge && (
@@ -368,7 +370,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
           {/* Preview */}
           {form.watch('label') && (
             <div className="p-4 rounded-lg border border-border bg-secondary/30">
-              <p className="text-xs text-muted-foreground mb-2">Preview</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('primaryCtaEditor.preview')}</p>
               <div className="flex flex-col items-center gap-1">
                 {form.watch('badge') && (
                   <span className="text-xs font-medium text-primary">{form.watch('badge')}</span>
@@ -425,10 +427,10 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MousePointer className="h-5 w-5 text-primary" />
-            Edit Primary CTA
+            {t('primaryCtaEditor.dialogTitle')}
           </DialogTitle>
           <DialogDescription>
-            Configure your main call-to-action button that appears prominently on your page.
+            {t('primaryCtaEditor.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
         {innerContent}

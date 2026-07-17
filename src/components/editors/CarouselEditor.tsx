@@ -108,7 +108,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
       );
     } catch (error) {
       console.error('Error fetching carousel:', error);
-      toast.error('Failed to load carousel');
+      toast.error(t('carouselEditor.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
   // (a carousel card's photo is optional — it falls back to the link's icon).
   const addLink = () => {
     if (links.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} cards`);
+      toast.error(t('carouselEditor.maxCards').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const id = `new-${Date.now()}-${Math.random()}`;
@@ -175,12 +175,12 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         .eq('id', blockId);
       if (cfgError) throw cfgError;
 
-      toast.success('Carousel saved');
+      toast.success(t('carouselEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving carousel:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('carouselEditor.failedToSave'));
     } finally {
       setSaving(false);
     }
@@ -226,7 +226,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                         style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
                       >
                         <span className="text-[13px] font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                          {previewCard?.label || 'Title'}
+                          {previewCard?.label || t('carouselEditor.titlePreview')}
                         </span>
                       </div>
                     </div>
@@ -251,7 +251,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                           className="font-bold text-white/90"
                           style={{ fontSize: 17, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
                         >
-                          {previewCard?.label || 'Title'}
+                          {previewCard?.label || t('carouselEditor.titlePreview')}
                         </span>
                       </div>
                     </div>
@@ -261,11 +261,11 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
             </div>
 
             <div>
-              <p className="text-xs text-white/60 mb-2">Card size</p>
+              <p className="text-xs text-white/60 mb-2">{t('carouselEditor.cardSize')}</p>
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { key: 'big', label: 'Large' },
-                  { key: 'small', label: 'Small' },
+                  { key: 'big', label: t('carouselEditor.cardSizeLarge') },
+                  { key: 'small', label: t('carouselEditor.cardSizeSmall') },
                 ] as const).map(({ key, label }) => (
                   <button
                     key={key}
@@ -286,11 +286,11 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
           {/* Section title (optional) — shown above the carousel on the profile. */}
           <div className="mb-4">
-            <p className="text-xs text-white/60 mb-1.5">Title (optional)</p>
+            <p className="text-xs text-white/60 mb-1.5">{t('carouselEditor.titleOptional')}</p>
             <input
               value={sectionTitle}
               onChange={(e) => setSectionTitle(e.target.value)}
-              placeholder="e.g. My Latest Content"
+              placeholder={t('carouselEditor.sectionTitlePlaceholder')}
               className={inputCls}
             />
           </div>
@@ -298,7 +298,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
           {/* Auto-scroll + speed */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-white/60">Auto-scroll</span>
+              <span className="text-xs text-white/60">{t('carouselEditor.autoScroll')}</span>
               <button
                 type="button"
                 onClick={() => setAutoScroll(!autoScroll)}
@@ -318,7 +318,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                       speed === s ? 'bg-[#C9A55C] text-[#0e0c09]' : 'bg-white/5 text-foreground border border-white/10'
                     }`}
                   >
-                    {s}
+                    {t(`carouselEditor.speed${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
                   </button>
                 ))}
               </div>
@@ -336,7 +336,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                     className="aspect-square rounded-xl border-2 border-dashed border-[#C9A55C]/40 flex flex-col items-center justify-center gap-2 hover:border-[#C9A55C]/70 hover:bg-[#C9A55C]/5 transition-colors"
                   >
                     <Plus className="h-7 w-7 text-[#C9A55C]/70" />
-                    <span className="text-xs font-medium text-[#C9A55C]/80">Add link</span>
+                    <span className="text-xs font-medium text-[#C9A55C]/80">{t('carouselEditor.addLink')}</span>
                   </button>
                 )}
                 {links.map((link) => {
@@ -364,7 +364,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); deleteLink(link.id); }}
-                        aria-label="Remove card"
+                        aria-label={t('carouselEditor.removeCard')}
                         className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/60 text-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -376,7 +376,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
               {links.length === 0 && (
                 <p className="mt-3 text-center text-xs text-white/40">
-                  Tap “Add link”, then enter the link &amp; title.
+                  {t('carouselEditor.emptyState')}
                 </p>
               )}
 
@@ -384,7 +384,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
               {selected && (
                 <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
                   <div className="space-y-1">
-                    <p className="text-xs text-white/60">Link *</p>
+                    <p className="text-xs text-white/60">{t('carouselEditor.link')}</p>
                     <input
                       value={selected.url}
                       onChange={(e) => updateLink(selected.id, { url: e.target.value })}
@@ -393,11 +393,11 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                     />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-white/60">Title (optional)</p>
+                    <p className="text-xs text-white/60">{t('carouselEditor.titleOptional')}</p>
                     <input
                       value={selected.label}
                       onChange={(e) => updateLink(selected.id, { label: e.target.value })}
-                      placeholder="Card title"
+                      placeholder={t('carouselEditor.cardTitlePlaceholder')}
                       className={inputCls}
                     />
                   </div>
@@ -405,10 +405,10 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
                     <ThumbnailUpload
                       value={selected.image_url || null}
                       onChange={(url) => updateLink(selected.id, { image_url: url || '' })}
-                      label="Photo"
+                      label={t('carouselEditor.photo')}
                     />
                     <p className="text-[11px] text-white/40 leading-relaxed">
-                      Photo optional — with no photo the card shows the icon from the link.
+                      {t('carouselEditor.photoHint')}
                     </p>
                   </div>
                 </div>
@@ -460,9 +460,9 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GalleryHorizontalEnd className="h-5 w-5 text-primary" />
-            Carousel
+            {t('carouselEditor.dialogTitle')}
           </DialogTitle>
-          <DialogDescription>A swipeable row of link cards.</DialogDescription>
+          <DialogDescription>{t('carouselEditor.dialogDescription')}</DialogDescription>
         </DialogHeader>
         {innerContent}
       </DialogContent>

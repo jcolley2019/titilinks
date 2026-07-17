@@ -101,6 +101,7 @@ interface SortableIconItemProps {
 }
 
 function SortableIconItem({ item, onUpdate, onDelete, error }: SortableIconItemProps) {
+  const { t } = useLanguage();
   const {
     attributes,
     listeners,
@@ -140,7 +141,7 @@ function SortableIconItem({ item, onUpdate, onDelete, error }: SortableIconItemP
           <Input
             value={item.label}
             onChange={(e) => onUpdate(item.id, 'label', e.target.value)}
-            placeholder="Label"
+            placeholder={t('socialIconRowEditor.label')}
             className="h-8 text-sm"
           />
           <Input
@@ -244,7 +245,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
       );
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load social icons');
+      toast.error(t('socialIconRowEditor.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -261,7 +262,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
   const addPreset = (preset: typeof SOCIAL_PRESETS[0]) => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} icons allowed`);
+      toast.error(t('socialIconRowEditor.maxItems').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const newItem: SocialIconItem = {
@@ -276,7 +277,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
   const addCustom = () => {
     if (items.length >= MAX_ITEMS) {
-      toast.error(`Maximum ${MAX_ITEMS} icons allowed`);
+      toast.error(t('socialIconRowEditor.maxItems').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const newItem: SocialIconItem = {
@@ -311,7 +312,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
     items.forEach((item) => {
       if (!item.label.trim()) {
-        newErrors[item.id] = 'Label is required';
+        newErrors[item.id] = t('socialIconRowEditor.labelRequired');
         valid = false;
       } else {
         const urlError = validateUrl(item.url);
@@ -328,7 +329,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
   const handleSave = async () => {
     if (!validate()) {
-      toast.error('Please fix the errors before saving');
+      toast.error(t('socialIconRowEditor.fixErrors'));
       return;
     }
 
@@ -374,27 +375,27 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
         }
       }
 
-      toast.success('Social icons saved');
+      toast.success(t('socialIconRowEditor.saved'));
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving:', error);
-      toast.error(error.message || 'Failed to save');
+      toast.error(error.message || t('socialIconRowEditor.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
   const sizeOptions: { value: IconRowConfig['icon_size']; label: string }[] = [
-    { value: 'sm', label: 'Small' },
-    { value: 'md', label: 'Medium' },
-    { value: 'lg', label: 'Large' },
+    { value: 'sm', label: t('socialIconRowEditor.sizeSmall') },
+    { value: 'md', label: t('socialIconRowEditor.sizeMedium') },
+    { value: 'lg', label: t('socialIconRowEditor.sizeLarge') },
   ];
 
   const spacingOptions: { value: IconRowConfig['spacing']; label: string }[] = [
-    { value: 'tight', label: 'Tight' },
-    { value: 'normal', label: 'Normal' },
-    { value: 'loose', label: 'Loose' },
+    { value: 'tight', label: t('socialIconRowEditor.spacingTight') },
+    { value: 'normal', label: t('socialIconRowEditor.spacingNormal') },
+    { value: 'loose', label: t('socialIconRowEditor.spacingLoose') },
   ];
 
   // Preview icon sizes
@@ -420,10 +421,10 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CircleDot className="h-5 w-5 text-primary" />
-            Edit Social Icon Row
+            {t('socialIconRowEditor.dialogTitle')}
           </DialogTitle>
           <DialogDescription>
-            Display social icons in a clean, tappable row.
+            {t('socialIconRowEditor.dialogDescription')}
           </DialogDescription>
         </DialogHeader>
       )}
@@ -439,7 +440,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               <div className="grid grid-cols-2 gap-4">
                 {/* Icon Size */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Icon Size</Label>
+                  <Label className="text-xs">{t('socialIconRowEditor.iconSize')}</Label>
                   <div className="flex gap-1">
                     {sizeOptions.map((opt) => (
                       <Button
@@ -458,7 +459,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
                 {/* Spacing */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Spacing</Label>
+                  <Label className="text-xs">{t('socialIconRowEditor.spacing')}</Label>
                   <div className="flex gap-1">
                     {spacingOptions.map((opt) => (
                       <Button
@@ -479,8 +480,8 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               {/* Color Settings */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm">Use Theme Color</Label>
-                  <p className="text-xs text-muted-foreground">Match your page theme</p>
+                  <Label className="text-sm">{t('socialIconRowEditor.useThemeColor')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('socialIconRowEditor.matchThemeHint')}</p>
                 </div>
                 <Switch
                   checked={config.use_theme_color}
@@ -490,7 +491,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
               {!config.use_theme_color && (
                 <div className="flex items-center gap-3">
-                  <Label className="text-xs">Custom Color</Label>
+                  <Label className="text-xs">{t('socialIconRowEditor.customColor')}</Label>
                   <input
                     type="color"
                     value={config.custom_color}
@@ -507,7 +508,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
 
               {/* Live Preview */}
               <div className="pt-3 border-t border-border">
-                <Label className="text-xs mb-2 block">Preview</Label>
+                <Label className="text-xs mb-2 block">{t('socialIconRowEditor.preview')}</Label>
                 <div className={cn('flex flex-wrap justify-center', getPreviewGap())}>
                   {(items.length > 0 ? items.slice(0, 5) : [{ label: 'TikTok' }, { label: 'Instagram' }, { label: 'YouTube' }]).map((item, i) => {
                     return (
@@ -539,7 +540,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Add Icon ({items.length}/{MAX_ITEMS})
+                {t('socialIconRowEditor.addIcon').replace('{count}', String(items.length)).replace('{max}', String(MAX_ITEMS))}
                 <ChevronDown className={cn('h-3 w-3 transition-transform', showPresets && 'rotate-180')} />
               </Button>
               <Button
@@ -550,7 +551,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
                 className="gap-2"
               >
                 <Globe className="h-4 w-4" />
-                Custom
+                {t('socialIconRowEditor.custom')}
               </Button>
             </div>
 
@@ -579,8 +580,8 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               {items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <CircleDot className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No icons yet</p>
-                  <p className="text-xs">Add your social profiles above</p>
+                  <p className="text-sm">{t('socialIconRowEditor.emptyTitle')}</p>
+                  <p className="text-xs">{t('socialIconRowEditor.emptyHint')}</p>
                 </div>
               ) : (
                 <DndContext
