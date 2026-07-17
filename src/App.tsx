@@ -13,6 +13,7 @@ import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
+import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import Templates from "./pages/Templates";
 import TemplateCategory from "./pages/TemplateCategory";
@@ -79,6 +80,7 @@ const App = () => (
               }
             />
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
+            <Route path="/go/:itemId" element={<AdultLinkHop />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/templates/:category" element={<TemplateCategory />} />
             <Route path="/api/canva/connect" element={<CanvaConnect />} />

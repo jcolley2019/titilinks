@@ -1,14 +1,19 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /go/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /go/
 
 User-agent: Twitterbot
 Allow: /
+Disallow: /go/
 
 User-agent: facebookexternalhit
 Allow: /
+Disallow: /go/
 
 User-agent: *
 Allow: /
+Disallow: /go/

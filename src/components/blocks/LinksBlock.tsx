@@ -27,7 +27,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
-import { gatedHref, isGated, openGated } from '@/lib/adult-gate';
+import { gatedHref, isGated, hopPath } from '@/lib/adult-gate';
+import { useNavigate } from 'react-router-dom';
 import { AdultCardGate } from './AdultCardGate';
 import { leadingIconFor, useProfileAvatar } from './link-leading-icon';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
@@ -139,6 +140,7 @@ export function LinksBlock({
   onItemsReorder,
 }: ThemedBlockProps & LinksBlockEditProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const tc = (text: string | null | undefined) => translateContent(text, t);
   // Creator's live profile photo — lets a link opt into using the avatar as its
   // leading icon (see leadingIconFor / icon_source).
@@ -187,7 +189,9 @@ export function LinksBlock({
     );
     if (gated) {
       e.preventDefault();
-      if (shouldNavigate) openGated(item.url);
+      // ADULT.2b: a revealed card forwards through the /go hop by id. The
+      // destination is never in this DOM, and now never in the link either.
+      if (shouldNavigate) navigate(hopPath(item.id));
       return;
     }
     if (!shouldNavigate) {

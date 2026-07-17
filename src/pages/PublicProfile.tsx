@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { hopPath } from '@/lib/adult-gate';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -96,6 +97,8 @@ export default function PublicProfile() {
     return () => { document.body.style.backgroundColor = prev; };
   }, []);
 
+  const navigate = useNavigate();
+
   // Adult content interstitial state
   const [pendingAdultLink, setPendingAdultLink] = useState<{
     url: string;
@@ -142,11 +145,15 @@ export default function PublicProfile() {
         pendingAdultLink.itemId,
         pendingAdultLink.url
       );
-      // Open the link
-      window.open(pendingAdultLink.url, '_blank', 'noopener,noreferrer');
+      // ADULT.2b: forward through the /go hop rather than opening the
+      // destination here. Same tab, per the Link.me reference: the hop
+      // replaces itself, so Back from the destination lands on this profile,
+      // and a same-tab navigation can't be swallowed by a popup blocker the
+      // way a window.open one step removed from the tap can be.
+      navigate(hopPath(pendingAdultLink.itemId));
       setPendingAdultLink(null);
     }
-  }, [pendingAdultLink, trackOutboundClick]);
+  }, [pendingAdultLink, trackOutboundClick, navigate]);
 
   const handleAdultCancel = useCallback(() => {
     setPendingAdultLink(null);

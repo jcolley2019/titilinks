@@ -18,7 +18,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 import type { BlockItem, ThemedBlockProps } from './types';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isAdultUrl, configHopId, stashHopDestination } from '@/lib/adult-gate';
 
 export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -163,17 +163,37 @@ export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }:
               {config.section_title}
             </h3>
           )}
-          {config.view_all_url && (
-            <a
-              href={config.view_all_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium opacity-70 hover:opacity-100 transition-opacity"
-              style={{ color: theme.buttons.fill_color }}
-            >
-              {config.view_all_label} →
-            </a>
-          )}
+          {config.view_all_url && (() => {
+            // ADULT.2b rider: this destination lives in block config and has no
+            // is_adult flag of its own, so the domain check IS the gate. A
+            // gated one renders no href at all and opens the modal instead.
+            const gated = !editMode && isAdultUrl(config.view_all_url);
+            const hopId = configHopId(block.id);
+            return (
+              <a
+                href={gated ? undefined : config.view_all_url}
+                target={gated ? undefined : '_blank'}
+                rel={gated ? undefined : 'noopener noreferrer'}
+                role={gated ? 'button' : undefined}
+                tabIndex={gated ? 0 : undefined}
+                onClick={(e) => {
+                  if (!gated) return;
+                  e.preventDefault();
+                  // No item row exists for a config URL — hand the destination
+                  // to the hop out-of-band, then gate on the id alone.
+                  stashHopDestination(hopId, config.view_all_url);
+                  onOutboundClick?.(block.type, block.id, hopId, config.view_all_url, true);
+                }}
+                className={cn(
+                  'text-sm font-medium opacity-70 hover:opacity-100 transition-opacity',
+                  gated && 'cursor-pointer'
+                )}
+                style={{ color: theme.buttons.fill_color }}
+              >
+                {config.view_all_label} →
+              </a>
+            );
+          })()}
         </div>
       )}
 

@@ -84,7 +84,52 @@ export function isGated(item: GatableItem, editMode?: boolean): boolean {
   return isEffectivelyGated(item) && !editMode;
 }
 
-/** Opens a gated destination after confirmation, without ever rendering it. */
-export function openGated(url: string): void {
-  window.open(url, '_blank', 'noopener,noreferrer');
+/**
+ * ADULT.2b — the interstitial a confirmed gate forwards to.
+ *
+ * Carries the item id and nothing else: the destination never travels in a
+ * path, query, or hash where a crawler or a referrer log could read it.
+ */
+export function hopPath(itemId: string): string {
+  return `/go/${itemId}`;
+}
+
+// ADULT.2b handoff. The hop resolves a block_item id straight from the
+// database, but some gated destinations are not block_items at all — a
+// content section's view_all_url lives in block config and has no row of its
+// own. For those the gate stashes the destination under an opaque id and the
+// hop reads it back. sessionStorage is same-origin, same-tab, and cleared with
+// the tab, so the URL still never appears in a path, a query, or the DOM.
+const HANDOFF_PREFIX = 'titilinks:hop:';
+
+/** Stash a destination for the hop, keyed by an opaque id. */
+export function stashHopDestination(id: string, url: string): void {
+  try {
+    sessionStorage.setItem(HANDOFF_PREFIX + id, url);
+  } catch {
+    /* private mode / storage disabled — the hop falls back to the db lookup */
+  }
+}
+
+/** Read back a stashed destination, if the gate left one. */
+export function readHopDestination(id: string): string | null {
+  try {
+    return sessionStorage.getItem(HANDOFF_PREFIX + id);
+  } catch {
+    return null;
+  }
+}
+
+/** Drop a stashed destination once it has been used. */
+export function clearHopDestination(id: string): void {
+  try {
+    sessionStorage.removeItem(HANDOFF_PREFIX + id);
+  } catch {
+    /* nothing to clean up */
+  }
+}
+
+/** The opaque hop id for a block-config destination (which has no item row). */
+export function configHopId(blockId: string): string {
+  return `cfg-${blockId}`;
 }
