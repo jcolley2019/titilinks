@@ -44,8 +44,9 @@ interface AnchorLinkButtonProps extends BaseLinkButtonProps {
   as: 'a';
   /** Optional so an 18+ gated item can render its anchor with no href at all
    *  (ADULT.2a) — React omits the attribute entirely when this is undefined,
-   *  which is the point: the URL must not reach the DOM. Such items open via
-   *  window.open once the visitor confirms their age. */
+   *  which is the point: the URL must not reach the DOM. The card still looks
+   *  exactly like any other; tapping it raises the 18+ modal, which forwards
+   *  through the /go hop by id (ADULT.2b/2c). */
   href?: string;
   target?: React.HTMLAttributeAnchorTarget;
   rel?: string;

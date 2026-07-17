@@ -18,7 +18,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 import type { BlockItem, ThemedBlockProps } from './types';
-import { gatedHref, isAdultUrl, configHopId, stashHopDestination } from '@/lib/adult-gate';
+import { gatedHref, isGated, isAdultUrl, configHopId, stashHopDestination } from '@/lib/adult-gate';
 
 export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -47,7 +47,9 @@ export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }:
   }
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
-    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, isGated(item, editMode));
     if (!shouldNavigate) {
       e.preventDefault();
     }

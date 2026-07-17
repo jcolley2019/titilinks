@@ -22,7 +22,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import type { BlockItem, ThemedBlockProps } from './types';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isGated } from '@/lib/adult-gate';
 
 export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
@@ -31,12 +31,14 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: 
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
     const shouldNavigate = onOutboundClick(
       block.type,
       block.id,
       item.id,
       item.url,
-      item.is_adult || false
+      isGated(item, editMode)
     );
     if (!shouldNavigate) {
       e.preventDefault();

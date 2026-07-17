@@ -11,7 +11,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { isFullBleedTheme } from '@/lib/surface';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isGated } from '@/lib/adult-gate';
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -79,7 +79,9 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
   const fullBleed = isFullBleedTheme(theme);
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
-    const ok = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
+    const ok = onOutboundClick(block.type, block.id, item.id, item.url, isGated(item, editMode));
     if (!ok) e.preventDefault();
   };
 

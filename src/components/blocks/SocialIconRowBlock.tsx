@@ -17,7 +17,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isGated } from '@/lib/adult-gate';
 import { SocialSvgIcon } from './SocialSvgIcon';
 import type { BlockItem, ThemedBlockProps } from './types';
 
@@ -45,7 +45,9 @@ export function SocialIconRowBlock({ block, onOutboundClick, theme, editMode }: 
   }
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
-    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
+    const shouldNavigate = onOutboundClick(block.type, block.id, item.id, item.url, isGated(item, editMode));
     if (!shouldNavigate) {
       e.preventDefault();
     }

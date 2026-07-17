@@ -143,7 +143,14 @@ test.describe('/go interstitial', () => {
 const SPOTIFY_URL = 'https://open.spotify.com/artist/test-control';
 const ONLYFANS_URL = 'https://onlyfans.com/test-creator';
 const BLOCK_ID = 'test-social-block';
+const CARD_BLOCK_ID = 'test-links-block';
 const GATED_ITEM_ID = 'test-item-onlyfans';
+const GATED_CARD_ID = 'test-card-gated';
+
+// Strings the retired at-rest card disclaimer used to render. ADULT.2c ruled
+// that a gated card shows NOTHING until tapped, so these must never appear on
+// a page at rest — this is the ruling expressed as an assertion.
+const RETIRED_DISCLAIMER_TEXT = ['Mature Content Disclaimer', '18+ only', 'Aviso de contenido para adultos'];
 
 const seedSocialIcons = async (page: import('@playwright/test').Page) => {
   let modeId = '';
@@ -158,17 +165,24 @@ const seedSocialIcons = async (page: import('@playwright/test').Page) => {
 
   await page.route('**/rest/v1/blocks*', async (route) => {
     await route.fulfill({
-      json: [{ id: BLOCK_ID, mode_id: modeId, type: 'social_links', title: null, is_enabled: true, order_index: 0 }],
+      json: [
+        { id: BLOCK_ID, mode_id: modeId, type: 'social_links', title: null, is_enabled: true, order_index: 0 },
+        { id: CARD_BLOCK_ID, mode_id: modeId, type: 'links', title: null, is_enabled: true, order_index: 1 },
+      ],
     });
   });
 
   await page.route('**/rest/v1/block_items*', async (route) => {
     await route.fulfill({
       json: [
+        // --- header icons ---
         // CONTROL: an ordinary platform, untouched by the gate.
         { id: 'test-item-spotify', block_id: BLOCK_ID, label: 'Spotify', url: SPOTIFY_URL, is_adult: false, order_index: 0, subtitle: null, badge: null, image_url: null },
         // THE RULING: flagged false, but the domain is adult. Must still gate.
         { id: GATED_ITEM_ID, block_id: BLOCK_ID, label: 'OnlyFans', url: ONLYFANS_URL, is_adult: false, order_index: 1, subtitle: null, badge: null, image_url: null },
+        // --- link cards ---
+        { id: 'test-card-normal', block_id: CARD_BLOCK_ID, label: 'Normal Card', url: SPOTIFY_URL, is_adult: false, order_index: 0, subtitle: null, badge: null, image_url: null, size: 'medium', style_json: null },
+        { id: GATED_CARD_ID, block_id: CARD_BLOCK_ID, label: 'Gated Card', url: ONLYFANS_URL, is_adult: false, order_index: 1, subtitle: null, badge: null, image_url: null, size: 'medium', style_json: null },
       ],
     });
   });
@@ -244,5 +258,78 @@ test.describe('public profile — the icon row', () => {
 
     await page.locator('a[title="OnlyFans"]').click();
     await expect(page.getByText('Aviso de contenido +18')).toBeVisible();
+  });
+});
+
+// ─── 4. Link cards — the ADULT.2c ruling ────────────────────────────────────
+//
+// The ruling: a gated card is an ordinary card until it is tapped. No
+// disclaimer, no age wall, nothing at rest. Tap raises the same modal the
+// icons use; Continue forwards to /go/<id>.
+
+test.describe('link cards — no warning until clicked', () => {
+  test('a gated card renders as a NORMAL card at rest', async ({ page }) => {
+    await gotoSeededProfile(page);
+
+    // It is simply there, labelled, like any other card.
+    await expect(page.getByText('Gated Card')).toBeVisible();
+
+    // And nothing warns at rest — the retired disclaimer must be gone.
+    const html = await page.content();
+    for (const text of RETIRED_DISCLAIMER_TEXT) {
+      expect(html, `no at-rest disclaimer: "${text}" must not render`).not.toContain(text);
+    }
+  });
+
+  test('a gated card is href-clean while an ordinary card keeps its link', async ({ page }) => {
+    await gotoSeededProfile(page);
+
+    // Indistinguishable to the eye, opposite in the DOM: the gated card's
+    // destination is absent, the normal card's is intact.
+    const gatedCard = page.locator('a', { hasText: 'Gated Card' }).first();
+    await expect(gatedCard).not.toHaveAttribute('href', /.*/);
+
+    const normalCard = page.locator('a', { hasText: 'Normal Card' }).first();
+    await expect(normalCard).toHaveAttribute('href', SPOTIFY_URL);
+
+    expect(await page.content()).not.toContain('onlyfans.com');
+  });
+
+  test('tapping a gated card opens the same modal and does not navigate', async ({ page }) => {
+    await gotoSeededProfile(page);
+    const before = page.url();
+
+    await page.locator('a', { hasText: 'Gated Card' }).first().click();
+
+    await expect(page.getByText('18+ Content Warning')).toBeVisible();
+    expect(page.url()).toBe(before);
+    expect(await page.content()).not.toContain('onlyfans.com');
+  });
+
+  test('card Continue forwards to the /go hop by id', async ({ page }) => {
+    await gotoSeededProfile(page);
+    await page.locator('a', { hasText: 'Gated Card' }).first().click();
+    await expect(page.getByText('18+ Content Warning')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Continue (18+)' }).click();
+
+    await page.waitForURL(`**/go/${GATED_CARD_ID}`, { timeout: 10000 });
+    expect(page.url()).not.toContain('onlyfans.com');
+  });
+
+  test('Go back dismisses and does nothing else — the card re-gates', async ({ page }) => {
+    await gotoSeededProfile(page);
+    const before = page.url();
+
+    await page.locator('a', { hasText: 'Gated Card' }).first().click();
+    await expect(page.getByText('18+ Content Warning')).toBeVisible();
+    await page.getByRole('button', { name: 'Go back' }).click();
+
+    await expect(page.getByText('18+ Content Warning')).not.toBeVisible();
+    expect(page.url()).toBe(before);
+
+    // No reveal state survives the dismiss: a re-tap gates again.
+    await page.locator('a', { hasText: 'Gated Card' }).first().click();
+    await expect(page.getByText('18+ Content Warning')).toBeVisible();
   });
 });

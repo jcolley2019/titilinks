@@ -16,7 +16,7 @@ import { Link as LinkChainIcon } from 'lucide-react';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { ThemedBlockProps, BlockItem } from './types';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isGated } from '@/lib/adult-gate';
 
 /** The icon "from the link": platform brand glyph, or a generic link chain. */
 function DerivedIcon({ url, size, color }: { url: string | null | undefined; size: number; color?: string }) {
@@ -87,7 +87,9 @@ export function CarouselBlock({ block, onOutboundClick, theme, editMode }: Theme
   const aspect = cardSize === 'small' ? '1 / 1' : '3 / 4';
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
-    const ok = onOutboundClick(block.type, block.id, item.id, item.url, item.is_adult || false);
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
+    const ok = onOutboundClick(block.type, block.id, item.id, item.url, isGated(item, editMode));
     if (!ok) e.preventDefault();
   };
 

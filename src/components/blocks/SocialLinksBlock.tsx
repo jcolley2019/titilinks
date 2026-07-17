@@ -5,7 +5,7 @@
 // No i18n wrapping needed — labels are platform names, not user copy.
 
 import { ThumbnailImage } from '@/components/ThumbnailImage';
-import { gatedHref } from '@/lib/adult-gate';
+import { gatedHref, isGated } from '@/lib/adult-gate';
 import { SocialSvgIcon } from './SocialSvgIcon';
 import type { BlockItem, ThemedBlockProps } from './types';
 
@@ -13,12 +13,14 @@ export function SocialLinksBlock({ block, onOutboundClick, theme: _theme, editMo
   if (block.items.length === 0) return null;
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
+    // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
+    // domain-matched item raises the same modal every other surface uses.
     const shouldNavigate = onOutboundClick(
       block.type,
       block.id,
       item.id,
       item.url,
-      item.is_adult || false
+      isGated(item, editMode)
     );
     if (!shouldNavigate) {
       e.preventDefault();
