@@ -45,9 +45,9 @@ import {
   Plus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, type PageId, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
-import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT, withEffectivePageStyle, isFullBleedTheme } from '@/lib/surface';
+import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT, withEffectivePageStyle, isFullBleedTheme, resolveHeroConfig } from '@/lib/surface';
 import { LinkButton } from '@/components/LinkButton';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
@@ -1098,21 +1098,28 @@ export function EditableProfileView({
   const heroInherit: boolean = (page.theme_json as any)?.pages?.page2?.heroInherit === true;
   const usePage2Own = selectedMode === 'page2' && !heroInherit;
   const heroConfigKey = usePage2Own ? 'heroConfig_page2' : 'heroConfig';
-  // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json[heroConfigKey]
+  // HERO.DEFAULTS.1: the page whose effective hero config the resolver reads —
+  // Page 2's own when editing it un-inherited, else Page 1's (an inheriting
+  // Page 2 mirrors Page 1). Writers still target heroConfigKey; readers resolve.
+  const heroPageId: PageId = usePage2Own ? 'page2' : 'page1';
+  // HERO-1 display mode (B1): live Fill/Fit + vertical position, persisted to theme_json[heroConfigKey].
+  // HERO.DEFAULTS.1: drafts open from the RESOLVED config, so the control lands
+  // on the dialed-in default (Fill, posY 25) on a config-less page — matching
+  // the render and the entering-hero seed, never the raw posY-50 dead-center.
   const [heroFitDraft, setHeroFitDraft] = useState<'fill' | 'fit'>(
-    (page.theme_json as any)?.[heroConfigKey]?.fit === 'fit' ? 'fit' : 'fill'
+    resolveHeroConfig(page.theme_json, heroPageId).fit === 'fit' ? 'fit' : 'fill'
   );
   const [heroPosYDraft, setHeroPosYDraft] = useState<number>(
-    typeof (page.theme_json as any)?.[heroConfigKey]?.posY === 'number' ? (page.theme_json as any)[heroConfigKey].posY : 50
+    resolveHeroConfig(page.theme_json, heroPageId).posY ?? 50
   );
   const [heroPosXDraft, setHeroPosXDraft] = useState<number>(
-    typeof (page.theme_json as any)?.[heroConfigKey]?.posX === 'number' ? (page.theme_json as any)[heroConfigKey].posX : 50
+    resolveHeroConfig(page.theme_json, heroPageId).posX ?? 50
   );
   // Resync hero display drafts when the edited page (or inherit toggle) changes.
   useEffect(() => {
-    const cfg = (page.theme_json as any)?.[heroConfigKey] || {};
+    const cfg = resolveHeroConfig(page.theme_json, heroPageId);
     setHeroFitDraft(cfg.fit === 'fit' ? 'fit' : 'fill');
-    setHeroPosYDraft(typeof cfg.posY === 'number' ? cfg.posY : 50);
+    setHeroPosYDraft(cfg.posY ?? 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroConfigKey]);
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
@@ -1902,8 +1909,11 @@ export function EditableProfileView({
   const heroImage = selectedMode === 'page2'
     ? (heroInherit ? page1HeroImage : (localHeroImages.page2 || page2AvatarUrl || ''))
     : page1HeroImage;
-  // Hero display config (HERO-1). Absent → Fill, centered — un-beheads legacy photos.
-  const heroConfig = (page.theme_json as any)?.[heroConfigKey] || {};
+  // Hero display config (HERO-1). HERO.DEFAULTS.1: resolved at read time, so an
+  // absent/partial config renders the dialed-in default (Fill, posY 25 — faces
+  // in the top third) with no stored data. Feeds heroFit/heroPosY below and the
+  // full-bleed background's objectPosition. Public + editor share this path.
+  const heroConfig = resolveHeroConfig(page.theme_json, heroPageId);
   const heroVideo: string = heroConfig.video || '';
   const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
   const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;

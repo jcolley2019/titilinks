@@ -92,6 +92,10 @@ export const DEFAULT_BLOCK_STYLE: BlockStyleConfig = {
 export interface HeroConfig {
   fit?: 'fill' | 'fit';
   posY?: number;
+  // Horizontal crop anchor (0–100). Center-default; not part of the dialed-in
+  // set (HERO_DEFAULTS) — read via `?? 50` at the call sites. Typed here because
+  // the hero resolver returns HeroConfig and the render reads posX off it.
+  posX?: number;
   video?: string;
   audio?: 'silent' | 'clip' | 'voiceover';
   playback?: 'once' | 'loop' | 'bounce';

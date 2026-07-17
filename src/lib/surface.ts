@@ -1,7 +1,7 @@
 // FS.SURFACE — Full Screen premium surface system (shared primitives).
 
 import type { CSSProperties } from 'react';
-import type { ThemeJson, PageId, PageStyle, PagesConfig } from './theme-defaults';
+import type { ThemeJson, PageId, PageStyle, PagesConfig, HeroConfig } from './theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from './theme-defaults';
 
 /** Button variant union — mirrors ThemeJson buttons.variant. */
@@ -52,6 +52,45 @@ export function withEffectivePageStyle<T extends ThemeJson>(
   activePageId: PageId
 ): T {
   return { ...theme, pageStyle: resolveEffectivePageStyle(themeJson, activePageId) };
+}
+
+/**
+ * HERO.DEFAULTS.1 — THE one canonical dialed-in hero default set. Derived from
+ * what the app's happy path actually produces, not invented: onboarding writes
+ * no hero config, and BOTH seed sites (savePageStyle's entering-hero seed and
+ * setPageEnabled's born-Page-2 seed) write exactly `{ fit: 'fill', posY: 25 }`.
+ * Fill covers the hero window; posY 25 frames the crop to the top third so
+ * faces live in the upper half and the standard dark card area + seam fade sit
+ * below. Everything else (video/audio/playback/posX) is opt-in and never
+ * defaulted here — posX stays center via each reader's own `?? 50`.
+ */
+export const HERO_DEFAULTS: HeroConfig = { fit: 'fill', posY: 25 };
+
+/**
+ * HERO.DEFAULTS.1 — read-time resolution of a page's effective hero config, the
+ * exact sibling of resolveEffectivePageStyle: readers resolve, writers persist
+ * only explicit choices. Stored fields win one-by-one; every ABSENT field fills
+ * from HERO_DEFAULTS. So a page with NO stored hero config renders the full
+ * dialed-in treatment with zero user action — this is what heals legacy /
+ * pre-seed pages (Joey's Page 2) at read time, no migration — while a page
+ * where the user tuned only posY keeps that posY and still inherits Fill.
+ *
+ * `pageId` selects the slot: page1 → `heroConfig`, page2 → `heroConfig_page2`.
+ * An inheriting Page 2 mirrors Page 1's hero, so its call site passes 'page1'
+ * (there is no separate inherit branch in here — the caller already owns that).
+ *
+ * Takes the RAW theme_json, not a normalized ThemeJson — same trap as
+ * resolveEffectivePageStyle: getThemeWithDefaults drops these keys, so a
+ * normalized theme would carry no stored hero config and silently always
+ * resolve to the bare defaults.
+ */
+export function resolveHeroConfig(themeJson: unknown, pageId: PageId): HeroConfig {
+  const t = (themeJson && typeof themeJson === 'object' ? themeJson : {}) as {
+    heroConfig?: HeroConfig;
+    heroConfig_page2?: HeroConfig;
+  };
+  const stored = (pageId === 'page2' ? t.heroConfig_page2 : t.heroConfig) || {};
+  return { ...HERO_DEFAULTS, ...stored };
 }
 
 /**

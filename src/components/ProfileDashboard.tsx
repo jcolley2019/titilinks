@@ -28,7 +28,7 @@ import { randomUUID } from '@/lib/utils';
 import { HeroVideo } from '@/components/EditableProfileView';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { resolveEffectivePageStyle } from '@/lib/surface';
+import { resolveEffectivePageStyle, resolveHeroConfig } from '@/lib/surface';
 import type { PageId, PageStyle } from '@/lib/theme-defaults';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -358,7 +358,11 @@ export function ProfileDashboard({
   const heroInherit: boolean = pagesCfg?.page2?.heroInherit === true;
   // Hero reads/writes target Page 2's own config only when editing Page 2 and not inheriting.
   const heroConfigKey = (selectedMode === 'page2' && !heroInherit) ? 'heroConfig_page2' : 'heroConfig';
-  const heroCfg = (themeJson as any)?.[heroConfigKey] || {};
+  // HERO.DEFAULTS.1: this menu reads only the video-side fields, but it still
+  // resolves through the one resolver so no hero read bypasses it. Writers below
+  // keep spreading the RAW existingTheme — resolved values never reach a write.
+  const heroPageId: PageId = (selectedMode === 'page2' && !heroInherit) ? 'page2' : 'page1';
+  const heroCfg = resolveHeroConfig(themeJson, heroPageId);
   const heroVideoUrl: string = heroCfg.video || '';
   const heroAudioMode: 'silent' | 'clip' | 'voiceover' =
     heroCfg.audio === 'clip' || heroCfg.audio === 'voiceover' ? heroCfg.audio : 'silent';
