@@ -90,7 +90,6 @@ const PLATFORM_CATEGORIES = [
       { label: 'PayPal', icon: '🅿️', placeholder: 'PayPal.me link' },
       { label: 'Venmo', icon: '💸', placeholder: 'Venmo username' },
       { label: 'Cash App', icon: '💵', placeholder: 'Cash App $cashtag' },
-      { label: 'Zelle', icon: '⚡', placeholder: 'Zelle email or phone' },
     ],
   },
   {
@@ -98,7 +97,7 @@ const PLATFORM_CATEGORIES = [
     platforms: [
       { label: 'Twitch', icon: '🎮', placeholder: 'Twitch username' },
       { label: 'Kick', icon: '🎯', placeholder: 'Kick username' },
-      { label: 'Netflix', icon: '🎬', placeholder: 'Netflix profile URL' },
+      { label: 'Netflix', icon: '🎬', placeholder: 'Netflix link' },
       { label: 'Steam', icon: '🕹️', placeholder: 'Steam profile URL' },
       { label: 'Substack', icon: '📰', placeholder: 'Substack handle' },
     ],
@@ -150,7 +149,7 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Etsy': (h) => `https://etsy.com/shop/${h}`,
   'OnlyFans': (h) => `https://onlyfans.com/${h}`,
   'Fansly': (h) => `https://fansly.com/${h}`,
-  'Privacy': (h) => `https://privacy.com.br/profile/${h}`,
+  'Privacy': (h) => `https://privacy.com.br/@${h}`,
   'FatalFans': (h) => `https://fatalfans.com/${h}`,
 };
 

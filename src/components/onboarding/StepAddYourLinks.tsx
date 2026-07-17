@@ -31,7 +31,7 @@ const PLATFORM_CATEGORIES = [
   },
   {
     label: 'Payment',
-    platforms: ['PayPal', 'Venmo', 'Cash App', 'Zelle'],
+    platforms: ['PayPal', 'Venmo', 'Cash App'],
   },
   {
     label: 'Entertainment',

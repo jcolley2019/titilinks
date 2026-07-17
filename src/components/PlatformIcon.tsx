@@ -3,7 +3,7 @@ import {
   SiTiktok, SiInstagram, SiYoutube, SiFacebook, SiX, SiSnapchat, SiThreads,
   SiPinterest, SiGithub, SiTelegram, SiWhatsapp, SiCalendly, SiDiscord,
   SiSpotify, SiApplemusic, SiSoundcloud, SiYoutubemusic, SiPaypal, SiVenmo,
-  SiCashapp, SiZelle, SiTwitch, SiKick, SiNetflix, SiSteam, SiEtsy, SiYelp,
+  SiCashapp, SiTwitch, SiKick, SiNetflix, SiSteam, SiEtsy, SiYelp,
   SiAirbnb, SiOnlyfans, SiPandora, SiApplepodcasts, SiSubstack,
 } from 'react-icons/si';
 import { FaLinkedin, FaSkype, FaTwitter, FaAmazon } from 'react-icons/fa';
@@ -56,7 +56,6 @@ const PLATFORMS: Record<string, PlatformMeta> = {
   'PayPal': { Icon: SiPaypal, color: '#0070BA' },
   'Venmo': { Icon: SiVenmo, color: '#3D95CE' },
   'Cash App': { Icon: SiCashapp, color: '#00D632' },
-  'Zelle': { Icon: SiZelle, color: '#8C52FF' },
   'Twitch': { Icon: SiTwitch, color: '#9146FF' },
   'Kick': { Icon: SiKick, color: '#53FC18' },
   'Netflix': { Icon: SiNetflix, color: '#E50914' },
