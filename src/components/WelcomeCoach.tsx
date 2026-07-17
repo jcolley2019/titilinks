@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface CoachStep {
   targetSelector: string | null;
@@ -12,28 +13,28 @@ const STORAGE_KEY = 'titilinks-coach-complete';
 const coachSteps: CoachStep[] = [
   {
     targetSelector: '[data-coach="preview"]',
-    title: '\ud83d\udc4b You\u2019re live!',
-    description: 'This is your link page. Visitors can already see it at titilinks.com/',
+    title: 'welcomeCoach.youreLiveTitle',
+    description: 'welcomeCoach.youreLiveDesc',
   },
   {
     targetSelector: '[data-coach="blocks"]',
-    title: '\u270f\ufe0f Edit your links',
-    description: 'Click any link to edit the title and URL. Drag the \u2807 icon to reorder them.',
+    title: 'welcomeCoach.editLinksTitle',
+    description: 'welcomeCoach.editLinksDesc',
   },
   {
     targetSelector: '[data-coach="blocks"]',
-    title: '\ud83d\udc41\ufe0f Show or hide links',
-    description: 'Toggle any link on or off to control what visitors see on your page.',
+    title: 'welcomeCoach.showHideTitle',
+    description: 'welcomeCoach.showHideDesc',
   },
   {
     targetSelector: '[data-coach="tabs"]',
-    title: '\ud83c\udfa8 Customize your design',
-    description: 'Switch to the Design tab to change colors, fonts, backgrounds, and button styles.',
+    title: 'welcomeCoach.customizeTitle',
+    description: 'welcomeCoach.customizeDesc',
   },
   {
     targetSelector: null,
-    title: '\ud83d\ude80 You\u2019re all set!',
-    description: 'Add more links, upload images, and grow your audience. We\u2019re excited to have you!',
+    title: 'welcomeCoach.allSetTitle',
+    description: 'welcomeCoach.allSetDesc',
   },
 ];
 
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function WelcomeCoach({ username }: Props) {
+  const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -89,10 +91,7 @@ export function WelcomeCoach({ username }: Props) {
   if (!visible) return null;
 
   const currentStep = coachSteps[step];
-  const description =
-    step === 0 && username
-      ? `${currentStep.description}${username}`
-      : currentStep.description;
+  const description = t(currentStep.description).replace('{username}', username || '');
 
   const isLastStep = step === coachSteps.length - 1;
   const isCentered = !currentStep.targetSelector;
@@ -156,7 +155,7 @@ export function WelcomeCoach({ username }: Props) {
           onClick={handleComplete}
           className="fixed top-4 right-4 z-[102] text-sm text-white/40 hover:text-white/70 transition-colors font-body px-3 py-2 rounded-lg bg-black/40 backdrop-blur-sm"
         >
-          Skip
+          {t('welcomeCoach.skip')}
         </button>
       )}
 
@@ -180,7 +179,7 @@ export function WelcomeCoach({ username }: Props) {
               className="text-lg font-bold text-white mb-2"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              {currentStep.title}
+              {t(currentStep.title)}
             </h3>
             <p className="text-sm text-white/70 leading-relaxed font-body">
               {description}
@@ -202,7 +201,7 @@ export function WelcomeCoach({ username }: Props) {
               onClick={handleNext}
               className="w-full py-2.5 rounded-lg bg-[#C9A55C] text-[#0e0c09] font-semibold text-sm font-body hover:opacity-90 transition-opacity"
             >
-              {isLastStep ? "Let's go!" : 'Next'}
+              {isLastStep ? t('welcomeCoach.letsGo') : t('welcomeCoach.next')}
             </button>
           </div>
         </motion.div>

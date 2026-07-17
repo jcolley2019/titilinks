@@ -57,6 +57,7 @@ function SortableLinkItem({
   onItemDelete?: (id: string) => void;
   children: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   const [confirming, setConfirming] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -75,7 +76,7 @@ function SortableLinkItem({
           Handle-only activation (listeners live here), so a card tap still edits. */}
       <button
         type="button"
-        aria-label="Reorder link"
+        aria-label={t('linksBlock.reorderLink')}
         {...attributes}
         {...listeners}
         className="absolute -top-2 -left-2 z-10 h-6 w-6 rounded-full bg-black/70 text-white/80 ring-1 ring-white/15 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
@@ -90,7 +91,7 @@ function SortableLinkItem({
       {/* Delete (X) — opens inline confirm */}
       <button
         type="button"
-        aria-label="Remove link"
+        aria-label={t('linksBlock.removeLink')}
         onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
         className="absolute -top-2 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/80 shadow-md ring-1 ring-white/15 hover:bg-black/90 hover:text-white transition-colors"
       >
@@ -104,21 +105,21 @@ function SortableLinkItem({
           onClick={(e) => e.stopPropagation()}
           className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl bg-black/85 backdrop-blur-sm px-4 text-center"
         >
-          <p className="text-xs font-semibold text-white">Remove this link?</p>
+          <p className="text-xs font-semibold text-white">{t('linksBlock.removeThisLink')}</p>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onItemDelete?.(item.id); setConfirming(false); }}
               className="rounded-full bg-red-500/90 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
             >
-              Remove
+              {t('linksBlock.remove')}
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
               className="rounded-full border border-white/25 px-3 py-1 text-xs font-semibold text-white/80 hover:text-white hover:border-white/50 transition-colors"
             >
-              Cancel
+              {t('linksBlock.cancel')}
             </button>
           </div>
         </div>
@@ -341,7 +342,7 @@ export function LinksBlock({
         onClick={() => onItemAdd?.()}
         className={`w-full rounded-2xl ${GLASS_AFFORDANCE}`}
       >
-        + Add link
+        + {t('linksBlock.addLink')}
       </button>
     </div>
   );

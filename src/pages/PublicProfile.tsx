@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
+import { useLanguage } from '@/hooks/useLanguage';
 import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson } from '@/lib/theme-defaults';
 import { resolveEffectivePageStyle } from '@/lib/surface';
@@ -63,6 +64,7 @@ function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
 
 export default function PublicProfile() {
   const { handle } = useParams<{ handle: string }>();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
@@ -350,7 +352,7 @@ export default function PublicProfile() {
             <button
               type="button"
               onClick={() => setContactSheetOpen(true)}
-              aria-label="Save contact"
+              aria-label={t('publicProfile.saveContactAria')}
               className="flex items-center justify-center h-9 w-9 rounded-full bg-black/30 backdrop-blur-sm text-white"
             >
               <UserPlus className="h-5 w-5" />
@@ -414,40 +416,40 @@ export default function PublicProfile() {
                       onClick={() => { handleSaveContact(); ownerEmail ? setShareView(true) : closeContactSheet(); }}
                       className="mt-6 w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09]"
                     >
-                      Save to Contacts
+                      {t('publicProfile.saveToContacts')}
                     </button>
                     <button
                       type="button"
                       onClick={closeContactSheet}
                       className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
                     >
-                      Cancel
+                      {t('publicProfile.cancel')}
                     </button>
                   </>
                 ) : (
                   <>
                     <p className="text-white font-semibold text-lg text-center leading-tight">
-                      Send your info to {page?.display_name || page?.handle}?
+                      {t('publicProfile.sendYourInfo').replace('{name}', page?.display_name || page?.handle || '')}
                     </p>
-                    <p className="text-white/45 text-sm text-center mt-1 mb-4">It goes straight to their inbox.</p>
+                    <p className="text-white/45 text-sm text-center mt-1 mb-4">{t('publicProfile.straightToInbox')}</p>
                     <input
                       type="text"
                       value={shareName}
                       onChange={(e) => setShareName(e.target.value)}
-                      placeholder="Your name"
+                      placeholder={t('publicProfile.yourNamePlaceholder')}
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] mb-2"
                     />
                     <input
                       type="email"
                       value={shareEmail}
                       onChange={(e) => setShareEmail(e.target.value)}
-                      placeholder="Your email"
+                      placeholder={t('publicProfile.yourEmailPlaceholder')}
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] mb-2"
                     />
                     <textarea
                       value={shareMsg}
                       onChange={(e) => setShareMsg(e.target.value)}
-                      placeholder="Why are you reaching out?"
+                      placeholder={t('publicProfile.reachOutPlaceholder')}
                       rows={3}
                       className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[#C9A55C] resize-none mb-4"
                     />
@@ -457,14 +459,14 @@ export default function PublicProfile() {
                       onClick={sendShareBack}
                       className="w-full rounded-2xl bg-[#C9A55C] py-3.5 font-semibold text-[#0e0c09] disabled:opacity-40"
                     >
-                      Send
+                      {t('publicProfile.send')}
                     </button>
                     <button
                       type="button"
                       onClick={closeContactSheet}
                       className="mt-2 w-full rounded-2xl py-3 font-medium text-white/50"
                     >
-                      No thanks
+                      {t('publicProfile.noThanks')}
                     </button>
                   </>
                 )}
@@ -498,12 +500,13 @@ export default function PublicProfile() {
 // ─── Helper Components (kept for NotFoundView, PublicProfileSkeleton) ────────
 
 function NotFoundView({ handle }: { handle?: string }) {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center">
         <h1 className="text-4xl font-bold text-foreground mb-2">404</h1>
         <p className="text-muted-foreground">
-          {handle ? `@${handle} not found` : 'Page not found'}
+          {handle ? t('publicProfile.handleNotFound').replace('{handle}', handle) : t('publicProfile.pageNotFound')}
         </p>
       </div>
     </div>

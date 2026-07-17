@@ -50,7 +50,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
       });
 
       if (response.error) {
-        throw new Error(response.error.message || "Failed to create short link");
+        throw new Error(response.error.message || t('linkTools.createFailed'));
       }
 
       const result = response.data;
@@ -67,7 +67,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
       console.error("Error creating short link:", error);
       toast({
         title: t('linkTools.error'),
-        description: error instanceof Error ? error.message : "Failed to create short link",
+        description: error instanceof Error ? error.message : t('linkTools.createFailed'),
         variant: "destructive",
       });
     } finally {
@@ -114,7 +114,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
 
       toast({
         title: t('linkTools.downloaded'),
-        description: `QR code saved as ${format.toUpperCase()}`,
+        description: t('linkTools.downloadedDesc').replace('{format}', format.toUpperCase()),
       });
     } catch (error) {
       console.error("Download error:", error);
@@ -171,7 +171,7 @@ export function LinkTools({ baseUrl, pageId, destinationUrl, blockItemId }: Link
           <div className="border rounded bg-white p-2">
             <img
               src={qrPngUrl}
-              alt="QR Code"
+              alt={t('linkTools.qrCodeAlt')}
               className="w-20 h-20"
               loading="lazy"
             />

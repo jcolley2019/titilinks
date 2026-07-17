@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface SmoothImageProps {
   src: string;
@@ -29,6 +30,7 @@ export function SmoothImage({
   fallback,
   imgStyle,
 }: SmoothImageProps) {
+  const { t } = useLanguage();
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -61,7 +63,7 @@ export function SmoothImage({
           containerClassName
         )}
       >
-        <span className="text-xs text-muted-foreground opacity-40">Failed to load</span>
+        <span className="text-xs text-muted-foreground opacity-40">{t('smoothImage.failedToLoad')}</span>
       </div>
     );
   }

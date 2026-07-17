@@ -356,7 +356,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               onClick={onAddContent}
               className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
             >
-              Edit Profile
+              {t('dashLayout.editProfile')}
             </button>
           )}
           {isEditorPage && pageHandle && (
@@ -364,7 +364,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               onClick={() => window.open(`/${pageHandle}`, '_blank')}
               className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground active:scale-95 transition-transform"
             >
-              Live ↗
+              {t('dashLayout.live')} ↗
             </button>
           )}
           <Button
@@ -437,14 +437,14 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
-              Back
+              {t('dashLayout.back')}
             </button>
             <span className="text-xs text-muted-foreground ml-auto">/{pageHandle}</span>
           </div>
           <iframe
             src={`/${pageHandle}`}
             className="flex-1 w-full border-0"
-            title="Live Preview"
+            title={t('dashLayout.livePreview')}
           />
         </div>
       )}
@@ -474,7 +474,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
                 className="flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-muted-foreground hover:text-primary"
               >
                 <Eye className="h-5 w-5" />
-                <span className="text-xs font-medium">Live</span>
+                <span className="text-xs font-medium">{t('dashLayout.live')}</span>
               </button>
             )}
           </div>

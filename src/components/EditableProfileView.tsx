@@ -1282,10 +1282,10 @@ export function EditableProfileView({
     const { error } = await supabase.from('block_items').delete().eq('id', itemId);
     if (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete photo');
+      toast.error(t('editor.photo.deleteFailed'));
       return;
     }
-    toast.success('Photo removed');
+    toast.success(t('editor.photo.removed'));
     onRefresh();
   };
 
@@ -1540,7 +1540,7 @@ export function EditableProfileView({
           .update(updates)
           .eq('id', page.id);
       }
-      toast.success('Profile photo updated!');
+      toast.success(t('editor.hero.photoUpdated'));
       setLocalHeroImages(prev => ({ ...prev, [selectedMode]: urlData.publicUrl }));
       setPhotoStep('idle');
       setPhotoPreview(null);
@@ -1551,7 +1551,7 @@ export function EditableProfileView({
       onRefresh();
     } catch (err) {
       console.error('Photo upload error:', err);
-      toast.error('Failed to upload photo');
+      toast.error(t('editor.photo.uploadFailed'));
     } finally {
       setPhotoSaving(false);
     }
@@ -1560,7 +1560,7 @@ export function EditableProfileView({
   const handleVideoUpload = async (file: File) => {
     if (!user) return;
     if (file.size > 50 * 1024 * 1024) {
-      toast.error('Video is too large (max 50MB). Try a shorter clip.');
+      toast.error(t('editor.video.tooLarge'));
       return;
     }
     toast('Uploading video…');
@@ -1582,11 +1582,11 @@ export function EditableProfileView({
         .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, video: urlData.publicUrl, fit: 'fill' } } })
         .eq('id', page.id);
       if (error) throw error;
-      toast.success('Hero video added!');
+      toast.success(t('editor.video.added'));
       onRefresh();
     } catch (err) {
       console.error('Video upload error:', err);
-      toast.error('Failed to upload video');
+      toast.error(t('editor.video.uploadFailed'));
     } finally {
       setPhotoSaving(false);
     }
@@ -1603,11 +1603,11 @@ export function EditableProfileView({
         .update({ theme_json: { ...existingTheme, [heroConfigKey]: existingHero } })
         .eq('id', page.id);
       if (error) throw error;
-      toast.success('Hero video removed');
+      toast.success(t('editor.video.removed'));
       onRefresh();
     } catch (err) {
       console.error('Video remove error:', err);
-      toast.error('Failed to remove video');
+      toast.error(t('editor.video.removeFailed'));
     } finally {
       setPhotoSaving(false);
     }
@@ -1679,7 +1679,7 @@ export function EditableProfileView({
       // Detect face
       const face = await detectFace(img);
       if (!face) {
-        toast.error('No face detected — try manual crop');
+        toast.error(t('editor.crop.noFace'));
         setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
         setPhotoStep('manual');
         return;
@@ -1845,7 +1845,7 @@ export function EditableProfileView({
       }
     } catch (err) {
       console.error('AI enhance error:', err);
-      toast.error('Enhancement failed — try again');
+      toast.error(t('editor.crop.enhanceFailed'));
       setPhotoStep('choose');
     } finally {
       setAiProcessing(false);
@@ -2188,7 +2188,7 @@ export function EditableProfileView({
               <button
                 onClick={() => onEditVideo()}
                 className="bg-black/40 backdrop-blur-sm rounded-full p-3"
-                title="Edit hero video"
+                title={t('editor.hero.editVideo')}
               >
                 <Pencil className="h-6 w-6 text-white opacity-80 hover:opacity-100" />
               </button>
@@ -2395,7 +2395,7 @@ export function EditableProfileView({
                         )}
                         <img
                           src={photoPreview}
-                          alt="Preview"
+                          alt={t('editor.hero.previewAlt')}
                           className="absolute inset-0 w-full h-full"
                           style={
                             heroFitDraft === 'fit' && !isFullBleed
@@ -2415,7 +2415,7 @@ export function EditableProfileView({
                             heroFitDraft === 'fill' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'
                           }`}
                         >
-                          Fill
+                          {t('editor.hero.fill')}
                         </button>
                         <button
                           onClick={() => setHeroFitDraft('fit')}
@@ -2423,20 +2423,20 @@ export function EditableProfileView({
                             heroFitDraft === 'fit' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'
                           }`}
                         >
-                          Fit
+                          {t('editor.hero.fit')}
                         </button>
                       </div>
                       <p className="text-white/40 text-xs text-center max-w-xs -mt-1">
                         {heroFitDraft === 'fill'
-                          ? 'Fills the space. Drag to choose what stays centered.'
-                          : 'Shows the whole photo, with a soft blurred backdrop.'}
+                          ? t('editor.hero.fillCaption')
+                          : t('editor.hero.fitCaption')}
                       </p>
                       </>)}
 
                       {/* Horizontal position — full-screen only */}
                       {isFullBleed && (
                         <div className="w-full max-w-xs flex items-center gap-3">
-                          <span className="text-white/40 text-[10px]">Left</span>
+                          <span className="text-white/40 text-[10px]">{t('editor.hero.posLeft')}</span>
                           <input
                             type="range"
                             min={0}
@@ -2445,13 +2445,13 @@ export function EditableProfileView({
                             onChange={(e) => setHeroPosXDraft(Number(e.target.value))}
                             className="flex-1 accent-[#C9A55C]"
                           />
-                          <span className="text-white/40 text-[10px]">Right</span>
+                          <span className="text-white/40 text-[10px]">{t('editor.hero.posRight')}</span>
                         </div>
                       )}
                       {/* Vertical position — hero Fill, or full-screen */}
                       {(heroFitDraft === 'fill' || isFullBleed) && (
                         <div className="w-full max-w-xs flex items-center gap-3">
-                          <span className="text-white/40 text-[10px]">Top</span>
+                          <span className="text-white/40 text-[10px]">{t('editor.hero.posTop')}</span>
                           <input
                             type="range"
                             min={0}
@@ -2460,7 +2460,7 @@ export function EditableProfileView({
                             onChange={(e) => setHeroPosYDraft(Number(e.target.value))}
                             className="flex-1 accent-[#C9A55C]"
                           />
-                          <span className="text-white/40 text-[10px]">Bottom</span>
+                          <span className="text-white/40 text-[10px]">{t('editor.hero.posBottom')}</span>
                         </div>
                       )}
 
@@ -2471,7 +2471,7 @@ export function EditableProfileView({
                         disabled={photoSaving}
                         className="w-full max-w-xs py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm disabled:opacity-60"
                       >
-                        {photoSaving ? 'Saving…' : 'Save'}
+                        {photoSaving ? t('editor.hero.saving') : t('editor.hero.save')}
                       </button>
 
                       {/* Crop manually — secondary, optional */}
@@ -2495,8 +2495,8 @@ export function EditableProfileView({
                   {photoStep === 'ai' && (
                     <div className="flex flex-col items-center justify-center flex-1 gap-4">
                       <div className="w-12 h-12 border-2 border-[#C9A55C] border-t-transparent rounded-full animate-spin" />
-                      <p className="text-white font-semibold">AI processing...</p>
-                      <p className="text-white/40 text-xs">Detecting face, cropping & enhancing</p>
+                      <p className="text-white font-semibold">{t('editor.crop.aiProcessing')}</p>
+                      <p className="text-white/40 text-xs">{t('editor.crop.aiDetecting')}</p>
                     </div>
                   )}
 
@@ -2504,11 +2504,11 @@ export function EditableProfileView({
                   {photoStep === 'ai-preview' && aiPreviewData && (
                     <div className="flex flex-col items-center justify-center flex-1 p-6 gap-5">
                       <p className="text-white font-bold text-lg">
-                        {aiPreviewEnhanced ? 'AI Result' : 'Crop Preview'}
+                        {aiPreviewEnhanced ? t('editor.crop.aiResult') : t('editor.crop.cropPreview')}
                       </p>
                       <div className="relative">
                         <div className={`w-64 h-64 rounded-2xl overflow-hidden border-2 ${aiPreviewEnhanced ? 'border-[#C9A55C]/50' : 'border-amber-500/40'}`}>
-                          <img src={aiPreviewData} alt="AI Preview" className="w-full h-full object-cover" />
+                          <img src={aiPreviewData} alt={t('editor.crop.aiPreviewAlt')} className="w-full h-full object-cover" />
                         </div>
                         {/* Status badge */}
                         <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-md ${
@@ -2516,7 +2516,7 @@ export function EditableProfileView({
                             ? 'bg-[#C9A55C]/90 text-[#0e0c09]'
                             : 'bg-amber-500/90 text-[#0e0c09]'
                         }`}>
-                          {aiPreviewEnhanced ? '✓ AI ENHANCED' : '⚠ CROP ONLY — AI FAILED'}
+                          {aiPreviewEnhanced ? t('editor.crop.aiEnhanced') : t('editor.crop.aiFailed')}
                         </div>
                       </div>
                       <div className="flex gap-3 w-full max-w-xs">
@@ -2528,7 +2528,7 @@ export function EditableProfileView({
                           }}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
                         >
-                          ← Back
+                          {t('editor.crop.aiPreviewBack')}
                         </button>
                         <button
                           onClick={async () => {
@@ -2543,7 +2543,7 @@ export function EditableProfileView({
                           }}
                           className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
                         >
-                          Accept ✓
+                          {t('editor.crop.accept')}
                         </button>
                       </div>
                     </div>
@@ -2583,7 +2583,7 @@ export function EditableProfileView({
                       <div className="px-5 pb-5 pt-4 flex flex-col gap-3" style={{ flexShrink: 0 }}>
                         {/* Zoom row */}
                         <div className="w-full flex items-center gap-3">
-                          <span className="text-white/40 text-xs font-semibold uppercase tracking-wider">Zoom</span>
+                          <span className="text-white/40 text-xs font-semibold uppercase tracking-wider">{t('editor.crop.zoom')}</span>
                           <input
                             type="range"
                             min={1}
@@ -2595,7 +2595,7 @@ export function EditableProfileView({
                           />
                         </div>
 
-                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">AI Auto-Crop + Enhance</p>
+                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">{t('editor.crop.aiEnhance')}</p>
 
                         {/* Hero mode: 3-column AI preset grid; full-screen folds Full Body into the button row below */}
                         {!isFullBleed && (
@@ -2604,19 +2604,19 @@ export function EditableProfileView({
                               onClick={() => handleAiCrop('headshot')}
                               className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
                             >
-                              Headshot
+                              {t('editor.crop.headshot')}
                             </button>
                             <button
                               onClick={() => handleAiCrop('shoulders')}
                               className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
                             >
-                              Shoulders
+                              {t('editor.crop.shoulders')}
                             </button>
                             <button
                               onClick={() => handleAiCrop('fullbody')}
                               className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
                             >
-                              Full Body
+                              {t('editor.crop.fullBody')}
                             </button>
                           </div>
                         )}
@@ -2628,14 +2628,14 @@ export function EditableProfileView({
                               onClick={() => handleAiCrop('fullbody')}
                               className="py-2.5 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-xs hover:bg-[#C9A55C]/20 transition-colors"
                             >
-                              Full Body
+                              {t('editor.crop.fullBody')}
                             </button>
                           )}
                           <button
                             onClick={() => setPhotoStep('choose')}
                             className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs`}
                           >
-                            Back
+                            {t('editor.crop.back')}
                           </button>
                           <button
                             onClick={async () => {
@@ -2652,12 +2652,12 @@ export function EditableProfileView({
                                 // Never let Apply fail silently (e.g. a tainted
                                 // canvas throwing from toDataURL).
                                 console.error('Apply crop failed:', err);
-                                toast.error('Crop failed — please try again');
+                                toast.error(t('editor.crop.cropFailed'));
                               }
                             }}
                             className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs`}
                           >
-                            Apply Crop
+                            {t('editor.crop.applyCrop')}
                           </button>
                         </div>
                       </div>
@@ -2674,7 +2674,7 @@ export function EditableProfileView({
                       <div className="w-full rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50 aspect-video">
                         <img
                           src={photoPreview}
-                          alt="Preview"
+                          alt={t('editor.hero.previewAlt')}
                           className="w-full h-full object-cover"
                           style={{
                             objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,

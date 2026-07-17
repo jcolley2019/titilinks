@@ -73,7 +73,7 @@ export function LivePreviewPanel({ handle, className, externalRefreshKey = 0 }: 
               key={refreshKey}
               src={profileUrl}
               className="w-full h-full border-0 rounded-[2.75rem]"
-              title="Profile Preview"
+              title={t('livePreview.profilePreview')}
               style={{ colorScheme: 'normal' }}
             />
 

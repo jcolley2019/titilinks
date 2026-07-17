@@ -418,10 +418,10 @@ export function ProfileDashboard({
   const handleVideoUpload = async (file: File) => {
     if (!user) return;
     if (file.size > 50 * 1024 * 1024) {
-      toast.error('Video is too large (max 50MB). Try a shorter clip.');
+      toast.error(t('dashboard.hero.videoTooLarge'));
       return;
     }
-    toast('Uploading video…');
+    toast(t('dashboard.hero.uploading'));
     try {
       const fileExt = file.name.split('.').pop() || 'mp4';
       const fileName = `${user.id}/hero-video-${randomUUID()}.${fileExt}`;
@@ -439,11 +439,11 @@ export function ProfileDashboard({
         .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, video: urlData.publicUrl } } })
         .eq('id', pageId);
       if (error) throw error;
-      toast.success('Hero video added!');
+      toast.success(t('dashboard.hero.videoAdded'));
       onRefresh();
     } catch (err) {
       console.error('Video upload error:', err);
-      toast.error('Failed to upload video');
+      toast.error(t('dashboard.hero.uploadFailed'));
     }
   };
 
@@ -454,7 +454,7 @@ export function ProfileDashboard({
       .from('pages')
       .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, ...patch } } })
       .eq('id', pageId);
-    if (error) { toast.error('Could not save'); return; }
+    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
     onRefresh();
   };
 
@@ -488,8 +488,8 @@ export function ProfileDashboard({
       .from('pages')
       .update({ theme_json: { ...existingTheme, [heroConfigKey]: existingHero } })
       .eq('id', pageId);
-    if (error) { toast.error('Could not remove video'); return; }
-    toast.success('Hero video removed');
+    if (error) { toast.error(t('dashboard.hero.removeFailed')); return; }
+    toast.success(t('dashboard.hero.videoRemoved'));
     onRefresh();
     setVideoProfileOpen(false);
   };
@@ -611,7 +611,7 @@ export function ProfileDashboard({
     if (nextName !== hubSeed.displayName) update.display_name = nextName;
     const { error } = await supabase.from('pages').update(update).eq('id', pageId);
     setHubSaving(false);
-    if (error) { toast.error('Could not save'); return; }
+    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
     // The saved values become the new baseline, so the form goes clean.
     setNameDraft(nextName);
     setHubSeed({
@@ -654,7 +654,7 @@ export function ProfileDashboard({
       .from('pages')
       .update({ theme_json: { ...existingTheme, pages: { ...existingPages, ...patch } } })
       .eq('id', pageId);
-    if (error) { toast.error('Could not save'); return; }
+    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
     onRefresh();
   };
 
@@ -702,7 +702,7 @@ export function ProfileDashboard({
       .from('pages')
       .update({ theme_json: nextTheme })
       .eq('id', pageId);
-    if (error) { toast.error('Could not save'); return; }
+    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
     onRefresh();
   };
 
@@ -726,7 +726,7 @@ export function ProfileDashboard({
       .insert({ page_id: pageId, type: 'page2' })
       .select('id')
       .single();
-    if (error || !newMode) { toast.error('Could not create Page 2'); return null; }
+    if (error || !newMode) { toast.error(t('dashboard.pages.createFailed')); return null; }
     // Header social blocks first (order 0–1), then the Default content set from
     // the shared registry — so a born Page 2 is identical to a freshly-reset one.
     const defaultBlocks = BLOCK_PRESETS.find((p) => p.key === DEFAULT_PRESET_KEY)?.blocks ?? [];
@@ -765,7 +765,7 @@ export function ProfileDashboard({
       nextTheme.heroConfig_page2 = { fit: 'fill', posY: 25 };
     }
     const { error } = await supabase.from('pages').update({ theme_json: nextTheme }).eq('id', pageId);
-    if (error) { toast.error('Could not save'); return; }
+    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
     onRefresh();
   };
   const setPageLabel = (which: 'page1' | 'page2', label: string) => {
@@ -862,8 +862,8 @@ export function ProfileDashboard({
 
     // Pro gate: a Pro-only row (carousel) is locked for Free — show an upsell.
     if (row.pro && !canCarousel) {
-      toast('Carousel is a Pro feature', {
-        description: 'Upgrade to Pro to add a swipeable carousel of link cards.',
+      toast(t('dashboard.carouselProTitle'), {
+        description: t('dashboard.carouselProDesc'),
       });
       return;
     }
@@ -972,7 +972,7 @@ export function ProfileDashboard({
                 .from('pages')
                 .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconSize: v } } })
                 .eq('id', pageId);
-              if (error) { toast.error('Could not save'); return; }
+              if (error) { toast.error(t('dashboard.couldNotSave')); return; }
               onRefresh();
             }}
             iconColorMode={(themeJson as any)?.headerConfig?.iconColorMode ?? 'color'}
@@ -983,7 +983,7 @@ export function ProfileDashboard({
                 .from('pages')
                 .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconColorMode: v } } })
                 .eq('id', pageId);
-              if (error) { toast.error('Could not save'); return; }
+              if (error) { toast.error(t('dashboard.couldNotSave')); return; }
               onRefresh();
             }}
           />
@@ -1165,7 +1165,7 @@ export function ProfileDashboard({
                   {/* Enable second page — Pro feature */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <p className="text-white/70 text-xs font-semibold">Second page</p>
+                      <p className="text-white/70 text-xs font-semibold">{t('dashboard.pages.secondPage')}</p>
                       {!canTwoPages && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
                           <Lock className="h-2.5 w-2.5" /> PRO
@@ -1177,27 +1177,27 @@ export function ProfileDashboard({
                         onClick={() => setPageEnabled(false)}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${!pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                       >
-                        Off
+                        {t('dashboard.off')}
                       </button>
                       <button
                         onClick={() =>
                           canTwoPages
                             ? setPageEnabled(true)
-                            : toast('Two pages is a Pro feature', {
-                                description: 'Upgrade to Pro to add a second page visitors can switch to.',
+                            : toast(t('dashboard.pages.twoPagesProTitle'), {
+                                description: t('dashboard.pages.twoPagesProDesc'),
                               })
                         }
                         aria-disabled={!canTwoPages}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1 ${pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : canTwoPages ? 'text-white/70' : 'text-white/30'}`}
                       >
                         {!canTwoPages && <Lock className="h-3 w-3" />}
-                        On
+                        {t('dashboard.on')}
                       </button>
                     </div>
                     <p className="text-white/40 text-[11px] mt-1.5">
                       {canTwoPages
-                        ? 'Adds a second page visitors can switch to. Page 2 starts blank — give it its own links and hero.'
-                        : 'A second page — visitors can switch between them — is part of Pro. Upgrade to unlock Page 2.'}
+                        ? t('dashboard.pages.secondPageOnHint')
+                        : t('dashboard.pages.secondPageOffHint')}
                     </p>
                   </div>
 
@@ -1206,24 +1206,24 @@ export function ProfileDashboard({
                       {/* Page labels */}
                       <div className="space-y-3">
                         <div>
-                          <label className="text-white/40 text-[10px] block mb-1">Page 1 label</label>
+                          <label className="text-white/40 text-[10px] block mb-1">{t('dashboard.pages.page1Label')}</label>
                           <input
                             type="text"
                             value={page1LabelDraft}
                             maxLength={24}
-                            placeholder="Page 1"
+                            placeholder={t('dashboard.pages.page1Placeholder')}
                             onChange={(e) => setPage1LabelDraft(e.target.value)}
                             onBlur={() => setPageLabel('page1', page1LabelDraft)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
                           />
                         </div>
                         <div>
-                          <label className="text-white/40 text-[10px] block mb-1">Page 2 label</label>
+                          <label className="text-white/40 text-[10px] block mb-1">{t('dashboard.pages.page2Label')}</label>
                           <input
                             type="text"
                             value={page2LabelDraft}
                             maxLength={24}
-                            placeholder="Page 2"
+                            placeholder={t('dashboard.pages.page2Placeholder')}
                             onChange={(e) => setPage2LabelDraft(e.target.value)}
                             onBlur={() => setPageLabel('page2', page2LabelDraft)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
@@ -1233,25 +1233,25 @@ export function ProfileDashboard({
 
                       {/* Page 2 hero source */}
                       <div>
-                        <p className="text-white/70 text-xs font-semibold mb-2">Page 2 hero</p>
+                        <p className="text-white/70 text-xs font-semibold mb-2">{t('dashboard.pages.page2Hero')}</p>
                         <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
                           <button
                             onClick={() => setHeroInherit(false)}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${!heroInherit ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Its own
+                            {t('dashboard.pages.heroOwn')}
                           </button>
                           <button
                             onClick={() => setHeroInherit(true)}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroInherit ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Same as Page 1
+                            {t('dashboard.pages.heroSame')}
                           </button>
                         </div>
                         <p className="text-white/40 text-[11px] mt-1.5">
                           {heroInherit
-                            ? "Page 2 shows Page 1's hero image/video."
-                            : 'Page 2 has its own hero — set it from the photo / Video Profile controls while editing Page 2.'}
+                            ? t('dashboard.pages.heroInheritOnHint')
+                            : t('dashboard.pages.heroInheritOffHint')}
                         </p>
                       </div>
                     </>
@@ -1405,19 +1405,19 @@ export function ProfileDashboard({
                     return (
                       <>
                         <div>
-                          <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Style</p>
+                          <p className="text-xs uppercase tracking-widest text-white/50 mb-2">{t('dashboard.style')}</p>
                           <div className="grid grid-cols-3 gap-2">
                             {(['none', 'shadow', 'outline'] as const).map((k) => (
                               <button key={k} onClick={() => patchFx({ type: k })}
                                 className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold capitalize transition-all ${fxType === k ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
-                                {k}
+                                {t(`dashboard.textFx.effect${k.charAt(0).toUpperCase()}${k.slice(1)}`)}
                               </button>
                             ))}
                           </div>
                         </div>
                         {fxType === 'shadow' && (
                           <div>
-                            <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Shadow strength</p>
+                            <p className="text-xs uppercase tracking-widest text-white/50 mb-2">{t('dashboard.textFx.shadowStrength')}</p>
                             <input type="range" min={10} max={100} step={5}
                               value={typeof fx.intensity === 'number' ? fx.intensity : 60}
                               onChange={(e) => patchFx({ intensity: Number(e.target.value) })}
@@ -1427,7 +1427,7 @@ export function ProfileDashboard({
                         {fxType === 'outline' && (
                           <>
                             <div>
-                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline width</p>
+                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">{t('dashboard.textFx.outlineWidth')}</p>
                               <div className="grid grid-cols-3 gap-2">
                                 {([['S', 1], ['M', 2], ['L', 3]] as const).map(([label, w]) => (
                                   <button key={label} onClick={() => patchFx({ width: w })}
@@ -1438,19 +1438,19 @@ export function ProfileDashboard({
                               </div>
                             </div>
                             <div>
-                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">Outline color</p>
+                              <p className="text-xs uppercase tracking-widest text-white/50 mb-2">{t('dashboard.textFx.outlineColor')}</p>
                               <div className="grid grid-cols-3 gap-2">
                                 {([['Black', '#000000'], ['White', '#FFFFFF'], ['Gold', '#C9A55C']] as const).map(([label, c]) => (
                                   <button key={label} onClick={() => patchFx({ color: c })}
                                     className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${(fx.color || '#000000') === c ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`}>
-                                    {label}
+                                    {t(`dashboard.textFx.color${label}`)}
                                   </button>
                                 ))}
                               </div>
                             </div>
                           </>
                         )}
-                        <p className="text-xs text-white/40">Applies to your name and handle on the live page.</p>
+                        <p className="text-xs text-white/40">{t('dashboard.textFx.appliesTo')}</p>
                       </>
                     );
                   })()}
@@ -1491,7 +1491,7 @@ export function ProfileDashboard({
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 h-40 flex items-center justify-center">
-                        <p className="text-white/40 text-xs">No hero video yet</p>
+                        <p className="text-white/40 text-xs">{t('dashboard.hero.noVideo')}</p>
                       </div>
                     )}
                   </div>
@@ -1500,77 +1500,77 @@ export function ProfileDashboard({
                       onClick={() => videoInputRef.current?.click()}
                       className="flex-1 py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
                     >
-                      {heroVideoUrl ? 'Change video' : 'Add a video'}
+                      {heroVideoUrl ? t('dashboard.hero.changeVideo') : t('dashboard.hero.addVideo')}
                     </button>
                     {heroVideoUrl && (
                       <button
                         onClick={handleVideoRemove}
                         className="px-4 py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
                       >
-                        Remove
+                        {t('dashboard.hero.remove')}
                       </button>
                     )}
                   </div>
                   <p className="text-white/40 text-[11px] -mt-3">
-                    Best results: a vertical 9:16 MP4, 5-10 sec, under ~10MB (50MB max).
+                    {t('dashboard.hero.bestResults')}
                   </p>
                   {heroVideoUrl && (
                     <>
                       <div>
-                        <p className="text-white/70 text-xs font-semibold mb-2">Sound</p>
+                        <p className="text-white/70 text-xs font-semibold mb-2">{t('dashboard.hero.sound')}</p>
                         <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
                           <button
                             onClick={() => saveHeroConfig({ audio: 'silent' })}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioMode === 'silent' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Silent
+                            {t('dashboard.hero.silent')}
                           </button>
                           <button
                             onClick={() => saveHeroConfig({ audio: 'clip' })}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroAudioMode === 'clip' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Clip sound
+                            {t('dashboard.hero.clipSound')}
                           </button>
                         </div>
                         <p className="text-white/40 text-[11px] mt-1.5">
                           {heroAudioMode === 'clip'
-                            ? "Plays muted; visitors tap to hear the clip's sound."
-                            : 'Hero plays silently.'}
+                            ? t('dashboard.hero.soundClipHint')
+                            : t('dashboard.hero.soundSilentHint')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-white/70 text-xs font-semibold mb-2">Playback</p>
+                        <p className="text-white/70 text-xs font-semibold mb-2">{t('dashboard.hero.playback')}</p>
                         <div className="flex w-full rounded-xl bg-white/5 p-1 gap-1">
                           <button
                             onClick={() => saveHeroConfig({ playback: 'once' })}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'once' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Once
+                            {t('dashboard.hero.once')}
                           </button>
                           <button
                             onClick={() => saveHeroConfig({ playback: 'loop' })}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'loop' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Loop
+                            {t('dashboard.hero.loop')}
                           </button>
                           <button
                             onClick={() => saveHeroConfig({ playback: 'bounce' })}
                             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${heroPlaybackMode === 'bounce' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/70'}`}
                           >
-                            Bounce
+                            {t('dashboard.hero.bounce')}
                           </button>
                         </div>
                         <p className="text-white/40 text-[11px] mt-1.5">
                           {heroPlaybackMode === 'once'
-                            ? 'Plays once, then shows a replay arrow.'
+                            ? t('dashboard.hero.playbackOnceHint')
                             : heroPlaybackMode === 'loop'
-                            ? 'Loops continuously.'
-                            : 'Plays forward then reverses, like a Live Photo.'}
+                            ? t('dashboard.hero.playbackLoopHint')
+                            : t('dashboard.hero.playbackBounceHint')}
                         </p>
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-white/70 text-xs font-semibold">Position & zoom</p>
+                          <p className="text-white/70 text-xs font-semibold">{t('dashboard.hero.positionZoom')}</p>
                           <button
                             onClick={() => {
                               setVideoScale(1); setVideoPosX(50); setVideoPosY(50);
@@ -1579,14 +1579,14 @@ export function ProfileDashboard({
                             }}
                             className="text-[#C9A55C] text-[11px] font-semibold"
                           >
-                            Reset
+                            {t('dashboard.hero.reset')}
                           </button>
                         </div>
                         <div className="space-y-3">
                           <div>
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-white/40 text-[10px]">Zoom</span>
-                              <span className="text-white/40 text-[10px]">{videoScale === 1 ? 'Fill' : `${videoScale.toFixed(2)}×`}</span>
+                              <span className="text-white/40 text-[10px]">{t('dashboard.hero.zoom')}</span>
+                              <span className="text-white/40 text-[10px]">{videoScale === 1 ? t('dashboard.hero.zoomFill') : `${videoScale.toFixed(2)}×`}</span>
                             </div>
                             <input
                               type="range" min={0.5} max={2.5} step={0.01} value={videoScale}
@@ -1596,8 +1596,8 @@ export function ProfileDashboard({
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-white/40 text-[10px]">Left</span>
-                              <span className="text-white/40 text-[10px]">Right</span>
+                              <span className="text-white/40 text-[10px]">{t('dashboard.hero.left')}</span>
+                              <span className="text-white/40 text-[10px]">{t('dashboard.hero.right')}</span>
                             </div>
                             <input
                               type="range" min={0} max={100} step={1} value={videoPosX}
@@ -1607,8 +1607,8 @@ export function ProfileDashboard({
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-white/40 text-[10px]">Top</span>
-                              <span className="text-white/40 text-[10px]">Bottom</span>
+                              <span className="text-white/40 text-[10px]">{t('dashboard.hero.top')}</span>
+                              <span className="text-white/40 text-[10px]">{t('dashboard.hero.bottom')}</span>
                             </div>
                             <input
                               type="range" min={0} max={100} step={1} value={videoPosY}
@@ -1617,7 +1617,7 @@ export function ProfileDashboard({
                             />
                           </div>
                         </div>
-                        <p className="text-white/40 text-[11px] mt-1.5">Drag Zoom left to show more of the clip (slim black edges appear), right to zoom in. Left/Right and Top/Bottom reposition it.</p>
+                        <p className="text-white/40 text-[11px] mt-1.5">{t('dashboard.hero.positionHint')}</p>
                       </div>
                     </>
                   )}

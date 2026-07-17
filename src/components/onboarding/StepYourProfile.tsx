@@ -105,7 +105,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     if (!file) return;
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      alert('Only JPEG, PNG, GIF, and WebP images are allowed');
+      alert(t('onboardingFlow.invalidImageType'));
       return;
     }
     const reader = new FileReader();
@@ -228,7 +228,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           </span>
           {!avatarSrc && (
             <span className="text-xs text-white/40 font-body">
-              {state.pageStyle === 'full_bleed' ? 'Background Photo' : 'Hero Photo'}
+              {state.pageStyle === 'full_bleed' ? t('onboardingFlow.backgroundPhoto') : t('onboardingFlow.heroPhoto')}
             </span>
           )}
         </button>
@@ -283,19 +283,19 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
             {usernameStatus === 'checking' && (
               <p className="flex items-center gap-1.5 text-xs text-white/40 font-body">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Checking availability...
+                {t('onboardingFlow.checkingAvailability')}
               </p>
             )}
             {usernameStatus === 'available' && (
               <p className="flex items-center gap-1.5 text-xs text-green-400 font-body">
                 <Check className="w-3 h-3" />
-                Available
+                {t('onboardingFlow.available')}
               </p>
             )}
             {usernameStatus === 'taken' && (
               <p className="flex items-center gap-1.5 text-xs text-red-400 font-body">
                 <X className="w-3 h-3" />
-                Username taken
+                {t('onboardingFlow.usernameTaken')}
               </p>
             )}
           </div>
@@ -379,26 +379,26 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
           <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-              <span className="font-display text-lg font-semibold text-white">Use Image</span>
+              <span className="font-display text-lg font-semibold text-white">{t('onboardingFlow.useImage')}</span>
               <button onClick={() => setModalStep('none')} className="text-white/40 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4">
               <div className="rounded-xl overflow-hidden bg-white/5 mb-4" style={{ maxHeight: '300px' }}>
-                <img src={rawImageSrc} alt="Preview" className="w-full h-full object-contain" style={{ maxHeight: '300px' }} />
+                <img src={rawImageSrc} alt={t('onboardingFlow.previewAlt')} className="w-full h-full object-contain" style={{ maxHeight: '300px' }} />
               </div>
               <button
                 onClick={() => setModalStep('crop')}
                 className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body mb-2 hover:bg-white/10 transition-colors"
               >
-                Crop Image
+                {t('onboardingFlow.cropImage')}
               </button>
               <button
                 onClick={handleUseOriginal}
                 className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
               >
-                Use Original
+                {t('onboardingFlow.useOriginal')}
               </button>
             </div>
           </div>
@@ -410,7 +410,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 pt-20 pb-4">
           <div className="w-full max-w-sm bg-[#1a1714] rounded-2xl overflow-hidden border border-white/10">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-              <span className="font-display text-lg font-semibold text-white">Crop Image</span>
+              <span className="font-display text-lg font-semibold text-white">{t('onboardingFlow.cropImage')}</span>
               <button onClick={() => setModalStep('none')} className="text-white/40 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -418,7 +418,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
             <div className="p-4 space-y-4">
               {/* Aspect ratio */}
               <div className="space-y-2">
-                <p className="text-xs text-white/50 font-body">Aspect Ratio</p>
+                <p className="text-xs text-white/50 font-body">{t('onboardingFlow.aspectRatio')}</p>
                 <div className="flex gap-2 flex-wrap">
                   {aspectRatioOptions.map((opt) => (
                     <button
@@ -431,14 +431,18 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
                           : 'border-white/10 text-white/60 hover:border-white/20'
                       }`}
                     >
-                      {opt.label}
+                      {opt.label === 'Free'
+                        ? t('onboardingFlow.aspectFree')
+                        : opt.label === 'Square'
+                        ? t('onboardingFlow.aspectSquare')
+                        : opt.label}
                     </button>
                   ))}
                 </div>
               </div>
               {/* Zoom */}
               <div className="space-y-2">
-                <p className="text-xs text-white/50 font-body">Zoom: {zoom.toFixed(1)}x</p>
+                <p className="text-xs text-white/50 font-body">{t('onboardingFlow.zoomLevel').replace('{value}', zoom.toFixed(1))}</p>
                 <input
                   type="range"
                   min={1}
@@ -466,13 +470,13 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
                 onClick={() => setModalStep('preview')}
                 className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body hover:bg-white/10 transition-colors"
               >
-                Back
+                {t('onboardingFlow.back')}
               </button>
               <button
                 onClick={handleApplyCrop}
                 className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
               >
-                Apply Crop
+                {t('onboardingFlow.applyCrop')}
               </button>
             </div>
           </div>

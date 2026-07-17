@@ -38,8 +38,11 @@ export const DEFAULT_PRESET_KEY = 'default';
 export const BLOCK_PRESETS: BlockPreset[] = [
   {
     key: DEFAULT_PRESET_KEY,
-    label: 'Default',
-    desc: "All link cards — turn off the ones you don't want",
+    // ES-SWEEP.1 Task 2: label/desc are i18n KEYS resolved via t() at the render
+    // site (ProfileDashboard preset row). `title` fields below stay English-
+    // canonical — they persist as block titles and translate via content-i18n.
+    label: 'blockPreset.default.label',
+    desc: 'blockPreset.default.desc',
     blocks: [
       { type: 'primary_cta', title: 'Primary CTA' },
       { type: 'links', title: 'Links' },
