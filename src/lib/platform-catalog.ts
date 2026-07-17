@@ -56,15 +56,6 @@ export const PLATFORM_CATALOG = [
     ],
   },
   {
-    label: 'ADULT (18+)',
-    platforms: [
-      { label: 'OnlyFans', icon: '', placeholder: 'OnlyFans username' },
-      { label: 'Fansly', icon: '', placeholder: 'Fansly username' },
-      { label: 'Privacy', icon: '', placeholder: 'Privacy username' },
-      { label: 'FatalFans', icon: '', placeholder: 'FatalFans username' },
-    ],
-  },
-  {
     label: 'LIFESTYLE',
     platforms: [
       { label: 'Depop', icon: '👗', placeholder: 'Depop username' },
@@ -72,6 +63,15 @@ export const PLATFORM_CATALOG = [
       { label: 'Yelp', icon: '⭐', placeholder: 'Yelp business URL' },
       { label: 'Airbnb', icon: '🏠', placeholder: 'Airbnb profile URL' },
       { label: 'Vrbo', icon: '', placeholder: 'Vrbo property URL' },
+    ],
+  },
+  {
+    label: 'ADULT (18+)',
+    platforms: [
+      { label: 'OnlyFans', icon: '', placeholder: 'OnlyFans username' },
+      { label: 'Fansly', icon: '', placeholder: 'Fansly username' },
+      { label: 'Privacy', icon: '', placeholder: 'Privacy username' },
+      { label: 'FatalFans', icon: '', placeholder: 'FatalFans username' },
     ],
   },
 ];
