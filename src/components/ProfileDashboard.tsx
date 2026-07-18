@@ -48,6 +48,7 @@ import { HeroCardEditor } from '@/components/editors/HeroCardEditor';
 import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
+import { TextBlocksPanel } from '@/components/editors/TextBlocksPanel';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
@@ -247,11 +248,13 @@ const sections: DashboardSection[] = [
         blockType: null,
       },
       {
+        // Routed to the gallery panel by titleKey in handleRowTap; carries no
+        // toastKey (a dead 'dashboard.openDesignTab' key was removed in TEXT.1 —
+        // it never fired, the titleKey branch shadows it).
         icon: <LayoutGrid className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.templateGallery',
         subtitleKey: 'dashboard.templateGalleryDesc',
         blockType: null,
-        toastKey: 'dashboard.openDesignTab',
       },
       {
         icon: <Video className="h-6 w-6 text-white" />,
@@ -349,6 +352,10 @@ export function ProfileDashboard({
   const [hubSeed, setHubSeed] = useState<HubSeed | null>(null);
   const [hubSaving, setHubSaving] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
+  // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
+  // two-level nav state — null = list view, a block id = editing that block.
+  const [textBlocksOpen, setTextBlocksOpen] = useState(false);
+  const [textEditingId, setTextEditingId] = useState<string | null>(null);
   const [pendingPreset, setPendingPreset] = useState<string | null>(null);
   const [page1LabelDraft, setPage1LabelDraft] = useState('');
   const [page2LabelDraft, setPage2LabelDraft] = useState('');
@@ -411,6 +418,8 @@ export function ProfileDashboard({
     setVideoProfileOpen(false);
     setNameFxOpen(false);
     setPagesOpen(false);
+    setTextBlocksOpen(false);
+    setTextEditingId(null);
     setPendingPreset(null);
     onClose();
   };
@@ -835,6 +844,13 @@ export function ProfileDashboard({
     // List-entry path always opens the batch list view, never direct item mode.
     setDirectItemId(null);
     setDirectNew(false);
+    // TEXT.1: the Heading & Text Boxes row opens the standalone-text-blocks list
+    // panel (add / toggle / edit / delete N blocks), not a single-block editor.
+    if (row.blockType === 'text') {
+      setTextEditingId(null);
+      setTextBlocksOpen(true);
+      return;
+    }
     if (!row.blockType) {
       if (row.titleKey === 'dashboard.templateGallery') {
         setGalleryOpen(true);
@@ -1081,6 +1097,18 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashLayout.design')}</h2>
+                </>
+              ) : textBlocksOpen ? (
+                <>
+                  <button
+                    onClick={() => (textEditingId ? setTextEditingId(null) : setTextBlocksOpen(false))}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">
+                    {textEditingId ? t('textBlocks.editTitle') : t('textBlocks.panelTitle')}
+                  </h2>
                 </>
               ) : activeBlockId ? (
                 <>
@@ -1641,6 +1669,29 @@ export function ProfileDashboard({
                     onClose={() => setDesignOpen(false)}
                     activePageId={selectedMode}
                   />
+                </div>
+              ) : textBlocksOpen ? (
+                // TEXT.1: two-level sub-panel. textEditingId set = the shared
+                // TextBlockEditor for that block; null = the list of text blocks.
+                // Save/Cancel/back returns to the list, which remounts and
+                // refetches so add/edit/delete are reflected immediately.
+                <div className="dark text-foreground flex min-h-full flex-col">
+                  {textEditingId ? (
+                    <TextBlockEditor
+                      blockId={textEditingId}
+                      open
+                      onOpenChange={(o) => { if (!o) setTextEditingId(null); }}
+                      onSave={onRefresh}
+                      panelMode
+                      onTitleDraftChange={onTitleDraftChange}
+                    />
+                  ) : (
+                    <TextBlocksPanel
+                      modeId={modeId}
+                      onRefresh={onRefresh}
+                      onEdit={(id) => setTextEditingId(id)}
+                    />
+                  )}
                 </div>
               ) : activeBlockId ? (
                 // Same height-filling column. Editors that don't yet anchor
