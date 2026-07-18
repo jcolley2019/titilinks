@@ -57,6 +57,7 @@ import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
+import { pageLabel } from '@/lib/page-labels';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import type { ClickHandler } from '@/components/blocks/types';
 import { PrimaryCtaBlock } from '@/components/blocks/PrimaryCtaBlock';
@@ -2004,8 +2005,8 @@ export function EditableProfileView({
 
   // Page labels + two-page switcher (shown in both editor preview and live page).
   const themePages = (page.theme_json as any)?.pages;
-  const page1Label = themePages?.page1?.label || 'Page 1';
-  const page2Label = themePages?.page2?.label || 'Page 2';
+  const page1Label = pageLabel(themePages?.page1?.label, 'page1', t);
+  const page2Label = pageLabel(themePages?.page2?.label, 'page2', t);
   const pagesEnabled: boolean = themePages?.enabled === true;
   const renderPageSwitcher = () => {
     if (!pagesEnabled) return null;

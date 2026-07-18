@@ -31,6 +31,7 @@ import {
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, ShoppingBag, ImagePlus, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
 
@@ -73,6 +74,9 @@ interface ProductCardsEditorProps {
 export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelMode }: ProductCardsEditorProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  // ES.FIX.1 STEP 3: the tile grid mirrors ProductCardsBlock — seeded default
+  // label/badge translate via content-i18n; the input fields keep raw values.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<ProductItem[]>([]);
@@ -401,12 +405,12 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                       )}
                       {item.badge && (
                         <span className="absolute top-1.5 left-1.5 z-[1] text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#C9A55C] text-[#0e0c09]">
-                          {item.badge}
+                          {tc(item.badge)}
                         </span>
                       )}
                       {item.label && (
                         <span className="absolute inset-x-0 bottom-0 z-[1] px-2 pb-1.5 pt-5 text-left bg-gradient-to-t from-black/75 to-transparent">
-                          <span className="block truncate text-[11px] font-semibold text-white">{item.label}</span>
+                          <span className="block truncate text-[11px] font-semibold text-white">{tc(item.label)}</span>
                         </span>
                       )}
                       <button

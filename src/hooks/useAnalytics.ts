@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useLanguage } from './useLanguage';
+import { pageLabel } from '@/lib/page-labels';
 import type { Tables, Json } from '@/integrations/supabase/types';
 
 type Event = Tables<'events'>;
@@ -49,6 +51,7 @@ function getDaysAgo(days: number): Date {
 
 export function useAnalytics(): AnalyticsData {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [page, setPage] = useState<Page | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [shortLinks, setShortLinks] = useState<ShortLink[]>([]);
@@ -125,9 +128,11 @@ export function useAnalytics(): AnalyticsData {
 
     // Extract page labels from theme_json
     const themeJson = page?.theme_json as { pages?: { page1?: { label?: string }; page2?: { label?: string } } } | null;
+    // ES.FIX.1 STEP 2: localized Page 1 / Page 2 fallback via the shared helper.
+    // A custom label the user typed is returned as-is; only the fallback localizes.
     const pageLabels: PageLabels = {
-      page1: themeJson?.pages?.page1?.label || 'Page 1',
-      page2: themeJson?.pages?.page2?.label || 'Page 2',
+      page1: pageLabel(themeJson?.pages?.page1?.label, 'page1', t),
+      page2: pageLabel(themeJson?.pages?.page2?.label, 'page2', t),
     };
 
     // Filter events by type and date
@@ -245,7 +250,7 @@ export function useAnalytics(): AnalyticsData {
       totalShortLinkClicks,
       pageLabels,
     };
-  }, [events, page, shortLinks]);
+  }, [events, page, shortLinks, t]);
 
   return {
     ...analytics,

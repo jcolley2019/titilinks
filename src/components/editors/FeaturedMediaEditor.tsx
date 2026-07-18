@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,9 @@ interface SortableMediaItemProps {
 
 function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: SortableMediaItemProps) {
   const { t } = useLanguage();
+  // ES.FIX.1 STEP 3: the row heading mirrors FeaturedMediaBlock — a seeded default
+  // label translates via content-i18n; the input field below keeps the raw value.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [expanded, setExpanded] = useState(!item.url);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -130,7 +134,7 @@ function SortableMediaItem({ item, onUpdate, onDelete, onImageChange, errors }: 
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{item.label || t('featuredMediaEditor.untitled')}</p>
+          <p className="font-medium text-sm truncate">{item.label ? tc(item.label) : t('featuredMediaEditor.untitled')}</p>
           <p className="text-xs text-muted-foreground truncate">{item.url || t('featuredMediaEditor.noUrl')}</p>
         </div>
 

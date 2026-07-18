@@ -161,7 +161,7 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
               )}
             >
               <CategoryIcon id={category.id} />
-              {category.label}
+              {t(category.label)}
             </button>
           ))}
         </div>
@@ -315,7 +315,7 @@ function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCard
         {/* Template Info */}
         <div className="p-2.5">
           <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
-          <p className="text-xs text-muted-foreground truncate">{template.description}</p>
+          <p className="text-xs text-muted-foreground truncate">{t(template.description)}</p>
         </div>
       </div>
     </motion.div>

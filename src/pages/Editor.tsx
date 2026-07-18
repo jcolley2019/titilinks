@@ -505,7 +505,7 @@ export default function Editor() {
               onClick={() => setProfileDashboardOpen(true)}
               className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
             >
-              Edit Profile
+              {t('dashLayout.editProfile')}
             </button>
             <button
               onClick={() => window.open(`/${page.handle}`, '_blank')}

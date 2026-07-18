@@ -24,17 +24,21 @@ export type TemplateCategory =
   | 'minimal'
   | 'bold';
 
+// ES.FIX.1 STEP 1c: `label` and each template `description` below hold i18n KEYS,
+// resolved via t() at the render site (TemplateGallery.tsx). Template `name`
+// fields stay English — they are product names by ruling. Keys are defined in
+// both dictionaries (useLanguage.tsx, `templateGallery.category.*` / `.desc.*`).
 export const TEMPLATE_CATEGORIES: { id: TemplateCategory; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'fashion', label: 'Fashion' },
-  { id: 'influencer', label: 'Influencer' },
-  { id: 'health', label: 'Health & Fitness' },
-  { id: 'marketing', label: 'Marketing' },
-  { id: 'social', label: 'Social Media' },
-  { id: 'music', label: 'Music' },
-  { id: 'business', label: 'Small Business' },
-  { id: 'minimal', label: 'Minimal' },
-  { id: 'bold', label: 'Bold' },
+  { id: 'all', label: 'templateGallery.category.all' },
+  { id: 'fashion', label: 'templateGallery.category.fashion' },
+  { id: 'influencer', label: 'templateGallery.category.influencer' },
+  { id: 'health', label: 'templateGallery.category.health' },
+  { id: 'marketing', label: 'templateGallery.category.marketing' },
+  { id: 'social', label: 'templateGallery.category.social' },
+  { id: 'music', label: 'templateGallery.category.music' },
+  { id: 'business', label: 'templateGallery.category.business' },
+  { id: 'minimal', label: 'templateGallery.category.minimal' },
+  { id: 'bold', label: 'templateGallery.category.bold' },
 ];
 
 export const TEMPLATES: TemplateDefinition[] = [
@@ -43,7 +47,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'vogue-noir',
     name: 'Vogue Noir',
     category: 'fashion',
-    description: 'Elegant dark theme with serif typography',
+    description: 'templateGallery.desc.vogue-noir',
     theme: {
       background: {
         type: 'solid',
@@ -80,7 +84,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'blush-boutique',
     name: 'Blush Boutique',
     category: 'fashion',
-    description: 'Soft pink tones with glass effect',
+    description: 'templateGallery.desc.blush-boutique',
     theme: {
       background: {
         type: 'gradient',
@@ -119,7 +123,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'creator-gradient',
     name: 'Creator Gradient',
     category: 'influencer',
-    description: 'Vibrant gradient with bold CTAs',
+    description: 'templateGallery.desc.creator-gradient',
     theme: {
       background: {
         type: 'gradient',
@@ -156,7 +160,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'neon-nights',
     name: 'Neon Nights',
     category: 'influencer',
-    description: 'Dark with neon accents and glass buttons',
+    description: 'templateGallery.desc.neon-nights',
     theme: {
       background: {
         type: 'solid',
@@ -197,7 +201,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'zen-wellness',
     name: 'Zen Wellness',
     category: 'health',
-    description: 'Calm earthy tones for wellness brands',
+    description: 'templateGallery.desc.zen-wellness',
     theme: {
       background: {
         type: 'gradient',
@@ -234,7 +238,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'energy-boost',
     name: 'Energy Boost',
     category: 'health',
-    description: 'High-energy orange with bold typography',
+    description: 'templateGallery.desc.energy-boost',
     theme: {
       background: {
         type: 'solid',
@@ -273,7 +277,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'growth-pro',
     name: 'Growth Pro',
     category: 'marketing',
-    description: 'Professional blue with clean lines',
+    description: 'templateGallery.desc.growth-pro',
     theme: {
       background: {
         type: 'solid',
@@ -310,7 +314,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'conversion-king',
     name: 'Conversion King',
     category: 'marketing',
-    description: 'High-contrast with outline buttons',
+    description: 'templateGallery.desc.conversion-king',
     theme: {
       background: {
         type: 'solid',
@@ -351,7 +355,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'tiktok-vibes',
     name: 'TikTok Vibes',
     category: 'social',
-    description: 'Dark with cyan & magenta accents',
+    description: 'templateGallery.desc.tiktok-vibes',
     theme: {
       background: {
         type: 'solid',
@@ -388,7 +392,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'insta-aesthetic',
     name: 'Insta Aesthetic',
     category: 'social',
-    description: 'Warm gradient with glass morphism',
+    description: 'templateGallery.desc.insta-aesthetic',
     theme: {
       background: {
         type: 'gradient',
@@ -429,7 +433,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'vinyl-records',
     name: 'Vinyl Records',
     category: 'music',
-    description: 'Retro warm tones with serif type',
+    description: 'templateGallery.desc.vinyl-records',
     theme: {
       background: {
         type: 'solid',
@@ -466,7 +470,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'edm-pulse',
     name: 'EDM Pulse',
     category: 'music',
-    description: 'Electric purple with mono font',
+    description: 'templateGallery.desc.edm-pulse',
     theme: {
       background: {
         type: 'gradient',
@@ -505,7 +509,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'local-shop',
     name: 'Local Shop',
     category: 'business',
-    description: 'Warm and inviting for local businesses',
+    description: 'templateGallery.desc.local-shop',
     theme: {
       background: {
         type: 'solid',
@@ -542,7 +546,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'corporate-clean',
     name: 'Corporate Clean',
     category: 'business',
-    description: 'Professional and trustworthy',
+    description: 'templateGallery.desc.corporate-clean',
     theme: {
       background: {
         type: 'solid',
@@ -581,7 +585,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'pure-white',
     name: 'Pure White',
     category: 'minimal',
-    description: 'Ultra-minimal white canvas',
+    description: 'templateGallery.desc.pure-white',
     theme: {
       background: {
         type: 'solid',
@@ -618,7 +622,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'outline-minimal',
     name: 'Outline Only',
     category: 'minimal',
-    description: 'Clean outline buttons on white',
+    description: 'templateGallery.desc.outline-minimal',
     theme: {
       background: {
         type: 'solid',
@@ -659,7 +663,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'electric-lime',
     name: 'Electric Lime',
     category: 'bold',
-    description: 'Eye-catching lime green',
+    description: 'templateGallery.desc.electric-lime',
     theme: {
       background: {
         type: 'solid',
@@ -696,7 +700,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'hot-coral',
     name: 'Hot Coral',
     category: 'bold',
-    description: 'Vivid coral with high impact',
+    description: 'templateGallery.desc.hot-coral',
     theme: {
       background: {
         type: 'gradient',
@@ -734,7 +738,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'golden-hour',
     name: 'Golden Hour',
     category: 'influencer',
-    description: 'Gold fade rising from below, framed in a thin outline',
+    description: 'templateGallery.desc.golden-hour',
     theme: {
       background: {
         type: 'solid',
@@ -774,7 +778,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'midnight-fade',
     name: 'Midnight Fade',
     category: 'minimal',
-    description: 'Dark scrim fading up — made for Full Screen photo pages',
+    description: 'templateGallery.desc.midnight-fade',
     theme: {
       background: {
         type: 'solid',
@@ -814,7 +818,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'waterfall',
     name: 'Waterfall',
     category: 'music',
-    description: 'Violet mist pouring from the top edge',
+    description: 'templateGallery.desc.waterfall',
     theme: {
       background: {
         type: 'solid',
@@ -854,7 +858,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'frost',
     name: 'Frost',
     category: 'minimal',
-    description: 'Pure frosted glass with a whisper of white',
+    description: 'templateGallery.desc.frost',
     theme: {
       background: {
         type: 'solid',

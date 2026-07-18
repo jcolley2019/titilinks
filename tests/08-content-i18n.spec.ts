@@ -79,3 +79,49 @@ test.describe('content-i18n — every CONTENT_MAP target is a real key', () => {
     expect(missing).toEqual([]);
   });
 });
+
+// ─── 4. Born-in-language seeding (ES.FIX.1 STEP 4) ──────────────────────────
+
+// The non-onboarding block-creation path (ProfileDashboard.addBlock) seeds a new
+// block's title with `t(row.titleKey)` — the ACTIVE SESSION LANGUAGE — at creation
+// time. There is no Supabase seeding hook, so (as elsewhere in this file) we pin
+// the invariant the seed relies on: the same titleKey resolves to a DIFFERENT
+// stored value under es vs en, so a block born in a Spanish session stores
+// Spanish and one born in English stores English.
+test.describe('content-i18n — a block is born in the session language', () => {
+  // Mirror of the seed expression `title: t(row.titleKey)` under each language.
+  const seededTitle = (key: string, lang: 'en' | 'es') => translations[lang][key] ?? key;
+  // The add-block rows whose seeded title is a translatable content string.
+  const bornKeys = ['blocks.bio.title', 'blocks.gallery.title', 'blocks.text.title'];
+
+  test('ES and EN sessions seed different stored titles for the same block', () => {
+    for (const key of bornKeys) {
+      const en = seededTitle(key, 'en');
+      const es = seededTitle(key, 'es');
+      expect(en).not.toBe(key); // a real value, not a raw-key fallback
+      expect(es).not.toBe(key);
+      expect(es).not.toBe(en);  // born-in-language: the stored value differs
+    }
+    // Concrete pins so a wrong seed is loud.
+    expect(seededTitle('blocks.bio.title', 'en')).toBe('Bio');
+    expect(seededTitle('blocks.bio.title', 'es')).toBe('Biografía');
+  });
+});
+
+// ─── 5. Legacy English-stored content still renders translated ──────────────
+
+// Born-in-language changes ONLY new seeds. A page seeded earlier — or by the
+// English-canonical preset / onboarding path, which feeds CONTENT_MAP — stored
+// English literals. Those must still resolve to Spanish through content-i18n; the
+// born-in-language change must never strand a legacy page in English.
+test.describe('content-i18n — legacy English-stored values still translate', () => {
+  test('preset/onboarding English literals resolve in a Spanish session', () => {
+    for (const literal of ['Primary CTA', 'About', 'Product One', 'Gallery']) {
+      const es = translateContent(literal, esT);
+      expect(es).toBe(esT(CONTENT_MAP[literal])); // resolves through its mapped key
+      expect(es).not.toBe(literal);               // actually translated, not raw English
+    }
+    // English session keeps the English literal (CONTENT_MAP unaffected).
+    expect(translateContent('About', enT)).toBe('About');
+  });
+});

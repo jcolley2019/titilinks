@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Mail, Check } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 
 interface EmailSubscribeConfig {
@@ -47,6 +48,9 @@ interface EmailSubscribeEditorProps {
 
 export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, panelMode }: EmailSubscribeEditorProps) {
   const { t } = useLanguage();
+  // ES.FIX.1 STEP 3: the live preview mirrors EmailSubscribeBlock — each stored
+  // config value routes through content-i18n. Input fields keep raw values.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<EmailSubscribeConfig>(DEFAULT_CONFIG);
@@ -236,7 +240,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
             <Label>{t('emailSubscribeEditor.preview')}</Label>
             <div className="p-4 rounded-xl bg-muted/50 border border-border">
               {config.title && (
-                <p className="text-sm font-medium text-center mb-3">{config.title}</p>
+                <p className="text-sm font-medium text-center mb-3">{tc(config.title)}</p>
               )}
               <div className={cn(
                 'flex gap-2',
@@ -244,19 +248,19 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
               )}>
                 {config.collect_name && (
                   <Input
-                    placeholder={config.name_placeholder || t('emailSubscribeEditor.namePlaceholder')}
+                    placeholder={tc(config.name_placeholder) || t('emailSubscribeEditor.namePlaceholder')}
                     className="h-10"
                     disabled
                   />
                 )}
                 <div className="flex gap-2 flex-1">
                   <Input
-                    placeholder={config.placeholder || t('emailSubscribeEditor.emailPlaceholder')}
+                    placeholder={tc(config.placeholder) || t('emailSubscribeEditor.emailPlaceholder')}
                     className="h-10 flex-1"
                     disabled
                   />
                   <Button className="h-10 px-4" disabled>
-                    {config.button_label || t('emailSubscribeEditor.subscribe')}
+                    {tc(config.button_label) || t('emailSubscribeEditor.subscribe')}
                   </Button>
                 </div>
               </div>
@@ -266,7 +270,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
             <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
               <div className="flex items-center justify-center gap-2 text-green-600">
                 <Check className="h-5 w-5" />
-                <p className="text-sm font-medium">{config.success_message || t('emailSubscribeEditor.successMessagePlaceholder')}</p>
+                <p className="text-sm font-medium">{tc(config.success_message) || t('emailSubscribeEditor.successMessagePlaceholder')}</p>
               </div>
             </div>
           </div>

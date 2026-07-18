@@ -25,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import { Loader2, MousePointer, Palette, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
 
@@ -71,6 +72,10 @@ interface PrimaryCtaEditorProps {
 
 export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMode }: PrimaryCtaEditorProps) {
   const { t } = useLanguage();
+  // ES.FIX.1 STEP 3: the preview mirrors the public render path — seeded default
+  // content (label/subtitle/badge, incl. NEW→NUEVO) translates via content-i18n.
+  // Input fields keep raw stored values; only this preview translates.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingItem, setExistingItem] = useState<BlockItem | null>(null);
@@ -373,13 +378,13 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
               <p className="text-xs text-muted-foreground mb-2">{t('primaryCtaEditor.preview')}</p>
               <div className="flex flex-col items-center gap-1">
                 {form.watch('badge') && (
-                  <span className="text-xs font-medium text-primary">{form.watch('badge')}</span>
+                  <span className="text-xs font-medium text-primary">{tc(form.watch('badge'))}</span>
                 )}
                 <div className="px-6 py-2 rounded-full bg-primary text-primary-foreground font-medium">
-                  {form.watch('label')}
+                  {tc(form.watch('label'))}
                 </div>
                 {form.watch('subtitle') && (
-                  <span className="text-xs text-muted-foreground">{form.watch('subtitle')}</span>
+                  <span className="text-xs text-muted-foreground">{tc(form.watch('subtitle'))}</span>
                 )}
               </div>
             </div>

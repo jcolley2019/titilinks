@@ -44,6 +44,7 @@ import {
   Rows3,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { cn, randomUUID } from '@/lib/utils';
@@ -86,6 +87,9 @@ interface SortableContentItemProps {
 
 function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }: SortableContentItemProps) {
   const { t } = useLanguage();
+  // ES.FIX.1 STEP 3: the row heading mirrors ContentSectionBlock (which tc's the
+  // item label) — a seeded default translates via content-i18n; the input keeps raw.
+  const tc = (text: string | null | undefined) => translateContent(text, t);
   const [expanded, setExpanded] = useState(!item.url);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -145,7 +149,7 @@ function SortableContentItem({ item, onUpdate, onDelete, onImageChange, error }:
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{item.title || t('contentSectionEditor.untitled')}</p>
+          <p className="font-medium text-sm truncate">{item.title ? tc(item.title) : t('contentSectionEditor.untitled')}</p>
           <p className="text-xs text-muted-foreground truncate">{item.meta_left || t('contentSectionEditor.noMeta')}</p>
         </div>
 
