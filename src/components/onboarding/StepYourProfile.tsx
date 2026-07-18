@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Check, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCroppedImage } from '@/lib/crop';
+import { toast } from 'sonner';
+import { getCroppedImage, cropErrorCauseKey } from '@/lib/crop';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
@@ -149,7 +150,12 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       const reader = new FileReader();
       reader.onloadend = () => updateField('avatarPreview', reader.result as string);
       reader.readAsDataURL(croppedFile);
-    } catch {
+    } catch (err) {
+      // CROP.3a error truth: log the real cause (name+message), tell the user
+      // with a concise hint, and keep the graceful fall-back to the original
+      // photo so onboarding never dead-ends on a crop failure.
+      console.error('[CROP] onboarding apply failed:', (err as any)?.name, (err as any)?.message, err);
+      toast.error(`${t('onboardingFlow.cropFailedFallback')} — ${t(cropErrorCauseKey(err))}`);
       if (rawFile) {
         updateField('avatarFile', rawFile);
         const reader = new FileReader();

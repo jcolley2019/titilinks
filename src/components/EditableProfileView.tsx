@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import { getCroppedImage, type Area as CropArea } from '@/lib/crop';
+import { getCroppedImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
 import {
   DndContext,
   closestCenter,
@@ -1134,6 +1134,14 @@ export function EditableProfileView({
   const [rcCrop, setRcCrop] = useState({ x: 0, y: 0 });
   const [rcZoom, setRcZoom] = useState(1);
   const [rcAreaPixels, setRcAreaPixels] = useState<CropArea | null>(null);
+  // CROP.3a readiness (STEP 2): true once the TinyFaceDetector model is loaded.
+  // Gates the AI-crop buttons so the first click can't race the model load.
+  const [faceModelReady, setFaceModelReady] = useState(faceapi.nets.tinyFaceDetector.isLoaded);
+  // CROP.3a slider-truth (STEP 2/Defect D): the hero preview box + the photo's
+  // natural aspect drive whether the Top/Bottom slider has any vertical travel.
+  const heroPreviewRef = useRef<HTMLDivElement>(null);
+  const [heroImgAspect, setHeroImgAspect] = useState<number | null>(null);
+  const [posYHasTravel, setPosYHasTravel] = useState(true);
 
   // Lock body + inner container scroll when photo overlay is open
   useEffect(() => {
@@ -1148,6 +1156,39 @@ export function EditableProfileView({
       };
     }
   }, [photoStep, photoPreview]);
+
+  // CROP.3a readiness (STEP 2): preload the TinyFaceDetector model the moment
+  // the manual crop step opens, so the AI-crop buttons gate on real readiness
+  // (disabled + loading) instead of letting the first click race the load. A
+  // load failure is logged (name+message) and leaves the buttons disabled.
+  useEffect(() => {
+    if (photoStep !== 'manual') return;
+    if (faceapi.nets.tinyFaceDetector.isLoaded) { setFaceModelReady(true); return; }
+    let cancelled = false;
+    faceapi.nets.tinyFaceDetector.loadFromUri('/models')
+      .then(() => { if (!cancelled) setFaceModelReady(true); })
+      .catch((e) => console.error('[AI CROP] model preload failed:', (e as any)?.name, (e as any)?.message));
+    return () => { cancelled = true; };
+  }, [photoStep]);
+
+  // CROP.3a slider-truth (Defect D): object-cover only pans the axis that
+  // overflows. Vertical travel exists iff the photo is narrower than the preview
+  // box (imgAspect < containerAspect); otherwise the Top/Bottom slider is inert
+  // and we disable it with a caption rather than ship a dead control. Measured
+  // on the real box so a resized panel re-evaluates.
+  useEffect(() => {
+    const el = heroPreviewRef.current;
+    if (!el || heroImgAspect == null) { setPosYHasTravel(true); return; }
+    const measure = () => {
+      if (!el.clientHeight) return;
+      const cAspect = el.clientWidth / el.clientHeight;
+      setPosYHasTravel(heroImgAspect < cAspect - 0.01);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [heroImgAspect, heroFitDraft, photoStep]);
 
   // Header config (must be before state that depends on it)
   const headerConfig = (page.theme_json as any)?.headerConfig || {
@@ -1653,10 +1694,14 @@ export function EditableProfileView({
 
       console.log('[AI CROP] No face detected at any input size');
     } catch (e) {
-      console.error('[AI CROP] face-api.js error:', e);
+      // CROP.3a error truth: re-throw so a model-load / decode / detection
+      // failure reaches the caller as a real cause hint — only a clean run that
+      // finds nothing falls through to the null "no face" result below.
+      console.error('[AI CROP] face-api.js error:', (e as any)?.name, (e as any)?.message, e);
+      throw e;
     }
 
-    return null; // no face detected
+    return null; // no face detected (clean run — genuinely no face)
   };
 
   const handleAiCrop = async (mode: 'headshot' | 'shoulders' | 'fullbody') => {
@@ -1790,8 +1835,10 @@ export function EditableProfileView({
       setPhotoStep('ai-preview');
       return;
     } catch (err) {
-      console.error('AI crop error:', err);
-      toast.error(t('editor.aiCropFailed'));
+      // CROP.3a error truth: log name+message and carry a concise cause hint so
+      // a model-load / decode failure is distinguishable from a clean no-face.
+      console.error('[AI CROP] failed:', (err as any)?.name, (err as any)?.message, err);
+      toast.error(`${t('editor.aiCropFailed')} — ${t(cropErrorCauseKey(err))}`);
       setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
       setPhotoStep('manual');
     } finally {
@@ -2379,7 +2426,7 @@ export function EditableProfileView({
                       </p>
 
                       {/* Live preview in the real hero shape — what you see is what publishes */}
-                      <div className={isFullBleed ? 'relative w-40 aspect-[430/932] rounded-2xl overflow-hidden border-2 border-white/20 bg-black' : 'relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black'}>
+                      <div ref={heroPreviewRef} className={isFullBleed ? 'relative w-40 aspect-[430/932] rounded-2xl overflow-hidden border-2 border-white/20 bg-black' : 'relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black'}>
                         {heroFitDraft === 'fit' && (
                           <div
                             aria-hidden="true"
@@ -2396,6 +2443,7 @@ export function EditableProfileView({
                         <img
                           src={photoPreview}
                           alt={t('editor.hero.previewAlt')}
+                          onLoad={(e) => setHeroImgAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
                           className="absolute inset-0 w-full h-full"
                           style={
                             heroFitDraft === 'fit' && !isFullBleed
@@ -2448,19 +2496,28 @@ export function EditableProfileView({
                           <span className="text-white/40 text-[10px]">{t('editor.hero.posRight')}</span>
                         </div>
                       )}
-                      {/* Vertical position — hero Fill, or full-screen */}
+                      {/* Vertical position — hero Fill, or full-screen.
+                          CROP.3a (Defect D): object-cover only pans an axis that
+                          overflows; when the photo already fills top-to-bottom
+                          the slider is inert, so disable it and say why. */}
                       {(heroFitDraft === 'fill' || isFullBleed) && (
-                        <div className="w-full max-w-xs flex items-center gap-3">
-                          <span className="text-white/40 text-[10px]">{t('editor.hero.posTop')}</span>
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            value={heroPosYDraft}
-                            onChange={(e) => setHeroPosYDraft(Number(e.target.value))}
-                            className="flex-1 accent-[#C9A55C]"
-                          />
-                          <span className="text-white/40 text-[10px]">{t('editor.hero.posBottom')}</span>
+                        <div className="w-full max-w-xs">
+                          <div className="flex items-center gap-3">
+                            <span className="text-white/40 text-[10px]">{t('editor.hero.posTop')}</span>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              value={heroPosYDraft}
+                              onChange={(e) => setHeroPosYDraft(Number(e.target.value))}
+                              disabled={!posYHasTravel}
+                              className={`flex-1 accent-[#C9A55C]${!posYHasTravel ? ' opacity-40 cursor-not-allowed' : ''}`}
+                            />
+                            <span className="text-white/40 text-[10px]">{t('editor.hero.posBottom')}</span>
+                          </div>
+                          {!posYHasTravel && (
+                            <p className="text-white/40 text-[10px] mt-1.5 text-center leading-snug">{t('editor.hero.posYNoTravel')}</p>
+                          )}
                         </div>
                       )}
 
@@ -2595,26 +2652,30 @@ export function EditableProfileView({
                           />
                         </div>
 
-                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">{t('editor.crop.aiEnhance')}</p>
+                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">{t('editor.crop.aiEnhance')}{!faceModelReady && ` · ${t('editor.crop.modelLoading')}`}</p>
 
-                        {/* Hero mode: 3-column AI preset grid; full-screen folds Full Body into the button row below */}
+                        {/* Hero mode: 3-column AI preset grid; full-screen folds Full Body into the button row below.
+                            CROP.3a (STEP 2): disabled until the face model is loaded so the first click can't race it. */}
                         {!isFullBleed && (
                           <div className="grid grid-cols-3 gap-1.5">
                             <button
                               onClick={() => handleAiCrop('headshot')}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                              disabled={!faceModelReady || aiProcessing}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {t('editor.crop.headshot')}
                             </button>
                             <button
                               onClick={() => handleAiCrop('shoulders')}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                              disabled={!faceModelReady || aiProcessing}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {t('editor.crop.shoulders')}
                             </button>
                             <button
                               onClick={() => handleAiCrop('fullbody')}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors"
+                              disabled={!faceModelReady || aiProcessing}
+                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {t('editor.crop.fullBody')}
                             </button>
@@ -2626,7 +2687,8 @@ export function EditableProfileView({
                           {isFullBleed && (
                             <button
                               onClick={() => handleAiCrop('fullbody')}
-                              className="py-2.5 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-xs hover:bg-[#C9A55C]/20 transition-colors"
+                              disabled={!faceModelReady || aiProcessing}
+                              className="py-2.5 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-xs hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {t('editor.crop.fullBody')}
                             </button>
@@ -2649,10 +2711,12 @@ export function EditableProfileView({
                                 setPhotoFile(croppedFile);
                                 await handlePhotoSave(croppedFile);
                               } catch (err) {
-                                // Never let Apply fail silently (e.g. a tainted
-                                // canvas throwing from toDataURL).
-                                console.error('Apply crop failed:', err);
-                                toast.error(t('editor.crop.cropFailed'));
+                                // CROP.3a error truth: never fail silently —
+                                // log name+message and carry a concise cause
+                                // hint so a tainted-canvas / decode failure is
+                                // distinguishable in the toast.
+                                console.error('[CROP] apply failed:', (err as any)?.name, (err as any)?.message, err);
+                                toast.error(`${t('editor.crop.cropFailed')} — ${t(cropErrorCauseKey(err))}`);
                               }
                             }}
                             className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs`}
