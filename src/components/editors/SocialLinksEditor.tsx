@@ -264,6 +264,9 @@ interface SocialLinksEditorProps {
   onIconSizeChange?: (v: 'small' | 'medium' | 'large') => void;
   iconColorMode?: 'color' | 'black' | 'white';
   onIconColorModeChange?: (v: 'color' | 'black' | 'white') => void;
+  // IR.1: circle background style. 'default' resolves to the current appearance.
+  iconBgStyle?: string;
+  onIconBgStyleChange?: (v: string) => void;
 }
 
 // Localized display labels for the platform-catalog category headers. The
@@ -279,7 +282,7 @@ const CATEGORY_LABEL_KEY: Record<string, string> = {
   'ADULT (18+)': 'platformCategory.adult',
 };
 
-export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange }: SocialLinksEditorProps) {
+export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange, iconBgStyle, onIconBgStyleChange }: SocialLinksEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -291,6 +294,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const [localIconSize, setLocalIconSize] = useState<'small' | 'medium' | 'large'>(iconSize ?? 'medium');
   const [localIconColorMode, setLocalIconColorMode] = useState<'color' | 'black' | 'white'>(iconColorMode ?? 'color');
+  const [localIconBgStyle, setLocalIconBgStyle] = useState<string>(iconBgStyle ?? 'default');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -553,6 +557,35 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                   onClick={() => { setLocalIconColorMode(opt.value); onIconColorModeChange?.(opt.value); }}
                   className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                     localIconColorMode === opt.value
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/10 text-white/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Icon Background (IR.1) — global, saved to page headerConfig.iconBgStyle.
+              'default' preserves the current appearance; the rest are opt-in. */}
+          <div className="mb-4">
+            <label className="text-xs text-white/50 block mb-1.5">{t('socialLinksEditor.iconBg')}</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { value: 'default', label: t('socialLinksEditor.bgDefault') },
+                { value: 'off', label: t('socialLinksEditor.bgOff') },
+                { value: 'glass', label: t('socialLinksEditor.bgGlass') },
+                { value: 'dark', label: t('socialLinksEditor.bgDark') },
+                { value: 'white', label: t('socialLinksEditor.bgWhite') },
+                { value: 'black', label: t('socialLinksEditor.bgBlack') },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setLocalIconBgStyle(opt.value); onIconBgStyleChange?.(opt.value); }}
+                  className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    localIconBgStyle === opt.value
                       ? 'bg-[#C9A55C] text-[#0e0c09]'
                       : 'bg-white/10 text-white/50'
                   }`}

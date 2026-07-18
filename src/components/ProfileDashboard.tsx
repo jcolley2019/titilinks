@@ -1002,6 +1002,17 @@ export function ProfileDashboard({
               if (error) { toast.error(t('dashboard.couldNotSave')); return; }
               onRefresh();
             }}
+            iconBgStyle={(themeJson as any)?.headerConfig?.iconBgStyle ?? 'default'}
+            onIconBgStyleChange={async (v) => {
+              const existingTheme = (themeJson as any) || {};
+              const existingHeader = existingTheme.headerConfig || {};
+              const { error } = await supabase
+                .from('pages')
+                .update({ theme_json: { ...existingTheme, headerConfig: { ...existingHeader, iconBgStyle: v } } })
+                .eq('id', pageId);
+              if (error) { toast.error(t('dashboard.couldNotSave')); return; }
+              onRefresh();
+            }}
           />
         );
       case 'links':

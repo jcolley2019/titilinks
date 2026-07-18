@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, cloneElement, type ReactElement } from 'react';
 import * as faceapi from '@vladmandic/face-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -167,6 +167,122 @@ function getNameFx(fx: any): React.CSSProperties {
 
 function SocialSvgIcon({ label, size = 20, color }: { label: string; size?: number; color?: string }) {
   return <PlatformIcon label={label} size={size} color={color} />;
+}
+
+// ─── Icon row (IR.1) ─────────────────────────────────────────────────────────
+
+// IR.1 icon-row sizing (architect defaults; tune by number here). Glyphs are
+// +20% vs pre-IR.1 (14/18/24 -> 17/22/29); circles step up one size
+// (h-8/h-10/h-12 -> h-9/h-11/h-[52px], i.e. 32/40/48px -> 36/44/52px); the
+// inter-icon gap tightens one step (gap-3 12px -> gap-2.5 10px).
+const ICON_GLYPH_PX: Record<string, number> = { small: 17, medium: 22, large: 29 };
+const ICON_CIRCLE_CLASS: Record<string, string> = { small: 'h-9 w-9', medium: 'h-11 w-11', large: 'h-[52px] w-[52px]' };
+const ICON_ROW_GAP = 'gap-2.5';
+const ICON_GAP_PX = 10; // matches gap-2.5; used as per-icon marginRight in drift mode
+// Slow horizontal drift when the row overflows. Reuses the Gallery/Carousel rAF
+// scrollLeft loop; larger = slower. Velocity = clientWidth * 0.72 / DRIFT_MS.
+const ICON_DRIFT_MS = 14000;
+
+type IconBgResolved = { className: string; background: string };
+
+// IR.1: resolve the icon-circle background. Unset or 'default' preserves the
+// pre-IR.1 appearance (theme tint in color mode, transparent otherwise) so
+// existing pages are visually unchanged until the creator opts into a named
+// style. Both live surfaces (header render + edit card) read through this.
+function resolveIconBg(
+  style: string | undefined,
+  colorMode: 'color' | 'black' | 'white',
+  themeBg: string,
+): IconBgResolved {
+  switch (style) {
+    case 'off':   return { className: '', background: 'transparent' };
+    case 'glass': return { className: 'backdrop-blur-md', background: 'rgba(255,255,255,0.14)' };
+    case 'dark':  return { className: '', background: 'rgba(0,0,0,0.45)' };
+    case 'white': return { className: '', background: '#ffffff' };
+    case 'black': return { className: '', background: '#000000' };
+    default:      return { className: '', background: colorMode === 'color' ? themeBg : 'transparent' };
+  }
+}
+
+// IR.1: the public header icon row. Fits on one line => static, centered (the
+// pre-IR.1 look). Overflows => the row becomes a single drifting strip that
+// reuses the Gallery block's rAF scrollLeft loop (duplicated for a seamless
+// wrap), disabled under prefers-reduced-motion. A pointer/touch pauses it 8s.
+function HeaderIconRow({ nodes }: { nodes: ReactElement[] }) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  const pausedUntil = useRef(0);
+  const pause = () => { pausedUntil.current = Date.now() + 8000; };
+
+  // Does the single copy exceed the container? (Once looping, the strip is
+  // doubled, so halve scrollWidth to recover the single-copy width.)
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const measure = () => {
+      const single = overflowing ? el.scrollWidth / 2 : el.scrollWidth;
+      setOverflowing(single > el.clientWidth + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [nodes.length, overflowing]);
+
+  useEffect(() => {
+    if (!overflowing) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const el = stripRef.current;
+    if (!el) return;
+    let raf = 0;
+    let last = performance.now();
+    // Accumulate in a float: reading el.scrollLeft back each frame rounds to an
+    // integer, so on a narrow (mobile) row the sub-pixel step would round away
+    // and the strip would never move. Keeping our own position avoids that.
+    let pos = el.scrollLeft;
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
+        const oneCopy = el.scrollWidth / 2;
+        const pxPerSec = (el.clientWidth * 0.72 * 1000) / ICON_DRIFT_MS;
+        pos += pxPerSec * dt;
+        if (oneCopy > 0 && pos >= oneCopy) pos -= oneCopy;
+        el.scrollLeft = pos;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [overflowing]);
+
+  // Drift mode spaces icons with a per-icon right margin (not flex gap) so the
+  // doubled strip wraps at exactly scrollWidth/2 with no jump — the Gallery
+  // block's technique. The duplicate copy is inert (aria-hidden, not tabbable).
+  const spaced = (arr: ReactElement[], dup: boolean) =>
+    arr.map((n) =>
+      cloneElement(n, {
+        key: dup ? `${n.key}-dup` : n.key,
+        style: { ...(n.props.style || {}), marginRight: ICON_GAP_PX },
+        ...(dup ? { 'aria-hidden': true, tabIndex: -1 } : {}),
+      })
+    );
+
+  return (
+    <div
+      ref={stripRef}
+      data-icon-row=""
+      onPointerDown={pause}
+      onTouchStart={pause}
+      style={{ marginTop: HEADER_GAP_B }}
+      className={cn(
+        'flex scrollbar-hide',
+        overflowing ? 'justify-start overflow-x-auto' : `justify-center overflow-x-hidden ${ICON_ROW_GAP}`,
+      )}
+    >
+      {overflowing ? [...spaced(nodes, false), ...spaced(nodes, true)] : nodes}
+    </div>
+  );
 }
 
 // ─── Block Renderers ─────────────────────────────────────────────────────────
@@ -658,6 +774,7 @@ function SocialIconsCard({
   localIconsPaddingY, setLocalIconsPaddingY,
   localIconSize, setLocalIconSize,
   localIconColorMode,
+  localIconBgStyle,
   iconsCardY, onIconsCardYChange, onDragEnd,
   contentStartY, setContentStartY,
   onEditSocial,
@@ -670,6 +787,7 @@ function SocialIconsCard({
   localIconsPaddingY: number; setLocalIconsPaddingY: (v: number) => void;
   localIconSize: 'small'|'medium'|'large'; setLocalIconSize: (v: 'small'|'medium'|'large') => void;
   localIconColorMode: 'color'|'black'|'white';
+  localIconBgStyle?: string;
   iconsCardY: number; onIconsCardYChange: (v: number) => void; onDragEnd: () => void;
   contentStartY: number; setContentStartY: (v: number) => void;
   onEditSocial: () => void;
@@ -678,10 +796,8 @@ function SocialIconsCard({
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
 
-  const iconSizeMap = { small: 14, medium: 18, large: 24 };
-  const iconContainerMap = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
   const resolvedIconColor = localIconColorMode === 'black' ? '#000000' : localIconColorMode === 'white' ? '#ffffff' : undefined;
-  const resolvedIconBg = localIconColorMode === 'color' ? chrome.iconBg : 'transparent';
+  const iconBg = resolveIconBg(localIconBgStyle, localIconColorMode, chrome.iconBg);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const debouncedSave = () => {
@@ -699,18 +815,18 @@ function SocialIconsCard({
         className="relative"
         style={{ paddingTop: 0, paddingBottom: 0 }}
       >
-        <div className="flex flex-wrap justify-center gap-3 px-4">
+        <div className={cn('flex flex-wrap justify-center px-4', ICON_ROW_GAP)}>
           {socialItems.map((item) => (
             <a
               key={item.id}
               href={item.url || undefined}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn('flex items-center justify-center rounded-full', iconContainerMap[localIconSize])}
-              style={{ background: resolvedIconBg }}
+              className={cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[localIconSize], iconBg.className)}
+              style={{ background: iconBg.background }}
               title={item.label}
             >
-              <SocialSvgIcon label={item.label} size={iconSizeMap[localIconSize]} color={resolvedIconColor} />
+              <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[localIconSize]} color={resolvedIconColor} />
             </a>
           ))}
           {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
@@ -719,10 +835,10 @@ function SocialIconsCard({
             onClick={onEditSocial}
             aria-label={t('editor.editSocial')}
             title={t('editor.editSocial')}
-            className={cn('flex items-center justify-center rounded-full border border-dashed border-white/30 text-white/50 hover:text-white/80 hover:border-white/50 transition-colors', iconContainerMap[localIconSize])}
+            className={cn('flex items-center justify-center rounded-full border border-dashed border-white/30 text-white/50 hover:text-white/80 hover:border-white/50 transition-colors', ICON_CIRCLE_CLASS[localIconSize])}
             style={{ background: chrome.iconBg }}
           >
-            <Plus size={iconSizeMap[localIconSize]} />
+            <Plus size={ICON_GLYPH_PX[localIconSize]} />
           </button>
         </div>
       </div>
@@ -1230,6 +1346,7 @@ export function EditableProfileView({
   const [localIconsPaddingY, setLocalIconsPaddingY] = useState(headerConfig.iconsPaddingY ?? 8);
   const [localIconSize, setLocalIconSize] = useState<'small'|'medium'|'large'>(headerConfig.iconSize ?? 'medium');
   const [localIconColorMode, setLocalIconColorMode] = useState<'color'|'black'|'white'>(headerConfig.iconColorMode ?? 'color');
+  const [localIconBgStyle, setLocalIconBgStyle] = useState<string | undefined>(headerConfig.iconBgStyle);
   const [localNameHandleGap, setLocalNameHandleGap] = useState(headerConfig.nameHandleGap ?? 2);
   const [nameCardY, setNameCardY] = useState(
     (page.theme_json as any)?.headerConfig?.nameCardY ?? 0
@@ -1249,6 +1366,9 @@ export function EditableProfileView({
   useEffect(() => {
     setLocalIconColorMode(headerConfig.iconColorMode ?? 'color');
   }, [headerConfig.iconColorMode]);
+  useEffect(() => {
+    setLocalIconBgStyle(headerConfig.iconBgStyle);
+  }, [headerConfig.iconBgStyle]);
 
   // Same idea for the name/handle drafts — keep the editor preview in sync with
   // the Name & Handle menu (headerConfig.name*/handle*).
@@ -2337,14 +2457,10 @@ export function EditableProfileView({
               });
               if (dedupedItems.length === 0) return null;
               const iSize = headerConfig.iconSize ?? 'medium';
-              const sizeMap: Record<string, number> = { small: 14, medium: 18, large: 24 };
-              const containerMap: Record<string, string> = { small: 'h-8 w-8', medium: 'h-10 w-10', large: 'h-12 w-12' };
               const iconColorMode = headerConfig.iconColorMode ?? 'color';
               const resolvedIconColor = iconColorMode === 'black' ? '#000000' : iconColorMode === 'white' ? '#ffffff' : undefined;
-              const resolvedIconBg = iconColorMode === 'color' ? chrome.iconBg : 'transparent';
-              return (
-                <div key={id} style={{ marginTop: HEADER_GAP_B }} className="flex flex-wrap justify-center gap-3">
-                  {dedupedItems.map(({ item, block }) => {
+              const iconBg = resolveIconBg(headerConfig.iconBgStyle, iconColorMode, chrome.iconBg);
+              const iconNodes = dedupedItems.map(({ item, block }) => {
                     // ADULT.2a: these are the page's real platform links. A
                     // gated one carries NO href — the destination stays in JS
                     // and opens only once the 18+ modal is confirmed, so a
@@ -2356,13 +2472,13 @@ export function EditableProfileView({
                     // box next to the protected header geometry is unchanged.
                     const gated = isEffectivelyGated(item);
                     const href = gated ? undefined : item.url || undefined;
-                    const boxClass = cn('flex items-center justify-center rounded-full', containerMap[iSize]);
-                    const icon = <SocialSvgIcon label={item.label} size={sizeMap[iSize]} color={resolvedIconColor} />;
+                    const boxClass = cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[iSize], iconBg.className);
+                    const icon = <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[iSize]} color={resolvedIconColor} />;
 
                     // No destination and nothing to gate — stays decorative.
                     if (!gated && !href) {
                       return (
-                        <span key={item.id} className={boxClass} style={{ background: resolvedIconBg }} title={item.label}>
+                        <span key={item.id} className={boxClass} style={{ background: iconBg.background }} title={item.label}>
                           {icon}
                         </span>
                       );
@@ -2378,7 +2494,7 @@ export function EditableProfileView({
                         tabIndex={0}
                         title={item.label}
                         className={cn(boxClass, 'cursor-pointer')}
-                        style={{ background: resolvedIconBg }}
+                        style={{ background: iconBg.background }}
                         onClick={(e) => {
                           if (gated) {
                             e.preventDefault();
@@ -2399,9 +2515,8 @@ export function EditableProfileView({
                         {icon}
                       </a>
                     );
-                  })}
-                </div>
-              );
+                  });
+              return <HeaderIconRow nodes={iconNodes} />;
             }
             return null;
           })}
@@ -2827,6 +2942,7 @@ export function EditableProfileView({
                     localIconsPaddingY={localIconsPaddingY} setLocalIconsPaddingY={setLocalIconsPaddingY}
                     localIconSize={localIconSize} setLocalIconSize={setLocalIconSize}
                     localIconColorMode={localIconColorMode}
+                    localIconBgStyle={localIconBgStyle}
                     iconsCardY={iconsCardY} onIconsCardYChange={setIconsCardY}
                     onDragEnd={() => saveHeaderConfig({ iconsCardY })}
                     contentStartY={contentStartY} setContentStartY={setContentStartY}
