@@ -255,3 +255,35 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
     await expect(page.getByText('¿Aplicar este diseño?')).toBeVisible();
   });
 });
+
+/**
+ * TPL.4 — the shelf is filled: the Layouts grid now carries all eight presets,
+ * and the leading "All" chip + per-category chips filter it. No per-preset apply
+ * round-trips here — the apply engine is already covered by the TPL.3 apply spec
+ * above and the tpl-apply unit suite.
+ */
+test.describe('Template Gallery — the full Layouts shelf (TPL.4)', () => {
+  test('the Layouts grid renders all 8 preset cards', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openGallery(page);
+
+    // Default category is "All" → the whole shelf.
+    await expect(page.getByTestId('tpl-layout-card')).toHaveCount(8);
+  });
+
+  test('category chips filter the shelf (Music → Música, Store → Tienda)', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openGallery(page);
+
+    // Each category holds exactly one preset — a chip narrows the grid to it.
+    await page.getByRole('button', { name: 'Music', exact: true }).click();
+    await expect(page.getByTestId('tpl-layout-card')).toHaveCount(1);
+    await expect(page.getByTestId('tpl-layout-card')).toContainText('Música');
+
+    await page.getByRole('button', { name: 'Store', exact: true }).click();
+    await expect(page.getByTestId('tpl-layout-card')).toHaveCount(1);
+    await expect(page.getByTestId('tpl-layout-card')).toContainText('Tienda');
+  });
+});

@@ -112,6 +112,50 @@ export const CONTENT_MAP: Record<string, string> = {
   'Contact': 'content.contact',
   'WhatsApp': 'content.whatsapp',
   'Message me directly': 'content.messageMeDirectly',
+
+  // TPL.4: seeded strings for the seven Layouts-shelf presets (tpl-presets.ts).
+  // Already-mapped strings are reused (My Website / Check out my website / Links /
+  // Products / Product One-Three + subtitles / Featured Media / Videos / About /
+  // WhatsApp / Message me directly / Work With Me / Collaborations & partnerships /
+  // Contact / Book Me / Primary CTA / Booking / Stay up to date) — only the NEW
+  // ones are registered here. wa.me deep-link URLs are real URLs, not content.
+  // reserva
+  'Book an Appointment': 'content.bookAnAppointment',
+  'Fast response on WhatsApp': 'content.fastResponseWhatsapp',
+  'Reserve': 'content.reserve',
+  'Location & Hours': 'content.locationHours',
+  'Prices': 'content.prices',
+  'Stay in touch': 'content.stayInTouch',
+  // tienda
+  'Shop the Collection': 'content.shopTheCollection',
+  'New drops every week': 'content.newDropsEveryWeek',
+  'Shop Now': 'content.shopNow',
+  'Size Guide': 'content.sizeGuide',
+  'Get restock alerts': 'content.getRestockAlerts',
+  // musica
+  'Latest Release': 'content.latestRelease',
+  'Listen everywhere': 'content.listenEverywhere',
+  'Spotify': 'content.spotify',
+  'YouTube': 'content.youtube',
+  'Tour Dates': 'content.tourDates',
+  'Join the fan list': 'content.joinTheFanList',
+  // entrena
+  'Start Training': 'content.startTraining',
+  '1:1 coaching & plans': 'content.oneOnOneCoaching',
+  'Programs': 'content.programs',
+  'Results': 'content.results',
+  // negocio
+  'Order Now': 'content.orderNow',
+  'Fresh daily': 'content.freshDaily',
+  'Menu': 'content.menu',
+  'Find Us': 'content.findUs',
+  'Hours': 'content.hours',
+  'Our Space': 'content.ourSpace',
+  // estudio
+  'Latest Episode': 'content.latestEpisode',
+  'Watch or listen': 'content.watchOrListen',
+  'All Episodes': 'content.allEpisodes',
+  'Never miss an episode': 'content.neverMissAnEpisode',
 };
 
 /**

@@ -185,6 +185,87 @@ const ACTRIZ_BLOCK_STYLES: Partial<BlockStyleConfig> = {
   border_color: '#C9A55C',     // gold — bs.border_color feeds LinkButton's unified outline pass first
 };
 
+// ── TPL.4: the seven remaining presets ──────────────────────────────────────
+//
+// CONTENT, not engine: each preset borrows the strongest matching THEME from
+// template-gallery.ts (values COPIED, that file untouched — self-flagged per
+// preset), seeds an English-canonical composition (every title/label/subtitle/
+// cta registered in content-i18n.ts + both dicts), and defines hero + full_bleed
+// variants on actriz's proven pattern:
+//   • hero      — the solid/opaque rendition; shadow lifts the card (except the
+//                 deliberately-flat 'minimal').
+//   • full_bleed— pre-declares GLASS (buttons.variant + blockStyles.variant) with
+//                 background_opacity 0.65 (cooperating with FULLBLEED_BUTTON_OPACITY),
+//                 because coerceFullBleedVariant forbids solid card fills. Any
+//                 theme carrying an outline_width (e.g. entrena's orange frame,
+//                 borrowed from energy-boost) keeps its SOLID frame through glass
+//                 via LinkButton's unified outline pass (the 3c learning).
+// WhatsApp links carry a real wa.me deep link with a URL-encoded Spanish prefill
+// (exact encoded strings self-flagged at each url).
+
+// reserva — borrowed theme: zen-wellness (warm-neutral, serif, calm-professional).
+const RESERVA_THEME: ThemeJson = {
+  background: { type: 'gradient', solid_color: '#f5f5f4', gradient_css: 'linear-gradient(180deg, #f5f5f4 0%, #e7e5e4 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'rounded', fill_color: '#57534e', text_color: '#fafaf9', border_enabled: false, border_color: '#57534e', shadow_enabled: false, density: 'normal' },
+  typography: { font: 'serif', text_color: '#292524' },
+  motion: { enabled: true },
+};
+const RESERVA_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'serif', letter_spacing: 0.01, background_opacity: 1 };
+
+// tienda — borrowed theme: blush-boutique (boutique-commerce, pink, pill buttons).
+const TIENDA_THEME: ThemeJson = {
+  background: { type: 'gradient', solid_color: '#fdf2f8', gradient_css: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'pill', fill_color: '#be185d', text_color: '#ffffff', border_enabled: false, border_color: '#be185d', shadow_enabled: true, density: 'normal' },
+  typography: { font: 'inter', text_color: '#831843' },
+  motion: { enabled: true },
+};
+const TIENDA_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'normal', letter_spacing: 0, background_opacity: 1, border_width: 0 };
+
+// musica — borrowed theme: edm-pulse (dark stage gradient, violet, mono).
+const MUSICA_THEME: ThemeJson = {
+  background: { type: 'gradient', solid_color: '#0a0a0a', gradient_css: 'linear-gradient(180deg, #0a0a0a 0%, #1e1b4b 50%, #4c1d95 100%)', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'square', fill_color: '#a78bfa', text_color: '#0a0a0a', border_enabled: true, border_color: '#a78bfa', shadow_enabled: true, density: 'normal' },
+  typography: { font: 'mono', text_color: '#e9d5ff' },
+  motion: { enabled: true },
+};
+const MUSICA_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'mono', letter_spacing: 0.05, background_opacity: 1 };
+
+// entrena — borrowed theme: energy-boost (high-energy dark + orange 2px frame).
+const ENTRENA_THEME: ThemeJson = {
+  background: { type: 'solid', solid_color: '#0c0c0c', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'square', fill_color: '#f97316', text_color: '#ffffff', border_enabled: false, border_color: '#f97316', shadow_enabled: true, density: 'roomy', variant: 'filled', outline_width: 2 },
+  typography: { font: 'inter', text_color: '#ffffff' },
+  motion: { enabled: true },
+};
+const ENTRENA_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'normal', letter_spacing: 0.03, background_opacity: 0.25, border_width: 2, border_color: '#f97316' };
+
+// negocio — borrowed theme: local-shop (friendly warm cream, terracotta, serif).
+const NEGOCIO_THEME: ThemeJson = {
+  background: { type: 'solid', solid_color: '#fef7ed', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'rounded', fill_color: '#9a3412', text_color: '#ffffff', border_enabled: false, border_color: '#9a3412', shadow_enabled: false, density: 'normal' },
+  typography: { font: 'serif', text_color: '#451a03' },
+  motion: { enabled: true },
+};
+const NEGOCIO_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'serif', letter_spacing: 0, background_opacity: 1 };
+
+// estudio — borrowed theme: vinyl-records (studio-dark warm brown-black, amber, serif).
+const ESTUDIO_THEME: ThemeJson = {
+  background: { type: 'solid', solid_color: '#1c1917', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'rounded', fill_color: '#fbbf24', text_color: '#1c1917', border_enabled: false, border_color: '#fbbf24', shadow_enabled: true, density: 'normal' },
+  typography: { font: 'serif', text_color: '#fef3c7' },
+  motion: { enabled: true },
+};
+const ESTUDIO_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'serif', letter_spacing: 0.02, background_opacity: 1 };
+
+// minimal — borrowed theme: pure-white (monochrome minimal, black pill, flat).
+const MINIMAL_THEME: ThemeJson = {
+  background: { type: 'solid', solid_color: '#ffffff', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+  buttons: { shape: 'pill', fill_color: '#000000', text_color: '#ffffff', border_enabled: false, border_color: '#000000', shadow_enabled: false, density: 'normal' },
+  typography: { font: 'inter', text_color: '#000000' },
+  motion: { enabled: false },
+};
+const MINIMAL_BLOCK_STYLES: Partial<BlockStyleConfig> = { variant: 'filled', font_style: 'normal', letter_spacing: 0, background_opacity: 1 };
+
 export const TPL_PRESETS: TplPreset[] = [
   {
     id: 'actriz',
@@ -241,6 +322,274 @@ export const TPL_PRESETS: TplPreset[] = [
       },
       { type: 'gallery', title: 'Gallery' },
       { type: 'video_feed', title: 'Videos' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── reserva ────────────────────────────────────────────────────────────────
+  {
+    id: 'reserva',
+    name: 'Reserva',
+    category: 'booking',
+    description: 'tpl.desc.reserva',
+    theme: RESERVA_THEME,
+    blockStyles: RESERVA_BLOCK_STYLES,
+    variants: {
+      hero: { theme: { buttons: { ...RESERVA_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...RESERVA_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'primary_cta',
+        title: 'Booking',
+        items: [
+          { label: 'Book an Appointment', subtitle: 'Fast response on WhatsApp', cta_label: 'Reserve', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          // wa.me prefill: encodeURIComponent('Hola, me gustaría reservar una cita')
+          { label: 'WhatsApp', subtitle: 'Message me directly', url: 'https://wa.me/?text=Hola%2C%20me%20gustar%C3%ADa%20reservar%20una%20cita' },
+          { label: 'Location & Hours', url: '' },
+          { label: 'Prices', url: '' },
+        ],
+      },
+      { type: 'email_subscribe', title: 'Stay in touch' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── tienda ─────────────────────────────────────────────────────────────────
+  {
+    id: 'tienda',
+    name: 'Tienda',
+    category: 'store',
+    description: 'tpl.desc.tienda',
+    theme: TIENDA_THEME,
+    blockStyles: TIENDA_BLOCK_STYLES,
+    variants: {
+      hero: { theme: { buttons: { ...TIENDA_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...TIENDA_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'primary_cta',
+        title: 'Primary CTA',
+        items: [
+          { label: 'Shop the Collection', subtitle: 'New drops every week', cta_label: 'Shop Now', url: '' },
+        ],
+      },
+      {
+        type: 'product_cards',
+        title: 'Products',
+        items: [
+          { label: 'Product One', subtitle: 'Your best seller', url: '' },
+          { label: 'Product Two', subtitle: 'New arrival', url: '' },
+          { label: 'Product Three', subtitle: 'Fan favorite', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          { label: 'My Website', subtitle: 'Check out my website', url: '' },
+          { label: 'Size Guide', url: '' },
+        ],
+      },
+      { type: 'email_subscribe', title: 'Get restock alerts' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── musica ─────────────────────────────────────────────────────────────────
+  {
+    id: 'musica',
+    name: 'Música',
+    category: 'music',
+    description: 'tpl.desc.musica',
+    theme: MUSICA_THEME,
+    blockStyles: MUSICA_BLOCK_STYLES,
+    variants: {
+      hero: { theme: { buttons: { ...MUSICA_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...MUSICA_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'featured_media',
+        title: 'Featured Media',
+        items: [
+          { label: 'Latest Release', subtitle: 'Listen everywhere', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          { label: 'Spotify', url: '' },
+          { label: 'YouTube', url: '' },
+          { label: 'Tour Dates', url: '' },
+        ],
+      },
+      { type: 'video_feed', title: 'Videos' },
+      { type: 'email_subscribe', title: 'Join the fan list' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── entrena ────────────────────────────────────────────────────────────────
+  {
+    id: 'entrena',
+    name: 'Entrena',
+    category: 'fitness',
+    description: 'tpl.desc.entrena',
+    theme: ENTRENA_THEME,
+    blockStyles: ENTRENA_BLOCK_STYLES,
+    variants: {
+      // energy-boost carries outline_width:2 — the orange frame survives glass on
+      // full_bleed via the unified outline pass (the 3c learning).
+      hero: { theme: { buttons: { ...ENTRENA_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...ENTRENA_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'primary_cta',
+        title: 'Primary CTA',
+        items: [
+          { label: 'Start Training', subtitle: '1:1 coaching & plans', cta_label: 'Book Me', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          { label: 'Programs', url: '' },
+          // wa.me prefill: encodeURIComponent('Hola, me interesa el entrenamiento')
+          { label: 'WhatsApp', subtitle: 'Message me directly', url: 'https://wa.me/?text=Hola%2C%20me%20interesa%20el%20entrenamiento' },
+        ],
+      },
+      { type: 'gallery', title: 'Results' },
+      { type: 'email_subscribe', title: 'Stay up to date' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── negocio ────────────────────────────────────────────────────────────────
+  {
+    id: 'negocio',
+    name: 'Negocio Local',
+    category: 'local_business',
+    description: 'tpl.desc.negocio',
+    theme: NEGOCIO_THEME,
+    blockStyles: NEGOCIO_BLOCK_STYLES,
+    variants: {
+      hero: { theme: { buttons: { ...NEGOCIO_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...NEGOCIO_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'primary_cta',
+        title: 'Primary CTA',
+        items: [
+          { label: 'Order Now', subtitle: 'Fresh daily', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          // wa.me prefill: encodeURIComponent('Hola, quiero hacer un pedido')
+          { label: 'WhatsApp', subtitle: 'Message me directly', url: 'https://wa.me/?text=Hola%2C%20quiero%20hacer%20un%20pedido' },
+          { label: 'Menu', url: '' },
+          { label: 'Find Us', url: '' },
+          { label: 'Hours', url: '' },
+        ],
+      },
+      { type: 'gallery', title: 'Our Space' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── estudio ────────────────────────────────────────────────────────────────
+  {
+    id: 'estudio',
+    name: 'Estudio',
+    category: 'media',
+    description: 'tpl.desc.estudio',
+    theme: ESTUDIO_THEME,
+    blockStyles: ESTUDIO_BLOCK_STYLES,
+    variants: {
+      hero: { theme: { buttons: { ...ESTUDIO_THEME.buttons, shadow_enabled: true } } },
+      full_bleed: {
+        theme: { buttons: { ...ESTUDIO_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'featured_media',
+        title: 'Featured Media',
+        items: [
+          { label: 'Latest Episode', subtitle: 'Watch or listen', url: '' },
+        ],
+      },
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          { label: 'YouTube', url: '' },
+          { label: 'Spotify', url: '' },
+          { label: 'All Episodes', url: '' },
+        ],
+      },
+      { type: 'video_feed', title: 'Videos' },
+      { type: 'email_subscribe', title: 'Never miss an episode' },
+      { type: 'bio', title: 'About' },
+    ],
+  },
+
+  // ── minimal ────────────────────────────────────────────────────────────────
+  {
+    id: 'minimal',
+    name: 'Minimal Pro',
+    category: 'minimal',
+    description: 'tpl.desc.minimal',
+    theme: MINIMAL_THEME,
+    blockStyles: MINIMAL_BLOCK_STYLES,
+    variants: {
+      // Deliberately flat — no shadow lift; a clean monochrome professional.
+      hero: { theme: { buttons: { ...MINIMAL_THEME.buttons, shadow_enabled: false } } },
+      full_bleed: {
+        theme: { buttons: { ...MINIMAL_THEME.buttons, variant: 'glass' } },
+        blockStyles: { variant: 'glass', background_opacity: 0.65 },
+      },
+    },
+    composition: [
+      {
+        type: 'links',
+        title: 'Links',
+        items: [
+          { label: 'My Website', subtitle: 'Check out my website', url: '' },
+          { label: 'Work With Me', subtitle: 'Collaborations & partnerships', url: '' },
+          { label: 'Contact', url: '' },
+        ],
+      },
       { type: 'bio', title: 'About' },
     ],
   },

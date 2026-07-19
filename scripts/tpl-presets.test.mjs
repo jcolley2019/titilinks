@@ -11,6 +11,8 @@
 
 import assert from 'node:assert/strict';
 import { resolveTplVariant, TPL_PRESETS, TPL_CATEGORIES } from '../src/lib/tpl-presets';
+import { CONTENT_MAP } from '../src/lib/content-i18n';
+import { Constants } from '../src/integrations/supabase/types';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -87,5 +89,57 @@ assert.equal(actriz.composition.length, 5, 'actriz has a 5-block composition');
 assert.equal(actriz.composition[0].type, 'primary_cta', 'actriz opens with primary_cta');
 assert.equal(TPL_CATEGORIES.length, 8, 'all 8 categories are registered');
 ok('actriz reference preset resolves for hero and full_bleed');
+
+// ── TPL.4: the full seven-preset shelf ───────────────────────────────────────
+
+// 6. every registered preset resolves BOTH variants to a complete theme, and
+//    resolving never mutates the preset (deep snapshot compare).
+for (const p of TPL_PRESETS) {
+  const before = JSON.stringify(p);
+  for (const style of ['hero', 'full_bleed']) {
+    const r = resolveTplVariant(p, style);
+    for (const section of ['background', 'buttons', 'typography', 'motion']) {
+      assert.ok(r.theme[section] && typeof r.theme[section] === 'object', `${p.id}/${style}: theme.${section} present`);
+    }
+    assert.ok(r.blockStyles && typeof r.blockStyles === 'object', `${p.id}/${style}: blockStyles present`);
+  }
+  assert.equal(JSON.stringify(p), before, `${p.id}: not mutated by resolveTplVariant`);
+}
+ok('every preset resolves both variants without mutation');
+
+// 7. every composition block uses a REAL block_type enum value.
+const VALID_BLOCK_TYPES = new Set(Constants.public.Enums.block_type);
+for (const p of TPL_PRESETS) {
+  for (const b of p.composition) {
+    assert.ok(VALID_BLOCK_TYPES.has(b.type), `${p.id}: block type '${b.type}' is a valid block_type`);
+  }
+}
+ok('every composition block type is a valid block_type enum value');
+
+// 8. every seeded English-canonical string (block title + item label/subtitle/
+//    cta_label) is registered in CONTENT_MAP — no unmapped/untranslated content.
+//    (url = real deep link, image_url = asset; neither is translated content.)
+const unmapped = [];
+for (const p of TPL_PRESETS) {
+  for (const b of p.composition) {
+    if (!(b.title in CONTENT_MAP)) unmapped.push(`${p.id}:title:${b.title}`);
+    for (const it of b.items ?? []) {
+      for (const field of ['label', 'subtitle', 'cta_label']) {
+        const v = it[field];
+        if (v !== undefined && !(v in CONTENT_MAP)) unmapped.push(`${p.id}:${field}:${v}`);
+      }
+    }
+  }
+}
+assert.deepEqual(unmapped, [], `all seeded strings registered in CONTENT_MAP (unmapped: ${unmapped.join(', ')})`);
+ok('every seeded title/label/subtitle/cta is registered in CONTENT_MAP');
+
+// 9. the shelf is the full set: 8 presets, unique ids, each a registered category.
+assert.equal(TPL_PRESETS.length, 8, 'the Layouts shelf has 8 presets');
+const ids = TPL_PRESETS.map((p) => p.id);
+assert.equal(new Set(ids).size, ids.length, 'preset ids are unique');
+const catIds = new Set(TPL_CATEGORIES.map((c) => c.id));
+for (const p of TPL_PRESETS) assert.ok(catIds.has(p.category), `${p.id}: category '${p.category}' is registered`);
+ok('8 presets registered with unique ids and valid categories');
 
 console.log(`\nAll ${passed} tpl-presets checks passed.`);
