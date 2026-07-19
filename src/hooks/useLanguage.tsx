@@ -1231,11 +1231,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'tpl.category.minimal': 'Minimal',
     // TPL.3: Layouts-tab leading "All" chip + apply confirm dialog / toasts.
     'tpl.category.all': 'All',
-    'tpl.apply.confirm.title': 'Apply this layout?',
-    'tpl.apply.confirm.body': 'This replaces this page\'s blocks and theme with the "{name}" layout. A backup snapshot is saved first, so you can undo it anytime.',
-    'tpl.apply.confirm.confirm': 'Apply',
-    'tpl.apply.confirm.cancel': 'Cancel',
-    'tpl.apply.successToast': 'Layout applied!',
+    'tpl.apply.successToast': 'Layout applied — backup saved in Snapshots',
     'tpl.apply.failedToast': 'Could not apply the layout',
 
     // Editor Page
@@ -2901,11 +2897,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'tpl.category.minimal': 'Minimalista',
     // TPL.3: chip inicial "Todas" de la pestaña Diseños + diálogo de confirmación / toasts.
     'tpl.category.all': 'Todas',
-    'tpl.apply.confirm.title': '¿Aplicar este diseño?',
-    'tpl.apply.confirm.body': 'Esto reemplaza los bloques y el tema de esta página con el diseño "{name}". Primero se guarda una copia de seguridad, para que puedas deshacerlo cuando quieras.',
-    'tpl.apply.confirm.confirm': 'Aplicar',
-    'tpl.apply.confirm.cancel': 'Cancelar',
-    'tpl.apply.successToast': '¡Diseño aplicado!',
+    'tpl.apply.successToast': 'Diseño aplicado — copia de seguridad guardada en Instantáneas',
     'tpl.apply.failedToast': 'No se pudo aplicar el diseño',
 
     // Editor Page

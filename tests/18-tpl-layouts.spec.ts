@@ -193,10 +193,13 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
       (r) => r.url().includes('/rest/v1/blocks') && (r.method() === 'POST' || r.method() === 'DELETE'),
     );
 
-    // Tap the actriz card → confirm dialog → confirm.
-    await page.getByTestId('tpl-layout-card').first().click();
-    await expect(page.getByTestId('tpl-apply-confirm')).toBeVisible();
-    await page.getByTestId('tpl-apply-confirm-go').click();
+    // TPL.3d: hover the actriz card → the Apply button reveals → click it.
+    // One gesture, no confirm dialog — parity with the Styles tab.
+    const card = page.getByTestId('tpl-layout-card').first();
+    await card.hover();
+    const applyBtn = card.getByRole('button', { name: 'Apply' });
+    await expect(applyBtn).toBeVisible();
+    await applyBtn.click();
 
     // The auto safety-net snapshot is captured, named for the template.
     const posted = (await snapPost).postDataJSON();
@@ -213,12 +216,11 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
     expect(order.indexOf('theme')).toBeGreaterThan(order.indexOf('snapshot'));
     expect(order).toContain('blocks');
 
-    // Success toast + the confirm dialog closes.
-    await expect(page.getByText('Layout applied!')).toBeVisible();
-    await expect(page.getByTestId('tpl-apply-confirm')).toBeHidden();
+    // Success toast now carries the backup reassurance the dialog used to.
+    await expect(page.getByText('Layout applied — backup saved in Snapshots')).toBeVisible();
   });
 
-  test('cancelling the confirm dialog writes nothing', async ({ page }) => {
+  test('hovering a card without clicking Apply writes nothing', async ({ page }) => {
     await installMocks(page, { plan: 'pro' });
     await openEditProfile(page);
     await openGallery(page);
@@ -231,15 +233,16 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
       if (/\/rest\/v1\/(profile_snapshots|pages|blocks|block_items|modes)/.test(r.url())) writes++;
     });
 
-    await page.getByTestId('tpl-layout-card').first().click();
-    await expect(page.getByTestId('tpl-apply-confirm')).toBeVisible();
-    await page.getByTestId('tpl-apply-confirm-cancel').click();
-    await expect(page.getByTestId('tpl-apply-confirm')).toBeHidden();
+    // Revealing the Apply button on hover is inert — only a click applies, so
+    // hovering alone must issue zero writes (no snapshot, no theme, no blocks).
+    const card = page.getByTestId('tpl-layout-card').first();
+    await card.hover();
+    await expect(card.getByRole('button', { name: 'Apply' })).toBeVisible();
 
     expect(writes).toBe(0);
   });
 
-  test('ES: tabs and the confirm dialog render in Spanish', async ({ page }) => {
+  test('ES: tabs and the hover-reveal Apply render in Spanish', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('titilinks-language', 'es'));
     await installMocks(page, { plan: 'pro' });
     await openEditProfile(page, /editar perfil/i);
@@ -249,10 +252,11 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
     await expect(page.getByTestId('gallery-tab-layouts')).toHaveText('Diseños');
     await expect(page.getByTestId('gallery-tab-styles')).toHaveText('Estilos');
 
-    // Confirm dialog localized.
-    await page.getByTestId('tpl-layout-card').first().click();
-    await expect(page.getByTestId('tpl-apply-confirm')).toBeVisible();
-    await expect(page.getByText('¿Aplicar este diseño?')).toBeVisible();
+    // Hovering a card reveals the shared Apply button in Spanish ("Aplicar") —
+    // no confirm dialog.
+    const card = page.getByTestId('tpl-layout-card').first();
+    await card.hover();
+    await expect(card.getByRole('button', { name: 'Aplicar' })).toBeVisible();
   });
 });
 

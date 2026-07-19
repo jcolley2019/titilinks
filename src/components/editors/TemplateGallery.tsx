@@ -84,8 +84,11 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
   // ── Layouts tab state ──────────────────────────────────────────────────────
   const [layoutCategory, setLayoutCategory] = useState<TplCategory | 'all'>('all');
-  const [pendingPreset, setPendingPreset] = useState<TplPreset | null>(null);
   const [applyingPreset, setApplyingPreset] = useState<string | null>(null);
+  // TPL.3d: parity with the Styles tab's transient "Applied!" indicator — the
+  // Layout cards now apply on a hover-revealed button (no confirm dialog), so
+  // they carry the same post-apply applied state, cleared after a short delay.
+  const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
 
   const layouts = layoutCategory === 'all'
     ? TPL_PRESETS
@@ -339,8 +342,11 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
           },
         },
       );
+      setAppliedPreset(preset.id);
       toast.success(t('tpl.apply.successToast'));
       onApply();
+      // Reset applied indicator after a delay (mirrors applyTemplate).
+      setTimeout(() => setAppliedPreset(null), 2000);
     } catch (err) {
       console.error('[tpl] apply failed:', err);
       toast.error(captured ? t('tpl.apply.failedToast') : t('snapshots.autoFailed'));
@@ -404,7 +410,8 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
                   preset={preset}
                   pageStyle={layoutPageStyle}
                   isApplying={applyingPreset === preset.id}
-                  onTap={() => setPendingPreset(preset)}
+                  isApplied={appliedPreset === preset.id}
+                  onApply={() => applyLayout(preset)}
                 />
               ))}
             </AnimatePresence>
@@ -466,38 +473,6 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
         </>
       )}
 
-      {/* TPL.3: Layout apply confirm — fixed full-viewport overlay (mirrors
-          SnapshotsEditor's destructive-action confirm, so panel scroll/footer
-          never clip it). Reassures that a backup snapshot is saved first. */}
-      {pendingPreset && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6"
-          data-testid="tpl-apply-confirm"
-        >
-          <div className="w-full max-w-sm rounded-2xl border border-[#C9A55C]/40 bg-[#1a160f] p-5">
-            <p className="text-base font-bold text-white mb-1">{t('tpl.apply.confirm.title')}</p>
-            <p className="text-[13px] leading-snug text-white/70 mb-4">
-              {t('tpl.apply.confirm.body').replace('{name}', pendingPreset.name)}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setPendingPreset(null)}
-                data-testid="tpl-apply-confirm-cancel"
-                className="flex-1 h-11 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-semibold text-sm"
-              >
-                {t('tpl.apply.confirm.cancel')}
-              </button>
-              <button
-                onClick={() => { const p = pendingPreset; setPendingPreset(null); void applyLayout(p); }}
-                data-testid="tpl-apply-confirm-go"
-                className="flex-1 h-11 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm"
-              >
-                {t('tpl.apply.confirm.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -506,13 +481,15 @@ interface LayoutCardProps {
   preset: TplPreset;
   pageStyle: PageStyle;
   isApplying: boolean;
-  onTap: () => void;
+  isApplied: boolean;
+  onApply: () => void;
 }
 
 // TPL.3: a Layout preset card. Preview is theme-derived (real preview assets are
 // TPL.4 scope) so the grid still reads as "alive" next to the Styles cards.
-function LayoutCard({ preset, pageStyle, isApplying, onTap }: LayoutCardProps) {
+function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: LayoutCardProps) {
   const { t } = useLanguage();
+  const [hovered, setHovered] = useState(false);
 
   // TPL.3c TASK 2.4: preview the rendition the ACTIVE page style will actually
   // apply — hero → the hero variant (solid-leaning), full_bleed → the glass
@@ -562,13 +539,12 @@ function LayoutCard({ preset, pageStyle, isApplying, onTap }: LayoutCardProps) {
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className="relative group"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <button
-        type="button"
+      <div
         data-testid="tpl-layout-card"
-        onClick={onTap}
-        disabled={isApplying}
-        className="w-full text-left border border-border rounded-xl overflow-hidden bg-card hover:border-primary/50 transition-all disabled:opacity-70"
+        className="border border-border rounded-xl overflow-hidden bg-card hover:border-primary/50 transition-all"
       >
         {/* Theme-derived preview mock */}
         <div className="relative aspect-[9/16] overflow-hidden">
@@ -598,14 +574,45 @@ function LayoutCard({ preset, pageStyle, isApplying, onTap }: LayoutCardProps) {
             </div>
           </div>
 
-          {isApplying && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
-              <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('templateGallery.applying')}
-              </span>
-            </div>
-          )}
+          {/* TPL.3d: hover-reveal Apply — byte-faithful to the Styles card
+              (TemplateCard) below: same reveal condition (hover), same overlay
+              position/styling, and the same busy/applied Button states. Clicking
+              Apply runs applyLayout directly — no confirm dialog. Touch behavior
+              is inherited, not coded: the Styles card has NO explicit touch
+              handling, so on a touch device the first tap fires the synthetic
+              mouseenter (revealing the overlay) and a second tap on Apply applies
+              — Layouts now behaves identically. */}
+          <AnimatePresence>
+            {hovered && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center"
+              >
+                <Button
+                  size="sm"
+                  onClick={onApply}
+                  disabled={isApplying}
+                  className="gap-2"
+                >
+                  {isApplying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t('templateGallery.applying')}
+                    </>
+                  ) : isApplied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {t('templateGallery.applied')}
+                    </>
+                  ) : (
+                    t('templateGallery.apply')
+                  )}
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Preset Info: name, description, category tag */}
@@ -616,7 +623,7 @@ function LayoutCard({ preset, pageStyle, isApplying, onTap }: LayoutCardProps) {
             {t(`tpl.category.${preset.category}`)}
           </span>
         </div>
-      </button>
+      </div>
     </motion.div>
   );
 }
