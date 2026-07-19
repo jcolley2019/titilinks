@@ -12,6 +12,7 @@ import {
   type TemplateDefinition,
 } from '@/lib/template-gallery';
 import { cn } from '@/lib/utils';
+import { captureSnapshot } from '@/lib/snapshots';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface TemplateGalleryProps {
@@ -68,6 +69,17 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
       const existing = (pageRow?.theme_json && typeof pageRow.theme_json === 'object')
         ? (pageRow.theme_json as Record<string, unknown>)
         : {};
+
+      // SNAP.1c: auto-snapshot the current look BEFORE the destructive theme
+      // write, so a template apply is always undoable. A capture failure aborts
+      // the apply — we never overwrite the page without a safety net first.
+      try {
+        await captureSnapshot(pageId, `Before template: ${template.name}`, 'auto');
+      } catch (snapErr) {
+        console.error('[snapshots] pre-template capture failed:', snapErr);
+        toast.error(t('snapshots.autoFailed'));
+        return;
+      }
 
       const { error: pageError } = await supabase
         .from('pages')

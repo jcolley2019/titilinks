@@ -24,6 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography, type PageId } from '@/lib/theme-defaults';
+import { captureSnapshot } from '@/lib/snapshots';
 import { withEffectivePageStyle } from '@/lib/surface';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -288,7 +289,17 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     setSaving(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // SNAP.1c: back up the current look BEFORE the destructive reset write, so
+    // resetting to the brand default is undoable. A capture failure aborts the
+    // reset — we never overwrite the theme without a safety net first.
+    try {
+      await captureSnapshot(pageId, 'Before reset: Default', 'auto');
+    } catch (snapErr) {
+      console.error('[snapshots] pre-reset capture failed:', snapErr);
+      toast.error(t('snapshots.autoFailed'));
+      return;
+    }
     const d = THEME_PRESETS[0].theme; // Midnight Gold = brand default
     setTheme((prev) => {
       const newTheme: ThemeJson = {
