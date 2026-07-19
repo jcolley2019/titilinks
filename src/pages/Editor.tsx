@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +64,42 @@ export default function Editor() {
   // Live-mirror (L5): the Customize Profile panel's in-progress theme. Whole-object
   // replace on every mutation, unlike L4's per-field patches.
   const [themeDraft, setThemeDraft] = useState<FullThemeJson | null>(null);
+
+  // ── DP.1: device-truthful preview frame ──
+  // The desktop preview renders at a real device's LOGICAL CSS viewport
+  // (src/lib/device-presets.ts) instead of a made-up 390×844 box, so what the
+  // user composes matches what phones actually show. Selection persists.
+  const devicePrefKey = 'titilinks-editor-device';
+  const [deviceId, setDeviceId] = useState<string>(
+    () => resolveDevicePreset(localStorage.getItem(devicePrefKey)).id
+  );
+  const devicePreset = resolveDevicePreset(deviceId);
+  const previewAreaRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  useEffect(() => {
+    try { localStorage.setItem(devicePrefKey, deviceId); } catch { /* storage disabled */ }
+  }, [deviceId]);
+
+  // Scale the frame uniformly to fit the preview column (never magnify past
+  // 100%). Recomputes on column resize — including the dashboard panel opening,
+  // which narrows the column — and on preset change.
+  useEffect(() => {
+    const el = previewAreaRef.current;
+    if (!el) return;
+    const fitPad = 24; // px of breathing room around the frame
+    const compute = () => {
+      const availW = el.clientWidth - fitPad * 2;
+      const availH = el.clientHeight - fitPad * 2;
+      if (availW <= 0 || availH <= 0) return;
+      const s = Math.min(availW / devicePreset.width, availH / devicePreset.height, 1);
+      setPreviewScale(s > 0 ? s : 1);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [devicePreset.width, devicePreset.height]);
 
   // ── Data Fetching ──
 
@@ -500,6 +537,32 @@ export default function Editor() {
           </span>
 
           <div className="flex items-center gap-3">
+            {/* DP.1: device-truthful preview selector. Device names stay
+                untranslated; the aria-label / caption are localized. */}
+            <div className="flex items-center gap-1.5">
+              <select
+                data-testid="device-selector"
+                aria-label={t('editor.devicePreset')}
+                value={deviceId}
+                onChange={(e) => setDeviceId(e.target.value)}
+                className="text-xs bg-black/40 text-white/80 border border-white/15 rounded-full px-3 py-1.5 max-w-[210px] cursor-pointer hover:border-white/30 focus:outline-none focus:border-[#C9A55C]/60 transition-colors"
+              >
+                {DEVICE_PRESETS.map((d) => (
+                  <option key={d.id} value={d.id} className="bg-[#1a1a1a] text-white">
+                    {d.label} · {d.width}×{d.height}
+                  </option>
+                ))}
+              </select>
+              {previewScale < 0.999 && (
+                <span
+                  data-testid="device-scale"
+                  title={t('editor.deviceScaled')}
+                  className="text-[10px] text-white/40 tabular-nums"
+                >
+                  {Math.round(previewScale * 100)}%
+                </span>
+              )}
+            </div>
             <span className="text-xs text-white/50">@{page.handle}</span>
             <button
               onClick={() => setProfileDashboardOpen(true)}
@@ -516,20 +579,34 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Phone frame */}
-        <div className="relative z-10 flex items-center justify-center pt-6 pb-8 h-[calc(100vh-52px)] overflow-hidden">
+        {/* Phone frame — DP.1 device-truthful preview */}
+        <div
+          ref={previewAreaRef}
+          className="relative z-10 flex items-center justify-center h-[calc(100vh-52px)] overflow-hidden"
+        >
+          {devicePreset.note && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-white/45 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
+              {t('editor.deviceAndroidNote')}
+            </div>
+          )}
           <div
-            className="overflow-y-auto scrollbar-hide"
+            data-testid="device-frame"
+            className="overflow-y-auto overflow-x-hidden scrollbar-hide"
             style={{
-              aspectRatio: '390 / 844',
-              height: 'min(100%, 844px)',
-              maxWidth: '100%',
+              // Exact logical CSS-viewport of the selected device — the frame
+              // renders at these px so the composition is device-truthful. The
+              // hairline uses `outline` (not `border`) so the box stays exactly
+              // width×height. Scaled to fit; offsetWidth/Height ignore transform.
+              width: `${devicePreset.width}px`,
+              height: `${devicePreset.height}px`,
+              flex: '0 0 auto',
+              transform: `scale(${previewScale})`,
+              transformOrigin: 'center center',
               borderRadius: '44px',
-              border: '1px solid rgba(255,255,255,0.1)',
+              outline: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              transform: 'translateZ(0)',
             }}
           >
             <EditableProfileView
