@@ -22,6 +22,7 @@ import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
 import { EditableProfileView } from '@/components/EditableProfileView';
+import { TrackingPixels } from '@/components/TrackingPixels';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -70,6 +71,14 @@ export default function PublicProfile() {
   const [page, setPage] = useState<Page | null>(null);
   const [blocksByMode, setBlocksByMode] = useState<{ page1: BlockWithItems[]; page2: BlockWithItems[] }>({ page1: [], page2: [] });
   const [notFound, setNotFound] = useState(false);
+  // PIXELS.1: the page owner's tracking-pixel IDs, read through a public
+  // security-definer RPC (profiles is owner-only, so an anon visitor can't
+  // select them directly). Best-effort — a null result just means no pixels.
+  const [pixelIds, setPixelIds] = useState<{ meta: string | null; tiktok: string | null; ga4: string | null }>({
+    meta: null,
+    tiktok: null,
+    ga4: null,
+  });
   const [stickyCtaByMode, setStickyCtaByMode] = useState<{ page1: boolean; page2: boolean }>({ page1: false, page2: false });
   const [selectedMode, setSelectedMode] = useState<'page1' | 'page2'>('page1');
   // Visitor switcher flips selectedMode → derive the active page's blocks + sticky CTA (no refetch).
@@ -199,6 +208,23 @@ export default function PublicProfile() {
       }
 
       setPage(pageData);
+
+      // PIXELS.1: best-effort read of the owner's tracking pixels via the
+      // public security-definer RPC. Isolated try/catch so a pixels failure
+      // (RLS, missing function pre-migration) never 404s the profile.
+      try {
+        const { data: px } = await supabase.rpc('get_public_tracking_pixels', {
+          page_handle: handle.toLowerCase(),
+        });
+        const row = Array.isArray(px) ? px[0] : px;
+        setPixelIds({
+          meta: row?.meta_pixel_id ?? null,
+          tiktok: row?.tiktok_pixel_id ?? null,
+          ga4: row?.ga4_id ?? null,
+        });
+      } catch (pxErr) {
+        console.warn('[pixels] fetch failed:', pxErr);
+      }
 
       // Fetch both modes (page1 = Page 1, page2 = Page 2) so the visitor
       // switcher can flip pages instantly without a refetch.
@@ -340,6 +366,10 @@ export default function PublicProfile() {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
       </Helmet>
+      {/* PIXELS.1 — public-route-only pixel injection (the fence). Renders null;
+          injects the owner's base pixels into the head. Never mounted by the
+          editor / dashboard / visitor-preview. */}
+      <TrackingPixels metaPixelId={pixelIds.meta} tiktokPixelId={pixelIds.tiktok} ga4Id={pixelIds.ga4} />
       <div className="min-h-screen bg-[#0e0c09]">
         {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
         <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${isFullBleedPage ? 0 : headerOpacity})` }}>

@@ -394,10 +394,13 @@ export type Database = {
           created_at: string
           display_name: string | null
           email: string
+          ga4_id: string | null
           id: string
+          meta_pixel_id: string | null
           onboarding_complete: boolean
           page_style: string | null
           plan: string
+          tiktok_pixel_id: string | null
           updated_at: string
           username: string | null
         }
@@ -406,10 +409,13 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email: string
+          ga4_id?: string | null
           id: string
+          meta_pixel_id?: string | null
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -418,10 +424,13 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string
+          ga4_id?: string | null
           id?: string
+          meta_pixel_id?: string | null
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
         }
@@ -486,6 +495,14 @@ export type Database = {
       get_block_owner: { Args: { block_id: string }; Returns: string }
       get_mode_owner: { Args: { mode_id: string }; Returns: string }
       get_page_owner: { Args: { page_id: string }; Returns: string }
+      get_public_tracking_pixels: {
+        Args: { page_handle: string }
+        Returns: {
+          ga4_id: string
+          meta_pixel_id: string
+          tiktok_pixel_id: string
+        }[]
+      }
       resolve_short_link: {
         Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
         Returns: {

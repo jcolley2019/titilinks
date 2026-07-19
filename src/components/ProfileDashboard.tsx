@@ -49,6 +49,7 @@ import { SocialIconRowEditor } from '@/components/editors/SocialIconRowEditor';
 import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor';
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { TextBlocksPanel } from '@/components/editors/TextBlocksPanel';
+import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
@@ -141,8 +142,8 @@ interface DashboardRow {
   subtitleKey: string;
   blockType: BlockWithItems['type'] | null;
   toastKey?: string;
-  /** Pro/Business-only row. Currently gated by the `carousel` entitlement
-   *  (carousel is the only Pro-gated block today — see `canCarousel`). */
+  /** Pro/Business-only row. The unlocking entitlement is resolved per row by
+   *  `rowUnlocked` — carousel by default, tracking-pixels by its own flag. */
   pro?: boolean;
 }
 
@@ -297,7 +298,7 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.trackingPixels',
         subtitleKey: 'dashboard.trackingPixelsDesc',
         blockType: null,
-        toastKey: 'dashboard.comingSoon',
+        pro: true,
       },
     ],
   },
@@ -332,6 +333,13 @@ export function ProfileDashboard({
   const canPerPageStyle = entitlements.perPageStyle;
   // Carousel is a Pro/Business feature (gates the menu row + its tap).
   const canCarousel = entitlements.carousel;
+  // PIXELS.1: tracking pixels are their own Pro capability.
+  const canTrackingPixels = entitlements.trackingPixels;
+  // Resolve a Pro-flagged row to the entitlement that unlocks it, so the list
+  // badge and the tap-gate read one source of truth. Carousel is the default;
+  // Tracking Pixels has its own flag. Non-pro rows are always unlocked.
+  const rowUnlocked = (row: DashboardRow): boolean =>
+    !row.pro ? true : row.titleKey === 'dashboard.trackingPixels' ? canTrackingPixels : canCarousel;
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -352,6 +360,8 @@ export function ProfileDashboard({
   const [hubSeed, setHubSeed] = useState<HubSeed | null>(null);
   const [hubSaving, setHubSaving] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
+  // PIXELS.1: the Tracking Pixels sub-panel (Analytics group).
+  const [pixelsOpen, setPixelsOpen] = useState(false);
   // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
   // two-level nav state — null = list view, a block id = editing that block.
   const [textBlocksOpen, setTextBlocksOpen] = useState(false);
@@ -418,6 +428,7 @@ export function ProfileDashboard({
     setVideoProfileOpen(false);
     setNameFxOpen(false);
     setPagesOpen(false);
+    setPixelsOpen(false);
     setTextBlocksOpen(false);
     setTextEditingId(null);
     setPendingPreset(null);
@@ -872,6 +883,15 @@ export function ProfileDashboard({
         setPagesOpen(true);
         return;
       }
+      if (row.titleKey === 'dashboard.trackingPixels') {
+        // Pro gate: Free gets the upsell (lock pattern); Pro/Business opens it.
+        if (!canTrackingPixels) {
+          toast(t('pixels.proTitle'), { description: t('pixels.proDesc') });
+          return;
+        }
+        setPixelsOpen(true);
+        return;
+      }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
       return;
     }
@@ -1068,6 +1088,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.pages')}</h2>
+                </>
+              ) : pixelsOpen ? (
+                <>
+                  <button
+                    onClick={() => setPixelsOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.trackingPixels')}</h2>
                 </>
               ) : nameFxOpen ? (
                 <>
@@ -1330,6 +1360,8 @@ export function ProfileDashboard({
                     </button>
                   </div>
                 </div>
+              ) : pixelsOpen ? (
+                <TrackingPixelsEditor />
               ) : nameFxOpen ? (
                 // Fills the scrollport so the footer's mt-auto has room to push
                 // against. gap-6 replaces space-y-6 deliberately: space-y sets
@@ -1731,7 +1763,7 @@ export function ProfileDashboard({
                           <div className="flex-1 text-left">
                             <p className="text-sm font-bold text-white flex items-center gap-1.5">
                               {t(row.titleKey)}
-                              {row.pro && !canCarousel && (
+                              {row.pro && !rowUnlocked(row) && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-1.5 py-0.5">
                                   <Lock className="h-2.5 w-2.5" /> PRO
                                 </span>

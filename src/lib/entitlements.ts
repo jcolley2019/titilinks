@@ -30,6 +30,9 @@ export interface PlanEntitlements {
   maxLinks: number;
   premiumThemes: boolean;
   analytics: boolean;
+  /** Meta / TikTok / GA4 tracking pixels injected on the public profile. Paid
+   *  everywhere in the market (Linktree, Link.me), so Pro+ here. */
+  trackingPixels: boolean;
   customDomain: boolean;
   aiBio: boolean;
   emailSubscribe: boolean;
@@ -50,6 +53,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxLinks: 5,
     premiumThemes: false,
     analytics: false,
+    trackingPixels: false,
     customDomain: false,
     aiBio: false,
     emailSubscribe: false,
@@ -66,6 +70,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxLinks: Infinity,
     premiumThemes: true,
     analytics: true,
+    trackingPixels: true,
     customDomain: true,
     aiBio: true,
     emailSubscribe: true,
@@ -82,6 +87,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxLinks: Infinity,
     premiumThemes: true,
     analytics: true,
+    trackingPixels: true,
     customDomain: true,
     aiBio: true,
     emailSubscribe: true,
