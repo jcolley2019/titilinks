@@ -114,7 +114,7 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
   const doRestore = async (id: string) => {
     setBusyId(id);
     try {
-      await restoreSnapshot(id);
+      await restoreSnapshot(id, t('snapshots.autoBeforeRestore'));
       toast.success(t('snapshots.restored'));
       await reload();
       onRestored?.();

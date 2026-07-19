@@ -233,7 +233,7 @@ export async function deleteSnapshot(snapshotId: string): Promise<void> {
  * surfaced (never swallowed) — the safety-net auto-snapshot guarantees the
  * pre-restore state is recoverable.
  */
-export async function restoreSnapshot(snapshotId: string): Promise<void> {
+export async function restoreSnapshot(snapshotId: string, autoName = 'Before restore'): Promise<void> {
   const { data: snap, error: snapErr } = await supabase
     .from('profile_snapshots')
     .select('page_id, payload')
@@ -249,7 +249,7 @@ export async function restoreSnapshot(snapshotId: string): Promise<void> {
 
   // (a) Safety net FIRST — captured before we mutate anything. Auto is exempt
   // from quota and ring-buffered, so this can never itself fail on quota.
-  await captureSnapshot(pageId, 'Before restore', 'auto');
+  await captureSnapshot(pageId, autoName, 'auto');
 
   // (b) Replace blocks/items under the page's existing modes, matched by type.
   const { data: modeRows, error: mErr } = await supabase

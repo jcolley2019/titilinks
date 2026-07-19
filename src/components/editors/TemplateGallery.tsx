@@ -74,7 +74,7 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
       // write, so a template apply is always undoable. A capture failure aborts
       // the apply — we never overwrite the page without a safety net first.
       try {
-        await captureSnapshot(pageId, `Before template: ${template.name}`, 'auto');
+        await captureSnapshot(pageId, t('snapshots.autoBeforeTemplate').replace('{name}', template.name), 'auto');
       } catch (snapErr) {
         console.error('[snapshots] pre-template capture failed:', snapErr);
         toast.error(t('snapshots.autoFailed'));
