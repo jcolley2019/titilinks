@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
+import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
 import {
   DndContext,
   closestCenter,
@@ -1632,7 +1633,11 @@ export function EditableProfileView({
     }
   };
 
-  const handlePhotoSave = async (overrideFile?: File) => {
+  const handlePhotoSave = async (overrideFile?: File, posYOverride?: number) => {
+    // CROP.3a-C rule 2: a manual crop is composed at the canonical hero aspect,
+    // so the apply path passes posY 50 (centered) — cover-at-matching-aspect is
+    // an identity there. Every other caller omits it and keeps the user's draft.
+    const posYToSave = posYOverride ?? heroPosYDraft;
     let fileToUpload = overrideFile || photoFile;
     if (!fileToUpload && photoPreview) {
       const res = await fetch(photoPreview);
@@ -1679,7 +1684,7 @@ export function EditableProfileView({
         const nextTheme: any = {
           ...existingTheme,
           avatar_url_page2: urlData.publicUrl,
-          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft },
+          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft },
         };
         if (originalUrl) nextTheme.avatar_original_url_page2 = originalUrl;
         await supabase
@@ -1692,7 +1697,7 @@ export function EditableProfileView({
         delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
-          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft } },
+          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft } },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -2744,9 +2749,7 @@ export function EditableProfileView({
                           image={photoPreview || ''}
                           crop={rcCrop}
                           zoom={rcZoom}
-                          aspect={isFullBleed
-                            ? Math.min(window.innerWidth, 430) / Math.min(window.innerHeight, 932)
-                            : Math.min(window.innerWidth, 640) / Math.min(window.innerHeight * 0.5 + 60, 560)}
+                          aspect={isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()}
                           onCropChange={setRcCrop}
                           onZoomChange={setRcZoom}
                           onCropComplete={(_, areaPixels) => setRcAreaPixels(areaPixels)}
@@ -2824,8 +2827,14 @@ export function EditableProfileView({
                                 setPhotoPreview(dataUrl);
                                 setCropZoom(1);
                                 setCropPosition({ x: 0, y: 0 });
+                                // CROP.3a-C rule 2: the crop was composed at the
+                                // canonical hero aspect, so cover-at-center shows
+                                // the EXACT framed shot. Reset posY to 50 so no
+                                // leftover top-third pan (the posY-25 seed) shifts
+                                // it. Persist the same 50 in the save that follows.
+                                setHeroPosYDraft(50);
                                 setPhotoFile(croppedFile);
-                                await handlePhotoSave(croppedFile);
+                                await handlePhotoSave(croppedFile, 50);
                               } catch (err) {
                                 // CROP.3a error truth: never fail silently —
                                 // log name+message and carry a concise cause

@@ -51,3 +51,39 @@ export function resolveDevicePreset(id: string | null | undefined): DevicePreset
     DEVICE_PRESETS.find((d) => d.id === DEFAULT_DEVICE_ID)!
   );
 }
+
+// Hero-container geometry — MUST mirror EditableProfileView.tsx's hero window:
+//   height: 'calc(50dvh + HERO_EXTRA_PX)', maxHeight: 'calc(HERO_HEIGHT_CAP_PX + HERO_EXTRA_PX)'.
+// On a REAL device dvh resolves against the device's own logical height, so the
+// hero container's aspect is a pure function of the preset — reproduce it here.
+const HERO_EXTRA_PX = 60;        // == EditableProfileView HERO_EXTRA (guard-pinned to 60)
+const HERO_HEIGHT_CAP_PX = 500;  // hero maxHeight base, before HERO_EXTRA
+
+/**
+ * CROP.3a-C — canonical crop-frame aspect for a HERO page, derived from the
+ * device preset (default: iPhone 17 Pro) using the SAME formula the hero
+ * container renders at: width = the preset's logical width; height =
+ * min(50% of the logical height + HERO_EXTRA, cap + HERO_EXTRA). Because the
+ * crop modal frames at this exact aspect, cover-fill of the saved crop at
+ * matching aspect + center is an identity — what the user framed is what
+ * publishes (WYSIWYG). Deterministic on purpose: keyed to DEFAULT_DEVICE_ID,
+ * NOT the live window or the previewed device, so a stored crop is stable no
+ * matter where it was made; per-device render differences become tiny posY
+ * pans, never a 35% re-crop. Portrait (< 1) for every phone preset.
+ */
+export function canonicalHeroAspect(deviceId: string = DEFAULT_DEVICE_ID): number {
+  const p = resolveDevicePreset(deviceId);
+  const heroHeight = Math.min(p.height * 0.5 + HERO_EXTRA_PX, HERO_HEIGHT_CAP_PX + HERO_EXTRA_PX);
+  return p.width / heroHeight;
+}
+
+/**
+ * CROP.3a-C — canonical crop-frame aspect for a FULL-BLEED page. The full_bleed
+ * hero fills the whole viewport (100dvh), so the frame aspect is simply the
+ * preset's logical width / height. Same determinism contract as
+ * canonicalHeroAspect: preset-derived, never window-derived.
+ */
+export function canonicalFullBleedAspect(deviceId: string = DEFAULT_DEVICE_ID): number {
+  const p = resolveDevicePreset(deviceId);
+  return p.width / p.height;
+}
