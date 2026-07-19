@@ -28,6 +28,10 @@ export interface PlanEntitlements {
   perPageStyle: boolean;
   /** Max link items per links block. `Infinity` = unlimited. */
   maxLinks: number;
+  /** Max MANUAL profile snapshots (named restore points) retained per page.
+   *  Auto snapshots (the pre-destructive-action safety net) are exempt and
+   *  ring-buffered separately. Enforced at capture time (SNAP.1). */
+  maxSnapshots: number;
   premiumThemes: boolean;
   analytics: boolean;
   /** Meta / TikTok / GA4 tracking pixels injected on the public profile. Paid
@@ -51,6 +55,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxPages: 1,
     perPageStyle: false,
     maxLinks: 5,
+    maxSnapshots: 1,
     premiumThemes: false,
     analytics: false,
     trackingPixels: false,
@@ -68,6 +73,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxPages: 2,
     perPageStyle: true,
     maxLinks: Infinity,
+    maxSnapshots: 5,
     premiumThemes: true,
     analytics: true,
     trackingPixels: true,
@@ -85,6 +91,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxPages: 2,
     perPageStyle: true,
     maxLinks: Infinity,
+    maxSnapshots: 20,
     premiumThemes: true,
     analytics: true,
     trackingPixels: true,
