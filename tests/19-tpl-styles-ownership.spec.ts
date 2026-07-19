@@ -194,7 +194,7 @@ test.describe('TPL.3b — Styles apply owns every button layer', () => {
     // ── Theme layer: FS.SURFACE surface keys owned from the template ──────────
     const themeButtons = themeBody.theme_json.buttons;
     expect(themeButtons.variant).toBe('outline'); // Neon Nights blockStyles variant
-    expect(themeButtons.outline_width).toBe(2.5); // = blockStyles.border_width
+    expect(themeButtons.outline_width).toBe(3); // = blockStyles.border_width (TPL.3c: 2.5 → 3)
     expect(themeButtons.background_opacity).toBe(0);
     // No stale orange anywhere in the written buttons object.
     expect(JSON.stringify(themeButtons)).not.toContain(STALE.replace('#', ''));
@@ -208,7 +208,7 @@ test.describe('TPL.3b — Styles apply owns every button layer', () => {
       font_style: 'mono',
       letter_spacing: 0.02,
       background_opacity: 0,
-      border_width: 2.5,
+      border_width: 3, // TPL.3c: 2.5 → 3
       border_color: '#00ff88',
     });
     expect(blockStyle.border_color).not.toBe(STALE);

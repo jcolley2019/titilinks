@@ -142,6 +142,12 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
     const card = page.getByTestId('tpl-layout-card').filter({ hasText: 'Actriz' });
     await expect(card).toBeVisible();
     await expect(card).toContainText('Editorial dark theme for actors and on-camera creators');
+
+    // TPL.3c: the gold frame reaches the preview — actriz's bars carry a solid
+    // 2px brand-gold (#C9A55C = rgb(201,165,92)) border in BOTH renditions.
+    const bar = card.getByTestId('tpl-card-bar').first();
+    await expect(bar).toHaveCSS('border-top-width', '2px');
+    await expect(bar).toHaveCSS('border-top-color', 'rgb(201, 165, 92)');
   });
 
   test('the Styles tab still shows the legacy template grid', async ({ page }) => {

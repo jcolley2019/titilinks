@@ -11,10 +11,10 @@ import {
   type TemplateCategory,
   type TemplateDefinition,
 } from '@/lib/template-gallery';
-import { TPL_PRESETS, TPL_CATEGORIES, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
+import { TPL_PRESETS, TPL_CATEGORIES, resolveTplVariant, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
 import { applyTplPreset } from '@/lib/tpl-apply';
 import { resolveEffectivePageStyle } from '@/lib/surface';
-import type { PageId, BlockStyleConfig } from '@/lib/theme-defaults';
+import type { PageId, PageStyle, BlockStyleConfig } from '@/lib/theme-defaults';
 import type { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { captureSnapshot } from '@/lib/snapshots';
@@ -36,6 +36,17 @@ interface TemplateGalleryProps {
 // full-bleed: 0.65 mainly drives the fade render path — the filled→glass coercion
 // already forces a much lower alpha — so it reads as "translucent", not a wash.
 const FULLBLEED_BUTTON_OPACITY = 0.65;
+
+// TPL.3c: hex → rgba for the Layout card preview fills (mirrors LinkButton's
+// rgbaStr; local + preview-only). Non-hex input (a gradient/keyword) passes
+// through unchanged so callers can hand it any theme color.
+function withAlpha(color: string, a: number): string {
+  if (!color || !color.startsWith('#')) return color;
+  const h = color.replace('#', '');
+  const s = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const n = parseInt(s, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
 
 // GAL.2: premium line icons for the category chips — monochrome,
 // inheriting the chip's text color, replacing the emoji set.
@@ -79,6 +90,12 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
   const layouts = layoutCategory === 'all'
     ? TPL_PRESETS
     : TPL_PRESETS.filter((p) => p.category === layoutCategory);
+
+  // TPL.3c TASK 2.4: the Layout cards preview the rendition the ACTIVE page style
+  // will actually apply (hero vs full_bleed), resolved from the same props the
+  // apply path uses. Threaded into each card so the card can't drift from the
+  // result. Defaults to page1/hero for any render site that omits the props.
+  const layoutPageStyle: PageStyle = resolveEffectivePageStyle(themeJson, activePageId ?? 'page1');
 
   const applyTemplate = async (template: TemplateDefinition, applyBlockStyles: boolean = false) => {
     setApplying(template.id);
@@ -385,6 +402,7 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
                 <LayoutCard
                   key={preset.id}
                   preset={preset}
+                  pageStyle={layoutPageStyle}
                   isApplying={applyingPreset === preset.id}
                   onTap={() => setPendingPreset(preset)}
                 />
@@ -486,23 +504,55 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
 interface LayoutCardProps {
   preset: TplPreset;
+  pageStyle: PageStyle;
   isApplying: boolean;
   onTap: () => void;
 }
 
 // TPL.3: a Layout preset card. Preview is theme-derived (real preview assets are
 // TPL.4 scope) so the grid still reads as "alive" next to the Styles cards.
-function LayoutCard({ preset, isApplying, onTap }: LayoutCardProps) {
+function LayoutCard({ preset, pageStyle, isApplying, onTap }: LayoutCardProps) {
   const { t } = useLanguage();
 
-  const previewBackground = preset.theme.background.type === 'gradient'
-    ? preset.theme.background.gradient_css
-    : preset.theme.background.solid_color;
-  const buttonRadius = preset.theme.buttons.shape === 'pill'
+  // TPL.3c TASK 2.4: preview the rendition the ACTIVE page style will actually
+  // apply — hero → the hero variant (solid-leaning), full_bleed → the glass
+  // variant (gold outline + translucent fill). Resolved through the same pure
+  // resolver the apply engine uses, so the card and the applied result agree.
+  const { theme: vTheme, blockStyles: vbs } = resolveTplVariant(preset, pageStyle);
+
+  const previewBackground = vTheme.background.type === 'gradient'
+    ? vTheme.background.gradient_css
+    : vTheme.background.solid_color;
+
+  // TASK 2.1: the hero band is a PHOTO, not a button — suggest one with a neutral
+  // depth scrim over the theme background (dark presets read as a dark photo).
+  // Theme-derived: only the preset's own background color is used; the scrim is a
+  // neutral black/white alpha, never a template color.
+  const heroMock = `linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(0,0,0,0.30) 100%), ${previewBackground}`;
+
+  const buttonRadius = vTheme.buttons.shape === 'pill'
     ? '9999px'
-    : preset.theme.buttons.shape === 'square'
+    : vTheme.buttons.shape === 'square'
       ? '2px'
       : '6px';
+
+  // TASK 2.2: bars honor the previewed variant. When the rendition defines a
+  // border (border_width > 0) or is outline/glass, preview an outlined bar — a
+  // solid frame in border_color over a fill honoring background_opacity (outline =
+  // no fill); a filled rendition stays a solid bar. Effective variant/opacity/
+  // border all come from the resolved variant so the card can't drift from render.
+  const effVariant = vTheme.buttons.variant ?? vbs.variant ?? 'filled';
+  const borderW = vbs.border_width ?? 0;
+  const frameColor = vbs.border_color || vTheme.buttons.border_color || vTheme.buttons.fill_color;
+  // Mirror LinkButton's precedence: theme.buttons.background_opacity (runtime-only
+  // key, read via cast) first, then the block style, then 1.
+  const fillOpacity =
+    (vTheme.buttons as { background_opacity?: number }).background_opacity ?? vbs.background_opacity ?? 1;
+  const outlined = borderW > 0 || effVariant === 'outline' || effVariant === 'glass';
+  const barBackground = outlined
+    ? withAlpha(vTheme.buttons.fill_color, effVariant === 'outline' ? 0 : fillOpacity)
+    : vTheme.buttons.fill_color;
+  const barBorder = borderW > 0 ? `${borderW}px solid ${frameColor}` : 'none';
 
   return (
     <motion.div
@@ -526,22 +576,23 @@ function LayoutCard({ preset, isApplying, onTap }: LayoutCardProps) {
           <div className="absolute inset-0 flex flex-col items-center">
             <div
               className="w-full mb-2"
-              style={{ height: '42%', backgroundColor: preset.theme.buttons.fill_color, opacity: 0.85 }}
+              style={{ height: '42%', background: heroMock }}
             />
             <div
               className="w-16 h-2 rounded mb-1"
-              style={{ backgroundColor: preset.theme.typography.text_color, opacity: 0.8 }}
+              style={{ backgroundColor: vTheme.typography.text_color, opacity: 0.8 }}
             />
             <div
               className="w-20 h-1.5 rounded mb-4"
-              style={{ backgroundColor: preset.theme.typography.text_color, opacity: 0.4 }}
+              style={{ backgroundColor: vTheme.typography.text_color, opacity: 0.4 }}
             />
             <div className="w-full space-y-2 px-2">
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
+                  data-testid="tpl-card-bar"
                   className="w-full h-6"
-                  style={{ backgroundColor: preset.theme.buttons.fill_color, borderRadius: buttonRadius, opacity: 1 - i * 0.15 }}
+                  style={{ background: barBackground, border: barBorder, borderRadius: buttonRadius, opacity: 1 - i * 0.15 }}
                 />
               ))}
             </div>

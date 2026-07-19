@@ -192,7 +192,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       font_style: 'mono',
       letter_spacing: 0.02,
       background_opacity: 0,
-      border_width: 2.5,
+      border_width: 3, // TPL.3c: Joey ratified "thick"; aligns with the Buttons-tab 0/1/2/3 chips (2.5 didn't)
       border_color: '#00ff88',
     },
   },
@@ -258,6 +258,15 @@ export const TEMPLATES: TemplateDefinition[] = [
         border_color: '#f97316',
         shadow_enabled: true,
         density: 'roomy',
+        // TPL.3c: glass suppressed BOTH the fill (opacity*0.05) and the border
+        // (0.35 hairline). 'filled' + outline_width renders the intended solid
+        // 2px orange frame over a visibly semi-transparent (0.25) orange fill:
+        // filled fill = rgba(#f97316, 0.25); unified outline pass = 2px solid
+        // border_color. (On full_bleed pages 'filled' coerces to glass — fill
+        // softens but the 2px frame survives via outline_width; full_bleed forbids
+        // solid fills anyway.)
+        variant: 'filled',
+        outline_width: 2,
       },
       typography: {
         font: 'inter',
@@ -266,7 +275,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       motion: { enabled: true },
     },
     blockStyles: {
-      variant: 'glass',
+      variant: 'filled',
       font_style: 'normal',
       letter_spacing: 0.03,
       background_opacity: 0.25,
