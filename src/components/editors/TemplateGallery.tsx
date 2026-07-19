@@ -14,7 +14,8 @@ import {
 import { TPL_PRESETS, TPL_CATEGORIES, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
 import { applyTplPreset } from '@/lib/tpl-apply';
 import { resolveEffectivePageStyle } from '@/lib/surface';
-import type { PageId } from '@/lib/theme-defaults';
+import type { PageId, BlockStyleConfig } from '@/lib/theme-defaults';
+import type { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { captureSnapshot } from '@/lib/snapshots';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -28,6 +29,13 @@ interface TemplateGalleryProps {
   activePageId?: PageId;
   themeJson?: unknown;
 }
+
+// TPL.3b TASK 2: on a full-bleed photo page an opaque button hides the photo, so
+// an apply drops an OPAQUE template's button opacity to this translucent value so
+// the image reads through. Tunable. Self-flagged after eyeballing a dark
+// full-bleed: 0.65 mainly drives the fade render path — the filled→glass coercion
+// already forces a much lower alpha — so it reads as "translucent", not a wash.
+const FULLBLEED_BUTTON_OPACITY = 0.65;
 
 // GAL.2: premium line icons for the category chips — monochrome,
 // inheriting the chip's text color, replacing the emoji set.
@@ -105,9 +113,52 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
         return;
       }
 
+      // TPL.3b TASK 2: the button treatment depends on the ACTIVE page's effective
+      // style. Resolve it from the fresh theme_json (RAW — the resolver reads
+      // pages.<id>.style, which getThemeWithDefaults strips), defaulting to page1
+      // for any legacy render site that doesn't thread activePageId.
+      const pageStyle = resolveEffectivePageStyle(existing, activePageId ?? 'page1');
+      // full_bleed → glassy: an OPAQUE template (background_opacity 1) would hide
+      // the photo, so drop it to FULLBLEED_BUTTON_OPACITY; templates that already
+      // define translucency keep their own value. hero uses the template as-is.
+      const templateOpacity = template.blockStyles.background_opacity ?? 1;
+      const effectiveOpacity =
+        pageStyle === 'full_bleed' && templateOpacity === 1
+          ? FULLBLEED_BUTTON_OPACITY
+          : templateOpacity;
+      const effectiveBlockStyles: Partial<BlockStyleConfig> = {
+        ...template.blockStyles,
+        background_opacity: effectiveOpacity,
+      };
+
+      // TPL.3b TASK 1.1: total ownership at the theme level. The spread already
+      // wholesale-replaces theme.buttons, but non-showcase templates omit the
+      // FS.SURFACE surface keys (variant / outline_width / background_opacity),
+      // which resolveButtonSurface + LinkButton read FIRST — so own them explicitly
+      // and deterministically. Prefer the template's OWN theme.buttons value
+      // (showcase templates set variant/outline_width there — e.g. golden-hour's
+      // outline_width:1 must survive) and fall back to blockStyles otherwise.
+      // Structural non-button keys (pageStyle / heroConfig* / pages / header*) still
+      // survive via `existing` — BUG.THEME.1 intact; this owns button appearance only.
+      const tb = (template.theme.buttons ?? {}) as Record<string, any>;
+      const ownedVariant = tb.variant ?? effectiveBlockStyles.variant;
+      const ownedButtons = {
+        variant: ownedVariant,
+        outline_width:
+          tb.outline_width ??
+          (ownedVariant === 'outline' ? (effectiveBlockStyles.border_width ?? 1) : 0),
+        background_opacity: tb.background_opacity ?? effectiveOpacity,
+      };
+
+      const nextTheme = {
+        ...existing,
+        ...JSON.parse(JSON.stringify({ ...template.theme, pageStyle: undefined })),
+      };
+      nextTheme.buttons = { ...(nextTheme.buttons ?? {}), ...ownedButtons };
+
       const { error: pageError } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existing, ...JSON.parse(JSON.stringify({ ...template.theme, pageStyle: undefined })) } })
+        .update({ theme_json: nextTheme })
         .eq('id', pageId);
 
       if (pageError) throw pageError;
@@ -134,10 +185,11 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
           if (blocksError) throw blocksError;
 
-          // Update each block's title with the new style config
+          // Update each block's title with the new style config (full replacement
+          // of the `style` key — the template owns per-block appearance).
           if (blocks && blocks.length > 0) {
             for (const block of blocks) {
-              let existingConfig = {};
+              let existingConfig: Record<string, unknown> = {};
               try {
                 existingConfig = JSON.parse(block.title || '{}');
               } catch {
@@ -146,7 +198,7 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
               const newConfig = {
                 ...existingConfig,
-                style: template.blockStyles,
+                style: effectiveBlockStyles,
               };
 
               const { error: updateError } = await supabase
@@ -156,6 +208,56 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
               if (updateError) {
                 console.error('Error updating block style:', updateError);
+              }
+            }
+
+            // TPL.3b TASK 1.3: a Styles apply owns EVERY layer. On links blocks the
+            // per-item overrides (block_items.style_json.{border_color, border_width,
+            // bg_gradient} and the bg_color / title_color columns) WIN over the
+            // block-level style in LinksBlock.buildLinkButton, so a stale look (e.g.
+            // an old orange outline) survives a theme + block apply. Clear the
+            // appearance overrides ONLY — never content (labels, urls, images, or the
+            // leading-icon style_json keys icon_source/icon_image/icon_color). The
+            // pre-apply auto-snapshot above makes this recoverable.
+            const linkBlockIds = blocks.filter((b) => b.type === 'links').map((b) => b.id);
+            if (linkBlockIds.length > 0) {
+              const { data: items, error: itemsError } = await supabase
+                .from('block_items')
+                .select('id, style_json, bg_color, title_color')
+                .in('block_id', linkBlockIds);
+
+              if (itemsError) throw itemsError;
+
+              for (const item of items ?? []) {
+                const sj =
+                  item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json)
+                    ? { ...(item.style_json as Record<string, any>) }
+                    : null;
+                const hadAppearance =
+                  !!sj && (sj.border_color != null || sj.border_width != null || sj.bg_gradient != null);
+                const hadColumns = item.bg_color != null || item.title_color != null;
+                // Skip clean items — no needless writes on every apply.
+                if (!hadAppearance && !hadColumns) continue;
+
+                if (sj) {
+                  delete sj.border_color;
+                  delete sj.border_width;
+                  delete sj.bg_gradient;
+                }
+                const nextStyle = sj && Object.keys(sj).length > 0 ? sj : null;
+
+                const { error: itemError } = await supabase
+                  .from('block_items')
+                  .update({
+                    style_json: nextStyle as Tables<'block_items'>['style_json'],
+                    bg_color: null,
+                    title_color: null,
+                  })
+                  .eq('id', item.id);
+
+                if (itemError) {
+                  console.error('Error resetting item style:', itemError);
+                }
               }
             }
           }

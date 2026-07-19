@@ -115,6 +115,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       font_style: 'normal',
       letter_spacing: 0,
       background_opacity: 1,
+      border_width: 0,
     },
   },
 
@@ -187,12 +188,12 @@ export const TEMPLATES: TemplateDefinition[] = [
       motion: { enabled: true },
     },
     blockStyles: {
-      variant: 'glass',
+      variant: 'outline',
       font_style: 'mono',
       letter_spacing: 0.02,
-      background_opacity: 0.15,
-      border_width: 1,
-      border_color: '#00ff8830',
+      background_opacity: 0,
+      border_width: 2.5,
+      border_color: '#00ff88',
     },
   },
 
@@ -265,10 +266,12 @@ export const TEMPLATES: TemplateDefinition[] = [
       motion: { enabled: true },
     },
     blockStyles: {
-      variant: 'filled',
+      variant: 'glass',
       font_style: 'normal',
       letter_spacing: 0.03,
-      background_opacity: 1,
+      background_opacity: 0.25,
+      border_width: 2,
+      border_color: '#f97316',
     },
   },
 
