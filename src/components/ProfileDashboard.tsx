@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   Files,
   GalleryHorizontalEnd,
+  History,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -50,6 +51,7 @@ import { ContentSectionEditor } from '@/components/editors/ContentSectionEditor'
 import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { TextBlocksPanel } from '@/components/editors/TextBlocksPanel';
 import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor';
+import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import type { BlockWithItems } from '@/components/blocks/types';
@@ -263,6 +265,14 @@ const sections: DashboardSection[] = [
         subtitleKey: 'dashboard.videoProfileDesc',
         blockType: null,
       },
+      {
+        // SNAP.1b: named restore points for the whole look. Not pro-gated at the
+        // row (Free gets 1 snapshot) — the quota is enforced inside the panel.
+        icon: <History className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.snapshots',
+        subtitleKey: 'dashboard.snapshotsDesc',
+        blockType: null,
+      },
     ],
   },
   {
@@ -362,6 +372,8 @@ export function ProfileDashboard({
   const [pagesOpen, setPagesOpen] = useState(false);
   // PIXELS.1: the Tracking Pixels sub-panel (Analytics group).
   const [pixelsOpen, setPixelsOpen] = useState(false);
+  // SNAP.1b: the Snapshots sub-panel (Style group).
+  const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
   // two-level nav state — null = list view, a block id = editing that block.
   const [textBlocksOpen, setTextBlocksOpen] = useState(false);
@@ -429,6 +441,7 @@ export function ProfileDashboard({
     setNameFxOpen(false);
     setPagesOpen(false);
     setPixelsOpen(false);
+    setSnapshotsOpen(false);
     setTextBlocksOpen(false);
     setTextEditingId(null);
     setPendingPreset(null);
@@ -892,6 +905,12 @@ export function ProfileDashboard({
         setPixelsOpen(true);
         return;
       }
+      if (row.titleKey === 'dashboard.snapshots') {
+        // No row-level gate: Free opens the panel and gets its 1 snapshot; the
+        // quota upsell lives inside the panel's Save action (SNAP.1b).
+        setSnapshotsOpen(true);
+        return;
+      }
       toast(t(row.toastKey || 'dashboard.comingSoon'));
       return;
     }
@@ -1098,6 +1117,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.trackingPixels')}</h2>
+                </>
+              ) : snapshotsOpen ? (
+                <>
+                  <button
+                    onClick={() => setSnapshotsOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.snapshots')}</h2>
                 </>
               ) : nameFxOpen ? (
                 <>
@@ -1362,6 +1391,8 @@ export function ProfileDashboard({
                 </div>
               ) : pixelsOpen ? (
                 <TrackingPixelsEditor />
+              ) : snapshotsOpen ? (
+                <SnapshotsEditor pageId={pageId} onRestored={onRefresh} />
               ) : nameFxOpen ? (
                 // Fills the scrollport so the footer's mt-auto has room to push
                 // against. gap-6 replaces space-y-6 deliberately: space-y sets
