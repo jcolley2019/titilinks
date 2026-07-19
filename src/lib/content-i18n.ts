@@ -102,6 +102,16 @@ export const CONTENT_MAP: Record<string, string> = {
   'Email Subscribe': 'content.emailSubscribeTitle',
   'your@email.com': 'emailSubscribe.defaultPlaceholder',
   'Your name': 'emailSubscribe.defaultName',
+
+  // TPL.1: seeded strings for the 'actriz' reference preset (src/lib/tpl-presets.ts).
+  // 'My Website' / 'Press Kit' / 'Links' / 'Gallery' / 'Videos' / 'About' plus the
+  // subtitles 'Check out my website' / 'Media resources' are already mapped above.
+  'Booking': 'content.booking',
+  'Book Me': 'content.bookMe',
+  'Collabs & appearances': 'content.collabsAppearances',
+  'Contact': 'content.contact',
+  'WhatsApp': 'content.whatsapp',
+  'Message me directly': 'content.messageMeDirectly',
 };
 
 /**

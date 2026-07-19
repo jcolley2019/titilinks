@@ -1167,6 +1167,24 @@ export const translations: Record<Language, Record<string, string>> = {
     'content.videos': 'Videos',
     'content.about': 'About',
 
+    // TPL.1 — preset compositions (tpl-presets.ts): seeded content strings +
+    // preset description + the 8 category labels.
+    'content.booking': 'Booking',
+    'content.bookMe': 'Book Me',
+    'content.collabsAppearances': 'Collabs & appearances',
+    'content.contact': 'Contact',
+    'content.whatsapp': 'WhatsApp',
+    'content.messageMeDirectly': 'Message me directly',
+    'tpl.desc.actriz': 'Editorial dark theme for actors and on-camera creators',
+    'tpl.category.creator': 'Creator',
+    'tpl.category.booking': 'Booking',
+    'tpl.category.store': 'Store',
+    'tpl.category.music': 'Music',
+    'tpl.category.fitness': 'Fitness',
+    'tpl.category.local_business': 'Local Business',
+    'tpl.category.media': 'Media',
+    'tpl.category.minimal': 'Minimal',
+
     // Editor Page
     'editor.title': 'Link Editor',
     'editor.editing': 'Editing',
@@ -2765,6 +2783,24 @@ export const translations: Record<Language, Record<string, string>> = {
     'content.gallery': 'Galería',
     'content.videos': 'Videos',
     'content.about': 'Acerca de',
+
+    // TPL.1 — preset compositions (tpl-presets.ts): seeded content strings +
+    // preset description + the 8 category labels.
+    'content.booking': 'Contrataciones',
+    'content.bookMe': 'Contrátame',
+    'content.collabsAppearances': 'Colaboraciones y apariciones',
+    'content.contact': 'Contactar',
+    'content.whatsapp': 'WhatsApp',
+    'content.messageMeDirectly': 'Escríbeme directamente',
+    'tpl.desc.actriz': 'Tema oscuro editorial para actores y creadores frente a cámara',
+    'tpl.category.creator': 'Creador',
+    'tpl.category.booking': 'Reservas',
+    'tpl.category.store': 'Tienda',
+    'tpl.category.music': 'Música',
+    'tpl.category.fitness': 'Fitness',
+    'tpl.category.local_business': 'Negocio Local',
+    'tpl.category.media': 'Medios',
+    'tpl.category.minimal': 'Minimalista',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',
