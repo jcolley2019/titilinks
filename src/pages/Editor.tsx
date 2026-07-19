@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, Pencil } from 'lucide-react';
+import { AdultGateModal } from '@/components/AdultGateModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -76,6 +77,18 @@ export default function Editor() {
   const devicePreset = resolveDevicePreset(deviceId);
   const previewAreaRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(1);
+
+  // ── DP.2: visitor-preview toggle ──
+  // 'edit' shows the WYSIWYG editing chrome; 'visitor' renders the same shared
+  // EditableProfileView in view mode (editMode=false) — exactly what a visitor
+  // gets, including public 18+ gating (stripped hrefs + tap-to-gate). Session-
+  // only on purpose: it resets to 'edit' on reload so the editor never boots into
+  // a read-only surface. The device selector stays live in both modes.
+  const [previewMode, setPreviewMode] = useState<'edit' | 'visitor'>('edit');
+  // The gated destination pending an 18+ confirmation in visitor mode. Mirrors
+  // the public route's handler, but opens in a new tab so the editor stays put.
+  const [pendingGate, setPendingGate] = useState<{ url: string } | null>(null);
+  const isVisitor = previewMode === 'visitor';
 
   useEffect(() => {
     try { localStorage.setItem(devicePrefKey, deviceId); } catch { /* storage disabled */ }
@@ -424,6 +437,26 @@ export default function Editor() {
     });
   }, [allBlocks, draftItem, draftTitle]);
 
+  // DP.2: in visitor mode the preview mirrors the public gating contract — a
+  // gated tap raises the 18+ modal instead of navigating, and confirmation opens
+  // the destination in a new tab (the editor itself never leaves). Non-gated
+  // links behave as ordinary target=_blank anchors.
+  const handleVisitorOutbound = useCallback(
+    (_blockType: string, _blockId: string, _itemId: string, url: string, isAdult?: boolean): boolean => {
+      if (isAdult) { setPendingGate({ url }); return false; }
+      return true;
+    },
+    []
+  );
+
+  // Visitor mode shows only ENABLED blocks — the public route filters is_enabled
+  // at the query level and EditableProfileView's view branch does not, so mirror
+  // that here. Edit mode keeps disabled blocks visible (they carry their toggle).
+  const visitorBlocks = useMemo(
+    () => previewBlocks.filter((b) => b.is_enabled),
+    [previewBlocks]
+  );
+
   const handleBlockToggle = async (blockId: string, enabled: boolean) => {
     try {
       const { error } = await supabase
@@ -563,6 +596,26 @@ export default function Editor() {
                 </span>
               )}
             </div>
+            {/* DP.2: visitor-preview toggle — flips the frame between the editing
+                chrome and the exact public view (view mode + public 18+ gating).
+                Session-only; the device selector stays live in both modes. */}
+            <button
+              type="button"
+              data-testid="preview-mode-toggle"
+              onClick={() => setPreviewMode((m) => (m === 'edit' ? 'visitor' : 'edit'))}
+              aria-pressed={isVisitor}
+              aria-label={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
+              title={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
+              className={cn(
+                'flex items-center gap-1.5 text-xs rounded-full border px-3 py-1.5 transition-colors',
+                isVisitor
+                  ? 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C] font-bold'
+                  : 'bg-black/40 text-white/80 border-white/15 hover:border-white/30'
+              )}
+            >
+              {isVisitor ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              <span>{isVisitor ? t('editor.previewEditingLabel') : t('editor.previewVisitorLabel')}</span>
+            </button>
             <span className="text-xs text-white/50">@{page.handle}</span>
             <button
               onClick={() => setProfileDashboardOpen(true)}
@@ -599,6 +652,12 @@ export default function Editor() {
               // width×height. Scaled to fit; offsetWidth/Height ignore transform.
               width: `${devicePreset.width}px`,
               height: `${devicePreset.height}px`,
+              // DP.2: expose the frame's logical height / 100 as a viewport-unit
+              // proxy. Descendant `dvh` reads that opt in via `var(--pv-vh, 1dvh)`
+              // then resolve against the DEVICE frame instead of the desktop
+              // window, so the hero container's `50dvh` is truthful per preset.
+              // Absent on the public route → the 1dvh fallback keeps it identical.
+              '--pv-vh': `${devicePreset.height / 100}px`,
               flex: '0 0 auto',
               transform: `scale(${previewScale})`,
               transformOrigin: 'center center',
@@ -607,14 +666,20 @@ export default function Editor() {
               boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-            }}
+            } as CSSProperties}
           >
+            {/* DP.2: same shared render path in both modes. Visitor mode drops
+                editMode (public chrome + gating), shows enabled blocks only, and
+                routes gated taps through the 18+ modal. The live-mirror props
+                (previewBlocks/headerDraft/themeDraft) still flow, so unsaved
+                drafts remain visible in visitor mode. */}
             <EditableProfileView
               page={page}
-              blocks={previewBlocks}
+              blocks={isVisitor ? visitorBlocks : previewBlocks}
               headerDraft={headerDraft}
               themeDraft={themeDraft}
-              editMode={true}
+              editMode={!isVisitor}
+              onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
               onBlockReorder={handleBlockReorder}
@@ -677,6 +742,19 @@ export default function Editor() {
         displayName={page.display_name ?? undefined}
         bio={page.bio ?? undefined}
         avatarUrl={page.avatar_url ?? undefined}
+      />
+
+      {/* DP.2: the 18+ gate for visitor-mode taps. Same modal the public route
+          uses; confirmation opens the destination in a new tab so the editor
+          itself is never navigated away. */}
+      <AdultGateModal
+        open={!!pendingGate}
+        onOpenChange={(o) => { if (!o) setPendingGate(null); }}
+        onConfirm={() => {
+          if (pendingGate) window.open(pendingGate.url, '_blank', 'noopener,noreferrer');
+          setPendingGate(null);
+        }}
+        onCancel={() => setPendingGate(null)}
       />
     </DashboardLayout>
   );

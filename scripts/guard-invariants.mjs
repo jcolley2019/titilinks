@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 const F = (p) => `src/${p}`;
 const checks = [
   { name:'STICKY-HERO', file:'components/EditableProfileView.tsx',
-    needs:[/position:\s*'sticky'/, /top:\s*stickyTop/, /height:\s*'calc\(50dvh \+ '\s*\+\s*HERO_EXTRA\s*\+\s*'px\)'/, /const HERO_EXTRA\s*=\s*60\b/] },
+    // DP.2 re-lock: the 50dvh read now resolves through --pv-vh (container-truthful
+    // preview) with a 1dvh fallback that keeps the public geometry byte-identical.
+    // The 50% factor, HERO_EXTRA=60, and the sticky/top pins are unchanged.
+    needs:[/position:\s*'sticky'/, /top:\s*stickyTop/, /height:\s*'calc\(var\(--pv-vh, 1dvh\) \* 50 \+ '\s*\+\s*HERO_EXTRA\s*\+\s*'px\)'/, /const HERO_EXTRA\s*=\s*60\b/] },
   { name:'STICKY-PROP', file:'components/EditableProfileView.tsx',
     needs:[/stickyTop\?\s*:\s*number\s*\|\s*string/, /stickyTop\s*=\s*0\b/] },
   { name:'FADE-SEAM', file:'components/EditableProfileView.tsx',

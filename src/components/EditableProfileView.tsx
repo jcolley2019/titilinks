@@ -2278,7 +2278,11 @@ export function EditableProfileView({
       {/* FB.4f: overlay portal host for full-bleed controls */}
       {isFullBleed && <div ref={setOverlayHost} />}
       {/* Fixed hero image — stays pinned while content scrolls over it */}
-      <div className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(50dvh + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
+      {/* DP.2: 50dvh is resolved through --pv-vh so the editor preview measures
+          against the previewed device frame, not the desktop window. On the
+          public route the var is absent, so `var(--pv-vh, 1dvh) * 50` falls back
+          to `50dvh` and the computed geometry is byte-identical. */}
+      <div data-testid="hero-sticky" className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(var(--pv-vh, 1dvh) * 50 + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
         {isFullBleed ? null : heroVideo ? (
           <HeroVideo
             src={heroVideo}
