@@ -10,7 +10,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { BlockItem, ThemedBlockProps } from './types';
-import { isFullBleedTheme } from '@/lib/surface';
+import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 
 interface ProductConfig {
@@ -77,6 +77,10 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
   const textColor = theme.typography.text_color;
   const fill = theme.buttons.fill_color;
   const fullBleed = isFullBleedTheme(theme);
+  // TPL.5 TASK 2: the tile surface + frame carry the layout color from the shared
+  // derivation (was fill_color @ 8% alpha — invisible). Photos still cover it when
+  // present; the frame keeps the layout color visible even on image tiles.
+  const surface = cardSurface(theme);
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
     // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
@@ -100,7 +104,11 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
         onClick={(e) => handleClick(e, item)}
         onTouchStart={() => triggerHaptic('light')}
         className={`group relative block h-full w-full overflow-hidden ${rounded}`}
-        style={fullBleed ? { backgroundColor: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(12px)' } : { backgroundColor: `${fill}14` }}
+        style={{
+          backgroundColor: surface.background,
+          border: `1px solid ${surface.borderColor}`,
+          ...(fullBleed ? { backdropFilter: 'blur(12px)' } : {}),
+        }}
       >
         {item.image_url ? (
           <img

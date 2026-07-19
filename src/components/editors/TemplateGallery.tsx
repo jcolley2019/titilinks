@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -89,6 +89,8 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
   // Layout cards now apply on a hover-revealed button (no confirm dialog), so
   // they carry the same post-apply applied state, cleared after a short delay.
   const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
+  // TPL.5 TASK 1: synchronous hard lock against a double-fire (see applyLayout).
+  const applyingRef = useRef(false);
 
   const layouts = layoutCategory === 'all'
     ? TPL_PRESETS
@@ -301,57 +303,70 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
   // TPL.3: apply a Layout preset as one designed unit (theme + composition +
   // seeded content + block styles) via the TPL.2 engine.
   const applyLayout = async (preset: TplPreset) => {
-    const pageId2: PageId = activePageId ?? 'page1';
-    const pageStyle = resolveEffectivePageStyle(themeJson, pageId2);
-
-    // FIX.P2 race-safe modeId resolution (mirrors ProfileDashboard.applyPreset):
-    // the modeId prop can lag a freshly-created page, so fall back to a DB read
-    // by page_id + page type before firing the noMode toast.
-    let activeModeId = modeId ?? null;
-    if (!activeModeId && pageId) {
-      const { data } = await supabase
-        .from('modes')
-        .select('id')
-        .eq('page_id', pageId)
-        .eq('type', pageId2)
-        .maybeSingle();
-      activeModeId = data?.id ?? null;
-    }
-    if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
-
-    setApplyingPreset(preset.id);
-    // Distinguish a pre-mutation snapshot failure (the engine aborts at step 1)
-    // from a later DB failure: this wrapper flips `captured` only once the safety
-    // net lands, so the catch surfaces the right message — parity with how
-    // applyTemplate separates snapshots.autoFailed from applyFailed.
-    let captured = false;
+    // TPL.5 TASK 1: hard, synchronous re-entry lock. `disabled={isApplying}` is
+    // render-state — it can't stop a rapid double-click (or a click during the
+    // pre-lock modes lookup below) from starting a second engine run before React
+    // re-disables the button, which duplicates the composition. A ref flips
+    // synchronously on the first click so the second call returns at once; cleared
+    // in `finally` (covers the noMode early return too). The engine keeps its own
+    // per-mode backstop.
+    if (applyingRef.current) return;
+    applyingRef.current = true;
     try {
-      await applyTplPreset(
-        {
-          pageId,
-          modeId: activeModeId,
-          pageStyle,
-          preset,
-          autoSnapshotName: t('snapshots.autoBeforeTemplate').replace('{name}', preset.name),
-        },
-        {
-          capture: async (...args: Parameters<typeof captureSnapshot>) => {
-            const row = await captureSnapshot(...args);
-            captured = true;
-            return row;
+      const pageId2: PageId = activePageId ?? 'page1';
+      const pageStyle = resolveEffectivePageStyle(themeJson, pageId2);
+
+      // FIX.P2 race-safe modeId resolution (mirrors ProfileDashboard.applyPreset):
+      // the modeId prop can lag a freshly-created page, so fall back to a DB read
+      // by page_id + page type before firing the noMode toast.
+      let activeModeId = modeId ?? null;
+      if (!activeModeId && pageId) {
+        const { data } = await supabase
+          .from('modes')
+          .select('id')
+          .eq('page_id', pageId)
+          .eq('type', pageId2)
+          .maybeSingle();
+        activeModeId = data?.id ?? null;
+      }
+      if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
+
+      setApplyingPreset(preset.id);
+      // Distinguish a pre-mutation snapshot failure (the engine aborts at step 1)
+      // from a later DB failure: this wrapper flips `captured` only once the safety
+      // net lands, so the catch surfaces the right message — parity with how
+      // applyTemplate separates snapshots.autoFailed from applyFailed.
+      let captured = false;
+      try {
+        await applyTplPreset(
+          {
+            pageId,
+            modeId: activeModeId,
+            pageStyle,
+            preset,
+            autoSnapshotName: t('snapshots.autoBeforeTemplate').replace('{name}', preset.name),
           },
-        },
-      );
-      setAppliedPreset(preset.id);
-      toast.success(t('tpl.apply.successToast'));
-      onApply();
-      // Reset applied indicator after a delay (mirrors applyTemplate).
-      setTimeout(() => setAppliedPreset(null), 2000);
-    } catch (err) {
-      console.error('[tpl] apply failed:', err);
-      toast.error(captured ? t('tpl.apply.failedToast') : t('snapshots.autoFailed'));
+          {
+            capture: async (...args: Parameters<typeof captureSnapshot>) => {
+              const row = await captureSnapshot(...args);
+              captured = true;
+              return row;
+            },
+          },
+        );
+        setAppliedPreset(preset.id);
+        toast.success(t('tpl.apply.successToast'));
+        onApply();
+        // Reset applied indicator after a delay (mirrors applyTemplate).
+        setTimeout(() => setAppliedPreset(null), 2000);
+      } catch (err) {
+        console.error('[tpl] apply failed:', err);
+        toast.error(captured ? t('tpl.apply.failedToast') : t('snapshots.autoFailed'));
+      } finally {
+        setApplyingPreset(null);
+      }
     } finally {
-      setApplyingPreset(null);
+      applyingRef.current = false;
     }
   };
 

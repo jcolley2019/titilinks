@@ -192,3 +192,53 @@ export function resolveButtonSurface(
     buttons?.fade_direction === 'top' ? 'top' : 'bottom';
   return { variant, outlineWidth, shadow, fadeDirection };
 }
+
+/** Local hex → {r,g,b}. Mirrors contrast.ts's private parseHex (kept local so
+ *  surface.ts stays free of a cross-module color dependency); non-hex returns
+ *  null so callers fall back to a neutral surface. */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return null;
+  const h = hex.slice(1);
+  const s = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  if (s.length !== 6) return null;
+  const n = parseInt(s, 16);
+  if (Number.isNaN(n)) return null;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/**
+ * TPL.5 — THE one content-card surface derivation. An applied layout owns the
+ * look of EVERY content block, not just the button blocks (primary_cta / links,
+ * which go through resolveButtonSurface). The card blocks — featured_media,
+ * product_cards, video_feed — read their tint + hairline from here, so the
+ * layout's brand fill (theme.buttons.fill_color) visibly reaches them from ONE
+ * derivation, no per-preset data, matching how resolveButtonSurface centralizes
+ * the button look.
+ *
+ *   hero       → a visible wash of the fill + a stronger same-color hairline;
+ *                the layout's signature color reads as the card surface.
+ *   full_bleed → a WHITE glass wash (a solid fill would hide the photo — the same
+ *                rule coerceFullBleedVariant enforces for buttons) BUT a colored
+ *                hairline, so the layout color still reads as a frame over the photo.
+ *
+ * A non-hex `fill_color` (gradient / keyword) can't be alpha-composited, so it
+ * falls back to a neutral white glass — a card never renders opaque or broken.
+ */
+export interface CardSurface {
+  /** Card background: a fill wash on hero, white glass on full_bleed. */
+  background: string;
+  /** Hairline/border color — always carries the layout fill when it's a hex. */
+  borderColor: string;
+}
+
+export function cardSurface(theme: ThemeJson | undefined): CardSurface {
+  const rgb = hexToRgb(theme?.buttons?.fill_color ?? '');
+  const tint = (a: number) => (rgb ? `rgba(${rgb.r},${rgb.g},${rgb.b},${a})` : `rgba(255,255,255,${a})`);
+  // full_bleed (or an unparseable fill): white glass body so the photo reads,
+  // colored hairline so the layout still frames the card.
+  if (theme?.pageStyle === 'full_bleed' || !rgb) {
+    return { background: 'rgba(255,255,255,0.10)', borderColor: rgb ? tint(0.55) : 'rgba(255,255,255,0.22)' };
+  }
+  // hero: a genuine wash of the layout fill + a same-color hairline.
+  return { background: tint(0.16), borderColor: tint(0.42) };
+}

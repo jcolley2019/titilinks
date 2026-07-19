@@ -220,6 +220,34 @@ test.describe('Template Gallery — Layouts + Styles (TPL.3)', () => {
     await expect(page.getByText('Layout applied — backup saved in Snapshots')).toBeVisible();
   });
 
+  test('TPL.5: a double-click on Apply runs the engine once (one snapshot POST)', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openGallery(page);
+
+    // Count every auto safety-net POST — one per real engine run.
+    let snapPosts = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/rest/v1/profile_snapshots') && r.method() === 'POST') snapPosts++;
+    });
+
+    const card = page.getByTestId('tpl-layout-card').first();
+    await card.hover();
+    const applyBtn = card.getByRole('button', { name: 'Apply' });
+    await expect(applyBtn).toBeVisible();
+
+    // Two rapid clicks. The synchronous ref lock (plus the engine's per-mode
+    // backstop) must collapse them into ONE run — a second run would capture a
+    // second snapshot and insert a duplicate composition (the GALERÍA field bug).
+    await applyBtn.click();
+    await applyBtn.click({ force: true, timeout: 1000 }).catch(() => {});
+
+    await expect(page.getByText('Layout applied — backup saved in Snapshots')).toBeVisible();
+    // Let any errant second run reach the network before asserting.
+    await page.waitForTimeout(400);
+    expect(snapPosts).toBe(1);
+  });
+
   test('hovering a card without clicking Apply writes nothing', async ({ page }) => {
     await installMocks(page, { plan: 'pro' });
     await openEditProfile(page);

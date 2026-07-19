@@ -12,7 +12,8 @@
 
 import assert from 'node:assert/strict';
 import { applyTplPreset } from '../src/lib/tpl-apply';
-import { TPL_PRESETS } from '../src/lib/tpl-presets';
+import { TPL_PRESETS, resolveTplVariant } from '../src/lib/tpl-presets';
+import { cardSurface } from '../src/lib/surface';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -222,6 +223,58 @@ const baseOpts = (extra = {}) => ({
   assert.equal(written.pageStyle, 'hero', 'existing pageStyle preserved; engine never writes/flips it');
   assert.ok(written.buttons && written.background && written.typography, 'incoming visual theme applied over existing');
   ok('theme merge preserves structural keys and strips incoming pageStyle');
+}
+
+// ── 7. TPL.5: a concurrent second apply for the SAME mode is rejected before it
+//    captures or mutates — exactly one engine run, never a duplicated composition
+//    (the two-GALERÍA field bug). ───────────────────────────────────────────────
+{
+  const h = makeHarness();
+  const results = await Promise.allSettled([
+    applyTplPreset(baseOpts(), { client: h.client, capture: h.capture }),
+    applyTplPreset(baseOpts(), { client: h.client, capture: h.capture }),
+  ]);
+  const outcomes = results.map((r) => r.status).sort();
+  assert.deepEqual(outcomes, ['fulfilled', 'rejected'], 'exactly one of two concurrent same-mode applies runs');
+  const rejected = results.find((r) => r.status === 'rejected');
+  assert.match(String(rejected.reason), /already in progress/, 'the loser rejects via the in-flight guard');
+  assert.equal(h.events.filter((e) => e.kind === 'capture').length, 1, 'exactly ONE snapshot capture (one POST)');
+  assert.equal(h.events.filter((e) => e.kind === 'blocks.insert').length, 1, 'exactly ONE composition insert — no duplicate blocks');
+  ok('concurrent same-mode apply → one capture, one insert (duplicate-block guard)');
+}
+
+// ── 8. TPL.5: after the guard clears, a fresh apply's inserted composition matches
+//    the preset EXACTLY — right count, per-type tally, and never a duplicate of a
+//    single-instance type (actriz declares one gallery). ─────────────────────────
+{
+  const h = makeHarness();
+  await applyTplPreset(baseOpts(), { client: h.client, capture: h.capture });
+  const inserted = h.state.insertedBlocks;
+  assert.equal(inserted.length, ACTRIZ.composition.length, 'inserted block count == preset composition length');
+  assert.equal(inserted.filter((b) => b.type === 'gallery').length, 1, 'exactly one gallery block (actriz defines one) — no duplicate');
+  const tally = (types) => types.reduce((m, t) => ({ ...m, [t]: (m[t] || 0) + 1 }), {});
+  assert.deepEqual(
+    tally(inserted.map((b) => b.type)),
+    tally(ACTRIZ.composition.map((b) => b.type)),
+    'per-type block counts match the preset exactly',
+  );
+  ok('applied composition matches the preset exactly (count + per-type, no dupes)');
+}
+
+// ── 9. TPL.5: a non-links block surface carries the layout color. cardSurface
+//    derives from theme.buttons.fill_color, so an applied layout's brand color
+//    (Música violet #a78bfa → rgb 167,139,250) reaches its cards. ────────────────
+{
+  const musica = TPL_PRESETS.find((p) => p.id === 'musica');
+  assert.ok(musica, "'musica' preset is available");
+  const musicaTheme = resolveTplVariant(musica, 'hero').theme; // fill_color #a78bfa
+  const hero = cardSurface(musicaTheme);
+  assert.ok(hero.background.includes('167,139,250'), 'hero: card background carries the layout fill');
+  assert.ok(hero.borderColor.includes('167,139,250'), 'hero: card border carries the layout fill');
+  const fb = cardSurface({ ...musicaTheme, pageStyle: 'full_bleed' });
+  assert.equal(fb.background, 'rgba(255,255,255,0.10)', 'full_bleed: glass body keeps the photo readable');
+  assert.ok(fb.borderColor.includes('167,139,250'), 'full_bleed: colored border still frames the card with the layout fill');
+  ok('cardSurface carries the layout color to non-links block surfaces');
 }
 
 console.log(`\nAll ${passed} tpl-apply checks passed.`);

@@ -15,8 +15,8 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
-import { getChromeTokens } from '@/lib/contrast';
-import { ACTION_ACCENT, ACTION_ACCENT_TEXT, fullBleedText } from '@/lib/surface';
+import { getChromeTokens, coerceLegibleText } from '@/lib/contrast';
+import { fullBleedText } from '@/lib/surface';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
 
@@ -128,6 +128,14 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
     }
   };
 
+  // TPL.5 TASK 2 (ratified: the action button follows the layout, not the
+  // sanctioned brand-gold): the Subscribe button paints the layout's fill.
+  // coerceLegibleText keeps the label readable on ANY theme's fill — a light
+  // fill flips the text to dark — so following the layout can't produce an
+  // illegible button (the guarantee the old fixed gold gave for free).
+  const btnBg = theme.buttons.fill_color;
+  const btnText = coerceLegibleText(theme.buttons.text_color, btnBg);
+
   // FS.SURFACE.1a: the Subscribe button paints the brand-gold action accent
   // (the one sanctioned solid on any page style) — a constant legible pair,
   // so the old fill_color + coerceLegibleText pairing is gone.
@@ -163,7 +171,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
         }}
       >
         <div className="flex items-center justify-center gap-2" style={{ color: tokens.text }}>
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: ACTION_ACCENT }}>
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: btnBg }}>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <p className="font-medium">{tc(config.success_message)}</p>
@@ -214,8 +222,8 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             whileTap={{ scale: 0.98 }}
             className="h-11 px-5 font-medium flex items-center gap-2 flex-shrink-0 disabled:opacity-70"
             style={{
-              backgroundColor: ACTION_ACCENT,
-              color: ACTION_ACCENT_TEXT,
+              backgroundColor: btnBg,
+              color: btnText,
               borderRadius: getButtonRadius(),
             }}
           >

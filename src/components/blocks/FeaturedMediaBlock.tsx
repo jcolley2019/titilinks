@@ -23,6 +23,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { gatedHref, isGated } from '@/lib/adult-gate';
+import { cardSurface } from '@/lib/surface';
 
 export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
@@ -54,6 +55,10 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: 
     }
   };
 
+  // TPL.5 TASK 2: the card frame + empty-state fill carry the layout color from
+  // the shared derivation (was a near-invisible fill_color @ 6–12% alpha).
+  const surface = cardSurface(theme);
+
   return (
     <div className="space-y-3">
       {block.title && (
@@ -76,7 +81,7 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: 
               className="relative overflow-hidden transition-colors"
               style={{
                 borderRadius: getButtonRadius(),
-                border: `1px solid ${theme.buttons.fill_color}20`,
+                border: `1px solid ${surface.borderColor}`,
               }}
             >
               {item.image_url ? (
@@ -98,7 +103,7 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: 
                   </div>
                 </div>
               ) : (
-                <div className="aspect-video flex items-center justify-center relative" style={{ backgroundColor: `${theme.buttons.fill_color}10` }}>
+                <div className="aspect-video flex items-center justify-center relative" style={{ backgroundColor: surface.background }}>
                   <ImageIcon className="h-10 w-10 opacity-40" style={{ color: theme.typography.text_color }} />
                   {item.is_adult && (
                     <div className="absolute top-2 right-2 bg-red-500/90 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">

@@ -52,6 +52,14 @@ type BlockItemsInsert = Database['public']['Tables']['block_items']['Insert'];
 const STYLEABLE_TYPES: ReadonlySet<string> = new Set(['primary_cta', 'links']);
 const HEADER_TYPES: ReadonlySet<string> = new Set(['social_links', 'social_icon_row']);
 
+/** TPL.5 TASK 1: modes with an apply in flight. The composition replace is a
+ *  delete-then-insert; two overlapping runs for the same mode interleave (run B
+ *  reads the block set after A's delete but before A's insert) and each inserts
+ *  the full composition → duplicate blocks (the two-GALERÍA field report). This
+ *  module-level guard rejects a concurrent same-mode run before it captures or
+ *  mutates anything. Keyed by mode so unrelated pages never block each other. */
+const inFlightModes = new Set<string>();
+
 /** Type-only module queries — erased at runtime, so importing this engine never
  *  eagerly evaluates the supabase client module (client.ts reads import.meta.env
  *  + browser globals at top level and would crash under a bare node/tsx import).
@@ -85,109 +93,126 @@ export interface TplApplyDeps {
  * net first (SNAP.1c ruling).
  */
 export async function applyTplPreset(opts: TplApplyOptions, deps: TplApplyDeps = {}): Promise<void> {
-  const client = deps.client ?? (await import('@/integrations/supabase/client')).supabase;
-  const capture = deps.capture ?? (await import('@/lib/snapshots')).captureSnapshot;
   const { pageId, modeId, pageStyle, preset } = opts;
 
-  // 1) Auto safety-net FIRST — a capture failure aborts everything below.
-  //    captureSnapshot rides the app singleton by design; do not thread `client`.
-  await capture(pageId, opts.autoSnapshotName ?? `Before template: ${preset.name}`, 'auto');
-
-  // 2) Resolve the effective theme + block styles for this page style (pure).
-  const { theme, blockStyles } = resolveTplVariant(preset, pageStyle);
-
-  // 3) Theme write — merge over the page's EXISTING raw theme_json so structural
-  //    keys survive; strip pageStyle from the incoming payload defensively
-  //    (JSON round-trip drops undefined). Single update. Mirrors applyTemplate.
-  const { data: pageRow, error: pageErr } = await client
-    .from('pages')
-    .select('theme_json')
-    .eq('id', pageId)
-    .single();
-  if (pageErr) throw pageErr;
-  const existing = (pageRow?.theme_json && typeof pageRow.theme_json === 'object')
-    ? (pageRow.theme_json as Record<string, unknown>)
-    : {};
-  const { error: themeErr } = await client
-    .from('pages')
-    .update({ theme_json: { ...existing, ...JSON.parse(JSON.stringify({ ...theme, pageStyle: undefined })) } })
-    .eq('id', pageId);
-  if (themeErr) throw themeErr;
-
-  // 4) Composition replace — preserve the header social blocks, delete the
-  //    removable blocks' items then the blocks, insert the preset set at
-  //    order_index i from 0 (matches applyPreset's indexing). Mirrors applyPreset.
-  const { data: existingBlocks, error: exErr } = await client
-    .from('blocks')
-    .select('id, type')
-    .eq('mode_id', modeId);
-  if (exErr) throw exErr;
-  const removableIds = (existingBlocks ?? [])
-    .filter((b) => !HEADER_TYPES.has(b.type))
-    .map((b) => b.id);
-  if (removableIds.length) {
-    const { error: delItemsErr } = await client.from('block_items').delete().in('block_id', removableIds);
-    if (delItemsErr) throw delItemsErr;
-    const { error: delBlocksErr } = await client.from('blocks').delete().in('id', removableIds);
-    if (delBlocksErr) throw delBlocksErr;
+  // TPL.5 TASK 1: reject a concurrent same-mode run BEFORE any capture/mutation
+  // (see inFlightModes). Guard is the first statement so it trips synchronously,
+  // before the first await; cleared in `finally` so a failed apply is retryable.
+  // The rejected call adds nothing to the set and enters no try block, so it can
+  // never delete the in-flight run's entry.
+  if (inFlightModes.has(modeId)) {
+    throw new Error(`[tpl] apply already in progress for mode ${modeId}`);
   }
-  const blockInserts: BlocksInsert[] = preset.composition.map((b, i) => ({
-    mode_id: modeId,
-    type: b.type,
-    title: b.title,
-    is_enabled: true,
-    order_index: i,
-  }));
-  const { data: inserted, error: insErr } = await client
-    .from('blocks')
-    .insert(blockInserts)
-    .select('id, type, order_index, title');
-  if (insErr) throw insErr;
+  inFlightModes.add(modeId);
+  try {
+    const client = deps.client ?? (await import('@/integrations/supabase/client')).supabase;
+    const capture = deps.capture ?? (await import('@/lib/snapshots')).captureSnapshot;
 
-  // 5) Item seeding — link each preset block's items to the block just inserted
-  //    at the same order_index, batch-insert every TplItemSeed. Blocks with no
-  //    items are skipped. Mirrors OnboardingFlow.prefillBlockContent.
-  const idByOrder = new Map<number, string>();
-  for (const b of inserted ?? []) idByOrder.set(b.order_index, b.id);
-  const itemInserts: BlockItemsInsert[] = [];
-  preset.composition.forEach((block, i) => {
-    const blockId = idByOrder.get(i);
-    if (!blockId || !block.items?.length) return;
-    block.items.forEach((it, idx) => {
-      itemInserts.push({
-        block_id: blockId,
-        label: it.label,
-        url: it.url ?? '',
-        order_index: idx,
-        ...(it.subtitle !== undefined ? { subtitle: it.subtitle } : {}),
-        ...(it.badge !== undefined ? { badge: it.badge } : {}),
-        ...(it.cta_label !== undefined ? { cta_label: it.cta_label } : {}),
-        ...(it.image_url ? { image_url: it.image_url } : {}),
+    // 1) Auto safety-net FIRST — a capture failure aborts everything below.
+    //    captureSnapshot rides the app singleton by design; do not thread `client`.
+    await capture(pageId, opts.autoSnapshotName ?? `Before template: ${preset.name}`, 'auto');
+
+    // 2) Resolve the effective theme + block styles for this page style (pure).
+    const { theme, blockStyles } = resolveTplVariant(preset, pageStyle);
+
+    // 3) Theme write — merge over the page's EXISTING raw theme_json so structural
+    //    keys survive; strip pageStyle from the incoming payload defensively
+    //    (JSON round-trip drops undefined). Single update. Mirrors applyTemplate.
+    const { data: pageRow, error: pageErr } = await client
+      .from('pages')
+      .select('theme_json')
+      .eq('id', pageId)
+      .single();
+    if (pageErr) throw pageErr;
+    const existing = (pageRow?.theme_json && typeof pageRow.theme_json === 'object')
+      ? (pageRow.theme_json as Record<string, unknown>)
+      : {};
+    const { error: themeErr } = await client
+      .from('pages')
+      .update({ theme_json: { ...existing, ...JSON.parse(JSON.stringify({ ...theme, pageStyle: undefined })) } })
+      .eq('id', pageId);
+    if (themeErr) throw themeErr;
+
+    // 4) Composition replace — preserve the header social blocks, delete the
+    //    removable blocks' items then the blocks, insert the preset set at
+    //    order_index i from 0 (matches applyPreset's indexing). Mirrors applyPreset.
+    //    The removable ids come from a FRESH read inside this run, and a failed
+    //    delete throws BEFORE any insert — the composition is never inserted on
+    //    top of blocks that failed to delete (TPL.5 TASK 1: defensive replace).
+    const { data: existingBlocks, error: exErr } = await client
+      .from('blocks')
+      .select('id, type')
+      .eq('mode_id', modeId);
+    if (exErr) throw exErr;
+    const removableIds = (existingBlocks ?? [])
+      .filter((b) => !HEADER_TYPES.has(b.type))
+      .map((b) => b.id);
+    if (removableIds.length) {
+      const { error: delItemsErr } = await client.from('block_items').delete().in('block_id', removableIds);
+      if (delItemsErr) throw delItemsErr;
+      const { error: delBlocksErr } = await client.from('blocks').delete().in('id', removableIds);
+      if (delBlocksErr) throw delBlocksErr;
+    }
+    const blockInserts: BlocksInsert[] = preset.composition.map((b, i) => ({
+      mode_id: modeId,
+      type: b.type,
+      title: b.title,
+      is_enabled: true,
+      order_index: i,
+    }));
+    const { data: inserted, error: insErr } = await client
+      .from('blocks')
+      .insert(blockInserts)
+      .select('id, type, order_index, title');
+    if (insErr) throw insErr;
+
+    // 5) Item seeding — link each preset block's items to the block just inserted
+    //    at the same order_index, batch-insert every TplItemSeed. Blocks with no
+    //    items are skipped. Mirrors OnboardingFlow.prefillBlockContent.
+    const idByOrder = new Map<number, string>();
+    for (const b of inserted ?? []) idByOrder.set(b.order_index, b.id);
+    const itemInserts: BlockItemsInsert[] = [];
+    preset.composition.forEach((block, i) => {
+      const blockId = idByOrder.get(i);
+      if (!blockId || !block.items?.length) return;
+      block.items.forEach((it, idx) => {
+        itemInserts.push({
+          block_id: blockId,
+          label: it.label,
+          url: it.url ?? '',
+          order_index: idx,
+          ...(it.subtitle !== undefined ? { subtitle: it.subtitle } : {}),
+          ...(it.badge !== undefined ? { badge: it.badge } : {}),
+          ...(it.cta_label !== undefined ? { cta_label: it.cta_label } : {}),
+          ...(it.image_url ? { image_url: it.image_url } : {}),
+        });
       });
     });
-  });
-  if (itemInserts.length) {
-    const { error: itemErr } = await client.from('block_items').insert(itemInserts);
-    if (itemErr) throw itemErr;
-  }
-
-  // 6) Block styles — ALWAYS on for a TPL apply (composition + style are one
-  //    designed unit). Replicates applyTemplate's applyBlockStyles write: merge
-  //    `{ ...existingConfig, style }` into the block's `title` (JSON-in-title),
-  //    for primary_cta / links only. Sourced from our own inserted rows.
-  for (const b of inserted ?? []) {
-    if (!STYLEABLE_TYPES.has(b.type)) continue;
-    let existingConfig: Record<string, unknown> = {};
-    try {
-      const parsed = JSON.parse(b.title || '{}');
-      if (parsed && typeof parsed === 'object') existingConfig = parsed as Record<string, unknown>;
-    } catch {
-      existingConfig = {};
+    if (itemInserts.length) {
+      const { error: itemErr } = await client.from('block_items').insert(itemInserts);
+      if (itemErr) throw itemErr;
     }
-    const { error: styleErr } = await client
-      .from('blocks')
-      .update({ title: JSON.stringify({ ...existingConfig, style: blockStyles }) })
-      .eq('id', b.id);
-    if (styleErr) throw styleErr;
+
+    // 6) Block styles — ALWAYS on for a TPL apply (composition + style are one
+    //    designed unit). Replicates applyTemplate's applyBlockStyles write: merge
+    //    `{ ...existingConfig, style }` into the block's `title` (JSON-in-title),
+    //    for primary_cta / links only. Sourced from our own inserted rows.
+    for (const b of inserted ?? []) {
+      if (!STYLEABLE_TYPES.has(b.type)) continue;
+      let existingConfig: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(b.title || '{}');
+        if (parsed && typeof parsed === 'object') existingConfig = parsed as Record<string, unknown>;
+      } catch {
+        existingConfig = {};
+      }
+      const { error: styleErr } = await client
+        .from('blocks')
+        .update({ title: JSON.stringify({ ...existingConfig, style: blockStyles }) })
+        .eq('id', b.id);
+      if (styleErr) throw styleErr;
+    }
+  } finally {
+    inFlightModes.delete(modeId);
   }
 }

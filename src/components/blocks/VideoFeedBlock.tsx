@@ -3,6 +3,7 @@ import { Play, Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import type { ThemedBlockProps } from './types';
+import { cardSurface } from '@/lib/surface';
 
 interface FeedVideo {
   video_id: string;
@@ -121,6 +122,9 @@ export function VideoFeedBlock({ block, onOutboundClick, theme }: ThemedBlockPro
   const radius = theme.buttons.shape === 'square' ? '6px' : '16px';
   const textColor = theme.typography.text_color;
   const accent = theme.buttons.fill_color;
+  // TPL.5 TASK 2: the player frame carries the layout color from the shared card
+  // derivation (was accent @ 20% alpha). The active-thumb outline stays solid.
+  const surface = cardSurface(theme);
 
   if (loading) {
     return (
@@ -193,7 +197,7 @@ export function VideoFeedBlock({ block, onOutboundClick, theme }: ThemedBlockPro
         </div>
       )}
 
-      <div className="relative overflow-hidden" style={{ borderRadius: radius, border: `1px solid ${accent}33` }}>
+      <div className="relative overflow-hidden" style={{ borderRadius: radius, border: `1px solid ${surface.borderColor}` }}>
         <div className="relative aspect-video bg-black/30">
           {playing ? (
             <iframe
