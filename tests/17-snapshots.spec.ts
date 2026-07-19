@@ -213,6 +213,9 @@ test.describe('Profile Snapshots (SNAP.1)', () => {
 
     // Open the Template Gallery, hover the first card, apply it.
     await page.getByRole('button', { name: /template gallery/i }).filter({ visible: true }).first().click();
+    // TPL.3: the gallery now defaults to the Layouts tab; the legacy template
+    // grid lives under the Styles tab, so switch to it before locating a card.
+    await page.getByTestId('gallery-tab-styles').click();
     // Scope to the gallery grid (grid-cols-2 sm:grid-cols-3) — NOT the preview's
     // product/link cards, which also carry a `.group` class.
     const card = page.locator('div.grid.grid-cols-2.sm\\:grid-cols-3 > div.group').first();

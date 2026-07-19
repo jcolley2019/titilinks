@@ -11,6 +11,10 @@ import {
   type TemplateCategory,
   type TemplateDefinition,
 } from '@/lib/template-gallery';
+import { TPL_PRESETS, TPL_CATEGORIES, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
+import { applyTplPreset } from '@/lib/tpl-apply';
+import { resolveEffectivePageStyle } from '@/lib/surface';
+import type { PageId } from '@/lib/theme-defaults';
 import { cn } from '@/lib/utils';
 import { captureSnapshot } from '@/lib/snapshots';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -18,6 +22,11 @@ import { useLanguage } from '@/hooks/useLanguage';
 interface TemplateGalleryProps {
   pageId: string;
   onApply: () => void;
+  // TPL.3: Layout applies need the active mode + page style. Optional with safe
+  // fallbacks so any other render site keeps working (Styles tab is unaffected).
+  modeId?: string | null;
+  activePageId?: PageId;
+  themeJson?: unknown;
 }
 
 // GAL.2: premium line icons for the category chips — monochrome,
@@ -40,13 +49,28 @@ function CategoryIcon({ id }: { id: TemplateCategory }) {
   return <Icon className="mr-1.5 inline-block h-3.5 w-3.5 -mt-0.5" />;
 }
 
-export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
+export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJson }: TemplateGalleryProps) {
   const { t } = useLanguage();
+  // TPL.3: the gallery splits into two tabs. Layouts (default) = TplPreset
+  // compositions applied via applyTplPreset; Styles = the legacy theme templates,
+  // behavior byte-identical to before.
+  const [tab, setTab] = useState<'layouts' | 'styles'>('layouts');
+
+  // ── Styles tab state (unchanged behavior) ──────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory>('all');
   const [applying, setApplying] = useState<string | null>(null);
   const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null);
 
   const templates = getTemplatesByCategory(selectedCategory);
+
+  // ── Layouts tab state ──────────────────────────────────────────────────────
+  const [layoutCategory, setLayoutCategory] = useState<TplCategory | 'all'>('all');
+  const [pendingPreset, setPendingPreset] = useState<TplPreset | null>(null);
+  const [applyingPreset, setApplyingPreset] = useState<string | null>(null);
+
+  const layouts = layoutCategory === 'all'
+    ? TPL_PRESETS
+    : TPL_PRESETS.filter((p) => p.category === layoutCategory);
 
   const applyTemplate = async (template: TemplateDefinition, applyBlockStyles: boolean = false) => {
     setApplying(template.id);
@@ -152,54 +176,295 @@ export function TemplateGallery({ pageId, onApply }: TemplateGalleryProps) {
     }
   };
 
+  // TPL.3: apply a Layout preset as one designed unit (theme + composition +
+  // seeded content + block styles) via the TPL.2 engine.
+  const applyLayout = async (preset: TplPreset) => {
+    const pageId2: PageId = activePageId ?? 'page1';
+    const pageStyle = resolveEffectivePageStyle(themeJson, pageId2);
+
+    // FIX.P2 race-safe modeId resolution (mirrors ProfileDashboard.applyPreset):
+    // the modeId prop can lag a freshly-created page, so fall back to a DB read
+    // by page_id + page type before firing the noMode toast.
+    let activeModeId = modeId ?? null;
+    if (!activeModeId && pageId) {
+      const { data } = await supabase
+        .from('modes')
+        .select('id')
+        .eq('page_id', pageId)
+        .eq('type', pageId2)
+        .maybeSingle();
+      activeModeId = data?.id ?? null;
+    }
+    if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
+
+    setApplyingPreset(preset.id);
+    // Distinguish a pre-mutation snapshot failure (the engine aborts at step 1)
+    // from a later DB failure: this wrapper flips `captured` only once the safety
+    // net lands, so the catch surfaces the right message — parity with how
+    // applyTemplate separates snapshots.autoFailed from applyFailed.
+    let captured = false;
+    try {
+      await applyTplPreset(
+        {
+          pageId,
+          modeId: activeModeId,
+          pageStyle,
+          preset,
+          autoSnapshotName: t('snapshots.autoBeforeTemplate').replace('{name}', preset.name),
+        },
+        {
+          capture: async (...args: Parameters<typeof captureSnapshot>) => {
+            const row = await captureSnapshot(...args);
+            captured = true;
+            return row;
+          },
+        },
+      );
+      toast.success(t('tpl.apply.successToast'));
+      onApply();
+    } catch (err) {
+      console.error('[tpl] apply failed:', err);
+      toast.error(captured ? t('tpl.apply.failedToast') : t('snapshots.autoFailed'));
+    } finally {
+      setApplyingPreset(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Category Chips — GAL.2-v2: wrapping rows, all ten always
-          visible. The old horizontal ScrollArea overflowed without
-          actually scrolling, guillotining the last chips. */}
-      <div className="w-full">
-        <div className="flex flex-wrap gap-2 pb-2">
-          {TEMPLATE_CATEGORIES.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => setSelectedCategory(category.id)}
-              className={cn(
-                'flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                'border border-border hover:border-primary/50',
-                selectedCategory === category.id
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <CategoryIcon id={category.id} />
-              {t(category.label)}
-            </button>
-          ))}
-        </div>
+      {/* TPL.3: Layouts / Styles tab header — full-width segmented control,
+          panel-friendly (mirrors the LinksEditor color-tab bar). */}
+      <div className="flex rounded-lg overflow-hidden border border-border">
+        {(['layouts', 'styles'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            data-testid={`gallery-tab-${key}`}
+            onClick={() => setTab(key)}
+            className={cn(
+              'flex-1 py-2 text-sm font-medium transition-colors',
+              tab === key ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+            )}
+          >
+            {t(key === 'layouts' ? 'templateGallery.tab.layouts' : 'templateGallery.tab.styles')}
+          </button>
+        ))}
       </div>
 
-      {/* Template Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <AnimatePresence mode="popLayout">
-          {templates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              isApplying={applying === template.id}
-              isApplied={appliedTemplate === template.id}
-              onApply={() => applyTemplate(template, true)}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+      {tab === 'layouts' ? (
+        <>
+          {/* Layout category chips: leading "All" + TPL_CATEGORIES. Reuses the
+              Styles chip styling; icons omitted (optional per brick). */}
+          <div className="w-full">
+            <div className="flex flex-wrap gap-2 pb-2">
+              {([{ id: 'all' as const, label: 'tpl.category.all' }, ...TPL_CATEGORIES]).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setLayoutCategory(c.id)}
+                  className={cn(
+                    'flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                    'border border-border hover:border-primary/50',
+                    layoutCategory === c.id
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {t(c.label)}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {templates.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>{t('templateGallery.emptyCategory')}</p>
+          {/* Layout Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <AnimatePresence mode="popLayout">
+              {layouts.map((preset) => (
+                <LayoutCard
+                  key={preset.id}
+                  preset={preset}
+                  isApplying={applyingPreset === preset.id}
+                  onTap={() => setPendingPreset(preset)}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {layouts.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>{t('templateGallery.emptyCategory')}</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Category Chips — GAL.2-v2: wrapping rows, all ten always
+              visible. The old horizontal ScrollArea overflowed without
+              actually scrolling, guillotining the last chips. */}
+          <div className="w-full">
+            <div className="flex flex-wrap gap-2 pb-2">
+              {TEMPLATE_CATEGORIES.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    'flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                    'border border-border hover:border-primary/50',
+                    selectedCategory === category.id
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <CategoryIcon id={category.id} />
+                  {t(category.label)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Template Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <AnimatePresence mode="popLayout">
+              {templates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  isApplying={applying === template.id}
+                  isApplied={appliedTemplate === template.id}
+                  onApply={() => applyTemplate(template, true)}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {templates.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>{t('templateGallery.emptyCategory')}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TPL.3: Layout apply confirm — fixed full-viewport overlay (mirrors
+          SnapshotsEditor's destructive-action confirm, so panel scroll/footer
+          never clip it). Reassures that a backup snapshot is saved first. */}
+      {pendingPreset && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6"
+          data-testid="tpl-apply-confirm"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-[#C9A55C]/40 bg-[#1a160f] p-5">
+            <p className="text-base font-bold text-white mb-1">{t('tpl.apply.confirm.title')}</p>
+            <p className="text-[13px] leading-snug text-white/70 mb-4">
+              {t('tpl.apply.confirm.body').replace('{name}', pendingPreset.name)}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingPreset(null)}
+                data-testid="tpl-apply-confirm-cancel"
+                className="flex-1 h-11 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-semibold text-sm"
+              >
+                {t('tpl.apply.confirm.cancel')}
+              </button>
+              <button
+                onClick={() => { const p = pendingPreset; setPendingPreset(null); void applyLayout(p); }}
+                data-testid="tpl-apply-confirm-go"
+                className="flex-1 h-11 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm"
+              >
+                {t('tpl.apply.confirm.confirm')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+interface LayoutCardProps {
+  preset: TplPreset;
+  isApplying: boolean;
+  onTap: () => void;
+}
+
+// TPL.3: a Layout preset card. Preview is theme-derived (real preview assets are
+// TPL.4 scope) so the grid still reads as "alive" next to the Styles cards.
+function LayoutCard({ preset, isApplying, onTap }: LayoutCardProps) {
+  const { t } = useLanguage();
+
+  const previewBackground = preset.theme.background.type === 'gradient'
+    ? preset.theme.background.gradient_css
+    : preset.theme.background.solid_color;
+  const buttonRadius = preset.theme.buttons.shape === 'pill'
+    ? '9999px'
+    : preset.theme.buttons.shape === 'square'
+      ? '2px'
+      : '6px';
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="relative group"
+    >
+      <button
+        type="button"
+        data-testid="tpl-layout-card"
+        onClick={onTap}
+        disabled={isApplying}
+        className="w-full text-left border border-border rounded-xl overflow-hidden bg-card hover:border-primary/50 transition-all disabled:opacity-70"
+      >
+        {/* Theme-derived preview mock */}
+        <div className="relative aspect-[9/16] overflow-hidden">
+          <div className="absolute inset-0" style={{ background: previewBackground }} />
+          <div className="absolute inset-0 flex flex-col items-center">
+            <div
+              className="w-full mb-2"
+              style={{ height: '42%', backgroundColor: preset.theme.buttons.fill_color, opacity: 0.85 }}
+            />
+            <div
+              className="w-16 h-2 rounded mb-1"
+              style={{ backgroundColor: preset.theme.typography.text_color, opacity: 0.8 }}
+            />
+            <div
+              className="w-20 h-1.5 rounded mb-4"
+              style={{ backgroundColor: preset.theme.typography.text_color, opacity: 0.4 }}
+            />
+            <div className="w-full space-y-2 px-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-full h-6"
+                  style={{ backgroundColor: preset.theme.buttons.fill_color, borderRadius: buttonRadius, opacity: 1 - i * 0.15 }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {isApplying && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('templateGallery.applying')}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Preset Info: name, description, category tag */}
+        <div className="p-2.5">
+          <p className="text-sm font-medium text-foreground truncate">{preset.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{t(preset.description)}</p>
+          <span className="mt-1.5 inline-block rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {t(`tpl.category.${preset.category}`)}
+          </span>
+        </div>
+      </button>
+    </motion.div>
   );
 }
 

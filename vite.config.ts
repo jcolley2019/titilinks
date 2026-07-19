@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // TPL.3: keep Playwright artifact writes from spamming HMR reloads during
+    // full batteries (test-results / report / results dirs are output-only).
+    watch: {
+      ignored: ['**/tests/results/**', '**/playwright-report/**', '**/test-results/**'],
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

@@ -205,6 +205,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'templateGallery.applying': 'Applying...',
     'templateGallery.applied': 'Applied!',
     'templateGallery.apply': 'Apply',
+    // TPL.3: gallery tab header — Layouts (TplPreset compositions) vs Styles
+    // (the legacy theme templates).
+    'templateGallery.tab.layouts': 'Layouts',
+    'templateGallery.tab.styles': 'Styles',
     // ES.FIX.1 STEP 1c: category chips + template descriptions are keyed here and
     // resolved via t() at the render site. template-gallery.ts stores these keys
     // in its label/description fields. Template proper NAMES stay English (product
@@ -1184,6 +1188,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'tpl.category.local_business': 'Local Business',
     'tpl.category.media': 'Media',
     'tpl.category.minimal': 'Minimal',
+    // TPL.3: Layouts-tab leading "All" chip + apply confirm dialog / toasts.
+    'tpl.category.all': 'All',
+    'tpl.apply.confirm.title': 'Apply this layout?',
+    'tpl.apply.confirm.body': 'This replaces this page\'s blocks and theme with the "{name}" layout. A backup snapshot is saved first, so you can undo it anytime.',
+    'tpl.apply.confirm.confirm': 'Apply',
+    'tpl.apply.confirm.cancel': 'Cancel',
+    'tpl.apply.successToast': 'Layout applied!',
+    'tpl.apply.failedToast': 'Could not apply the layout',
 
     // Editor Page
     'editor.title': 'Link Editor',
@@ -1823,6 +1835,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'templateGallery.applying': 'Aplicando...',
     'templateGallery.applied': '¡Aplicada!',
     'templateGallery.apply': 'Aplicar',
+    // TPL.3: encabezado de pestañas de la galería — Diseños (composiciones
+    // TplPreset) vs Estilos (las plantillas de tema heredadas).
+    'templateGallery.tab.layouts': 'Diseños',
+    'templateGallery.tab.styles': 'Estilos',
     // ES.FIX.1 STEP 1c: Spanish for the category chips + template descriptions.
     // Template proper NAMES stay English (product names). 'Playlist', 'Marketing'
     // and 'Influencer' are accepted ES loanwords.
@@ -2801,6 +2817,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'tpl.category.local_business': 'Negocio Local',
     'tpl.category.media': 'Medios',
     'tpl.category.minimal': 'Minimalista',
+    // TPL.3: chip inicial "Todas" de la pestaña Diseños + diálogo de confirmación / toasts.
+    'tpl.category.all': 'Todas',
+    'tpl.apply.confirm.title': '¿Aplicar este diseño?',
+    'tpl.apply.confirm.body': 'Esto reemplaza los bloques y el tema de esta página con el diseño "{name}". Primero se guarda una copia de seguridad, para que puedas deshacerlo cuando quieras.',
+    'tpl.apply.confirm.confirm': 'Aplicar',
+    'tpl.apply.confirm.cancel': 'Cancelar',
+    'tpl.apply.successToast': '¡Diseño aplicado!',
+    'tpl.apply.failedToast': 'No se pudo aplicar el diseño',
 
     // Editor Page
     'editor.title': 'Editor de enlaces',

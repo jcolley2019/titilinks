@@ -1726,7 +1726,7 @@ export function ProfileDashboard({
                 </div>
               ) : galleryOpen ? (
                 <div className="dark text-foreground px-4 pb-8">
-                  <TemplateGallery pageId={pageId} onApply={onRefresh} />
+                  <TemplateGallery pageId={pageId} onApply={onRefresh} modeId={modeId} activePageId={activePageId} themeJson={themeJson} />
                 </div>
               ) : designOpen ? (
                 // Height-filling column: the editor inside claims the full
