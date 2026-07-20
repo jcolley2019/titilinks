@@ -55,7 +55,8 @@ import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor'
 import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
-import { PageSetupWizard } from '@/components/editors/PageSetupWizard';
+import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSetupWizard';
+import type { ChecklistRoute } from '@/lib/ais-checklist';
 import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
@@ -365,6 +366,12 @@ export function ProfileDashboard({
   const [galleryOpen, setGalleryOpen] = useState(false);
   // AIS.0: the "Set up my page" guided wizard sub-panel (My Links group).
   const [pageSetupOpen, setPageSetupOpen] = useState(false);
+  // AIS.0b: the wizard is a ternary branch, so routing out of it unmounts it and
+  // loses its local step/answers. These two survive that round-trip — the answers
+  // rebuild the success screen, the ref marks that an editor close should return
+  // to the wizard rather than to the section list.
+  const [wizardResume, setWizardResume] = useState<WizardResume | null>(null);
+  const wizardReturnRef = useRef(false);
   const [videoProfileOpen, setVideoProfileOpen] = useState(false);
   const [nameFxOpen, setNameFxOpen] = useState(false);
   // Name & Handle hub — drafts are seeded when the hub opens (not on every
@@ -877,6 +884,94 @@ export function ProfileDashboard({
     }
   };
 
+  /**
+   * Find the mode's block of a given type, creating it if this page has never
+   * had one. Shared by the section rows and by the AIS.0b checklist routes so
+   * both entries resolve a block the exact same way.
+   */
+  const resolveBlockId = async (
+    blockType: NonNullable<DashboardRow['blockType']>,
+    title: string,
+  ): Promise<string | null> => {
+    if (!modeId) return null;
+
+    const { data: block, error } = await supabase
+      .from('blocks')
+      .select('id')
+      .eq('mode_id', modeId)
+      .eq('type', blockType)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (block) return block.id;
+
+    const { data: newBlock, error: insertError } = await supabase
+      .from('blocks')
+      .insert({
+        mode_id: modeId,
+        type: blockType,
+        title,
+        is_enabled: true,
+        order_index: 99,
+      })
+      .select('id')
+      .single();
+
+    if (insertError) throw insertError;
+    onRefresh();
+    return newBlock.id;
+  };
+
+  /**
+   * AIS.0b — a guided-checklist row was tapped. Drives the SAME section
+   * navigation the dashboard rows use (resolveBlockId → activeBlock* triple);
+   * the wizard is only closed for block editors because it sits ABOVE
+   * `activeBlockId` in the render chain and would otherwise keep winning.
+   * The Video Profile menu sits above the wizard, so it needs no such dance.
+   */
+  const openChecklistTarget = async (route: ChecklistRoute) => {
+    if (route.kind === 'none') return;
+
+    if (route.kind === 'videoProfile') {
+      setVideoProfileOpen(true);
+      return;
+    }
+
+    if (!modeId) {
+      toast.error(t('dashboard.noMode'));
+      return;
+    }
+
+    try {
+      const title = t(route.titleKey);
+      const blockId = await resolveBlockId(route.blockType, title);
+      if (!blockId) return;
+
+      // Mark the return trip BEFORE swapping branches so the editor's close
+      // lands back on the success step instead of the section list.
+      wizardReturnRef.current = true;
+      setPageSetupOpen(false);
+      // WA.1: a link route carries the wa.me item, opening its detail view
+      // (which renders the WhatsApp builder) rather than the links list.
+      setDirectItemId(route.itemId ?? null);
+      setDirectNew(false);
+      setActiveBlockId(blockId);
+      setActiveBlockType(route.blockType);
+      setActiveBlockTitle(title);
+    } catch (err) {
+      console.error('Error opening checklist target:', err);
+      toast.error(t('dashboard.failedOpen'));
+    }
+  };
+
+  /** Pop back to the wizard's success step after a checklist round-trip. */
+  const returnToWizardIfPending = (): boolean => {
+    if (!wizardReturnRef.current) return false;
+    wizardReturnRef.current = false;
+    setPageSetupOpen(true);
+    return true;
+  };
+
   const handleRowTap = async (row: DashboardRow) => {
     // List-entry path always opens the batch list view, never direct item mode.
     setDirectItemId(null);
@@ -946,42 +1041,14 @@ export function ProfileDashboard({
     }
 
     try {
-      const { data: block, error } = await supabase
-        .from('blocks')
-        .select('id')
-        .eq('mode_id', modeId)
-        .eq('type', row.blockType)
-        .maybeSingle();
+      const blockId = await resolveBlockId(row.blockType, t(row.titleKey));
+      if (!blockId) return;
 
-      if (error) throw error;
-
-      if (!block) {
-        const { data: newBlock, error: insertError } = await supabase
-          .from('blocks')
-          .insert({
-            mode_id: modeId,
-            type: row.blockType,
-            title: t(row.titleKey),
-            is_enabled: true,
-            order_index: 99,
-          })
-          .select('id')
-          .single();
-
-        if (insertError) throw insertError;
-        onRefresh();
-        setActiveBlockId(newBlock.id);
-        setActiveBlockType(row.blockType);
-        setActiveBlockTitle(t(row.titleKey));
-        // Featured Links opens a blank add-link detail (create-on-save),
-        // matching the preview "+", instead of the legacy list view.
-        if (row.blockType === 'links') setDirectNew(true);
-        return;
-      }
-
-      setActiveBlockId(block.id);
+      setActiveBlockId(blockId);
       setActiveBlockType(row.blockType);
       setActiveBlockTitle(t(row.titleKey));
+      // Featured Links opens a blank add-link detail (create-on-save),
+      // matching the preview "+", instead of the legacy list view.
       if (row.blockType === 'links') setDirectNew(true);
     } catch (err) {
       console.error('Error finding block:', err);
@@ -1007,6 +1074,8 @@ export function ProfileDashboard({
       setActiveBlockTitle('');
       setDirectItemId(null);
       setDirectNew(false);
+      // AIS.0b: came here from a guided-checklist row → go back to the wizard.
+      returnToWizardIfPending();
     }
   };
 
@@ -1168,7 +1237,12 @@ export function ProfileDashboard({
               ) : pageSetupOpen ? (
                 <>
                   <button
-                    onClick={() => setPageSetupOpen(false)}
+                    onClick={() => {
+                      // Leaving the wizard ends the run (AIS.0b resume state too).
+                      setWizardResume(null);
+                      wizardReturnRef.current = false;
+                      setPageSetupOpen(false);
+                    }}
                     className="text-white/60 hover:text-white transition-colors"
                   >
                     <ChevronLeft className="h-5 w-5" />
@@ -1212,13 +1286,17 @@ export function ProfileDashboard({
                   <button
                     onClick={() => {
                       // In edit mode, back closes the whole panel; in add mode
-                      // it returns to the section list.
+                      // it returns to the section list — or to the AIS.0b
+                      // wizard, when a checklist row is what opened this editor.
                       if (entryMode === 'edit') {
                         handleClose();
                       } else {
                         setActiveBlockId(null);
                         setActiveBlockType(null);
                         setActiveBlockTitle('');
+                        setDirectItemId(null);
+                        setDirectNew(false);
+                        returnToWizardIfPending();
                       }
                     }}
                     className="text-white/60 hover:text-white transition-colors"
@@ -1759,7 +1837,17 @@ export function ProfileDashboard({
                     activePageId={activePageId}
                     themeJson={themeJson}
                     onApply={onRefresh}
-                    onClose={() => setPageSetupOpen(false)}
+                    onClose={() => {
+                      // Done/Cancel ends the run — a later open starts at Q1.
+                      setWizardResume(null);
+                      wizardReturnRef.current = false;
+                      setPageSetupOpen(false);
+                    }}
+                    resume={wizardResume}
+                    onReachDone={setWizardResume}
+                    onOpenChecklistTarget={openChecklistTarget}
+                    avatarUrl={avatarUrl}
+                    heroVideoUrl={heroVideoUrl}
                   />
                 </div>
               ) : galleryOpen ? (

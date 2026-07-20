@@ -15,7 +15,7 @@
     "test:screenshots": "playwright test --project=mobile --project=desktop",
     "test:report": "playwright show-report",
     "audit:contrast": "tsx scripts/contrast-audit.mjs",
-    "guard": "node scripts/guard-invariants.mjs && node scripts/audit-platforms.mjs && npx tsx scripts/tpl-presets.test.mjs && npx tsx scripts/tpl-apply.test.mjs && npx tsx scripts/animations.test.mjs && npx tsx scripts/ais-recommend.test.mjs"
+    "guard": "node scripts/guard-invariants.mjs && node scripts/audit-platforms.mjs && npx tsx scripts/tpl-presets.test.mjs && npx tsx scripts/tpl-apply.test.mjs && npx tsx scripts/animations.test.mjs && npx tsx scripts/ais-recommend.test.mjs && npx tsx scripts/ais-checklist.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

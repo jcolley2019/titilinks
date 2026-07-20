@@ -86,7 +86,7 @@ const CATEGORY_IDS = new Set(TPL_CATEGORIES.map((c) => c.id));
 
   assert.deepEqual(messages, ['wizard.checklist.whatsapp', 'wizard.checklist.bookingCta'], 'get_messages checklist');
   assert.deepEqual(sell, ['wizard.checklist.products', 'wizard.checklist.payout'], 'sell checklist');
-  assert.deepEqual(grow, ['wizard.checklist.socials', 'wizard.checklist.video'], 'grow_audience checklist');
+  assert.deepEqual(grow, ['wizard.checklist.socials', 'wizard.checklist.profileMedia'], 'grow_audience checklist');
 
   // Same goal, different persona → same checklist.
   assert.deepEqual(

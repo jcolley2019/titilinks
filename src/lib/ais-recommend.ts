@@ -108,7 +108,9 @@ const CHECKLISTS: Record<Goal, ChecklistItem[]> = {
   ],
   grow_audience: [
     { id: 'socials', labelKey: 'wizard.checklist.socials' },
-    { id: 'video', labelKey: 'wizard.checklist.video' },
+    // AIS.0b: the avatar flow accepts a still photo OR a hero video, so the row
+    // is named for both — its check is satisfied by either.
+    { id: 'profileMedia', labelKey: 'wizard.checklist.profileMedia' },
   ],
 };
 

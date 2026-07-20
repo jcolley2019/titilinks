@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Sparkles, Check,
+  Sparkles, Check, ChevronRight,
   Star, Calendar, ShoppingBag, Music, Dumbbell, Store, Film, Minus,
   MessageCircle, Tag, TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 import { resolveEffectivePageStyle } from '@/lib/surface';
+import { isWhatsAppUrl } from '@/lib/whatsapp';
 import type { PageId, PageStyle } from '@/lib/theme-defaults';
 import { LayoutPreview, ApplyButton, useApplyLayout } from './gallery-shared';
 import {
@@ -17,6 +20,14 @@ import {
   type Persona,
   type Goal,
 } from '@/lib/ais-recommend';
+import {
+  isChecklistItemDone,
+  isInformationalItem,
+  routeForChecklistItem,
+  EMPTY_REALITY,
+  type ChecklistRoute,
+  type PageReality,
+} from '@/lib/ais-checklist';
 
 /**
  * AIS.0 — "Set up my page" guided wizard.
@@ -27,9 +38,15 @@ import {
  * Layouts gallery uses (shared, not forked) — and the recommendation cards reuse
  * the gallery's LayoutPreview so what you see is exactly what gets applied.
  *
+ * AIS.0b — the success checklist is LIVE, not decorative. Each row reads the
+ * page's real data (see @/lib/ais-checklist) and routes into the editor that
+ * owns that concern; returning re-mounts this component, which re-reads the page
+ * — so a row you just satisfied comes back checked. Nothing about the checks is
+ * persisted: reality IS the state.
+ *
  * Rendered inside the narrow slide-in panel (panelMode): single-column, phone
- * width first, FS.SURFACE sticky footer. Checklist checkboxes are VISUAL ONLY in
- * v0 (no persistence — self-flagged).
+ * width first, and the uniform FOOTER-epic sticky footer strip (the `-mx-4 px-4`
+ * bleed cancels THIS component's root px-4 — that pairing is load-bearing).
  */
 
 // GAL.2 convention: one lucide line-icon per persona (== TplCategory).
@@ -50,6 +67,12 @@ const GOAL_ICONS: Record<Goal, LucideIcon> = {
   grow_audience: TrendingUp,
 };
 
+/** The answers that got the user to the success screen — enough to rebuild it. */
+export interface WizardResume {
+  persona: Persona;
+  goal: Goal;
+}
+
 interface PageSetupWizardProps {
   pageId: string;
   modeId?: string | null;
@@ -59,6 +82,15 @@ interface PageSetupWizardProps {
   onApply: () => void;
   /** Close the wizard panel (Done / Cancel). */
   onClose: () => void;
+  /** Reopen straight onto the success step (set after a checklist round-trip). */
+  resume?: WizardResume | null;
+  /** Fires when the success step is reached, so the parent can resume it later. */
+  onReachDone?: (answers: WizardResume) => void;
+  /** Drive the dashboard's section navigation for a tapped checklist row. */
+  onOpenChecklistTarget?: (route: ChecklistRoute) => void;
+  /** Reality inputs the dashboard already holds (no need to refetch these). */
+  avatarUrl?: string;
+  heroVideoUrl?: string;
 }
 
 type Step = 'persona' | 'goal' | 'reco' | 'done';
@@ -70,11 +102,18 @@ export function PageSetupWizard({
   themeJson,
   onApply,
   onClose,
+  resume,
+  onReachDone,
+  onOpenChecklistTarget,
+  avatarUrl,
+  heroVideoUrl,
 }: PageSetupWizardProps) {
   const { t } = useLanguage();
-  const [step, setStep] = useState<Step>('persona');
-  const [persona, setPersona] = useState<Persona | null>(null);
-  const [goal, setGoal] = useState<Goal | null>(null);
+  // Resuming from a checklist round-trip lands straight back on the success step.
+  const [step, setStep] = useState<Step>(resume ? 'done' : 'persona');
+  const [persona, setPersona] = useState<Persona | null>(resume?.persona ?? null);
+  const [goal, setGoal] = useState<Goal | null>(resume?.goal ?? null);
+  const [reality, setReality] = useState<PageReality>(EMPTY_REALITY);
 
   // The shared Layouts apply path — identical engine call to the gallery.
   const { applyLayout, applyingPreset, appliedPreset } = useApplyLayout({
@@ -92,14 +131,87 @@ export function PageSetupWizard({
     [persona, goal],
   );
 
+  /**
+   * Read the page once per success-screen mount. ProfileDashboard holds the
+   * avatar + hero video already, but it holds NO blocks/items state (every
+   * editor self-fetches), so the block-shaped facts are gathered here in two
+   * queries. Because a checklist round-trip unmounts and remounts this wizard,
+   * that mount IS the refresh — no subscription, no manual invalidation.
+   */
+  useEffect(() => {
+    if (step !== 'done') return;
+    let cancelled = false;
+
+    (async () => {
+      const next: PageReality = {
+        ...EMPTY_REALITY,
+        avatarUrl: avatarUrl ?? null,
+        heroVideoUrl: heroVideoUrl ?? null,
+      };
+
+      if (modeId) {
+        try {
+          const { data: blocks } = await supabase
+            .from('blocks')
+            .select('id, type')
+            .eq('mode_id', modeId);
+
+          const blockIds = (blocks ?? []).map((b) => b.id);
+          const { data: rows } = blockIds.length
+            ? await supabase
+                .from('block_items')
+                .select('id, block_id, url')
+                .in('block_id', blockIds)
+            : { data: [] };
+
+          const idFor = (type: string) => (blocks ?? []).find((b) => b.type === type)?.id ?? null;
+          const itemsOf = (type: string) => {
+            const id = idFor(type);
+            return id ? (rows ?? []).filter((r) => r.block_id === id) : [];
+          };
+
+          next.socialCount = itemsOf('social_links').length;
+          next.productCount = itemsOf('product_cards').length;
+          next.primaryCtaUrl = itemsOf('primary_cta')[0]?.url ?? null;
+
+          const wa = itemsOf('links').find((r) => isWhatsAppUrl(r.url));
+          next.whatsappUrl = wa?.url ?? null;
+          next.whatsappItemId = wa?.id ?? null;
+        } catch (err) {
+          // A failed read just leaves rows unchecked — never blocks the screen.
+          console.error('Error reading page state for the setup checklist:', err);
+        }
+      }
+
+      if (!cancelled) setReality(next);
+    })();
+
+    return () => { cancelled = true; };
+  }, [step, modeId, avatarUrl, heroVideoUrl]);
+
   const choosePersona = (p: Persona) => { setPersona(p); setStep('goal'); };
   const chooseGoal = (g: Goal) => { setGoal(g); setStep('reco'); };
 
   const handleApply = async (which: 'top' | 'alternate') => {
-    if (!reco) return;
+    if (!reco || !persona || !goal) return;
     const preset = which === 'top' ? reco.top : reco.alternate;
     const ok = await applyLayout(preset);
-    if (ok) setStep('done');
+    if (ok) {
+      setStep('done');
+      onReachDone?.({ persona, goal });
+    }
+  };
+
+  /** Tapping a live row hands the route to the dashboard's section navigation. */
+  const openTarget = (id: string) => {
+    const route = routeForChecklistItem(id);
+    if (route.kind === 'none') return;
+    if (route.kind === 'block' && route.blockType === 'links') {
+      // WA.1: open the seeded wa.me item's own editor, not the links list.
+      onOpenChecklistTarget?.({ ...route, itemId: reality.whatsappItemId });
+      return;
+    }
+    onOpenChecklistTarget?.(route);
   };
 
   const back = () => {
@@ -110,10 +222,10 @@ export function PageSetupWizard({
 
   return (
     <div
-      className="flex min-h-full flex-col bg-[#0e0c09] text-white"
+      className="flex flex-1 flex-col bg-[#0e0c09] px-4 pt-4 text-white"
       data-testid="page-setup-wizard"
     >
-      <div className="flex-1 overflow-y-auto px-4 pt-4">
+      <div className="flex-1">
         {/* ── Q1: persona ─────────────────────────────────────────────── */}
         {step === 'persona' && (
           <div data-testid="wizard-q1">
@@ -253,7 +365,7 @@ export function PageSetupWizard({
           </div>
         )}
 
-        {/* ── Success + checklist ─────────────────────────────────────── */}
+        {/* ── Success + live guided checklist ─────────────────────────── */}
         {step === 'done' && (
           <div data-testid="wizard-done">
             <div className="py-4 text-center">
@@ -267,47 +379,86 @@ export function PageSetupWizard({
               {t('wizard.checklistTitle')}
             </p>
             <ul data-testid="wizard-checklist" className="flex flex-col gap-2">
-              {reco?.checklist.map((item) => (
-                <li
-                  key={item.id}
-                  data-testid="wizard-checklist-item"
-                  className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-3"
-                >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-white/20">
-                    <Check className="h-3.5 w-3.5 text-white/30" />
-                  </span>
-                  <span className="text-sm">{t(item.labelKey)}</span>
-                </li>
-              ))}
+              {reco?.checklist.map((item) => {
+                // The check is a READING of the page, never stored state.
+                const done = isChecklistItemDone(item.id, reality);
+                const informational = isInformationalItem(item.id);
+                const rowClass = 'flex w-full items-center gap-3 rounded-xl bg-white/5 px-3 py-3 text-left';
+
+                const body = (
+                  <>
+                    <span
+                      className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border',
+                        done ? 'border-[#C9A55C] bg-[#C9A55C]' : 'border-white/20',
+                      )}
+                    >
+                      {done && <Check className="h-3.5 w-3.5 text-[#0e0c09]" />}
+                    </span>
+                    <span className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-white/50')}>
+                      {t(item.labelKey)}
+                    </span>
+                    <span className="sr-only">
+                      {t(done ? 'wizard.checklist.statusDone' : 'wizard.checklist.statusTodo')}
+                    </span>
+                    {!informational && <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />}
+                  </>
+                );
+
+                return (
+                  <li
+                    key={item.id}
+                    data-testid="wizard-checklist-item"
+                    data-item={item.id}
+                    data-done={done ? 'true' : 'false'}
+                  >
+                    {informational ? (
+                      // Payouts aren't built yet — a dead end renders flat rather
+                      // than promising a destination it can't reach.
+                      <div className={rowClass}>{body}</div>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid={`wizard-checklist-open-${item.id}`}
+                        onClick={() => openTarget(item.id)}
+                        className={cn(rowClass, 'transition-colors hover:bg-white/10')}
+                      >
+                        {body}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
       </div>
 
-      {/* FS.SURFACE sticky footer — in-wizard nav (the panel header's back arrow
-          closes the whole wizard). */}
-      <div className="sticky bottom-0 z-10 mt-auto flex items-center gap-3 -mx-4 border-t border-white/10 bg-[#0e0c09] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      {/* FOOTER epic — the uniform sticky strip every block editor uses. The
+          `-mx-4 px-4` bleed cancels the root's px-4 so the border spans the full
+          panel width while the controls stay inset. */}
+      <div className="sticky bottom-0 z-10 mt-auto flex items-center gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
         {step === 'done' ? (
-          <button
+          <Button
             type="button"
             data-testid="wizard-finish"
             onClick={onClose}
-            className="h-12 flex-1 rounded-xl bg-[#C9A55C] font-semibold text-[#0e0c09] hover:bg-[#C9A55C]/90"
+            className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90"
           >
             {t('wizard.done')}
-          </button>
+          </Button>
         ) : (
           <>
-            <button
+            <Button
               type="button"
               data-testid="wizard-back"
               onClick={back}
-              className="h-11 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white hover:bg-white/20"
+              className="h-12 px-5 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               {step === 'persona' ? t('wizard.cancel') : t('wizard.back')}
-            </button>
+            </Button>
             {(step === 'persona' || step === 'goal') && (
-              <span className="ml-auto text-[11px] text-white/40">
+              <span data-testid="wizard-step" className="ml-auto text-[11px] text-white/40">
                 {t('wizard.step')
                   .replace('{n}', step === 'persona' ? '1' : '2')
                   .replace('{total}', '2')}

@@ -113,6 +113,57 @@ async function installMocks(page: Page, opts: { plan?: Plan } = {}) {
   }
 }
 
+/**
+ * AIS.0b — pin the page state the wizard's success screen reads.
+ *
+ * The wizard gathers its reality snapshot with two narrow queries
+ * (`blocks?select=id,type` then `block_items?select=id,block_id,url`), and the
+ * section navigation resolves a block with `blocks?select=id&type=eq.<t>`. Only
+ * those exact shapes are intercepted — every other blocks/block_items read still
+ * passes through to the mocks installed above, so the rest of the editor behaves
+ * normally. Registered AFTER installMocks so these handlers win.
+ */
+async function mockReality(
+  page: Page,
+  blocks: { id: string; type: string }[],
+  items: { id: string; block_id: string; url: string | null }[],
+) {
+  await page.route('**/rest/v1/blocks*', async (route) => {
+    const url = decodeURIComponent(route.request().url());
+    if (route.request().method() !== 'GET') return route.fallback();
+
+    // The wizard's reality read.
+    if (url.includes('select=id,type')) return asJson(route, blocks);
+
+    // resolveBlockId's find-or-create lookup (maybeSingle → object accept).
+    const typeMatch = url.match(/type=eq\.([^&]+)/);
+    if (url.includes('select=id') && typeMatch) {
+      const found = blocks.find((b) => b.type === typeMatch[1]);
+      const row = found ? { id: found.id } : null;
+      if (wantsObject(route)) return row ? asJson(route, row) : asJson(route, null);
+      return asJson(route, row ? [row] : []);
+    }
+    return route.fallback();
+  });
+
+  await page.route('**/rest/v1/block_items*', async (route) => {
+    const url = decodeURIComponent(route.request().url());
+    if (route.request().method() === 'GET' && url.includes('select=id,block_id,url')) {
+      return asJson(route, items);
+    }
+    return route.fallback();
+  });
+}
+
+/** Drive Q1 → Q2 → Apply, landing on the success step. */
+async function applyAndReachDone(page: Page, persona: string, goal: string, applyLabel = 'Apply') {
+  await page.getByTestId(`wizard-persona-${persona}`).click();
+  await page.getByTestId(`wizard-goal-${goal}`).click();
+  await expect(page.getByTestId('wizard-reco')).toBeVisible();
+  await page.getByTestId('wizard-top-card').getByRole('button', { name: applyLabel }).click();
+  await expect(page.getByTestId('wizard-done')).toBeVisible();
+}
+
 async function openEditProfile(page: Page, editLabel: string | RegExp = 'Edit Profile') {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
@@ -249,5 +300,138 @@ test.describe('Page Setup Wizard — AIS.0', () => {
     await expect(page.getByTestId('wizard-done')).toBeVisible();
     await expect(page.getByTestId('wizard-checklist')).toContainText('Añade tu número de WhatsApp');
     await expect(page.getByTestId('wizard-checklist')).toContainText('Configura tu botón de reservas');
+  });
+
+  // ── AIS.0b — standard footer ───────────────────────────────────────────────
+
+  test('footer: Cancel on step 1, Back on step 2, with a step indicator on both', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openWizard(page);
+
+    // Q1 — the left action cancels out of the wizard; indicator reads step 1.
+    await expect(page.getByTestId('wizard-back')).toHaveText('Cancel');
+    await expect(page.getByTestId('wizard-step')).toHaveText('Step 1 of 2');
+
+    // Q2 — the same slot becomes Back; indicator advances.
+    await page.getByTestId('wizard-persona-creator').click();
+    await expect(page.getByTestId('wizard-q2')).toBeVisible();
+    await expect(page.getByTestId('wizard-back')).toHaveText('Back');
+    await expect(page.getByTestId('wizard-step')).toHaveText('Step 2 of 2');
+
+    // Back actually walks back to Q1.
+    await page.getByTestId('wizard-back').click();
+    await expect(page.getByTestId('wizard-q1')).toBeVisible();
+    await expect(page.getByTestId('wizard-back')).toHaveText('Cancel');
+  });
+
+  test('footer: the recommendation step keeps Back but drops the step indicator', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openWizard(page);
+
+    await page.getByTestId('wizard-persona-creator').click();
+    await page.getByTestId('wizard-goal-get_messages').click();
+    await expect(page.getByTestId('wizard-reco')).toBeVisible();
+
+    await expect(page.getByTestId('wizard-back')).toHaveText('Back');
+    await expect(page.getByTestId('wizard-step')).toHaveCount(0);
+  });
+
+  test('footer: the success step is a single Done CTA, always enabled', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    // Nothing set up at all — Done must still be enabled (guided, never forced).
+    await mockReality(page, [], []);
+    await openEditProfile(page);
+    await openWizard(page);
+    await applyAndReachDone(page, 'creator', 'get_messages');
+
+    const done = page.getByTestId('wizard-finish');
+    await expect(done).toHaveText('Done');
+    await expect(done).toBeEnabled();
+    // The Q-step controls are gone on the success step.
+    await expect(page.getByTestId('wizard-back')).toHaveCount(0);
+    await expect(page.getByTestId('wizard-step')).toHaveCount(0);
+
+    // Every row is unchecked, and Done is still enabled.
+    await expect(page.locator('[data-testid="wizard-checklist-item"][data-done="true"]')).toHaveCount(0);
+    await expect(done).toBeEnabled();
+  });
+
+  // ── AIS.0b — live guided checklist ─────────────────────────────────────────
+
+  test('checklist: an unmet item renders unchecked and routes into its editor on tap', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    // A links block whose seeded wa.me link carries NO number, and no CTA item.
+    await mockReality(
+      page,
+      [{ id: 'b-links', type: 'links' }, { id: 'b-cta', type: 'primary_cta' }],
+      [{ id: 'wa-1', block_id: 'b-links', url: 'https://wa.me/' }],
+    );
+    await openEditProfile(page);
+    await openWizard(page);
+    await applyAndReachDone(page, 'creator', 'get_messages');
+
+    // Seeded-but-empty wa.me → unchecked. Booking CTA has no item → unchecked.
+    await expect(page.locator('[data-item="whatsapp"]')).toHaveAttribute('data-done', 'false');
+    await expect(page.locator('[data-item="bookingCta"]')).toHaveAttribute('data-done', 'false');
+
+    // Tapping routes into the Primary CTA editor; the wizard yields the panel.
+    await page.getByTestId('wizard-checklist-open-bookingCta').click();
+    await expect(page.getByTestId('page-setup-wizard')).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'Primary CTA' })).toBeVisible();
+  });
+
+  test('checklist: reality drives the check — a wa.me link with a number renders checked', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    // Same page, except the WhatsApp link now carries a real number.
+    await mockReality(
+      page,
+      [{ id: 'b-links', type: 'links' }, { id: 'b-cta', type: 'primary_cta' }],
+      [
+        { id: 'wa-1', block_id: 'b-links', url: 'https://wa.me/573001234567?text=Hola' },
+        { id: 'cta-1', block_id: 'b-cta', url: 'https://cal.com/me' },
+      ],
+    );
+    await openEditProfile(page);
+    await openWizard(page);
+    await applyAndReachDone(page, 'creator', 'get_messages');
+
+    await expect(page.locator('[data-item="whatsapp"]')).toHaveAttribute('data-done', 'true');
+    await expect(page.locator('[data-item="bookingCta"]')).toHaveAttribute('data-done', 'true');
+    // Nothing is persisted — the checks are a reading of the page.
+    await expect(page.getByTestId('wizard-finish')).toBeEnabled();
+  });
+
+  test('checklist: the payout row is informational — no chevron, not tappable', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await mockReality(page, [], []);
+    await openEditProfile(page);
+    await openWizard(page);
+    // sell → products + payout.
+    await applyAndReachDone(page, 'store', 'sell');
+
+    // Products is a real route; payout is a dead end and renders flat.
+    await expect(page.getByTestId('wizard-checklist-open-products')).toBeVisible();
+    await expect(page.getByTestId('wizard-checklist-open-payout')).toHaveCount(0);
+    await expect(page.locator('[data-item="payout"]')).toHaveAttribute('data-done', 'false');
+  });
+
+  test('ES: the retitled photo-or-video row and footer read in Spanish', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('titilinks-language', 'es'));
+    await installMocks(page, { plan: 'pro' });
+    await mockReality(page, [], []);
+    await openEditProfile(page, /editar perfil/i);
+    await openWizard(page, /configura mi página/i);
+
+    // Footer, localized.
+    await expect(page.getByTestId('wizard-back')).toHaveText('Cancelar');
+    await expect(page.getByTestId('wizard-step')).toHaveText('Paso 1 de 2');
+
+    // grow_audience → socials + the retitled photo-or-video row.
+    await applyAndReachDone(page, 'creator', 'grow_audience', 'Aplicar');
+    await expect(page.getByTestId('wizard-checklist')).toContainText('Añade tus redes sociales');
+    await expect(page.getByTestId('wizard-checklist')).toContainText('Sube una foto o video de perfil');
+    await expect(page.getByTestId('wizard-finish')).toHaveText('Listo');
   });
 });

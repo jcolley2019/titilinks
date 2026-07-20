@@ -1431,7 +1431,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'wizard.checklist.products': 'Add your products',
     'wizard.checklist.payout': 'Connect payout later',
     'wizard.checklist.socials': 'Add your social links',
-    'wizard.checklist.video': 'Upload a profile video',
+    'wizard.checklist.profileMedia': 'Upload a profile photo or video',
+    // AIS.0b — screen-reader status for each guided-checklist row.
+    'wizard.checklist.statusDone': 'Completed',
+    'wizard.checklist.statusTodo': 'Not done yet',
     'dashboard.noMode': 'No mode found',
     'dashboard.blockNotCreated': "This block hasn't been created yet.",
     // FIX.P2 — Pages panel reset action (replaces the retired preset picker).
@@ -3144,7 +3147,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'wizard.checklist.products': 'Añade tus productos',
     'wizard.checklist.payout': 'Conecta el cobro más tarde',
     'wizard.checklist.socials': 'Añade tus redes sociales',
-    'wizard.checklist.video': 'Sube un video de perfil',
+    'wizard.checklist.profileMedia': 'Sube una foto o video de perfil',
+    // AIS.0b — estado del checklist guiado para lectores de pantalla.
+    'wizard.checklist.statusDone': 'Completado',
+    'wizard.checklist.statusTodo': 'Pendiente',
     'dashboard.noMode': 'No se encontró modo',
     'dashboard.blockNotCreated': 'Este bloque aún no ha sido creado.',
     // FIX.P2 — acción de restablecer del panel de Páginas.
