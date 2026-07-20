@@ -417,6 +417,55 @@ test.describe('Page Setup Wizard — AIS.0', () => {
     await expect(page.locator('[data-item="payout"]')).toHaveAttribute('data-done', 'false');
   });
 
+  // ── PHOTO.ROUTE.1 — the photo half of "a profile photo or video" ───────────
+
+  test('checklist: the photo-or-video row still routes to Video Profile, which now offers the photo too', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await mockReality(page, [], []);
+    await openEditProfile(page);
+    await openWizard(page);
+    // grow_audience → socials + the photo-or-video row.
+    await applyAndReachDone(page, 'creator', 'grow_audience');
+
+    // The row is present and tappable whatever its check state — the photo half
+    // of the check reads pages.avatar_url, which this harness deliberately does
+    // not pin (mockReality covers blocks/items only).
+    await expect(page.locator('[data-item="profileMedia"]')).toBeVisible();
+
+    // The existing video destination is unchanged...
+    await page.getByTestId('wizard-checklist-open-profileMedia').click();
+    await expect(page.getByRole('heading', { name: 'Video Profile' })).toBeVisible();
+
+    // ...and the photo destination now lives alongside it. Which of the two photo
+    // labels shows tracks that same unpinned avatar_url, so accept either.
+    await expect(page.getByTestId('hero-edit-photo')).toBeVisible();
+    await expect(page.getByTestId('hero-edit-photo')).toHaveText(
+      /^(Use a photo instead|Change profile photo)$/,
+    );
+  });
+
+  test('the Video Profile photo action closes the panel and opens the profile-photo picker', async ({ page }) => {
+    await installMocks(page, { plan: 'pro' });
+    await mockReality(page, [], []);
+    await openEditProfile(page);
+    await openWizard(page);
+    await applyAndReachDone(page, 'creator', 'grow_audience');
+    await page.getByTestId('wizard-checklist-open-profileMedia').click();
+    await expect(page.getByTestId('hero-edit-photo')).toBeVisible();
+
+    // The trigger reaches EditableProfileView's hidden photo input — asserted at
+    // the boundary (the file chooser it opens), since EPV is a protected file and
+    // stays untested directly. Playwright intercepts the chooser; no dialog opens.
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByTestId('hero-edit-photo').click();
+    const fileChooser = await chooser;
+    expect(fileChooser.isMultiple()).toBe(false);
+
+    // The panel got out of the way for the crop overlay that follows.
+    await expect(page.getByTestId('hero-edit-photo')).toHaveCount(0);
+    await expect(page.getByTestId('page-setup-wizard')).toHaveCount(0);
+  });
+
   test('ES: the retitled photo-or-video row and footer read in Spanish', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('titilinks-language', 'es'));
     await installMocks(page, { plan: 'pro' });

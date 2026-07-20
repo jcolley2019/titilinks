@@ -107,6 +107,10 @@ interface EditableProfileViewProps {
   onOutboundClick?: ClickHandler;
   onAddContent?: () => void;
   onEditVideo?: () => void;
+  // PHOTO.ROUTE.1: external "open the photo editor" request, from the guided
+  // checklist's Video Profile menu. A counter rather than a boolean, so the
+  // same request can be made twice; each increment is one request.
+  openPhotoRequest?: number;
   // Per-item edit affordances for links blocks (G2). Optional — absent on the
   // public/live render.
   onItemEdit?: (blockId: string, itemId: string) => void;
@@ -1184,6 +1188,7 @@ export function EditableProfileView({
   onOutboundClick,
   onAddContent,
   onEditVideo,
+  openPhotoRequest = 0,
   onItemEdit,
   onItemDelete,
   onItemAdd,
@@ -1274,6 +1279,21 @@ export function EditableProfileView({
       };
     }
   }, [photoStep, photoPreview]);
+
+  // PHOTO.ROUTE.1: an external request opens the SAME picker the camera button
+  // does — handlePhotoSelect then routes into the 'choose' step, so no photo-flow
+  // logic is duplicated here. The ref makes it edge-driven (fires on an increment
+  // only, never on mount with a stale count); a request arriving mid-flow is
+  // dropped rather than interrupting a crop in progress.
+  const photoRequestRef = useRef(openPhotoRequest);
+  useEffect(() => {
+    const prev = photoRequestRef.current;
+    photoRequestRef.current = openPhotoRequest;
+    if (openPhotoRequest === prev) return;
+    if (!editMode || photoStep !== 'idle') return;
+    photoInputRef.current?.click();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPhotoRequest]);
 
   // CROP.3a readiness (STEP 2): preload the TinyFaceDetector model the moment
   // the manual crop step opens, so the AI-crop buttons gate on real readiness

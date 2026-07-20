@@ -94,6 +94,10 @@ interface ProfileDashboardProps {
   /** When set with `open`, the panel opens directly into the Video Profile menu
    *  (driven by the hero video pencil). */
   openVideoProfile?: boolean;
+  /** PHOTO.ROUTE.1: hands the profile-photo half of "photo or video" back to the
+   *  Editor, which closes this panel and opens the hero photo flow in the preview
+   *  (the crop UI lives in EditableProfileView, not in a panel editor). */
+  onEditPhoto?: () => void;
   /** Live-mirror channel (L2): forwarded to LinksEditor so the in-progress
    *  draft reaches the preview before Save. */
   onDraftChange?: (item: LinkItem | null) => void;
@@ -334,6 +338,7 @@ export function ProfileDashboard({
   onRefresh,
   editingBlock,
   openVideoProfile,
+  onEditPhoto,
   onDraftChange,
   onTitleDraftChange,
   onHeaderDraftChange,
@@ -1721,6 +1726,21 @@ export function ProfileDashboard({
                   <p className="text-white/40 text-[11px] -mt-3">
                     {t('dashboard.hero.bestResults')}
                   </p>
+                  {/* PHOTO.ROUTE.1: the photo half of "a profile photo or video".
+                      The still-photo flow (crop + AI) lives in the preview, not in
+                      a panel editor, so this hands off to the Editor — which closes
+                      the panel and opens the picker on the hero. Full-width on its
+                      own row: the video row above is already two buttons wide and a
+                      third would not fit the narrow panel. */}
+                  {onEditPhoto && (
+                    <button
+                      data-testid="hero-edit-photo"
+                      onClick={() => { handleClose(); onEditPhoto(); }}
+                      className="w-full py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
+                    >
+                      {avatarUrl ? t('dashboard.hero.changePhoto') : t('dashboard.hero.addPhoto')}
+                    </button>
+                  )}
                   {heroVideoUrl && (
                     <>
                       <div>

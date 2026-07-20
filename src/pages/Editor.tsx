@@ -55,6 +55,12 @@ export default function Editor() {
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
   // Opens the dashboard straight to the Video Profile menu (hero video pencil).
   const [openVideoProfile, setOpenVideoProfile] = useState(false);
+  // PHOTO.ROUTE.1: "open the photo editor" request counters. Two of them because
+  // BOTH EditableProfileView instances below stay mounted (desktop `hidden lg:block`
+  // + mobile `lg:hidden` — CSS picks the visible one), and a request that reached
+  // both would race two hidden file inputs for the one picker the browser allows.
+  const [photoRequestDesktop, setPhotoRequestDesktop] = useState(0);
+  const [photoRequestMobile, setPhotoRequestMobile] = useState(0);
   // Live-mirror (L2): the editor panel's in-progress draft, scoped to its block.
   const [draftItem, setDraftItem] = useState<{ blockId: string; item: LinkItem } | null>(null);
   // Live-mirror (L3): the editor's in-progress block.title config (Text/Bio), scoped to its block.
@@ -337,6 +343,21 @@ export default function Editor() {
     setDraftItem(null);
     setDraftTitle(null);
     fetchBlocks();
+  };
+
+  // PHOTO.ROUTE.1: the mirror of handleEditVideo — the checklist's photo half.
+  // The panel closes itself through its own handleClose before calling this; all
+  // that is left is to leave visitor preview (the crop overlay only renders in
+  // edit mode) and fire the request. The breakpoint is read imperatively at click
+  // time rather than held as state, so a later window resize can never re-deliver
+  // a stale request to the other instance.
+  const handleEditPhoto = () => {
+    setPreviewMode('edit');
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      setPhotoRequestDesktop((n) => n + 1);
+    } else {
+      setPhotoRequestMobile((n) => n + 1);
+    }
   };
 
   // ── Per-item actions (G2: edit-aware preview cards, links blocks) ──
@@ -688,6 +709,7 @@ export default function Editor() {
               onModeChange={setSelectedMode}
               onAddContent={() => setProfileDashboardOpen(true)}
               onEditVideo={handleEditVideo}
+              openPhotoRequest={photoRequestDesktop}
               onItemEdit={handleItemEdit}
               onItemDelete={handleItemDelete}
               onItemAdd={handleItemAdd}
@@ -714,6 +736,7 @@ export default function Editor() {
           onModeChange={setSelectedMode}
           onAddContent={() => setProfileDashboardOpen(true)}
           onEditVideo={handleEditVideo}
+          openPhotoRequest={photoRequestMobile}
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
@@ -734,6 +757,7 @@ export default function Editor() {
         onRefresh={refresh}
         editingBlock={editingBlock}
         openVideoProfile={openVideoProfile}
+        onEditPhoto={handleEditPhoto}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
         onHeaderDraftChange={handleHeaderDraftChange}
