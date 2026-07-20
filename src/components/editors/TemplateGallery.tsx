@@ -11,7 +11,7 @@ import {
   type TemplateDefinition,
 } from '@/lib/template-gallery';
 import { TPL_PRESETS, TPL_CATEGORIES, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
-import { resetItemAppearanceStyleJson } from '@/lib/tpl-apply';
+import { resetItemAppearanceStyleJson, stripPreservedThemeKeys } from '@/lib/tpl-apply';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import type { PageId, PageStyle, BlockStyleConfig } from '@/lib/theme-defaults';
 import type { Tables } from '@/integrations/supabase/types';
@@ -245,9 +245,11 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
         background_opacity: tb.background_opacity ?? effectiveOpacity,
       };
 
+      // The incoming template gives up every PRESERVED_THEME_KEYS entry (pageStyle,
+      // desktopStage) so the page's own structural settings always win the merge.
       const nextTheme = {
         ...existing,
-        ...JSON.parse(JSON.stringify({ ...template.theme, pageStyle: undefined })),
+        ...stripPreservedThemeKeys(template.theme),
       };
       nextTheme.buttons = { ...(nextTheme.buttons ?? {}), ...ownedButtons };
 

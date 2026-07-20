@@ -16,7 +16,7 @@ import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
 import { useLanguage } from '@/hooks/useLanguage';
 import { AdultGateModal } from '@/components/AdultGateModal';
-import { getThemeWithDefaults, applyAutoContrast, type ThemeJson } from '@/lib/theme-defaults';
+import { getThemeWithDefaults, applyAutoContrast, resolveDesktopStageDeviceId, type ThemeJson } from '@/lib/theme-defaults';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
@@ -365,6 +365,11 @@ export default function PublicProfile() {
   const backdropImage = selectedMode === 'page2'
     ? (heroInheritPublic ? page1HeroImage : (page2AvatarUrl || ''))
     : page1HeroImage;
+  // DESK.STAGE.2: the owner's stage device. Read from the RAW theme_json —
+  // getThemeWithDefaults returns the VISUAL theme and drops structural keys, so
+  // `publicTheme` is not where this lives. Profile-level (not per-page): the
+  // stage is the window the whole profile is viewed through.
+  const stageDeviceId = resolveDesktopStageDeviceId(page?.theme_json);
 
   return (
     <>
@@ -392,7 +397,7 @@ export default function PublicProfile() {
           else — the narrow page is untouched. Above it, the page moves inside a
           phone-shaped stage and every measured container aspect becomes the
           phone's, so the desktop render IS the mobile render. */}
-      <DesktopStage backdropImage={backdropImage} theme={publicTheme} onScrollHost={setScrollHost}>
+      <DesktopStage backdropImage={backdropImage} theme={publicTheme} deviceId={stageDeviceId} onScrollHost={setScrollHost}>
       <div className="min-h-screen bg-[#0e0c09]">
         {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
         <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${isFullBleedPage ? 0 : headerOpacity})` }}>

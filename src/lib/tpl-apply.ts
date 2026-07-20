@@ -52,6 +52,30 @@ type BlockItemsInsert = Database['public']['Tables']['block_items']['Insert'];
 const STYLEABLE_TYPES: ReadonlySet<string> = new Set(['primary_cta', 'links']);
 const HEADER_TYPES: ReadonlySet<string> = new Set(['social_links', 'social_icon_row']);
 
+/** BUG.THEME.1 preserved set — theme_json keys that are STRUCTURAL, not visual.
+ *  A Layout/Style apply merges its theme over the page's existing raw theme_json,
+ *  so these survive by virtue of the merge; stripping them from the INCOMING
+ *  payload as well makes that guarantee total — a preset can never carry one and
+ *  clobber the page's own. `pageStyle` has been fenced this way since FS.SURFACE.1c
+ *  (a preset must not flip hero <-> full_bleed); DESK.STAGE.2 adds `desktopStage`
+ *  (the owner's desktop stage device is a page setting, never a template's).
+ *  Shared with TemplateGallery.applyTemplate so both apply paths fence identically. */
+export const PRESERVED_THEME_KEYS = ['pageStyle', 'desktopStage'] as const;
+
+/** Drop every preserved structural key from an incoming preset/template theme, and
+ *  JSON-normalize it (the round-trip is what actually erases the undefined-ed keys
+ *  before they reach a Supabase JSON column). Pure — unit-testable, no DB. */
+// Returns `any` on purpose: the result is spread into a `theme_json` write, whose
+// generated column type is `Json`. A narrower Record<string, unknown> is not
+// assignable to Json and would trip TS2322 at every call site (same reason the
+// theme writes elsewhere in the app stay untyped).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function stripPreservedThemeKeys<T extends object>(theme: T): any {
+  const out = { ...(theme as Record<string, unknown>) };
+  for (const k of PRESERVED_THEME_KEYS) delete out[k];
+  return JSON.parse(JSON.stringify(out));
+}
+
 /** block_items.style_json keys that are per-item APPEARANCE overrides — the ones
  *  a Styles/Layout apply OWNS and clears so a stale look never survives the apply
  *  (TPL.3b/TPL.5 total-ownership ruling). Content keys (icon_source/icon_image/
@@ -147,8 +171,8 @@ export async function applyTplPreset(opts: TplApplyOptions, deps: TplApplyDeps =
     const { theme, blockStyles } = resolveTplVariant(preset, pageStyle);
 
     // 3) Theme write — merge over the page's EXISTING raw theme_json so structural
-    //    keys survive; strip pageStyle from the incoming payload defensively
-    //    (JSON round-trip drops undefined). Single update. Mirrors applyTemplate.
+    //    keys survive; strip the PRESERVED_THEME_KEYS from the incoming payload
+    //    defensively (pageStyle, desktopStage). Single update. Mirrors applyTemplate.
     const { data: pageRow, error: pageErr } = await client
       .from('pages')
       .select('theme_json')
@@ -160,7 +184,7 @@ export async function applyTplPreset(opts: TplApplyOptions, deps: TplApplyDeps =
       : {};
     const { error: themeErr } = await client
       .from('pages')
-      .update({ theme_json: { ...existing, ...JSON.parse(JSON.stringify({ ...theme, pageStyle: undefined })) } })
+      .update({ theme_json: { ...existing, ...stripPreservedThemeKeys(theme) } })
       .eq('id', pageId);
     if (themeErr) throw themeErr;
 

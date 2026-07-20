@@ -25,6 +25,7 @@ import {
   History,
   Sparkles,
   Camera,
+  MonitorSmartphone,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -58,6 +59,7 @@ import { TextBlockEditor } from '@/components/editors/TextBlockEditor';
 import { TextBlocksPanel } from '@/components/editors/TextBlocksPanel';
 import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor';
 import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
+import { DesktopViewEditor } from '@/components/editors/DesktopViewEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSetupWizard';
@@ -286,6 +288,15 @@ const sections: DashboardSection[] = [
         blockType: null,
       },
       {
+        // DESK.STAGE.2: which phone the desktop stage renders the live page in.
+        // A look setting, so it lives in Style, low in the group — most owners
+        // never change it (the default is the shape everything is framed for).
+        icon: <MonitorSmartphone className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.desktopView',
+        subtitleKey: 'dashboard.desktopViewDesc',
+        blockType: null,
+      },
+      {
         // SNAP.1b: named restore points for the whole look. Not pro-gated at the
         // row (Free gets 1 snapshot) — the quota is enforced inside the panel.
         icon: <History className="h-6 w-6 text-white" />,
@@ -403,6 +414,8 @@ export function ProfileDashboard({
   const [pixelsOpen, setPixelsOpen] = useState(false);
   // SNAP.1b: the Snapshots sub-panel (Style group).
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+  // DESK.STAGE.2: the Desktop view sub-panel (Style group).
+  const [desktopViewOpen, setDesktopViewOpen] = useState(false);
   // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
   // two-level nav state — null = list view, a block id = editing that block.
   const [textBlocksOpen, setTextBlocksOpen] = useState(false);
@@ -487,6 +500,7 @@ export function ProfileDashboard({
     setPagesOpen(false);
     setPixelsOpen(false);
     setSnapshotsOpen(false);
+    setDesktopViewOpen(false);
     setTextBlocksOpen(false);
     setTextEditingId(null);
     setPendingPreset(null);
@@ -1047,6 +1061,10 @@ export function ProfileDashboard({
         setPixelsOpen(true);
         return;
       }
+      if (row.titleKey === 'dashboard.desktopView') {
+        setDesktopViewOpen(true);
+        return;
+      }
       if (row.titleKey === 'dashboard.snapshots') {
         // No row-level gate: Free opens the panel and gets its 1 snapshot; the
         // quota upsell lives inside the panel's Save action (SNAP.1b).
@@ -1243,6 +1261,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.snapshots')}</h2>
+                </>
+              ) : desktopViewOpen ? (
+                <>
+                  <button
+                    onClick={() => setDesktopViewOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.desktopView')}</h2>
                 </>
               ) : nameFxOpen ? (
                 <>
@@ -1528,6 +1556,8 @@ export function ProfileDashboard({
                 <TrackingPixelsEditor />
               ) : snapshotsOpen ? (
                 <SnapshotsEditor pageId={pageId} onRestored={onRefresh} />
+              ) : desktopViewOpen ? (
+                <DesktopViewEditor pageId={pageId} themeJson={themeJson} onRefresh={onRefresh} />
               ) : nameFxOpen ? (
                 // Fills the scrollport so the footer's mt-auto has room to push
                 // against. gap-6 replaces space-y-6 deliberately: space-y sets

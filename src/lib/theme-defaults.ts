@@ -1,5 +1,7 @@
 // Default theme structure for pages.theme_json
 
+import { DEVICE_PRESETS, DEFAULT_DEVICE_ID } from '@/lib/device-presets';
+
 export interface ThemeBackground {
   type: 'solid' | 'gradient' | 'image';
   solid_color: string;
@@ -127,6 +129,14 @@ export interface PagesConfig {
   page2?: { label?: string; heroInherit?: boolean; style?: PageStyle };
 }
 
+/** DESK.STAGE.2 — the desktop stage's device, chosen by the page OWNER.
+ *  `deviceId` is a DEVICE_PRESETS id; absent (or unknown) means DEFAULT_DEVICE_ID,
+ *  so every page that predates this key renders exactly as it did. Structural,
+ *  not visual: it survives a Layout/Style apply (see tpl-apply's preserved set). */
+export interface DesktopStageConfig {
+  deviceId?: string;
+}
+
 export interface ThemeJson {
   background: ThemeBackground;
   buttons: ThemeButtons;
@@ -149,6 +159,25 @@ export interface ThemeJson {
   heroConfig_page2?: HeroConfig;
   avatar_url_page2?: string;
   avatar_original_url_page2?: string;
+  // DESK.STAGE.2 — owner-chosen device for the desktop stage. Read through
+  // resolveDesktopStageDeviceId(), never directly, so the fallback is uniform.
+  desktopStage?: DesktopStageConfig;
+}
+
+/**
+ * DESK.STAGE.2 — the device id the desktop stage should render at, from a page's
+ * RAW theme_json. Total: anything missing, malformed, or unknown to the catalog
+ * resolves to DEFAULT_DEVICE_ID silently, which is what every pre-DESK.STAGE.2
+ * row looks like. Kept here (not in device-presets.ts) so the catalog stays a
+ * pure table with no theme knowledge; the id is validated against that catalog.
+ */
+export function resolveDesktopStageDeviceId(themeJson: unknown): string {
+  if (!themeJson || typeof themeJson !== 'object') return DEFAULT_DEVICE_ID;
+  const cfg = (themeJson as Record<string, unknown>).desktopStage;
+  if (!cfg || typeof cfg !== 'object') return DEFAULT_DEVICE_ID;
+  const id = (cfg as Record<string, unknown>).deviceId;
+  if (typeof id !== 'string') return DEFAULT_DEVICE_ID;
+  return DEVICE_PRESETS.some((d) => d.id === id) ? id : DEFAULT_DEVICE_ID;
 }
 
 export const DEFAULT_HEADER: ThemeHeader = {

@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import {
+  DEVICE_PRESETS,
   DEFAULT_DEVICE_ID,
   canonicalFullBleedAspect,
   resolveDevicePreset,
@@ -50,7 +51,7 @@ const asJson = (route: Route, body: unknown, status = 200) =>
  * onto whatever the real account returns — the test account's page carries no
  * hero media at all, so an un-stamped page would render nothing to measure.
  */
-async function installMocks(page: Page, style: PageStyle) {
+async function installMocks(page: Page, style: PageStyle, stageDeviceId?: string) {
   await page.route('**/rest/v1/pages*', async (route) => {
     if (route.request().method() !== 'GET') return route.fulfill({ status: 204, body: '' });
     const res = await route.fetch();
@@ -77,6 +78,9 @@ async function installMocks(page: Page, style: PageStyle) {
           // Authoritative over avatar_url in the hero resolution order.
           header: { ...((theme.header as object) || {}), image_url: HERO_PHOTO },
           heroConfig: { fit: 'fill', posY: 25, posX: 50 },
+          // DESK.STAGE.2 — omitted entirely unless a spec asks for one, so the
+          // untouched-page path stays exactly what suite 24 always tested.
+          ...(stageDeviceId === undefined ? {} : { desktopStage: { deviceId: stageDeviceId } }),
         },
       };
     };
@@ -233,5 +237,165 @@ test.describe('DESK.STAGE.1 — desktop stage', () => {
     const vw = page.viewportSize()!.width;
     const heroBox = (await page.getByTestId('hero-sticky').first().boundingBox())!;
     expect(heroBox.width).toBeGreaterThan(vw * 0.9);
+  });
+});
+
+/**
+ * DESK.STAGE.2 — the stage device is the page OWNER's choice.
+ *
+ * theme_json.desktopStage.deviceId names a DEVICE_PRESETS entry; the stage
+ * renders at THAT preset's real logical size. The key is structural: absent
+ * means the default (every pre-DESK.STAGE.2 page is a no-op) and an unknown id
+ * degrades to the default silently rather than breaking the page.
+ *
+ * Parity numbers below are read from the catalog, never hardcoded — the same
+ * table the panel lists and the crop aspects derive from.
+ */
+const ALT = resolveDevicePreset('galaxy-s26-ultra');
+
+test.describe('DESK.STAGE.2 — owner-selected stage device', () => {
+  test('the stage renders at the chosen preset, not the default', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    // Sanity: the fixture really is a different phone, or this proves nothing.
+    expect(ALT.id).not.toBe(PRESET.id);
+    expect(ALT.height).not.toBe(PRESET.height);
+
+    await installMocks(page, 'full_bleed', ALT.id);
+    await page.setViewportSize(ROOMY_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    const stage = page.getByTestId('desk-stage');
+    await expect(stage).toBeVisible();
+    await expect(stage).toHaveAttribute('data-device-id', ALT.id);
+
+    // The chosen preset's REAL dimensions, and its aspect — not the default's.
+    const box = (await stage.boundingBox())!;
+    expect(Math.round(box.width)).toBe(ALT.width);
+    expect(Math.round(box.height)).toBe(ALT.height);
+    expect(box.width / box.height).toBeCloseTo(canonicalFullBleedAspect(ALT.id), 2);
+    expect(Math.round(box.height)).not.toBe(PRESET.height);
+
+    // The page's own boxes follow the stage, so the choice is real end-to-end.
+    const heroBox = (await page.getByTestId('hero-sticky').first().boundingBox())!;
+    expect(heroBox.width).toBeCloseTo(box.width, 0);
+  });
+
+  test('an unknown device id falls back to the default stage silently', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    await installMocks(page, 'full_bleed', 'nokia-3310-xl');
+    await page.setViewportSize(ROOMY_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    const stage = page.getByTestId('desk-stage');
+    await expect(stage).toBeVisible();
+    await expect(stage).toHaveAttribute('data-device-id', DEFAULT_DEVICE_ID);
+    const box = (await stage.boundingBox())!;
+    expect(Math.round(box.width)).toBe(PRESET.width);
+    expect(Math.round(box.height)).toBe(PRESET.height);
+  });
+
+  test('a page with no desktopStage key renders the default stage', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    await installMocks(page, 'full_bleed'); // key omitted entirely
+    await page.setViewportSize(ROOMY_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    await expect(page.getByTestId('desk-stage')).toHaveAttribute('data-device-id', DEFAULT_DEVICE_ID);
+  });
+
+  test('a chosen device changes nothing for a phone visitor', async ({ page }, testInfo) => {
+    // Both projects: the setting is desktop-only by construction.
+    await installMocks(page, 'full_bleed', ALT.id);
+    if (testInfo.project.name === 'desktop') await page.setViewportSize(PHONE);
+
+    await page.goto(HANDLE);
+    await settle(page);
+
+    await expect(page.getByTestId('desk-stage')).toHaveCount(0);
+    const vw = page.viewportSize()!.width;
+    const heroBox = (await page.getByTestId('hero-sticky').first().boundingBox())!;
+    expect(heroBox.width).toBeGreaterThan(vw * 0.9);
+  });
+});
+
+/**
+ * DESK.STAGE.2 — the Desktop view panel (Style group).
+ *
+ * Non-destructive: reads pass through to real Supabase, every write is captured
+ * and swallowed, so the real page is never mutated. The assertion is the PATCH
+ * body — that is the contract the public stage reads back.
+ */
+async function installEditorMocks(page: Page) {
+  const patches: Record<string, unknown>[] = [];
+  await page.route('**/rest/v1/pages*', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') return route.continue();
+    if (method === 'PATCH') patches.push(route.request().postDataJSON());
+    return route.fulfill({ status: 204, body: '' });
+  });
+  for (const tbl of ['modes', 'blocks', 'block_items']) {
+    await page.route(`**/rest/v1/${tbl}*`, async (route) => {
+      if (route.request().method() === 'GET') return route.continue();
+      return route.fulfill({ status: 204, body: '' });
+    });
+  }
+  return patches;
+}
+
+async function openDesktopViewPanel(page: Page, editLabel: string | RegExp, rowLabel: RegExp) {
+  await page.goto('/dashboard/editor');
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: editLabel }).filter({ visible: true }).first().click();
+  await page.getByRole('button', { name: rowLabel }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('desktop-view-panel')).toBeVisible();
+}
+
+test.describe('DESK.STAGE.2 — Desktop view panel', () => {
+  test('lists the device catalog, marks the default, and persists a pick', async ({ page }) => {
+    const patches = await installEditorMocks(page);
+    await openDesktopViewPanel(page, 'Edit Profile', /desktop view/i);
+
+    // One row per catalog entry — the panel reuses DEVICE_PRESETS, so a preset
+    // added there shows up here with no second list to update.
+    await expect(page.locator('[data-testid^="desktop-view-option-"]')).toHaveCount(
+      DEVICE_PRESETS.length,
+    );
+
+    // A page with no stored choice shows the default selected.
+    const defaultOption = page.getByTestId(`desktop-view-option-${DEFAULT_DEVICE_ID}`);
+    await expect(defaultOption).toHaveAttribute('aria-pressed', 'true');
+    await expect(defaultOption).toContainText('Default');
+
+    // Nothing is written until Save — the row tap only moves the draft.
+    const target = page.getByTestId(`desktop-view-option-${ALT.id}`);
+    await target.click();
+    await expect(target).toHaveAttribute('aria-pressed', 'true');
+    await expect(defaultOption).toHaveAttribute('aria-pressed', 'false');
+    expect(patches.length).toBe(0);
+
+    await page.getByTestId('desktop-view-save').click();
+    await expect.poll(() => patches.length).toBeGreaterThan(0);
+
+    const theme = patches.at(-1)!.theme_json as Record<string, any>;
+    expect(theme.desktopStage).toEqual({ deviceId: ALT.id });
+    // Merge-safe: the write carries the rest of the theme, never a bare replace.
+    expect(Object.keys(theme).length).toBeGreaterThan(1);
+  });
+
+  test('ES: the panel renders in Spanish', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('titilinks-language', 'es'));
+    await installEditorMocks(page);
+    await openDesktopViewPanel(page, /editar perfil/i, /vista de escritorio/i);
+
+    await expect(page.getByTestId('desktop-view-panel')).toContainText(
+      'marco con forma de teléfono',
+    );
+    await expect(page.getByTestId(`desktop-view-option-${DEFAULT_DEVICE_ID}`)).toContainText(
+      'Predeterminado',
+    );
+    await expect(page.getByTestId('desktop-view-save')).toHaveText('Guardar');
   });
 });

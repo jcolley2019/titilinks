@@ -11,7 +11,7 @@
 // capture and asserts against a recorded event log — no network, no DB.
 
 import assert from 'node:assert/strict';
-import { applyTplPreset } from '../src/lib/tpl-apply';
+import { applyTplPreset, PRESERVED_THEME_KEYS } from '../src/lib/tpl-apply';
 import { TPL_PRESETS, resolveTplVariant } from '../src/lib/tpl-presets';
 import { cardSurface } from '../src/lib/surface';
 
@@ -223,6 +223,39 @@ const baseOpts = (extra = {}) => ({
   assert.equal(written.pageStyle, 'hero', 'existing pageStyle preserved; engine never writes/flips it');
   assert.ok(written.buttons && written.background && written.typography, 'incoming visual theme applied over existing');
   ok('theme merge preserves structural keys and strips incoming pageStyle');
+}
+
+// ── 6b. DESK.STAGE.2: `desktopStage` is in the preserved set, so an apply keeps
+//    the owner's desktop stage device — both when the preset is silent about it
+//    (survives via the merge) and when a preset tries to carry one (stripped). ──
+{
+  const h = makeHarness({
+    page: { theme_json: { desktopStage: { deviceId: 'galaxy-s26-ultra' }, pageStyle: 'hero' } },
+  });
+  await applyTplPreset(baseOpts(), { client: h.client, capture: h.capture });
+  assert.deepEqual(
+    h.state.writtenTheme.desktopStage,
+    { deviceId: 'galaxy-s26-ultra' },
+    "the owner's desktopStage survives a preset apply untouched",
+  );
+  ok('template apply preserves theme_json.desktopStage');
+
+  // A preset that DID carry the key must not win: the strip runs on the incoming
+  // payload, so the page's own value is what lands.
+  const hostile = { ...ACTRIZ, theme: { ...ACTRIZ.theme, desktopStage: { deviceId: 'ipad-pro-13' } } };
+  const h2 = makeHarness({ page: { theme_json: { desktopStage: { deviceId: 'galaxy-s26-ultra' } } } });
+  await applyTplPreset(baseOpts({ preset: hostile, modeId: 'mode-2' }), { client: h2.client, capture: h2.capture });
+  assert.deepEqual(
+    h2.state.writtenTheme.desktopStage,
+    { deviceId: 'galaxy-s26-ultra' },
+    'a preset carrying desktopStage is stripped — the page keeps its own',
+  );
+  assert.deepEqual(
+    PRESERVED_THEME_KEYS.slice().sort(),
+    ['desktopStage', 'pageStyle'],
+    'the preserved set is exactly pageStyle + desktopStage',
+  );
+  ok('an incoming preset can never clobber desktopStage (preserved set enforced)');
 }
 
 // ── 7. TPL.5: a concurrent second apply for the SAME mode is rejected before it

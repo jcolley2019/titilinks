@@ -75,20 +75,24 @@ function useIsWideViewport(minWidthPx: number): boolean {
 }
 
 /**
- * The stage box: the default device preset's logical size when the window has
+ * The stage box: the chosen device preset's logical size when the window has
  * room for it, shrunk proportionally when it does not. Both numbers come from
- * DEVICE_PRESETS — the stage is literally the phone the editor previews, so a
+ * DEVICE_PRESETS — the stage is literally a phone the editor can preview, so a
  * page framed in the editor lands here unchanged.
+ *
+ * DESK.STAGE.2: `deviceId` is the page OWNER's choice, read from theme_json.
+ * `resolveDevicePreset` is total — an unknown or absent id yields the default
+ * preset — so an unrecognized value degrades silently to today's stage.
  */
-function useStageSize(active: boolean): StageSize | null {
+function useStageSize(active: boolean, deviceId?: string | null): StageSize | null {
   const [size, setSize] = useState<StageSize | null>(null);
   useLayoutEffect(() => {
     if (!active || typeof window === 'undefined') {
       setSize(null);
       return;
     }
-    const preset = resolveDevicePreset(DEFAULT_DEVICE_ID);
-    const aspect = canonicalFullBleedAspect();
+    const preset = resolveDevicePreset(deviceId ?? DEFAULT_DEVICE_ID);
+    const aspect = canonicalFullBleedAspect(preset.id);
     const measure = () => {
       const availH = Math.max(320, window.innerHeight - STAGE_MARGIN_PX * 2);
       const availW = Math.max(280, window.innerWidth - STAGE_MARGIN_PX * 2);
@@ -104,7 +108,7 @@ function useStageSize(active: boolean): StageSize | null {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [active]);
+  }, [active, deviceId]);
   return size;
 }
 
@@ -115,6 +119,10 @@ export interface DesktopStageProps {
   backdropImage?: string | null;
   /** Fallback backdrop when the page has no hero media at all. */
   theme?: ThemeJson | null;
+  /** DESK.STAGE.2 — the DEVICE_PRESETS id the page owner picked for their
+   *  desktop stage (theme_json.desktopStage.deviceId). Absent / unknown → the
+   *  default preset, so every page that never set one is untouched. */
+  deviceId?: string | null;
   /** Receives the element the page should read scroll position from — the
    *  stage's inner scroller when staged, `null` (meaning `window`) when not.
    *  The window does not scroll while the stage owns the scrolling. */
@@ -122,9 +130,9 @@ export interface DesktopStageProps {
   children: ReactNode;
 }
 
-export function DesktopStage({ backdropImage, theme, onScrollHost, children }: DesktopStageProps) {
+export function DesktopStage({ backdropImage, theme, deviceId, onScrollHost, children }: DesktopStageProps) {
   const wide = useIsWideViewport(STAGE_MIN_VIEWPORT_PX);
-  const size = useStageSize(wide);
+  const size = useStageSize(wide, deviceId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const staged = wide && !!size;
 
@@ -172,6 +180,9 @@ export function DesktopStage({ backdropImage, theme, onScrollHost, children }: D
       <div className="fixed inset-0 z-10 flex items-center justify-center">
         <div
           data-testid="desk-stage"
+          // The preset the stage actually resolved to — after the silent
+          // fallback, so it reports what is on screen, not what was asked for.
+          data-device-id={resolveDevicePreset(deviceId ?? DEFAULT_DEVICE_ID).id}
           style={
             {
               width: `${size.width}px`,

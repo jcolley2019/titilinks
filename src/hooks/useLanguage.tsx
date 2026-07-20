@@ -1725,6 +1725,17 @@ export const translations: Record<Language, Record<string, string>> = {
     'snapshots.proDesc': 'Free includes 1 snapshot. Upgrade to Pro for 5 named restore points.',
     'snapshots.upgradeToPro': 'Upgrade to Pro',
     'snapshots.limitReached': 'You have reached your snapshot limit. Delete one to save another.',
+    // DESK.STAGE.2 — Desktop view panel (which phone the desktop stage renders).
+    'dashboard.desktopView': 'Desktop view',
+    'dashboard.desktopViewDesc': 'Pick the phone your page is shown in on computers',
+    'desktopView.intro': 'On a computer your page is shown inside a phone-shaped frame. Choose which phone that frame is.',
+    'desktopView.defaultBadge': 'Default',
+    'desktopView.approx': 'approximate size',
+    'desktopView.caption': 'Applies to your live page on computers. Visitors on a phone always see their own screen, unchanged. The device menu above the editor preview is a preview tool only — it does not change what visitors see.',
+    'desktopView.cancel': 'Cancel',
+    'desktopView.save': 'Save',
+    'desktopView.saved': 'Desktop view saved',
+    'desktopView.saveFailed': 'Could not save the desktop view',
   },
   es: {
     'content.badgeNew': 'NUEVO',
@@ -3441,6 +3452,17 @@ export const translations: Record<Language, Record<string, string>> = {
     'snapshots.proDesc': 'El plan gratuito incluye 1 instantánea. Mejora a Pro para 5 puntos de restauración.',
     'snapshots.upgradeToPro': 'Mejorar a Pro',
     'snapshots.limitReached': 'Alcanzaste tu límite de instantáneas. Elimina una para guardar otra.',
+    // DESK.STAGE.2 — panel Vista de escritorio (el teléfono del escenario).
+    'dashboard.desktopView': 'Vista de escritorio',
+    'dashboard.desktopViewDesc': 'Elige el teléfono con el que se ve tu página en computadoras',
+    'desktopView.intro': 'En una computadora tu página se muestra dentro de un marco con forma de teléfono. Elige qué teléfono es ese marco.',
+    'desktopView.defaultBadge': 'Predeterminado',
+    'desktopView.approx': 'tamaño aproximado',
+    'desktopView.caption': 'Se aplica a tu página publicada en computadoras. Quien te visite desde un teléfono siempre verá su propia pantalla, sin cambios. El menú de dispositivo sobre la vista previa del editor es solo una herramienta de vista previa: no cambia lo que ven las visitas.',
+    'desktopView.cancel': 'Cancelar',
+    'desktopView.save': 'Guardar',
+    'desktopView.saved': 'Vista de escritorio guardada',
+    'desktopView.saveFailed': 'No se pudo guardar la vista de escritorio',
   }
 };
 
