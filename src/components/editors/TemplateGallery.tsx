@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,119 @@ const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<{ className?:
 function CategoryIcon({ id }: { id: TemplateCategory }) {
   const Icon = CATEGORY_ICONS[id];
   return <Icon className="mr-1.5 inline-block h-3.5 w-3.5 -mt-0.5" />;
+}
+
+// GAL.TOUCH: coarse-pointer / no-hover detection via the exact media query the
+// brick names — matchMedia feature detection (NOT UA device-sniffing), mirroring
+// the repo's established matchMedia hooks (use-mobile.tsx, HeroSection). SSR-safe:
+// both the lazy initializer and the effect guard `window`. Chosen over a pure-CSS
+// arbitrary media variant so exactly ONE Apply affordance mounts per device — no
+// second (hidden) button lingering in the DOM/a11y tree. Drives which surface each
+// gallery card renders: the persistent bar on touch, the hover overlay on desktop.
+function useCoarsePointer(): boolean {
+  const query = '(hover: none) and (pointer: coarse)';
+  const [coarse, setCoarse] = useState<boolean>(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mql = window.matchMedia(query);
+    const onChange = () => setCoarse(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return coarse;
+}
+
+// GAL.TOUCH: the Apply button — three states (busy / applied / idle) — shared
+// verbatim by BOTH surfaces (hover overlay + persistent touch bar) and BOTH card
+// types, so the affordance can never diverge. onApply is already double-tap-safe
+// upstream (TPL.5's applyingRef + the engine's per-mode lock).
+function ApplyButton({
+  isApplying,
+  isApplied,
+  onApply,
+  className,
+}: {
+  isApplying: boolean;
+  isApplied: boolean;
+  onApply: () => void;
+  className?: string;
+}) {
+  const { t } = useLanguage();
+  return (
+    <Button size="sm" onClick={onApply} disabled={isApplying} className={cn('gap-2', className)}>
+      {isApplying ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t('templateGallery.applying')}
+        </>
+      ) : isApplied ? (
+        <>
+          <Check className="h-4 w-4" />
+          {t('templateGallery.applied')}
+        </>
+      ) : (
+        t('templateGallery.apply')
+      )}
+    </Button>
+  );
+}
+
+// GAL.TOUCH: hover-reveal overlay — fine-pointer devices ONLY. On coarse/no-hover
+// devices it never mounts, so a tap's synthetic mouseenter can't pop it over the
+// preview; those devices get <TouchApplyBar> instead. Desktop behavior unchanged.
+function HoverApplyOverlay({
+  coarse,
+  hovered,
+  isApplying,
+  isApplied,
+  onApply,
+}: {
+  coarse: boolean;
+  hovered: boolean;
+  isApplying: boolean;
+  isApplied: boolean;
+  onApply: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {!coarse && hovered && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center"
+        >
+          <ApplyButton isApplying={isApplying} isApplied={isApplied} onApply={onApply} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// GAL.TOUCH: the persistent Apply affordance for coarse/no-hover (touch) devices —
+// ALWAYS visible, no gesture to discover. A full-width button in a bordered footer
+// at the card's bottom edge (FS.SURFACE-consistent), below the info so it never
+// covers the preview bars. Not mounted on fine-pointer devices (they hover-reveal).
+function TouchApplyBar({
+  coarse,
+  isApplying,
+  isApplied,
+  onApply,
+}: {
+  coarse: boolean;
+  isApplying: boolean;
+  isApplied: boolean;
+  onApply: () => void;
+}) {
+  if (!coarse) return null;
+  return (
+    <div data-testid="tpl-touch-apply" className="border-t border-border p-2">
+      <ApplyButton isApplying={isApplying} isApplied={isApplied} onApply={onApply} className="w-full" />
+    </div>
+  );
 }
 
 export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJson }: TemplateGalleryProps) {
@@ -496,6 +609,8 @@ interface LayoutCardProps {
 function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: LayoutCardProps) {
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
+  // GAL.TOUCH: touch devices get a persistent Apply bar (no hover to discover).
+  const coarse = useCoarsePointer();
 
   // TPL.3c TASK 2.4: preview the rendition the ACTIVE page style will actually
   // apply — hero → the hero variant (solid-leaning), full_bleed → the glass
@@ -580,45 +695,16 @@ function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: Layou
             </div>
           </div>
 
-          {/* TPL.3d: hover-reveal Apply — byte-faithful to the Styles card
-              (TemplateCard) below: same reveal condition (hover), same overlay
-              position/styling, and the same busy/applied Button states. Clicking
-              Apply runs applyLayout directly — no confirm dialog. Touch behavior
-              is inherited, not coded: the Styles card has NO explicit touch
-              handling, so on a touch device the first tap fires the synthetic
-              mouseenter (revealing the overlay) and a second tap on Apply applies
-              — Layouts now behaves identically. */}
-          <AnimatePresence>
-            {hovered && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center"
-              >
-                <Button
-                  size="sm"
-                  onClick={onApply}
-                  disabled={isApplying}
-                  className="gap-2"
-                >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('templateGallery.applying')}
-                    </>
-                  ) : isApplied ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      {t('templateGallery.applied')}
-                    </>
-                  ) : (
-                    t('templateGallery.apply')
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* GAL.TOUCH: fine-pointer devices reveal Apply on hover (TPL.3d,
+              unchanged); coarse/no-hover devices use the persistent <TouchApplyBar>
+              below instead — one shared mechanism across both card types. */}
+          <HoverApplyOverlay
+            coarse={coarse}
+            hovered={hovered}
+            isApplying={isApplying}
+            isApplied={isApplied}
+            onApply={onApply}
+          />
         </div>
 
         {/* Preset Info: name, description, category tag */}
@@ -629,6 +715,8 @@ function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: Layou
             {t(`tpl.category.${preset.category}`)}
           </span>
         </div>
+
+        <TouchApplyBar coarse={coarse} isApplying={isApplying} isApplied={isApplied} onApply={onApply} />
       </div>
     </motion.div>
   );
@@ -644,6 +732,8 @@ interface TemplateCardProps {
 function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCardProps) {
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
+  // GAL.TOUCH: touch devices get a persistent Apply bar (no hover to discover).
+  const coarse = useCoarsePointer();
 
   // Generate inline preview styles
   const getPreviewBackground = () => {
@@ -721,38 +811,15 @@ function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCard
             </div>
           </div>
 
-          {/* Hover overlay with apply button */}
-          <AnimatePresence>
-            {hovered && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center"
-              >
-                <Button
-                  size="sm"
-                  onClick={onApply}
-                  disabled={isApplying}
-                  className="gap-2"
-                >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('templateGallery.applying')}
-                    </>
-                  ) : isApplied ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      {t('templateGallery.applied')}
-                    </>
-                  ) : (
-                    t('templateGallery.apply')
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* GAL.TOUCH: hover-reveal on fine pointers; coarse/no-hover devices use
+              the persistent <TouchApplyBar> below (shared with LayoutCard). */}
+          <HoverApplyOverlay
+            coarse={coarse}
+            hovered={hovered}
+            isApplying={isApplying}
+            isApplied={isApplied}
+            onApply={onApply}
+          />
         </div>
 
         {/* Template Info */}
@@ -760,6 +827,8 @@ function TemplateCard({ template, isApplying, isApplied, onApply }: TemplateCard
           <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
           <p className="text-xs text-muted-foreground truncate">{t(template.description)}</p>
         </div>
+
+        <TouchApplyBar coarse={coarse} isApplying={isApplying} isApplied={isApplied} onApply={onApply} />
       </div>
     </motion.div>
   );

@@ -319,3 +319,79 @@ test.describe('Template Gallery — the full Layouts shelf (TPL.4)', () => {
     await expect(page.getByTestId('tpl-layout-card')).toContainText('Tienda');
   });
 });
+
+/**
+ * GAL.TOUCH — touch devices get a real Apply affordance in BOTH gallery tabs.
+ *
+ * On coarse-pointer / no-hover devices the Apply button is ALWAYS visible (a
+ * persistent bar at each card's bottom edge) — no hover gesture to discover. On
+ * fine-pointer devices the hover-reveal overlay (TPL.3d) is unchanged and no
+ * persistent bar renders. Detection is a single shared useCoarsePointer hook, so
+ * both card types (LayoutCard + TemplateCard) share one mechanism.
+ *
+ * Every spec runs on both projects; each branches on the project's pointer type —
+ * the `mobile` project (iPhone 14 Pro Max) is coarse/no-hover, `desktop` is fine.
+ */
+test.describe('Template Gallery — touch Apply affordance (GAL.TOUCH)', () => {
+  test('the Apply affordance matches the pointer type (Layouts + Styles)', async ({ page }, testInfo) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openGallery(page);
+
+    const touch = testInfo.project.name === 'mobile';
+
+    // ── Layouts tab (LayoutCard) ──
+    const layoutCard = page.getByTestId('tpl-layout-card').first();
+    if (touch) {
+      // Coarse/no-hover: the persistent Apply bar is visible with NO hover.
+      await expect(layoutCard.getByTestId('tpl-touch-apply')).toBeVisible();
+      await expect(layoutCard.getByRole('button', { name: 'Apply' })).toBeVisible();
+    } else {
+      // Fine pointer: no persistent bar; Apply stays hover-gated (TPL.3d intact).
+      await expect(layoutCard.getByTestId('tpl-touch-apply')).toHaveCount(0);
+      await expect(layoutCard.getByRole('button', { name: 'Apply' })).toHaveCount(0);
+      await layoutCard.hover();
+      await expect(layoutCard.getByRole('button', { name: 'Apply' })).toBeVisible();
+    }
+
+    // ── Styles tab (TemplateCard shares the same affordance) ──
+    await page.getByTestId('gallery-tab-styles').click();
+    const stylesCard = page.locator('div.grid.grid-cols-2.sm\\:grid-cols-3 > div.group').first();
+    await expect(stylesCard).toBeVisible();
+    if (touch) {
+      await expect(stylesCard.getByTestId('tpl-touch-apply')).toBeVisible();
+      await expect(stylesCard.getByRole('button', { name: 'Apply' })).toBeVisible();
+    } else {
+      await expect(stylesCard.getByTestId('tpl-touch-apply')).toHaveCount(0);
+      await stylesCard.hover();
+      await expect(stylesCard.getByRole('button', { name: 'Apply' })).toBeVisible();
+    }
+  });
+
+  test('applying from the pointer-appropriate affordance writes (tap on touch)', async ({ page }, testInfo) => {
+    await installMocks(page, { plan: 'pro' });
+    await openEditProfile(page);
+    await openGallery(page);
+
+    const touch = testInfo.project.name === 'mobile';
+    const snapPost = page.waitForRequest(
+      (r) => r.url().includes('/rest/v1/profile_snapshots') && r.method() === 'POST',
+    );
+
+    const card = page.getByTestId('tpl-layout-card').first();
+    if (touch) {
+      // The crux: tap the persistent Apply DIRECTLY — no hover/reveal gesture.
+      await card.getByRole('button', { name: 'Apply' }).click();
+    } else {
+      await card.hover();
+      await card.getByRole('button', { name: 'Apply' }).click();
+    }
+
+    // The apply ran: the auto safety-net snapshot POST fired (mock-asserted), and
+    // the success toast landed.
+    const posted = (await snapPost).postDataJSON();
+    const inserted = Array.isArray(posted) ? posted[0] : posted;
+    expect(inserted.kind).toBe('auto');
+    await expect(page.getByText('Layout applied — backup saved in Snapshots')).toBeVisible();
+  });
+});
