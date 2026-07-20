@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Check, Loader2, Smartphone, Sparkles, Shirt, Star, Dumbbell, TrendingUp, Music, Store, Square, Flame } from 'lucide-react';
+import { Smartphone, Sparkles, Shirt, Star, Dumbbell, TrendingUp, Music, Store, Square, Flame } from 'lucide-react';
 import {
   TEMPLATE_CATEGORIES,
   TEMPLATES,
@@ -11,14 +10,18 @@ import {
   type TemplateCategory,
   type TemplateDefinition,
 } from '@/lib/template-gallery';
-import { TPL_PRESETS, TPL_CATEGORIES, resolveTplVariant, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
-import { applyTplPreset, resetItemAppearanceStyleJson } from '@/lib/tpl-apply';
+import { TPL_PRESETS, TPL_CATEGORIES, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
+import { resetItemAppearanceStyleJson } from '@/lib/tpl-apply';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import type { PageId, PageStyle, BlockStyleConfig } from '@/lib/theme-defaults';
 import type { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 import { captureSnapshot } from '@/lib/snapshots';
 import { useLanguage } from '@/hooks/useLanguage';
+// AIS.0: apply path + preset preview lifted to a shared module so the
+// PageSetupWizard reuses them (reuse, not fork). ApplyButton is re-imported here
+// because HoverApplyOverlay / TouchApplyBar below still render it.
+import { LayoutPreview, ApplyButton, useApplyLayout } from './gallery-shared';
 
 interface TemplateGalleryProps {
   pageId: string;
@@ -36,17 +39,6 @@ interface TemplateGalleryProps {
 // full-bleed: 0.65 mainly drives the fade render path — the filled→glass coercion
 // already forces a much lower alpha — so it reads as "translucent", not a wash.
 const FULLBLEED_BUTTON_OPACITY = 0.65;
-
-// TPL.3c: hex → rgba for the Layout card preview fills (mirrors LinkButton's
-// rgbaStr; local + preview-only). Non-hex input (a gradient/keyword) passes
-// through unchanged so callers can hand it any theme color.
-function withAlpha(color: string, a: number): string {
-  if (!color || !color.startsWith('#')) return color;
-  const h = color.replace('#', '');
-  const s = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const n = parseInt(s, 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-}
 
 // GAL.2: premium line icons for the category chips — monochrome,
 // inheriting the chip's text color, replacing the emoji set.
@@ -89,41 +81,6 @@ function useCoarsePointer(): boolean {
     return () => mql.removeEventListener('change', onChange);
   }, []);
   return coarse;
-}
-
-// GAL.TOUCH: the Apply button — three states (busy / applied / idle) — shared
-// verbatim by BOTH surfaces (hover overlay + persistent touch bar) and BOTH card
-// types, so the affordance can never diverge. onApply is already double-tap-safe
-// upstream (TPL.5's applyingRef + the engine's per-mode lock).
-function ApplyButton({
-  isApplying,
-  isApplied,
-  onApply,
-  className,
-}: {
-  isApplying: boolean;
-  isApplied: boolean;
-  onApply: () => void;
-  className?: string;
-}) {
-  const { t } = useLanguage();
-  return (
-    <Button size="sm" onClick={onApply} disabled={isApplying} className={cn('gap-2', className)}>
-      {isApplying ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {t('templateGallery.applying')}
-        </>
-      ) : isApplied ? (
-        <>
-          <Check className="h-4 w-4" />
-          {t('templateGallery.applied')}
-        </>
-      ) : (
-        t('templateGallery.apply')
-      )}
-    </Button>
-  );
 }
 
 // GAL.TOUCH: hover-reveal overlay — fine-pointer devices ONLY. On coarse/no-hover
@@ -197,13 +154,16 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
 
   // ── Layouts tab state ──────────────────────────────────────────────────────
   const [layoutCategory, setLayoutCategory] = useState<TplCategory | 'all'>('all');
-  const [applyingPreset, setApplyingPreset] = useState<string | null>(null);
-  // TPL.3d: parity with the Styles tab's transient "Applied!" indicator — the
-  // Layout cards now apply on a hover-revealed button (no confirm dialog), so
-  // they carry the same post-apply applied state, cleared after a short delay.
-  const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
-  // TPL.5 TASK 1: synchronous hard lock against a double-fire (see applyLayout).
-  const applyingRef = useRef(false);
+  // AIS.0: the apply path (snapshot → theme → blocks), applying/applied preset
+  // state, and the TPL.5 re-entry lock now live in useApplyLayout, shared with
+  // the PageSetupWizard. Behavior is byte-identical to the former local closure.
+  const { applyLayout, applyingPreset, appliedPreset } = useApplyLayout({
+    pageId,
+    modeId,
+    activePageId,
+    themeJson,
+    onApply,
+  });
 
   const layouts = layoutCategory === 'all'
     ? TPL_PRESETS
@@ -404,76 +364,6 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
     }
   };
 
-  // TPL.3: apply a Layout preset as one designed unit (theme + composition +
-  // seeded content + block styles) via the TPL.2 engine.
-  const applyLayout = async (preset: TplPreset) => {
-    // TPL.5 TASK 1: hard, synchronous re-entry lock. `disabled={isApplying}` is
-    // render-state — it can't stop a rapid double-click (or a click during the
-    // pre-lock modes lookup below) from starting a second engine run before React
-    // re-disables the button, which duplicates the composition. A ref flips
-    // synchronously on the first click so the second call returns at once; cleared
-    // in `finally` (covers the noMode early return too). The engine keeps its own
-    // per-mode backstop.
-    if (applyingRef.current) return;
-    applyingRef.current = true;
-    try {
-      const pageId2: PageId = activePageId ?? 'page1';
-      const pageStyle = resolveEffectivePageStyle(themeJson, pageId2);
-
-      // FIX.P2 race-safe modeId resolution (mirrors ProfileDashboard.applyPreset):
-      // the modeId prop can lag a freshly-created page, so fall back to a DB read
-      // by page_id + page type before firing the noMode toast.
-      let activeModeId = modeId ?? null;
-      if (!activeModeId && pageId) {
-        const { data } = await supabase
-          .from('modes')
-          .select('id')
-          .eq('page_id', pageId)
-          .eq('type', pageId2)
-          .maybeSingle();
-        activeModeId = data?.id ?? null;
-      }
-      if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
-
-      setApplyingPreset(preset.id);
-      // Distinguish a pre-mutation snapshot failure (the engine aborts at step 1)
-      // from a later DB failure: this wrapper flips `captured` only once the safety
-      // net lands, so the catch surfaces the right message — parity with how
-      // applyTemplate separates snapshots.autoFailed from applyFailed.
-      let captured = false;
-      try {
-        await applyTplPreset(
-          {
-            pageId,
-            modeId: activeModeId,
-            pageStyle,
-            preset,
-            autoSnapshotName: t('snapshots.autoBeforeTemplate').replace('{name}', preset.name),
-          },
-          {
-            capture: async (...args: Parameters<typeof captureSnapshot>) => {
-              const row = await captureSnapshot(...args);
-              captured = true;
-              return row;
-            },
-          },
-        );
-        setAppliedPreset(preset.id);
-        toast.success(t('tpl.apply.successToast'));
-        onApply();
-        // Reset applied indicator after a delay (mirrors applyTemplate).
-        setTimeout(() => setAppliedPreset(null), 2000);
-      } catch (err) {
-        console.error('[tpl] apply failed:', err);
-        toast.error(captured ? t('tpl.apply.failedToast') : t('snapshots.autoFailed'));
-      } finally {
-        setApplyingPreset(null);
-      }
-    } finally {
-      applyingRef.current = false;
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4">
       {/* TPL.3: Layouts / Styles tab header — full-width segmented control,
@@ -612,46 +502,6 @@ function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: Layou
   // GAL.TOUCH: touch devices get a persistent Apply bar (no hover to discover).
   const coarse = useCoarsePointer();
 
-  // TPL.3c TASK 2.4: preview the rendition the ACTIVE page style will actually
-  // apply — hero → the hero variant (solid-leaning), full_bleed → the glass
-  // variant (gold outline + translucent fill). Resolved through the same pure
-  // resolver the apply engine uses, so the card and the applied result agree.
-  const { theme: vTheme, blockStyles: vbs } = resolveTplVariant(preset, pageStyle);
-
-  const previewBackground = vTheme.background.type === 'gradient'
-    ? vTheme.background.gradient_css
-    : vTheme.background.solid_color;
-
-  // TASK 2.1: the hero band is a PHOTO, not a button — suggest one with a neutral
-  // depth scrim over the theme background (dark presets read as a dark photo).
-  // Theme-derived: only the preset's own background color is used; the scrim is a
-  // neutral black/white alpha, never a template color.
-  const heroMock = `linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(0,0,0,0.30) 100%), ${previewBackground}`;
-
-  const buttonRadius = vTheme.buttons.shape === 'pill'
-    ? '9999px'
-    : vTheme.buttons.shape === 'square'
-      ? '2px'
-      : '6px';
-
-  // TASK 2.2: bars honor the previewed variant. When the rendition defines a
-  // border (border_width > 0) or is outline/glass, preview an outlined bar — a
-  // solid frame in border_color over a fill honoring background_opacity (outline =
-  // no fill); a filled rendition stays a solid bar. Effective variant/opacity/
-  // border all come from the resolved variant so the card can't drift from render.
-  const effVariant = vTheme.buttons.variant ?? vbs.variant ?? 'filled';
-  const borderW = vbs.border_width ?? 0;
-  const frameColor = vbs.border_color || vTheme.buttons.border_color || vTheme.buttons.fill_color;
-  // Mirror LinkButton's precedence: theme.buttons.background_opacity (runtime-only
-  // key, read via cast) first, then the block style, then 1.
-  const fillOpacity =
-    (vTheme.buttons as { background_opacity?: number }).background_opacity ?? vbs.background_opacity ?? 1;
-  const outlined = borderW > 0 || effVariant === 'outline' || effVariant === 'glass';
-  const barBackground = outlined
-    ? withAlpha(vTheme.buttons.fill_color, effVariant === 'outline' ? 0 : fillOpacity)
-    : vTheme.buttons.fill_color;
-  const barBorder = borderW > 0 ? `${borderW}px solid ${frameColor}` : 'none';
-
   return (
     <motion.div
       layout
@@ -667,34 +517,10 @@ function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: Layou
         data-testid="tpl-layout-card"
         className="border border-border rounded-xl overflow-hidden bg-card hover:border-primary/50 transition-all"
       >
-        {/* Theme-derived preview mock */}
-        <div className="relative aspect-[9/16] overflow-hidden">
-          <div className="absolute inset-0" style={{ background: previewBackground }} />
-          <div className="absolute inset-0 flex flex-col items-center">
-            <div
-              className="w-full mb-2"
-              style={{ height: '42%', background: heroMock }}
-            />
-            <div
-              className="w-16 h-2 rounded mb-1"
-              style={{ backgroundColor: vTheme.typography.text_color, opacity: 0.8 }}
-            />
-            <div
-              className="w-20 h-1.5 rounded mb-4"
-              style={{ backgroundColor: vTheme.typography.text_color, opacity: 0.4 }}
-            />
-            <div className="w-full space-y-2 px-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  data-testid="tpl-card-bar"
-                  className="w-full h-6"
-                  style={{ background: barBackground, border: barBorder, borderRadius: buttonRadius, opacity: 1 - i * 0.15 }}
-                />
-              ))}
-            </div>
-          </div>
-
+        {/* AIS.0: theme-derived preview via the shared LayoutPreview (the same
+            component the PageSetupWizard renders). The hover overlay is injected
+            as its child so the touch/desktop apply affordances are unchanged. */}
+        <LayoutPreview preset={preset} pageStyle={pageStyle}>
           {/* GAL.TOUCH: fine-pointer devices reveal Apply on hover (TPL.3d,
               unchanged); coarse/no-hover devices use the persistent <TouchApplyBar>
               below instead — one shared mechanism across both card types. */}
@@ -705,7 +531,7 @@ function LayoutCard({ preset, pageStyle, isApplying, isApplied, onApply }: Layou
             isApplied={isApplied}
             onApply={onApply}
           />
-        </div>
+        </LayoutPreview>
 
         {/* Preset Info: name, description, category tag */}
         <div className="p-2.5">

@@ -23,6 +23,7 @@ import {
   Files,
   GalleryHorizontalEnd,
   History,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -54,6 +55,7 @@ import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor'
 import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
+import { PageSetupWizard } from '@/components/editors/PageSetupWizard';
 import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
@@ -161,6 +163,14 @@ const sections: DashboardSection[] = [
   {
     labelKey: 'dashboard.myLinks',
     rows: [
+      {
+        // AIS.0: guided setup leads the group — it is the fastest path from an
+        // empty page to a live one, so it sits above the manual block rows.
+        icon: <Sparkles className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.pageSetup',
+        subtitleKey: 'dashboard.pageSetupDesc',
+        blockType: null,
+      },
       {
         icon: <Heart className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.managePlatforms',
@@ -353,6 +363,8 @@ export function ProfileDashboard({
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  // AIS.0: the "Set up my page" guided wizard sub-panel (My Links group).
+  const [pageSetupOpen, setPageSetupOpen] = useState(false);
   const [videoProfileOpen, setVideoProfileOpen] = useState(false);
   const [nameFxOpen, setNameFxOpen] = useState(false);
   // Name & Handle hub — drafts are seeded when the hub opens (not on every
@@ -437,6 +449,7 @@ export function ProfileDashboard({
     setEntryMode('add');
     setDesignOpen(false);
     setGalleryOpen(false);
+    setPageSetupOpen(false);
     setVideoProfileOpen(false);
     setNameFxOpen(false);
     setPagesOpen(false);
@@ -876,6 +889,10 @@ export function ProfileDashboard({
       return;
     }
     if (!row.blockType) {
+      if (row.titleKey === 'dashboard.pageSetup') {
+        setPageSetupOpen(true);
+        return;
+      }
       if (row.titleKey === 'dashboard.templateGallery') {
         setGalleryOpen(true);
         return;
@@ -1147,6 +1164,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.videoProfile')}</h2>
+                </>
+              ) : pageSetupOpen ? (
+                <>
+                  <button
+                    onClick={() => setPageSetupOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.pageSetup')}</h2>
                 </>
               ) : galleryOpen ? (
                 <>
@@ -1723,6 +1750,17 @@ export function ProfileDashboard({
                       </div>
                     </>
                   )}
+                </div>
+              ) : pageSetupOpen ? (
+                <div className="dark text-foreground flex min-h-full flex-col">
+                  <PageSetupWizard
+                    pageId={pageId}
+                    modeId={modeId}
+                    activePageId={activePageId}
+                    themeJson={themeJson}
+                    onApply={onRefresh}
+                    onClose={() => setPageSetupOpen(false)}
+                  />
                 </div>
               ) : galleryOpen ? (
                 <div className="dark text-foreground px-4 pb-8">
