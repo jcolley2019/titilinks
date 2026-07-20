@@ -6,6 +6,16 @@ import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
+// FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
+// this file resolves through it; nothing here may hardcode object-fit again.
+import {
+  resolveHeroMediaStyle,
+  heroFramingAttr,
+  useElementAspect,
+  imageAspect,
+  videoAspect,
+  type HeroFraming,
+} from '@/lib/hero-framing';
 import {
   DndContext,
   closestCenter,
@@ -111,6 +121,10 @@ interface EditableProfileViewProps {
   // checklist's Video Profile menu. A counter rather than a boolean, so the
   // same request can be made twice; each increment is one request.
   openPhotoRequest?: number;
+  // FIX.MEDIA.1: in-flight hero-video framing from the Video Profile panel's
+  // sliders. Declarative (unlike openPhotoRequest's counter), so both mounted
+  // editor instances may safely receive it. Absent → render the saved framing.
+  videoPosDraft?: HeroFraming | null;
   // Per-item edit affordances for links blocks (G2). Optional — absent on the
   // public/live render.
   onItemEdit?: (blockId: string, itemId: string) => void;
@@ -989,12 +1003,18 @@ function SortablePreviewCard({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+// FIX.MEDIA.1: HeroVideo owns video framing outright. Callers hand it the
+// stored framing plus the MEASURED aspect of the box it paints into; it reads
+// the clip's own aspect from metadata and resolves through the shared resolver.
+// Callers may no longer pass a style — that is how three surfaces drifted into
+// three geometries (one of which silently dropped framing entirely).
 export function HeroVideo({
   src,
   poster,
   fit,
   blurImage,
-  imgStyle,
+  framing,
+  containerAspect,
   playbackMode = 'once',
   audioMode = 'silent',
   voiceoverUrl = '',
@@ -1005,7 +1025,8 @@ export function HeroVideo({
   poster?: string;
   fit: string;
   blurImage?: string;
-  imgStyle: React.CSSProperties;
+  framing?: HeroFraming | null;
+  containerAspect?: number | null;
   playbackMode?: 'once' | 'loop' | 'bounce';
   audioMode?: 'silent' | 'clip' | 'voiceover';
   voiceoverUrl?: string;
@@ -1013,6 +1034,10 @@ export function HeroVideo({
   overlayPortalEl?: HTMLElement | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Null until metadata arrives; the resolver covers correctly meanwhile.
+  const [mediaAspect, setMediaAspect] = useState<number | null>(null);
+  const framingInput = { mediaAspect, containerAspect, framing };
+  const imgStyle = resolveHeroMediaStyle(framingInput);
   const audioRef = useRef<HTMLAudioElement>(null);
   const bounceRaf = useRef<number | null>(null);
   const [muted, setMuted] = useState(true);
@@ -1129,8 +1154,10 @@ export function HeroVideo({
         loop={playbackMode === 'loop'}
         playsInline
         onEnded={handleEnded}
+        onLoadedMetadata={(e) => setMediaAspect(videoAspect(e.currentTarget))}
         className="brightness-110"
         style={imgStyle}
+        data-hero-framing={heroFramingAttr(framingInput)}
       />
       {hasVoiceover && (
         <audio ref={audioRef} src={voiceoverUrl} preload="auto" />
@@ -1189,6 +1216,7 @@ export function EditableProfileView({
   onAddContent,
   onEditVideo,
   openPhotoRequest = 0,
+  videoPosDraft = null,
   onItemEdit,
   onItemDelete,
   onItemAdd,
@@ -1264,7 +1292,17 @@ export function EditableProfileView({
   // natural aspect drive whether the Top/Bottom slider has any vertical travel.
   const heroPreviewRef = useRef<HTMLDivElement>(null);
   const [heroImgAspect, setHeroImgAspect] = useState<number | null>(null);
-  const [posYHasTravel, setPosYHasTravel] = useState(true);
+  // FIX.MEDIA.1: measured off the dialog's preview box — which now renders at
+  // the LIVE container aspect, so this answers a question about the real page.
+  // It previously measured a 320x224 LANDSCAPE box while the hero is portrait,
+  // which is why "already fills top-to-bottom" fired on photos that had plenty
+  // of vertical travel. Cover pans only the axis that overflows: vertical
+  // travel exists iff the photo is narrower than the box it paints into.
+  const heroPreviewAspect = useElementAspect(heroPreviewRef);
+  const posYHasTravel =
+    heroImgAspect == null || heroPreviewAspect == null
+      ? true
+      : heroImgAspect < heroPreviewAspect - 0.01;
 
   // Lock body + inner container scroll when photo overlay is open
   useEffect(() => {
@@ -1308,25 +1346,6 @@ export function EditableProfileView({
       .catch((e) => console.error('[AI CROP] model preload failed:', (e as any)?.name, (e as any)?.message));
     return () => { cancelled = true; };
   }, [photoStep]);
-
-  // CROP.3a slider-truth (Defect D): object-cover only pans the axis that
-  // overflows. Vertical travel exists iff the photo is narrower than the preview
-  // box (imgAspect < containerAspect); otherwise the Top/Bottom slider is inert
-  // and we disable it with a caption rather than ship a dead control. Measured
-  // on the real box so a resized panel re-evaluates.
-  useEffect(() => {
-    const el = heroPreviewRef.current;
-    if (!el || heroImgAspect == null) { setPosYHasTravel(true); return; }
-    const measure = () => {
-      if (!el.clientHeight) return;
-      const cAspect = el.clientWidth / el.clientHeight;
-      setPosYHasTravel(heroImgAspect < cAspect - 0.01);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [heroImgAspect, heroFitDraft, photoStep]);
 
   // Header config (must be before state that depends on it)
   const headerConfig = (page.theme_json as any)?.headerConfig || {
@@ -2119,34 +2138,41 @@ export function EditableProfileView({
   // the component tree so a transformed ancestor (the desktop phone
   // frame) contains the fixed overlays.
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
-  // Hero VIDEO position/zoom — its OWN config, decoupled from the image's fit/posY.
-  // Absent on legacy videos → centered, no zoom.
-  const heroVideoPos = heroConfig.videoPos || {};
-  const videoScale: number = typeof heroVideoPos.scale === 'number' ? heroVideoPos.scale : 1;
-  const videoPosX: number = typeof heroVideoPos.posX === 'number' ? heroVideoPos.posX : 50;
-  const videoPosY: number = typeof heroVideoPos.posY === 'number' ? heroVideoPos.posY : 50;
   // Hero videos always render cover (never letterboxed); 'fit' applies to images only.
   const heroFitEffective: 'fill' | 'fit' = heroVideo ? 'fill' : heroFit;
-  const heroImgStyle: React.CSSProperties = heroFitEffective === 'fit'
-    ? { objectFit: 'contain', objectPosition: 'center' }
-    : { objectFit: 'cover', objectPosition: `50% ${heroPosY}%` };
-  // Video sized to its OWN aspect (fills the box at zoom 1), then transformed:
-  //  - scale < 1 reveals more of the clip (slim brand-dark edges appear)
-  //  - scale = 1 fills the frame edge-to-edge (cover)
-  //  - scale > 1 zooms in
-  // translate pans; the dark backdrop behind the <video> fills any revealed edges.
-  const heroVideoStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    minWidth: '100%',
-    minHeight: '100%',
-    width: 'auto',
-    height: 'auto',
-    maxWidth: 'none',
-    transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`,
-    transformOrigin: 'center',
+  // FIX.MEDIA.1 — stored framing, no longer a per-surface style. The VIDEO keeps
+  // its OWN config (decoupled from the image's fit/posY; absent on legacy videos
+  // → centred, no zoom). `videoPosDraft` is the live channel from the Video
+  // Profile panel's sliders: while a drag is in flight the panel owns the truth,
+  // so the page under it moves in real time instead of waiting on the debounced
+  // save + refetch. Absent (public route, or no drag) → the saved value.
+  const heroVideoFraming: HeroFraming = videoPosDraft ?? (heroConfig.videoPos || {});
+  const heroImgFraming: HeroFraming = {
+    fit: heroFitEffective,
+    posX: heroConfig.posX,
+    posY: heroPosY,
   };
+  // Measured, never assumed — the resolver emits an explicit rectangle, so a
+  // guessed container aspect would stretch the media. Two boxes: the sticky
+  // hero window, and the full-bleed layer (viewport-sized).
+  const heroContainerRef = useRef<HTMLDivElement>(null);
+  const heroContainerAspect = useElementAspect(heroContainerRef);
+  const fullBleedRef = useRef<HTMLDivElement>(null);
+  const fullBleedAspect = useElementAspect(fullBleedRef);
+  // Hero photo aspect — known only once decoded; until then the resolver covers.
+  // Decoded here rather than via an onLoad prop because the hero photo renders
+  // through SmoothImage, which owns its own onLoad. The browser serves this from
+  // cache (same URL the <img> requests), so it costs no extra fetch.
+  const [heroPhotoAspect, setHeroPhotoAspect] = useState<number | null>(null);
+  useEffect(() => {
+    setHeroPhotoAspect(null);
+    if (!heroImage) return;
+    let live = true;
+    const probe = new Image();
+    probe.onload = () => { if (live) setHeroPhotoAspect(imageAspect(probe)); };
+    probe.src = heroImage;
+    return () => { live = false; };
+  }, [heroImage]);
 
   // Page labels + two-page switcher (shown in both editor preview and live page).
   const themePages = (page.theme_json as any)?.pages;
@@ -2265,7 +2291,8 @@ export function EditableProfileView({
       {isFullBleed && (heroVideo || heroImage) && (
         <div
           aria-hidden="true"
-          className={editMode ? 'w-full' : 'fixed inset-0 z-0'}
+          ref={fullBleedRef}
+          className={editMode ? 'w-full overflow-hidden' : 'fixed inset-0 z-0 overflow-hidden'}
           // FS.PAGE.1: the editor preview lives inside a phone frame whose
           // `transform: translateZ(0)` re-parents position:fixed, so the live
           // page's fixed layer would scroll away with the content. In edit mode
@@ -2282,7 +2309,8 @@ export function EditableProfileView({
             <HeroVideo
               src={heroVideo}
               fit="fill"
-              imgStyle={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              framing={heroVideoFraming}
+              containerAspect={fullBleedAspect}
               playbackMode={heroPlayback}
               audioMode={heroAudio}
               voiceoverUrl={heroVoiceover}
@@ -2290,7 +2318,22 @@ export function EditableProfileView({
               overlayPortalEl={overlayHost}
             />
           ) : (
-            <img src={heroImage} alt="" className="h-full w-full object-cover" style={{ objectPosition: `${heroConfig.posX ?? 50}% ${heroConfig.posY ?? 50}%` }} />
+            // Full-bleed backgrounds are always cover — the Fill/Fit toggle is
+            // hero-only, so pin fit here rather than inherit the image's.
+            <img
+              src={heroImage}
+              alt=""
+              style={resolveHeroMediaStyle({
+                mediaAspect: heroPhotoAspect,
+                containerAspect: fullBleedAspect,
+                framing: { ...heroImgFraming, fit: 'fill' },
+              })}
+              data-hero-framing={heroFramingAttr({
+                mediaAspect: heroPhotoAspect,
+                containerAspect: fullBleedAspect,
+                framing: { ...heroImgFraming, fit: 'fill' },
+              })}
+            />
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
         </div>
@@ -2302,13 +2345,14 @@ export function EditableProfileView({
           against the previewed device frame, not the desktop window. On the
           public route the var is absent, so `var(--pv-vh, 1dvh) * 50` falls back
           to `50dvh` and the computed geometry is byte-identical. */}
-      <div data-testid="hero-sticky" className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(var(--pv-vh, 1dvh) * 50 + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
+      <div ref={heroContainerRef} data-testid="hero-sticky" className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(var(--pv-vh, 1dvh) * 50 + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
         {isFullBleed ? null : heroVideo ? (
           <HeroVideo
             src={heroVideo}
             fit={heroFitEffective}
             blurImage={heroImage}
-            imgStyle={heroVideoStyle}
+            framing={heroVideoFraming}
+            containerAspect={heroContainerAspect}
             playbackMode={heroPlayback}
             audioMode={heroAudio}
             voiceoverUrl={heroVoiceover}
@@ -2328,14 +2372,27 @@ export function EditableProfileView({
                 }}
               />
             )}
-            <SmoothImage
-              src={heroImage}
-              alt={page.display_name || page.handle}
-              className="brightness-110 relative"
-              imgStyle={heroImgStyle}
-              containerClassName="h-full w-full"
-              skeletonClassName="bg-neutral-900"
-            />
+            <div
+              className="h-full w-full"
+              data-hero-framing={heroFramingAttr({
+                mediaAspect: heroPhotoAspect,
+                containerAspect: heroContainerAspect,
+                framing: heroImgFraming,
+              })}
+            >
+              <SmoothImage
+                src={heroImage}
+                alt={page.display_name || page.handle}
+                className="brightness-110"
+                imgStyle={resolveHeroMediaStyle({
+                  mediaAspect: heroPhotoAspect,
+                  containerAspect: heroContainerAspect,
+                  framing: heroImgFraming,
+                })}
+                containerClassName="h-full w-full"
+                skeletonClassName="bg-neutral-900"
+              />
+            </div>
           </>
         ) : (
           <div className="h-full w-full bg-[#0e0c09] flex flex-col items-center justify-center gap-3">
@@ -2571,8 +2628,24 @@ export function EditableProfileView({
                       </p>
 
                       {/* Live preview in the real hero shape — what you see is what publishes */}
-                      <div ref={heroPreviewRef} className={isFullBleed ? 'relative w-40 aspect-[430/932] rounded-2xl overflow-hidden border-2 border-white/20 bg-black' : 'relative w-full max-w-xs h-56 rounded-2xl overflow-hidden border-2 border-white/20 bg-black'}>
-                        {heroFitDraft === 'fit' && (
+                      {/* FIX.MEDIA.1: framed at the LIVE container aspect, from
+                          the same device presets the crop step uses. It was a
+                          320x224 landscape box for a portrait hero — the shape
+                          the user framed against was never the shape that
+                          published, and the Top/Bottom slider's travel was
+                          judged against it. */}
+                      <div
+                        ref={heroPreviewRef}
+                        data-testid="hero-photo-preview"
+                        className="relative w-full max-w-[13rem] mx-auto rounded-2xl overflow-hidden border-2 border-white/20 bg-black"
+                        style={{ aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()) }}
+                        data-hero-framing={heroFramingAttr({
+                          mediaAspect: heroImgAspect,
+                          containerAspect: heroPreviewAspect,
+                          framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
+                        })}
+                      >
+                        {heroFitDraft === 'fit' && !isFullBleed && (
                           <div
                             aria-hidden="true"
                             className="absolute inset-0"
@@ -2588,13 +2661,14 @@ export function EditableProfileView({
                         <img
                           src={photoPreview}
                           alt={t('editor.hero.previewAlt')}
-                          onLoad={(e) => setHeroImgAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
-                          className="absolute inset-0 w-full h-full"
-                          style={
-                            heroFitDraft === 'fit' && !isFullBleed
-                              ? { objectFit: 'contain', objectPosition: 'center' }
-                              : { objectFit: 'cover', objectPosition: `${isFullBleed ? heroPosXDraft : 50}% ${heroPosYDraft}%` }
-                          }
+                          onLoad={(e) => setHeroImgAspect(imageAspect(e.currentTarget))}
+                          style={resolveHeroMediaStyle({
+                            mediaAspect: heroImgAspect,
+                            containerAspect: heroPreviewAspect,
+                            // Full-screen backgrounds are always cover — the
+                            // Fill/Fit toggle is hero-only.
+                            framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
+                          })}
                         />
                       </div>
 
@@ -2884,16 +2958,22 @@ export function EditableProfileView({
                       <p className="text-white font-semibold text-lg">
                         {t('editor.previewPhoto')}
                       </p>
-                      <div className="w-full rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50 aspect-video">
+                      {/* FIX.MEDIA.1: was aspect-video — a 16:9 landscape
+                          confirmation of a portrait hero. Same live aspect and
+                          same resolver as every other surface. */}
+                      <div
+                        className="relative w-full max-w-[13rem] mx-auto rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50"
+                        style={{ aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()) }}
+                      >
                         <img
                           src={photoPreview}
                           alt={t('editor.hero.previewAlt')}
-                          className="w-full h-full object-cover"
-                          style={{
-                            objectPosition: `${photoOffset.x}% ${photoOffset.y}%`,
-                            transform: `scale(${photoScale})`,
-                            transformOrigin: 'center',
-                          }}
+                          onLoad={(e) => setHeroImgAspect(imageAspect(e.currentTarget))}
+                          style={resolveHeroMediaStyle({
+                            mediaAspect: heroImgAspect,
+                            containerAspect: isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect(),
+                            framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
+                          })}
                         />
                       </div>
                       <div className="flex gap-3 w-full max-w-xs">

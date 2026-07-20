@@ -21,6 +21,14 @@ export const cropErrorCauseKey = (err: unknown): string => {
 
 export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
   const image = new Image();
+  // FIX.MEDIA.1 — tainted canvas: editing an EXISTING photo feeds this a remote
+  // Supabase storage URL (avatar_original_url), not a local data URL. Without a
+  // CORS request the canvas is tainted and toBlob throws SecurityError, so
+  // "Crop failed — image is cross-origin protected" was the guaranteed outcome
+  // of every re-crop. The AI path already did this (handleAiCrop); the manual
+  // path did not, which is exactly why AI crop worked on remote photos and
+  // manual crop did not. Must be set BEFORE .src or it does not apply.
+  image.crossOrigin = 'anonymous';
   image.src = imageSrc;
   // CROP.3a — readiness: wait on a real decode before reading pixels so Apply
   // Crop can never race an undecoded image. Fall back to onload for engines

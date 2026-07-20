@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
+import type { HeroFraming } from '@/lib/hero-framing';
 import { Loader2, Eye, Pencil } from 'lucide-react';
 import { AdultGateModal } from '@/components/AdultGateModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -345,13 +346,14 @@ export default function Editor() {
     fetchBlocks();
   };
 
-  // PHOTO.ROUTE.1: the mirror of handleEditVideo — the checklist's photo half.
-  // The panel closes itself through its own handleClose before calling this; all
-  // that is left is to leave visitor preview (the crop overlay only renders in
-  // edit mode) and fire the request. The breakpoint is read imperatively at click
-  // time rather than held as state, so a later window resize can never re-deliver
-  // a stale request to the other instance.
-  const handleEditPhoto = () => {
+  // PHOTO.ROUTE.1 plumbing, retained deliberately. FIX.MEDIA.1 removed the Video
+  // Profile menu's photo button (a photo's home is the camera on the hero), so
+  // nothing calls this today — it is kept as the ready entry point for any future
+  // surface that needs to open the photo flow from outside the preview. The
+  // breakpoint is read imperatively at call time rather than held as state, so a
+  // later window resize can never re-deliver a stale request to the other of the
+  // two mounted preview instances.
+  const openPhotoEditor = () => {
     setPreviewMode('edit');
     if (window.matchMedia('(min-width: 1024px)').matches) {
       setPhotoRequestDesktop((n) => n + 1);
@@ -359,6 +361,13 @@ export default function Editor() {
       setPhotoRequestMobile((n) => n + 1);
     }
   };
+  void openPhotoEditor;
+
+  // FIX.MEDIA.1: the Video Profile panel's in-flight framing. Declarative, so
+  // BOTH mounted preview instances can safely receive it (unlike the photo
+  // request's counter, which must target exactly one). This is what makes the
+  // page preview move while a slider is dragged, with no save.
+  const [videoPosDraft, setVideoPosDraft] = useState<HeroFraming | null>(null);
 
   // ── Per-item actions (G2: edit-aware preview cards, links blocks) ──
 
@@ -710,6 +719,7 @@ export default function Editor() {
               onAddContent={() => setProfileDashboardOpen(true)}
               onEditVideo={handleEditVideo}
               openPhotoRequest={photoRequestDesktop}
+              videoPosDraft={videoPosDraft}
               onItemEdit={handleItemEdit}
               onItemDelete={handleItemDelete}
               onItemAdd={handleItemAdd}
@@ -737,6 +747,7 @@ export default function Editor() {
           onAddContent={() => setProfileDashboardOpen(true)}
           onEditVideo={handleEditVideo}
           openPhotoRequest={photoRequestMobile}
+          videoPosDraft={videoPosDraft}
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
@@ -757,7 +768,7 @@ export default function Editor() {
         onRefresh={refresh}
         editingBlock={editingBlock}
         openVideoProfile={openVideoProfile}
-        onEditPhoto={handleEditPhoto}
+        onVideoPosDraft={setVideoPosDraft}
         onDraftChange={handleDraftChange}
         onTitleDraftChange={handleTitleDraftChange}
         onHeaderDraftChange={handleHeaderDraftChange}

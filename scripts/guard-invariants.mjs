@@ -20,6 +20,17 @@ const checks = [
     needs:[/isEditorPage\s*\?\s*'overflow-x-clip'\s*:\s*'overflow-x-hidden'/] },
   { name:'PUBLICPROFILE-WRAP', file:'pages/PublicProfile.tsx',
     needs:[/min-h-screen bg-\[#0e0c09\]/] },
+  // FIX.MEDIA.1: the crop engine must request its source with CORS. Editing an
+  // EXISTING photo feeds getCroppedImage a remote Supabase URL, and without this
+  // the canvas is tainted and every re-crop dies on "image is cross-origin
+  // protected". It must also be set BEFORE .src, or the browser ignores it.
+  { name:'CROP-CORS', file:'lib/crop.ts',
+    needs:[/image\.crossOrigin\s*=\s*'anonymous';\s*\n\s*image\.src\s*=\s*imageSrc;/] },
+  // FIX.MEDIA.1: hero media geometry has exactly ONE definition. If a surface
+  // hardcodes object-fit again, three previews drift back into three shapes.
+  { name:'HERO-ONE-RESOLVER', file:'components/EditableProfileView.tsx',
+    needs:[/resolveHeroMediaStyle\(/, /data-hero-framing=/],
+    absent:[/objectFit:\s*'cover'/] },
   // ES-SWEEP.1 Task 3: en/es dictionary parity — the 9th invariant. A Spanish
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.
@@ -50,10 +61,13 @@ for (const c of checks) {
   try { src = readFileSync(F(c.file), 'utf8'); }
   catch { console.error(`x ${c.name}: cannot read ${F(c.file)}`); failed++; continue; }
   const missing = c.needs.filter(re => !re.test(src));
-  if (missing.length) {
+  // `absent` is the mirror of `needs`: a pattern that must NOT reappear.
+  const forbidden = (c.absent ?? []).filter(re => re.test(src));
+  if (missing.length || forbidden.length) {
     failed++;
     console.error(`x ${c.name} (${c.file})`);
     missing.forEach(re => console.error(`      missing: ${re}`));
+    forbidden.forEach(re => console.error(`      must not be present: ${re}`));
   } else {
     console.log(`ok ${c.name}`);
   }

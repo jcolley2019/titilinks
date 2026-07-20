@@ -24,6 +24,7 @@ import {
   GalleryHorizontalEnd,
   History,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -31,6 +32,10 @@ import { HeroVideo } from '@/components/EditableProfileView';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveEffectivePageStyle, resolveHeroConfig } from '@/lib/surface';
+import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
+// FIX.MEDIA.1: the panel preview resolves through the SAME function the live
+// page does, at the SAME container aspect — that equality is the contract.
+import { useElementAspect, type HeroFraming } from '@/lib/hero-framing';
 import type { PageId, PageStyle } from '@/lib/theme-defaults';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -94,10 +99,10 @@ interface ProfileDashboardProps {
   /** When set with `open`, the panel opens directly into the Video Profile menu
    *  (driven by the hero video pencil). */
   openVideoProfile?: boolean;
-  /** PHOTO.ROUTE.1: hands the profile-photo half of "photo or video" back to the
-   *  Editor, which closes this panel and opens the hero photo flow in the preview
-   *  (the crop UI lives in EditableProfileView, not in a panel editor). */
-  onEditPhoto?: () => void;
+  /** FIX.MEDIA.1 — live hero-video framing, reported while a slider is being
+   *  dragged so the page preview moves with it instead of waiting on the
+   *  debounced save. Null when the Video Profile panel is closed. */
+  onVideoPosDraft?: (framing: HeroFraming | null) => void;
   /** Live-mirror channel (L2): forwarded to LinksEditor so the in-progress
    *  draft reaches the preview before Save. */
   onDraftChange?: (item: LinkItem | null) => void;
@@ -338,7 +343,7 @@ export function ProfileDashboard({
   onRefresh,
   editingBlock,
   openVideoProfile,
-  onEditPhoto,
+  onVideoPosDraft,
   onDraftChange,
   onTitleDraftChange,
   onHeaderDraftChange,
@@ -427,6 +432,21 @@ export function ProfileDashboard({
   const [videoPosX, setVideoPosX] = useState<number>(typeof heroVideoPos0.posX === 'number' ? heroVideoPos0.posX : 50);
   const [videoPosY, setVideoPosY] = useState<number>(typeof heroVideoPos0.posY === 'number' ? heroVideoPos0.posY : 50);
   const videoPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // FIX.MEDIA.1 — the panel preview's own frame, measured. Feeds the shared
+  // resolver so this preview and the live page compute the SAME rectangle.
+  const heroPreviewRef = useRef<HTMLButtonElement>(null);
+  const heroPreviewAspect = useElementAspect(heroPreviewRef);
+  // In-flight framing. The panel owns the truth while a slider is being dragged
+  // — the saved value is 400ms behind — so both this preview and the page
+  // preview under it read from here and move in real time.
+  const heroVideoFramingDraft: HeroFraming = { scale: videoScale, posX: videoPosX, posY: videoPosY };
+  // Publish it upward while the panel is open; withdraw on close so the page
+  // goes back to rendering the saved value (and a stale drag can't linger).
+  useEffect(() => {
+    if (!onVideoPosDraft) return;
+    onVideoPosDraft(videoProfileOpen ? { scale: videoScale, posX: videoPosX, posY: videoPosY } : null);
+  }, [onVideoPosDraft, videoProfileOpen, videoScale, videoPosX, videoPosY]);
+  useEffect(() => () => onVideoPosDraft?.(null), [onVideoPosDraft]);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [activeBlockType, setActiveBlockType] = useState<string | null>(null);
   const [activeBlockTitle, setActiveBlockTitle] = useState<string>('');
@@ -723,6 +743,11 @@ export function ProfileDashboard({
   // before this shipped).
   const activePageId: PageId = selectedMode ?? 'page1';
   const currentPageStyle: PageStyle = resolveEffectivePageStyle(themeJson, activePageId);
+  // FIX.MEDIA.1: the shape the hero media actually publishes at, from the same
+  // device presets the crop dialog frames to (DP.1 / CROP.3a-C). The panel
+  // preview renders at this, so what it shows is what the page renders.
+  const heroPreviewTargetAspect =
+    currentPageStyle === 'full_bleed' ? canonicalFullBleedAspect() : canonicalHeroAspect();
   // The default a page falls back to. Diverging from it is the Pro line.
   const profileDefaultStyle: PageStyle =
     (themeJson as any)?.pageStyle === 'full_bleed' ? 'full_bleed' : 'hero';
@@ -1688,24 +1713,43 @@ export function ProfileDashboard({
                 </div>
               ) : videoProfileOpen ? (
                 <div className="dark text-foreground px-4 pt-4 pb-8 space-y-5">
-                  {/* Pinned, hero-sized preview — stays in view while the sliders below scroll. */}
+                  {/* Pinned, hero-sized preview — stays in view while the sliders below scroll.
+                      FIX.MEDIA.1: ONE frame, at the LIVE container aspect, empty or
+                      populated — the shape must not jump when a video loads, and it
+                      must be the shape that actually publishes. The whole frame is the
+                      upload affordance; Change/Remove below stay for discoverability. */}
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-3 bg-[#0e0c09]">
-                    {heroVideoUrl ? (
-                      <div className={`relative rounded-2xl overflow-hidden border border-white/10 bg-[#0e0c09] h-[44vh] max-h-[460px] ${currentPageStyle === 'full_bleed' ? 'aspect-[9/19] mx-auto' : ''}`}>
+                    <button
+                      type="button"
+                      ref={heroPreviewRef}
+                      data-testid="hero-video-frame"
+                      onClick={() => videoInputRef.current?.click()}
+                      aria-label={heroVideoUrl ? t('dashboard.hero.changeVideo') : t('dashboard.hero.addVideo')}
+                      className={`relative block mx-auto rounded-2xl overflow-hidden bg-[#0e0c09] ${heroVideoUrl ? 'border border-white/10' : 'border border-dashed border-white/20 bg-white/5'}`}
+                      style={{
+                        aspectRatio: String(heroPreviewTargetAspect),
+                        // Height-capped, then width follows the aspect — so the
+                        // frame never overflows the narrow panel at either shape.
+                        width: `min(100%, ${Math.round(heroPreviewTargetAspect * 340)}px)`,
+                      }}
+                    >
+                      {heroVideoUrl ? (
                         <HeroVideo
                           src={heroVideoUrl}
                           fit="fill"
+                          framing={heroVideoFramingDraft}
+                          containerAspect={heroPreviewAspect}
                           playbackMode={heroPlaybackMode}
                           audioMode={heroAudioMode}
                           voiceoverUrl={heroCfg.voiceover || ''}
-                          imgStyle={currentPageStyle === 'full_bleed' ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%', objectFit: 'cover' as const } : { position: 'absolute', left: '50%', top: '50%', minWidth: '100%', minHeight: '100%', width: 'auto', height: 'auto', maxWidth: 'none', transform: `translate(-50%, -50%) scale(${videoScale}) translate(${(videoPosX - 50) * 0.5}%, ${(videoPosY - 50) * 0.5}%)`, transformOrigin: 'center' }}
                         />
-                      </div>
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 h-40 flex items-center justify-center">
-                        <p className="text-white/40 text-xs">{t('dashboard.hero.noVideo')}</p>
-                      </div>
-                    )}
+                      ) : (
+                        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4">
+                          <Camera className="h-8 w-8 text-white/25" />
+                          <span className="text-white/40 text-xs text-center">{t('dashboard.hero.noVideo')}</span>
+                        </span>
+                      )}
+                    </button>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1726,21 +1770,11 @@ export function ProfileDashboard({
                   <p className="text-white/40 text-[11px] -mt-3">
                     {t('dashboard.hero.bestResults')}
                   </p>
-                  {/* PHOTO.ROUTE.1: the photo half of "a profile photo or video".
-                      The still-photo flow (crop + AI) lives in the preview, not in
-                      a panel editor, so this hands off to the Editor — which closes
-                      the panel and opens the picker on the hero. Full-width on its
-                      own row: the video row above is already two buttons wide and a
-                      third would not fit the narrow panel. */}
-                  {onEditPhoto && (
-                    <button
-                      data-testid="hero-edit-photo"
-                      onClick={() => { handleClose(); onEditPhoto(); }}
-                      className="w-full py-3 rounded-xl border border-white/15 text-white/80 font-semibold text-sm"
-                    >
-                      {avatarUrl ? t('dashboard.hero.changePhoto') : t('dashboard.hero.addPhoto')}
-                    </button>
-                  )}
+                  {/* FIX.MEDIA.1 supersedes PHOTO.ROUTE.1's photo button here:
+                      a photo's home is the camera icon on the hero preview, and a
+                      second door into the same flow from the video menu read as
+                      redundant. The checklist's profileMedia row routes to this
+                      menu; the camera takes it from here. */}
                   {heroVideoUrl && (
                     <>
                       <div>
