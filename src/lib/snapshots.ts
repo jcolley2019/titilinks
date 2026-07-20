@@ -18,6 +18,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { getEntitlements } from '@/lib/entitlements';
+import { getThemeWithDefaults } from '@/lib/theme-defaults';
 
 type ModeType = Database['public']['Enums']['mode_type'];
 type BlockType = Database['public']['Enums']['block_type'];
@@ -224,6 +225,56 @@ export async function listSnapshots(pageId: string): Promise<SnapshotRow[]> {
 export async function deleteSnapshot(snapshotId: string): Promise<void> {
   const { error } = await supabase.from('profile_snapshots').delete().eq('id', snapshotId);
   if (error) throw error;
+}
+
+/**
+ * SNAP.2 — rename a MANUAL snapshot. Auto snapshots stay immutable: the
+ * `.eq('kind','manual')` guard makes an auto id a no-op even if one reached
+ * here, matching the row-level RLS added by the SNAP.2 migration
+ * (profile_snapshots shipped immutable in SNAP.1). Only the `name` column is
+ * ever written.
+ */
+export async function renameSnapshot(snapshotId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Snapshot name cannot be empty.');
+  const { error } = await supabase
+    .from('profile_snapshots')
+    .update({ name: trimmed })
+    .eq('id', snapshotId)
+    .eq('kind', 'manual');
+  if (error) throw error;
+}
+
+/** A snapshot's 3-chip theme swatch — background, button fill, accent. */
+export interface SnapshotSwatch {
+  background: string;
+  button: string;
+  accent: string;
+}
+
+/**
+ * SNAP.2 — derive a 3-chip swatch straight from a stored payload's theme_json
+ * (pure; no schema change, no images). Background reads the effective fill for
+ * the background type (solid color / gradient CSS / image overlay), the button
+ * chip is the button fill, and the accent chip is the theme's text color — the
+ * app has no dedicated "accent" field (its brand gold IS the button fill), so
+ * text color is the most informative third cue for "which look was this?".
+ * Missing/partial themes normalize through getThemeWithDefaults, so this always
+ * returns three valid CSS colors.
+ */
+export function deriveSnapshotSwatch(themeJson: unknown): SnapshotSwatch {
+  const theme = getThemeWithDefaults(themeJson);
+  const bg =
+    theme.background.type === 'gradient'
+      ? theme.background.gradient_css || theme.background.solid_color
+      : theme.background.type === 'image'
+        ? theme.background.overlay_color || theme.background.solid_color
+        : theme.background.solid_color;
+  return {
+    background: bg,
+    button: theme.buttons.fill_color,
+    accent: theme.typography.text_color,
+  };
 }
 
 /**

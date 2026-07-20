@@ -106,6 +106,17 @@ async function installSnapshotMocks(
       return route.fulfill({ status: 204, body: '' });
     }
 
+    // SNAP.2 — rename: update the matched row's name; return=minimal → 204.
+    if (method === 'PATCH') {
+      const raw = route.request().postDataJSON();
+      const patch = Array.isArray(raw) ? raw[0] : raw;
+      const m = url.match(/id=eq\.([^&]+)/);
+      const id = m ? decodeURIComponent(m[1]) : null;
+      const row = id ? store.find((r) => r.id === id) : undefined;
+      if (row && typeof patch?.name === 'string') row.name = patch.name;
+      return route.fulfill({ status: 204, body: '' });
+    }
+
     // GET — single (restore load) or list.
     const rows = [...store].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (wantsObject(route)) {
@@ -254,5 +265,82 @@ test.describe('Profile Snapshots (SNAP.1)', () => {
     await expect(page.getByTestId('snapshots-upsell')).toBeVisible();
     await expect(page.getByTestId('snapshot-save')).toHaveCount(0);
     await expect(page.getByTestId('snapshot-name')).toHaveCount(0);
+  });
+});
+
+/**
+ * SNAP.2 — snapshot niceties: inline rename (manual only), a per-row theme
+ * swatch derived from the snapshot's own payload, and a benefit-named upsell.
+ */
+test.describe('Profile Snapshots — niceties (SNAP.2)', () => {
+  test('renaming a manual snapshot writes the new name (PATCH) and shows it', async ({ page }) => {
+    const seed = makeRow({ name: 'Old Name', kind: 'manual', payload: { v: 1, theme_json: {}, modes: [] } });
+    await installSnapshotMocks(page, { plan: 'pro', seed: [seed] });
+    await openEditProfile(page);
+    await openSnapshotsPanel(page);
+
+    const row = page.getByTestId('snapshot-row').filter({ hasText: 'Old Name' });
+    await expect(row).toBeVisible();
+
+    // Pencil → inline input.
+    await row.getByTestId('snapshot-rename').click();
+    const input = page.getByTestId('snapshot-rename-input');
+    await expect(input).toBeVisible();
+    await input.fill('New Name');
+
+    const patchReq = page.waitForRequest(
+      (r) => r.url().includes('/rest/v1/profile_snapshots') && r.method() === 'PATCH',
+    );
+    await page.getByTestId('snapshot-rename-save').click();
+
+    // The rename PATCH carries the new name.
+    const body = (await patchReq).postDataJSON();
+    expect(body.name).toBe('New Name');
+
+    // Reloaded list reflects it.
+    await expect(page.getByTestId('snapshot-row').filter({ hasText: 'New Name' })).toBeVisible();
+    await expect(page.getByTestId('snapshot-row').filter({ hasText: 'Old Name' })).toHaveCount(0);
+  });
+
+  test('each row shows a 3-chip theme swatch matching its payload theme_json', async ({ page }) => {
+    const THEME = {
+      background: { type: 'solid', solid_color: '#112233', gradient_css: '', image_url: '', overlay_color: '#000000', overlay_opacity: 0, source: null },
+      buttons: { shape: 'pill', fill_color: '#aabbcc', text_color: '#000000', border_enabled: false, border_color: '#ffffff', shadow_enabled: false, density: 'normal' },
+      typography: { font: 'inter', text_color: '#ffddee' },
+      motion: { enabled: true },
+    };
+    const seed = makeRow({ name: 'Pink Look', kind: 'manual', payload: { v: 1, theme_json: THEME, modes: [] } });
+    await installSnapshotMocks(page, { plan: 'pro', seed: [seed] });
+    await openEditProfile(page);
+    await openSnapshotsPanel(page);
+
+    const chips = page.getByTestId('snapshot-swatch-chip');
+    await expect(chips).toHaveCount(3);
+    // background (#112233), button fill (#aabbcc), accent/text (#ffddee).
+    await expect(chips.nth(0)).toHaveCSS('background-color', 'rgb(17, 34, 51)');
+    await expect(chips.nth(1)).toHaveCSS('background-color', 'rgb(170, 187, 204)');
+    await expect(chips.nth(2)).toHaveCSS('background-color', 'rgb(255, 221, 238)');
+  });
+
+  test('auto snapshots have no rename affordance but still show a swatch', async ({ page }) => {
+    const seed = makeRow({ name: 'Before template: X', kind: 'auto', payload: { v: 1, theme_json: {}, modes: [] } });
+    await installSnapshotMocks(page, { plan: 'pro', seed: [seed] });
+    await openEditProfile(page);
+    await openSnapshotsPanel(page);
+
+    const row = page.getByTestId('snapshot-row').filter({ hasText: 'Before template: X' });
+    await expect(row).toHaveAttribute('data-kind', 'auto');
+    await expect(row.getByTestId('snapshot-rename')).toHaveCount(0);
+    await expect(row.getByTestId('snapshot-swatch')).toBeVisible();
+  });
+
+  test('at the free-plan quota the upsell names the PRO benefit', async ({ page }) => {
+    const seed = makeRow({ name: 'My only snapshot', kind: 'manual' });
+    await installSnapshotMocks(page, { plan: 'free', seed: [seed] });
+    await openEditProfile(page);
+    await openSnapshotsPanel(page);
+
+    await expect(page.getByTestId('snapshots-upsell')).toBeVisible();
+    await expect(page.getByTestId('snapshots-upsell-benefit')).toHaveText('PRO keeps 5 restore points');
   });
 });

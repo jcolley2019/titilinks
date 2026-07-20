@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, Pencil, Check, X } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
@@ -8,8 +8,11 @@ import {
   captureSnapshot,
   restoreSnapshot,
   deleteSnapshot,
+  renameSnapshot,
+  deriveSnapshotSwatch,
   SnapshotQuotaError,
   type SnapshotRow,
+  type SnapshotPayloadV1,
 } from '@/lib/snapshots';
 
 /**
@@ -63,6 +66,10 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // SNAP.2: inline rename state (manual snapshots only).
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const reload = async () => {
     const rows = await listSnapshots(pageId);
@@ -147,6 +154,32 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
     else void doDelete(c.id);
   };
 
+  // SNAP.2: rename a manual snapshot (auto rows have no rename affordance).
+  const startRename = (snap: SnapshotRow) => {
+    setRenamingId(snap.id);
+    setRenameValue(snap.name);
+  };
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameValue('');
+  };
+  const saveRename = async (id: string) => {
+    const v = renameValue.trim();
+    if (!v || renameSaving) return;
+    setRenameSaving(true);
+    try {
+      await renameSnapshot(id, v);
+      setRenamingId(null);
+      setRenameValue('');
+      await reload();
+    } catch (e) {
+      console.error('[snapshots] rename failed:', e);
+      toast.error(t('snapshots.renameFailed'));
+    } finally {
+      setRenameSaving(false);
+    }
+  };
+
   return (
     <div
       className="dark text-foreground flex min-h-full flex-col gap-4 px-4 pt-4"
@@ -175,6 +208,9 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
           {snapshots.map((snap) => {
             const isAuto = snap.kind === 'auto';
             const busy = busyId === snap.id;
+            const isRenaming = renamingId === snap.id;
+            const payload = snap.payload as unknown as SnapshotPayloadV1 | null;
+            const swatch = deriveSnapshotSwatch(payload?.theme_json);
             return (
               <div
                 key={snap.id}
@@ -184,22 +220,84 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
-                      <span className="truncate">{snap.name}</span>
-                      <span
-                        className={`shrink-0 inline-flex items-center rounded-full text-[9px] font-bold px-1.5 py-0.5 ${
-                          isAuto
-                            ? 'bg-white/10 text-white/50'
-                            : 'bg-[#C9A55C]/15 text-[#C9A55C]'
-                        }`}
-                      >
-                        {t(isAuto ? 'snapshots.autoBadge' : 'snapshots.manualBadge')}
-                      </span>
-                    </p>
+                    {isRenaming ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void saveRename(snap.id);
+                            if (e.key === 'Escape') cancelRename();
+                          }}
+                          autoFocus
+                          maxLength={80}
+                          data-testid="snapshot-rename-input"
+                          className="min-w-0 flex-1 rounded-lg border border-[#C9A55C]/50 bg-white/10 px-2 py-1 text-sm text-white focus:outline-none"
+                        />
+                        <button
+                          onClick={() => void saveRename(snap.id)}
+                          disabled={renameSaving || !renameValue.trim()}
+                          data-testid="snapshot-rename-save"
+                          aria-label={t('snapshots.renameSave')}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#C9A55C] text-[#0e0c09] disabled:opacity-40"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={cancelRename}
+                          data-testid="snapshot-rename-cancel"
+                          aria-label={t('snapshots.cancel')}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/70 hover:bg-white/15"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+                        <span className="truncate">{snap.name}</span>
+                        <span
+                          className={`shrink-0 inline-flex items-center rounded-full text-[9px] font-bold px-1.5 py-0.5 ${
+                            isAuto
+                              ? 'bg-white/10 text-white/50'
+                              : 'bg-[#C9A55C]/15 text-[#C9A55C]'
+                          }`}
+                        >
+                          {t(isAuto ? 'snapshots.autoBadge' : 'snapshots.manualBadge')}
+                        </span>
+                      </p>
+                    )}
                     <p className="text-[11px] text-white/50 mt-0.5">
                       {relativeTime(snap.created_at, language)}
                     </p>
+                    {/* SNAP.2: theme swatch derived from THIS snapshot's own
+                        payload theme_json — background + button fill + accent.
+                        The fastest "which one was the pink look?" cue. */}
+                    <div
+                      className="mt-1.5 flex items-center gap-1"
+                      data-testid="snapshot-swatch"
+                      aria-label={t('snapshots.swatchLabel')}
+                    >
+                      {[swatch.background, swatch.button, swatch.accent].map((c, i) => (
+                        <span
+                          key={i}
+                          data-testid="snapshot-swatch-chip"
+                          className="h-3.5 w-3.5 rounded-full border border-white/20"
+                          style={{ background: c }}
+                        />
+                      ))}
+                    </div>
                   </div>
+                  {!isAuto && !isRenaming && (
+                    <button
+                      onClick={() => startRename(snap)}
+                      data-testid="snapshot-rename"
+                      aria-label={t('snapshots.rename')}
+                      className="shrink-0 p-1 text-white/40 hover:text-white"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2.5 flex gap-2">
                   <button
@@ -235,14 +333,20 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
               {t('snapshots.limitReached')}
             </p>
           ) : (
-            <button
-              onClick={() => toast(t('snapshots.proTitle'), { description: t('snapshots.proDesc') })}
-              data-testid="snapshots-upsell"
-              className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm flex items-center justify-center gap-1.5"
-            >
-              <Lock className="h-4 w-4" />
-              {t('snapshots.upgradeToPro')}
-            </button>
+            <div className="space-y-2">
+              {/* SNAP.2: name the benefit right on the Save-action upsell. */}
+              <p className="text-white/50 text-[12px] text-center" data-testid="snapshots-upsell-benefit">
+                {t('snapshots.upsellBenefit')}
+              </p>
+              <button
+                onClick={() => toast(t('snapshots.proTitle'), { description: t('snapshots.proDesc') })}
+                data-testid="snapshots-upsell"
+                className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm flex items-center justify-center gap-1.5"
+              >
+                <Lock className="h-4 w-4" />
+                {t('snapshots.upgradeToPro')}
+              </button>
+            </div>
           )
         ) : (
           <div className="flex gap-2">
