@@ -43,6 +43,28 @@ const PHONE = { width: PRESET.width, height: PRESET.height };
  *  shrinking to fit — required for the exact-parity comparison. */
 const ROOMY_DESKTOP = { width: 1400, height: 1000 };
 
+/** FIX.STAGE.2b — SHORTER than the preset plus its margins, so the stage cannot
+ *  render 1:1 and must fit. This is the window shape the shipped DESK.STAGE.1
+ *  parity spec never exercised (ROOMY_DESKTOP resolves to exactly 402x874), and
+ *  it is where the reflow-shrink bug lived. */
+const SHORT_DESKTOP = { width: 1200, height: 700 };
+
+/** The hero window the page renders: `calc(var(--pv-vh) * 50 + HERO_EXTRA)`.
+ *  Mirrors EditableProfileView's constant — the number whose PROPORTION drifted
+ *  when the stage shrank, taking the framing with it. */
+const HERO_EXTRA = 60;
+const expectedHeroHeight = (deviceHeight: number) =>
+  Math.min(deviceHeight * 0.5 + HERO_EXTRA, 500 + HERO_EXTRA);
+
+/** LAYOUT pixels — `offsetWidth/offsetHeight` are computed pre-transform, so
+ *  they report the box the PAGE sees regardless of any fit scaling. That is the
+ *  whole point of the fix: what the page measures must be the device, always. */
+const layoutBox = (page: Page, testId: string) =>
+  page.getByTestId(testId).first().evaluate((el) => ({
+    w: (el as HTMLElement).offsetWidth,
+    h: (el as HTMLElement).offsetHeight,
+  }));
+
 const asJson = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
@@ -319,6 +341,202 @@ test.describe('DESK.STAGE.2 — owner-selected stage device', () => {
     const heroBox = (await page.getByTestId('hero-sticky').first().boundingBox())!;
     expect(heroBox.width).toBeGreaterThan(vw * 0.9);
   });
+});
+
+/**
+ * FIX.STAGE.2b — same device ⇒ identical render, at any window size.
+ *
+ * The stage used to keep the preset's ASPECT but reduce its layout box when the
+ * window was short: a 1200x700 window produced a 300x652 stage. The page's
+ * fixed-px geometry does not shrink with it, and the hero window
+ * (`50% of height + 60px`) changes ASPECT as the box shrinks — 0.8089 at true
+ * size, 0.7769 at 300x652. FIX.MEDIA.1 resolves framing from the measured
+ * container aspect, so that drift is a different crop of the same media. The
+ * editor preview never had the bug: DP.1 lays out at true device pixels and
+ * fits with a transform. The stage now does the same.
+ *
+ * These specs assert on LAYOUT pixels and on `data-hero-framing`, both of which
+ * are transform-blind — so they measure the device the page renders at, not the
+ * footprint it occupies on screen.
+ */
+test.describe('FIX.STAGE.2b — true device pixels, scaled to fit', () => {
+  test('a short window scales the stage instead of shrinking its layout', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    await installMocks(page, 'full_bleed');
+
+    await page.setViewportSize(SHORT_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    const stage = page.getByTestId('desk-stage');
+    await expect(stage).toBeVisible();
+
+    // The window genuinely cannot fit the device — otherwise this proves nothing.
+    expect(SHORT_DESKTOP.height).toBeLessThan(PRESET.height);
+
+    // LAYOUT is the full device. This is the assertion the old code failed:
+    // it reported 300x652 here.
+    expect(await layoutBox(page, 'desk-stage')).toEqual({ w: PRESET.width, h: PRESET.height });
+
+    // …and the fit came from a transform, which is under 1 and visibly applied.
+    const scale = Number(await stage.getAttribute('data-stage-scale'));
+    expect(scale).toBeGreaterThan(0);
+    expect(scale).toBeLessThan(1);
+    const box = (await stage.boundingBox())!;
+    expect(box.height).toBeCloseTo(PRESET.height * scale, 0);
+    expect(box.width).toBeCloseTo(PRESET.width * scale, 0);
+
+    // The scaled footprint actually fits the window, centred.
+    expect(box.height).toBeLessThanOrEqual(SHORT_DESKTOP.height);
+    expect(box.x + box.width / 2).toBeCloseTo(SHORT_DESKTOP.width / 2, 0);
+    expect(box.y + box.height / 2).toBeCloseTo(SHORT_DESKTOP.height / 2, 0);
+  });
+
+  test('the hero window keeps the device geometry on a short window', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    await installMocks(page, 'hero');
+
+    await page.setViewportSize(SHORT_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    // The layout probe: the hero window is the surface whose ASPECT drifted, so
+    // its pre-transform height is the direct witness. Old code: 386, not 497.
+    const hero = await layoutBox(page, 'hero-sticky');
+    expect(hero.w).toBe(PRESET.width);
+    expect(hero.h).toBeCloseTo(expectedHeroHeight(PRESET.height), 0);
+
+    // Which means the hero's aspect — the input FIX.MEDIA.1's resolver keys on —
+    // is the device's, not the window's.
+    expect(hero.w / hero.h).toBeCloseTo(
+      PRESET.width / expectedHeroHeight(PRESET.height),
+      3,
+    );
+  });
+
+  for (const style of ['full_bleed', 'hero'] as PageStyle[]) {
+    test(`PARITY (${style}) — short window, roomy window and a real phone all frame identically`, async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop', 'needs one browser at three sizes');
+      await installMocks(page, style);
+
+      // 1. Roomy: the stage renders 1:1, the case the shipped spec covered.
+      await page.setViewportSize(ROOMY_DESKTOP);
+      await page.goto(HANDLE);
+      await settle(page);
+      await expect(page.getByTestId('desk-stage')).toHaveAttribute('data-stage-scale', '1');
+      const roomy = await framingOf(page);
+
+      // 2. Short: the stage must scale. Same device ⇒ same framing.
+      await page.setViewportSize(SHORT_DESKTOP);
+      await page.reload();
+      await settle(page);
+      const shortScale = Number(
+        await page.getByTestId('desk-stage').getAttribute('data-stage-scale'),
+      );
+      expect(shortScale).toBeLessThan(1);
+      const short = await framingOf(page);
+
+      // 3. A real phone at the preset's viewport — the ground truth.
+      await page.setViewportSize(PHONE);
+      await page.reload();
+      await settle(page);
+      await emulateOverlayScrollbars(page);
+      await page.waitForTimeout(200);
+      await expect(page.getByTestId('desk-stage')).toHaveCount(0);
+      const phone = await framingOf(page);
+
+      // A vacuous pass is worse than a failure.
+      expect(roomy).toBeTruthy();
+      expect(roomy).not.toContain('pending');
+      expect(short).toBe(roomy);
+      expect(short).toBe(phone);
+    });
+  }
+
+  test('the stage still scrolls when scaled', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop-only surface');
+    await installMocks(page, 'hero');
+
+    await page.setViewportSize(SHORT_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+
+    const scroller = page.getByTestId('desk-stage-scroll');
+    // Scroll offsets live in the element's own (unscaled) coordinate space, so
+    // a scaled stage scrolls in device pixels exactly like an unscaled one.
+    const scrollable = await scroller.evaluate(
+      (el) => el.scrollHeight - el.clientHeight,
+    );
+    test.skip(scrollable <= 0, 'page is shorter than the device — nothing to scroll');
+
+    await scroller.evaluate((el) => el.scrollTo(0, 200));
+    await page.waitForTimeout(150);
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBeCloseTo(
+      Math.min(200, scrollable),
+      0,
+    );
+  });
+
+  // Both styles on purpose. full_bleed fills the whole device box, so a
+  // proportional shrink preserved its aspect and the old bug barely showed
+  // (0.1pp of rounding). `hero` is the sensitive one — its window is
+  // `50% + 60px`, so the additive constant moves the aspect — and it is the
+  // style the field report came from.
+  for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
+  test(`editor preview and public stage frame the same media identically (${style})`, async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'the editor preview is a desktop surface');
+    // Pin the editor's ephemeral device selection to the stage's device, so the
+    // two surfaces are being asked the same question.
+    await page.addInitScript((id) => {
+      localStorage.setItem('titilinks-editor-device', id as string);
+    }, DEFAULT_DEVICE_ID);
+    await installMocks(page, style);
+    // Reads pass through; the editor must not write while we look at it.
+    for (const tbl of ['modes', 'blocks', 'block_items']) {
+      await page.route(`**/rest/v1/${tbl}*`, async (route) => {
+        if (route.request().method() === 'GET') return route.continue();
+        return route.fulfill({ status: 204, body: '' });
+      });
+    }
+
+    // The public stage, on a window that forces a fit scale.
+    await page.setViewportSize(SHORT_DESKTOP);
+    await page.goto(HANDLE);
+    await settle(page);
+    const staged = await framingOf(page);
+    expect(staged).toBeTruthy();
+    expect(staged).not.toContain('pending');
+
+    // The editor's DP.1 preview frame, same preset, same window.
+    await page.goto('/dashboard/editor');
+    await page.waitForLoadState('networkidle');
+    const frame = page.getByTestId('device-frame');
+    await expect(frame).toBeVisible();
+    // Visitor mode renders exactly what a visitor gets (DP.2), which is the
+    // surface the stage is supposed to reproduce.
+    await page.getByTestId('preview-mode-toggle').click();
+    await settle(page);
+
+    // The frame is the device at true pixels — the property the stage adopted.
+    expect(await layoutBox(page, 'device-frame')).toEqual({
+      w: PRESET.width,
+      h: PRESET.height,
+    });
+    const previewed = await frame
+      .locator('[data-hero-framing]')
+      .first()
+      .getAttribute('data-hero-framing');
+    expect(previewed).toBe(staged);
+  });
+  }
 });
 
 /**
