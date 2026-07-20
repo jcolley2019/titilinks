@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Instagram, Youtube, Music, Globe, ShoppingBag, Ticket, Link2, type LucideIcon } from 'lucide-react';
+import { Instagram, Youtube, Music, Globe, ShoppingBag, Ticket, Link2, Headphones, Plane, Film, Calendar, Play, Sparkles, MapPin, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import creatorCover from '@/assets/demo-creator.webp';
 import creatorBig from '@/assets/demo-creator-big.webp';
@@ -34,6 +34,13 @@ type Block =
   | { type: 'products'; items: { img: string; en: string; es: string; price: string }[] }
   | { type: 'cta'; bg: string; fg: string; Icon: LucideIcon; en: string; es: string };
 
+/* Full-bleed page: the photo fills the whole screen, glass link buttons float over it. */
+type FullBleedConfig = {
+  img: string;
+  goldFrame?: boolean;
+  links: { Icon: LucideIcon; en: string; es: string }[];
+};
+
 type Example = {
   key: string;
   name: string;
@@ -43,6 +50,7 @@ type Example = {
   cover: string;
   socials: Social[];
   blocks: Block[];
+  fullBleed?: FullBleedConfig;
 };
 
 const SOCIALS: Social[] = [
@@ -73,6 +81,25 @@ const EXAMPLES: Example[] = [
     ],
   },
   {
+    key: 'dj',
+    name: 'Rafa Solano',
+    handle: '@rafa.sets',
+    followers: '312K',
+    accent: '#B36BFF',
+    cover: musicianCover,
+    socials: SOCIALS,
+    blocks: [],
+    fullBleed: {
+      img: musicianCover,
+      links: [
+        { Icon: Headphones, en: "Tonight's set", es: 'Set de esta noche' },
+        { Icon: Music, en: 'Latest mix', es: 'Último mix' },
+        { Icon: Ticket, en: 'Get tickets', es: 'Consigue entradas' },
+        { Icon: Play, en: 'Watch the recap', es: 'Ver el resumen' },
+      ],
+    },
+  },
+  {
     key: 'musician',
     name: 'Leo Marsh',
     handle: '@leomarsh',
@@ -93,6 +120,25 @@ const EXAMPLES: Example[] = [
     ],
   },
   {
+    key: 'travel',
+    name: 'Sofía Marín',
+    handle: '@sofia.wanders',
+    followers: '204K',
+    accent: '#4FA3D1',
+    cover: creatorB,
+    socials: SOCIALS,
+    blocks: [],
+    fullBleed: {
+      img: creatorB,
+      links: [
+        { Icon: MapPin, en: 'Travel guides', es: 'Guías de viaje' },
+        { Icon: Plane, en: 'Book a trip', es: 'Reserva un viaje' },
+        { Icon: ShoppingBag, en: 'My travel gear', es: 'Mi equipo de viaje' },
+        { Icon: Play, en: 'Watch the vlog', es: 'Ver el vlog' },
+      ],
+    },
+  },
+  {
     key: 'athlete',
     name: 'Jordan Hayes',
     handle: '@jhayes',
@@ -104,6 +150,26 @@ const EXAMPLES: Example[] = [
       { type: 'bigcard', img: athleteBig, en: 'Training vlog', es: 'Vlog de entrenamiento' },
       { type: 'gallery', imgs: [athleteG1, athleteG2, athleteG3, athleteCover] },
     ],
+  },
+  {
+    key: 'actriz',
+    name: 'Valentina Cruz',
+    handle: '@valentina.cruz',
+    followers: '1.4M',
+    accent: '#C9A55C',
+    cover: creatorCover,
+    socials: SOCIALS,
+    blocks: [],
+    fullBleed: {
+      img: creatorCover,
+      goldFrame: true,
+      links: [
+        { Icon: Film, en: 'Latest film', es: 'Última película' },
+        { Icon: Sparkles, en: 'Fragrance line', es: 'Línea de fragancias' },
+        { Icon: Calendar, en: 'Press & events', es: 'Prensa y eventos' },
+        { Icon: Ticket, en: 'Premiere tickets', es: 'Entradas del estreno' },
+      ],
+    },
   },
   {
     key: 'business',
@@ -149,9 +215,79 @@ function ImageCard({ img, title, aspect }: { img: string; title: string; aspect:
   );
 }
 
+/* ── Full-bleed page: photo edge-to-edge, glass buttons floating over it ── */
+
+function FullBleedScreen({ example, lang }: { example: Example; lang: Lang }) {
+  const tx = (en: string, es: string) => (lang === 'es' ? es : en);
+  const fb = example.fullBleed!;
+  // Match the app's real full_bleed + FS.SURFACE glass: rgba(255,255,255,0.10)
+  // fill + blur, a white hairline — or a gold hairline for the framed look.
+  const border = fb.goldFrame ? 'rgba(201,165,92,0.55)' : 'rgba(255,255,255,0.25)';
+  const iconColor = fb.goldFrame ? '#C9A55C' : '#ffffff';
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {/* Edge-to-edge photo */}
+      <img src={fb.img} alt={`${example.name} TitiLinks page`} className="absolute inset-0 h-full w-full object-cover object-top" />
+      {/* Legibility scrim — light at the top so the face reads, deep at the bottom under the buttons */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 44%, rgba(0,0,0,0.82) 100%)' }} />
+
+      {/* Content, anchored to the lower half over the photo */}
+      <div className="relative flex h-full flex-col justify-end px-4 pb-7">
+        {/* Identity */}
+        <div className="flex flex-col items-center">
+          <h3 className="font-display text-[20px] font-semibold leading-tight text-white" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+            {example.name}
+          </h3>
+          <p className="text-[11px] text-white/70">{example.handle}</p>
+        </div>
+
+        {/* Social row — glass chips */}
+        <div className="mt-2.5 flex items-center justify-center gap-2.5">
+          {example.socials.map(({ Icon, color }, i) => (
+            <div key={i} className="grid h-7 w-7 place-items-center rounded-full border border-white/20 bg-white/10 backdrop-blur-md">
+              <Icon className="h-[15px] w-[15px]" style={{ color: color === '#C9A55C' ? example.accent : color }} />
+            </div>
+          ))}
+        </div>
+
+        {/* Glass link buttons over the photo */}
+        <div className="mt-3.5 flex flex-col gap-2.5">
+          {fb.links.map((b, j) => (
+            <div
+              key={j}
+              className="flex items-center gap-2 rounded-full py-2 pl-2 pr-3 backdrop-blur-md"
+              style={{ backgroundColor: 'rgba(255,255,255,0.10)', border: `1px solid ${border}` }}
+            >
+              <div className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full border border-white/25 bg-white/15">
+                <b.Icon className="h-[15px] w-[15px]" style={{ color: iconColor }} />
+              </div>
+              <span className="flex-1 truncate text-center text-[12px] font-bold text-white" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
+                {tx(b.en, b.es)}
+              </span>
+              <span className="w-7 flex-shrink-0" />
+            </div>
+          ))}
+        </div>
+
+        {/* Footer wordmark */}
+        <div className="mt-4 text-center">
+          <p className="text-[9px] text-white/40">
+            <span className="text-white/55">Titi</span>
+            <span className="font-display italic" style={{ color: example.accent }}>
+              Links
+            </span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── One example page inside the phone screen ───────────────────────── */
 
 function PhoneScreen({ example, lang }: { example: Example; lang: Lang }) {
+  if (example.fullBleed) return <FullBleedScreen example={example} lang={lang} />;
   const tx = (en: string, es: string) => (lang === 'es' ? es : en);
 
   return (
