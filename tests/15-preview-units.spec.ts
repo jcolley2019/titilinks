@@ -54,7 +54,17 @@ test.describe('DP.2 Task B — container-truthful preview units', () => {
     }
   });
 
-  test('public hero computed height is byte-identical to the pre-DP.2 formula', async ({ page }) => {
+  test('public hero computed height is byte-identical to the pre-DP.2 formula', async ({ page }, testInfo) => {
+    // DESK.STAGE.1: this fence is about the UNSTAGED public route — where
+    // `--pv-vh` is absent and `50dvh` must still resolve against the window.
+    // Above the stage breakpoint the public page now deliberately measures
+    // against the phone-shaped stage instead (that is the whole feature; the
+    // stage publishes its own `--pv-vh`, and 24-desktop-stage.spec.ts asserts
+    // the staged height). So pin a narrow viewport here rather than weaken the
+    // assertion — the fence still guards every real phone.
+    if (testInfo.project.name === 'desktop') {
+      await page.setViewportSize({ width: 402, height: 874 });
+    }
     await page.goto(PROFILE);
     await page.waitForLoadState('networkidle');
 

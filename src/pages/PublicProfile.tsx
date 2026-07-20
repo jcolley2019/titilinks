@@ -23,6 +23,7 @@ import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { TrackingPixels } from '@/components/TrackingPixels';
+import { DesktopStage } from '@/components/DesktopStage';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -93,14 +94,22 @@ export default function PublicProfile() {
   const [shareName, setShareName] = useState('');
   const [shareEmail, setShareEmail] = useState('');
   const [shareMsg, setShareMsg] = useState('');
+  // DESK.STAGE.1: on a wide viewport the page scrolls INSIDE the stage, so the
+  // window never moves and `window.scrollY` would sit at 0 forever — the header
+  // would never fade in. The stage hands back its own scroller; `null` means
+  // the viewport is narrow and the window is the scroller, as before.
+  const [scrollHost, setScrollHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
+    const target: HTMLElement | Window = scrollHost ?? window;
     const onScroll = () => {
-      setShowScrollTop(window.scrollY > 300);
-      setHeaderOpacity(Math.min(window.scrollY / 220, 1));
+      const y = scrollHost ? scrollHost.scrollTop : window.scrollY;
+      setShowScrollTop(y > 300);
+      setHeaderOpacity(Math.min(y / 220, 1));
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    onScroll(); // resync when the scroller changes under us
+    target.addEventListener('scroll', onScroll, { passive: true });
+    return () => target.removeEventListener('scroll', onScroll);
+  }, [scrollHost]);
 
   // Keep the iOS safe-area (status-bar region) fixed black so it blends with the chrome
   useEffect(() => {
@@ -347,6 +356,15 @@ export default function PublicProfile() {
   // visitor switching pages re-derives this, so a full-bleed Page 2 keeps its
   // transparent header even when Page 1 is hero.
   const isFullBleedPage = resolveEffectivePageStyle(page?.theme_json, selectedMode) === 'full_bleed';
+  // DESK.STAGE.1: the ambient backdrop paints the page's OWN hero photo. Same
+  // per-page selection the live hero uses (Page 2 mirrors Page 1 when it
+  // inherits), so the blur behind the stage always matches what is on it — and
+  // because it is the identical URL, it costs no extra request.
+  const publicTheme = getThemeWithDefaults(page?.theme_json);
+  const page1HeroImage = publicTheme.header?.image_url || page?.avatar_url || '';
+  const backdropImage = selectedMode === 'page2'
+    ? (heroInheritPublic ? page1HeroImage : (page2AvatarUrl || ''))
+    : page1HeroImage;
 
   return (
     <>
@@ -370,6 +388,11 @@ export default function PublicProfile() {
           injects the owner's base pixels into the head. Never mounted by the
           editor / dashboard / visitor-preview. */}
       <TrackingPixels metaPixelId={pixelIds.meta} tiktokPixelId={pixelIds.tiktok} ga4Id={pixelIds.ga4} />
+      {/* DESK.STAGE.1: below the breakpoint this renders `children` and nothing
+          else — the narrow page is untouched. Above it, the page moves inside a
+          phone-shaped stage and every measured container aspect becomes the
+          phone's, so the desktop render IS the mobile render. */}
+      <DesktopStage backdropImage={backdropImage} theme={publicTheme} onScrollHost={setScrollHost}>
       <div className="min-h-screen bg-[#0e0c09]">
         {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
         <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${isFullBleedPage ? 0 : headerOpacity})` }}>
@@ -523,6 +546,7 @@ export default function PublicProfile() {
           onCancel={handleAdultCancel}
         />
       </div>
+      </DesktopStage>
     </>
   );
 }
