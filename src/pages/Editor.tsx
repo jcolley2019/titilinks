@@ -60,6 +60,12 @@ export default function Editor() {
   // BOTH EditableProfileView instances below stay mounted (desktop `hidden lg:block`
   // + mobile `lg:hidden` — CSS picks the visible one), and a request that reached
   // both would race two hidden file inputs for the one picker the browser allows.
+  //
+  // FIX.MEDIA.1 removed the only caller along with the Video Profile menu's photo
+  // button — a photo's home is the camera on the hero. The counters stay wired to
+  // both instances so a future external surface can re-open the flow: increment
+  // the one matching the live breakpoint, read imperatively at call time (never
+  // held as state, or a window resize re-delivers to the wrong instance).
   const [photoRequestDesktop, setPhotoRequestDesktop] = useState(0);
   const [photoRequestMobile, setPhotoRequestMobile] = useState(0);
   // Live-mirror (L2): the editor panel's in-progress draft, scoped to its block.
@@ -346,22 +352,6 @@ export default function Editor() {
     fetchBlocks();
   };
 
-  // PHOTO.ROUTE.1 plumbing, retained deliberately. FIX.MEDIA.1 removed the Video
-  // Profile menu's photo button (a photo's home is the camera on the hero), so
-  // nothing calls this today — it is kept as the ready entry point for any future
-  // surface that needs to open the photo flow from outside the preview. The
-  // breakpoint is read imperatively at call time rather than held as state, so a
-  // later window resize can never re-deliver a stale request to the other of the
-  // two mounted preview instances.
-  const openPhotoEditor = () => {
-    setPreviewMode('edit');
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      setPhotoRequestDesktop((n) => n + 1);
-    } else {
-      setPhotoRequestMobile((n) => n + 1);
-    }
-  };
-  void openPhotoEditor;
 
   // FIX.MEDIA.1: the Video Profile panel's in-flight framing. Declarative, so
   // BOTH mounted preview instances can safely receive it (unlike the photo
