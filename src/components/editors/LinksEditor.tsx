@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -39,6 +41,14 @@ import { InlineColorPicker } from '@/components/ui/color-picker';
 import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { platformFromUrl } from '@/lib/platform-from-url';
+import {
+  WHATSAPP_COUNTRIES,
+  WA_DEFAULT_ISO_ES,
+  WA_DEFAULT_ISO_EN,
+  isWhatsAppUrl,
+  composeWhatsAppUrl,
+  parseWhatsAppUrl,
+} from '@/lib/whatsapp';
 import { isAdultPlatformLabel, isAdultUrl } from '@/lib/adult-gate';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
@@ -134,6 +144,96 @@ function ClearableInput({
   );
 }
 
+// WA.1 — WhatsApp deep-link builder. Replaces the raw URL field for WhatsApp
+// items: a curated country picker + a digits-only number + an optional prefill
+// message compose an exact wa.me URL, written back to the item's `url`. Keyed by
+// item id in the caller so it re-parses when the active card changes; within one
+// item it's self-managed and composes → onChange on every edit. Panel-first
+// layout: the country trigger is compact (flag + dial), the number takes the
+// rest of the row, the message is a full-width textarea.
+function WhatsAppBuilder({
+  value,
+  onChange,
+  defaultIso,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  defaultIso: string;
+}) {
+  const { t } = useLanguage();
+  const initial = useRef(parseWhatsAppUrl(value, defaultIso)).current;
+  const [iso, setIso] = useState(initial.iso);
+  const [number, setNumber] = useState(initial.number);
+  const [message, setMessage] = useState(initial.message);
+
+  const current = WHATSAPP_COUNTRIES.find((c) => c.iso === iso) ?? WHATSAPP_COUNTRIES[0];
+  const emit = (nextIso: string, nextNumber: string, nextMessage: string) => {
+    const dial = (WHATSAPP_COUNTRIES.find((c) => c.iso === nextIso) ?? WHATSAPP_COUNTRIES[0]).dial;
+    onChange(composeWhatsAppUrl(dial, nextNumber, nextMessage));
+  };
+
+  const onIso = (v: string) => { setIso(v); emit(v, number, message); };
+  const onNumber = (raw: string) => {
+    // Strip spaces / dashes / a leading + on type AND paste — digits only.
+    const digits = raw.replace(/\D/g, '');
+    setNumber(digits);
+    emit(iso, digits, message);
+  };
+  const onMessage = (raw: string) => { setMessage(raw); emit(iso, number, raw); };
+
+  // Light, non-blocking validation: a plausible international number is ~7–15
+  // digits (national part). Flag out-of-range gently; never stop the save.
+  const showHint = number.length > 0 && (number.length < 6 || number.length > 15);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="text-sm">{t('waBuilder.phoneLabel')}</Label>
+        <div className="flex gap-2">
+          <Select value={iso} onValueChange={onIso}>
+            <SelectTrigger className="h-10 w-28 shrink-0 text-sm">
+              <span className="truncate">{current.flag} +{current.dial}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {WHATSAPP_COUNTRIES.map((c) => (
+                <SelectItem key={c.iso} value={c.iso}>
+                  <span className="truncate">{c.flag} {c.name} +{c.dial}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={number}
+            onChange={(e) => onNumber(e.target.value)}
+            onPaste={(e) => {
+              e.preventDefault();
+              onNumber(number + e.clipboardData.getData('text'));
+            }}
+            inputMode="numeric"
+            placeholder={t('waBuilder.phonePlaceholder')}
+            aria-label={t('waBuilder.phoneLabel')}
+            className="h-10 min-w-0 flex-1 focus-visible:ring-inset"
+          />
+        </div>
+        {showHint && <p className="text-xs text-[#C9A55C]">{t('waBuilder.numberHint')}</p>}
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-sm">{t('waBuilder.messageLabel')}</Label>
+        <Textarea
+          value={message}
+          onChange={(e) => onMessage(e.target.value)}
+          placeholder={t('waBuilder.messagePlaceholder')}
+          maxLength={600}
+          rows={3}
+          className="focus-visible:ring-inset"
+        />
+        <p className="text-[11px] leading-snug text-muted-foreground/70">{t('waBuilder.messageHelp')}</p>
+      </div>
+    </div>
+  );
+}
+
 function LinkDetailPanel({
   item,
   partnerItem,
@@ -161,7 +261,7 @@ function LinkDetailPanel({
 }) {
   // Card A is the primary (left) item; Card B is the Small partner (right). The
   // tapped half is the initial active slot so editing starts where you clicked.
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [cardA, setCardA] = useState<LinkItem>(item);
   const [cardB, setCardB] = useState<LinkItem | null>(partnerItem ?? null);
   const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
@@ -264,6 +364,7 @@ function LinkDetailPanel({
     const st = unfurlState.current[activeKey];
     const normalized = normalizeUrl(active.url);
     if (!/^https?:\/\//i.test(normalized)) return;            // only real web URLs
+    if (isWhatsAppUrl(normalized)) return;                    // WA.1: wa.me deep links have no OG metadata to fetch
     if (st.titleEdited && st.imageEdited && active.label.trim() && active.image_url) return; // user set both → nothing to auto-fill
     if (st.lastUrl === normalized) return;                    // already tried this exact URL
     st.lastUrl = normalized;
@@ -749,24 +850,37 @@ function LinkDetailPanel({
             </p>
           )}
 
-          {/* URL Input */}
-          <div className="space-y-1">
-            <Label className="text-sm">{t('linksEditor.linkPhoneOrEmail')}</Label>
-            <ClearableInput
-              value={active.url}
-              onChange={(e) => update('url', e.target.value)}
-              onBlur={handleUnfurl}
-              onClear={() => update('url', '')}
-              placeholder="https://..."
-              className="h-10"
-            />
-            {unfurling && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>{t('linksEditor.fetchingLinkDetails')}</span>
-              </div>
-            )}
-          </div>
+          {/* URL Input — WhatsApp items get the three-field wa.me builder (WA.1);
+              every other link keeps the plain URL / phone / email field. */}
+          {isWhatsAppUrl(active.url) ? (
+            <div className="space-y-1">
+              <Label className="text-sm">{t('waBuilder.sectionLabel')}</Label>
+              <WhatsAppBuilder
+                key={active.id}
+                value={active.url}
+                onChange={(url) => update('url', url)}
+                defaultIso={language === 'es' ? WA_DEFAULT_ISO_ES : WA_DEFAULT_ISO_EN}
+              />
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label className="text-sm">{t('linksEditor.linkPhoneOrEmail')}</Label>
+              <ClearableInput
+                value={active.url}
+                onChange={(e) => update('url', e.target.value)}
+                onBlur={handleUnfurl}
+                onClear={() => update('url', '')}
+                placeholder="https://..."
+                className="h-10"
+              />
+              {unfurling && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>{t('linksEditor.fetchingLinkDetails')}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Title Input */}
           <div className="space-y-1">
