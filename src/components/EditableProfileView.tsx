@@ -193,7 +193,7 @@ function SocialSvgIcon({ label, size = 20, color }: { label: string; size?: numb
 // IR.1 icon-row sizing (architect defaults; tune by number here). Glyphs are
 // +20% vs pre-IR.1 (14/18/24 -> 17/22/29); circles step up one size
 // (h-8/h-10/h-12 -> h-9/h-11/h-[52px], i.e. 32/40/48px -> 36/44/52px); the
-// inter-icon gap tightens one step (gap-3 12px -> gap-2.5 10px).
+// inter-icon gap tightens (gap-3 12px -> gap-1.5 6px, per ICON.GAP.1).
 const ICON_GLYPH_PX: Record<string, number> = { small: 17, medium: 22, large: 29 };
 const ICON_CIRCLE_CLASS: Record<string, string> = { small: 'h-9 w-9', medium: 'h-11 w-11', large: 'h-[52px] w-[52px]' };
 const ICON_ROW_GAP = 'gap-1.5';
