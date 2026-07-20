@@ -52,6 +52,37 @@ type BlockItemsInsert = Database['public']['Tables']['block_items']['Insert'];
 const STYLEABLE_TYPES: ReadonlySet<string> = new Set(['primary_cta', 'links']);
 const HEADER_TYPES: ReadonlySet<string> = new Set(['social_links', 'social_icon_row']);
 
+/** block_items.style_json keys that are per-item APPEARANCE overrides — the ones
+ *  a Styles/Layout apply OWNS and clears so a stale look never survives the apply
+ *  (TPL.3b/TPL.5 total-ownership ruling). Content keys (icon_source/icon_image/
+ *  icon_color, label, url, image) are deliberately NOT here. ANIM.1 adds
+ *  `animation`: it's appearance, so an applied layout clears link animations
+ *  along with colors. This is the single reset list TemplateGallery drives from. */
+export const PER_ITEM_APPEARANCE_KEYS = [
+  'border_color',
+  'border_width',
+  'bg_gradient',
+  'animation',
+] as const;
+
+/** Strip the per-item appearance overrides from a links item's style_json. Pure
+ *  (no DB) so it is unit-testable: returns the cleaned object (null when nothing
+ *  is left) and whether any appearance key was present, letting the caller skip
+ *  a needless write. The item's own bg_color/title_color columns are the
+ *  caller's concern, not this function's. */
+export function resetItemAppearanceStyleJson(
+  styleJson: unknown,
+): { next: Record<string, unknown> | null; hadAppearance: boolean } {
+  if (!styleJson || typeof styleJson !== 'object' || Array.isArray(styleJson)) {
+    return { next: null, hadAppearance: false };
+  }
+  const sj = { ...(styleJson as Record<string, unknown>) };
+  const hadAppearance = PER_ITEM_APPEARANCE_KEYS.some((k) => sj[k] != null);
+  for (const k of PER_ITEM_APPEARANCE_KEYS) delete sj[k];
+  const next = Object.keys(sj).length > 0 ? sj : null;
+  return { next, hadAppearance };
+}
+
 /** TPL.5 TASK 1: modes with an apply in flight. The composition replace is a
  *  delete-then-insert; two overlapping runs for the same mode interleave (run B
  *  reads the block set after A's delete but before A's insert) and each inserts

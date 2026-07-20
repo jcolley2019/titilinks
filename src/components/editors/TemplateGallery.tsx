@@ -12,7 +12,7 @@ import {
   type TemplateDefinition,
 } from '@/lib/template-gallery';
 import { TPL_PRESETS, TPL_CATEGORIES, resolveTplVariant, type TplCategory, type TplPreset } from '@/lib/tpl-presets';
-import { applyTplPreset } from '@/lib/tpl-apply';
+import { applyTplPreset, resetItemAppearanceStyleJson } from '@/lib/tpl-apply';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import type { PageId, PageStyle, BlockStyleConfig } from '@/lib/theme-defaults';
 import type { Tables } from '@/integrations/supabase/types';
@@ -251,22 +251,13 @@ export function TemplateGallery({ pageId, onApply, modeId, activePageId, themeJs
               if (itemsError) throw itemsError;
 
               for (const item of items ?? []) {
-                const sj =
-                  item.style_json && typeof item.style_json === 'object' && !Array.isArray(item.style_json)
-                    ? { ...(item.style_json as Record<string, any>) }
-                    : null;
-                const hadAppearance =
-                  !!sj && (sj.border_color != null || sj.border_width != null || sj.bg_gradient != null);
+                // ANIM.1: the reset list (incl. `animation`) lives in tpl-apply's
+                // PER_ITEM_APPEARANCE_KEYS; this strips them, keeping content keys
+                // (icon_source/…). Behavior-identical to the old inline deletes.
+                const { next: nextStyle, hadAppearance } = resetItemAppearanceStyleJson(item.style_json);
                 const hadColumns = item.bg_color != null || item.title_color != null;
                 // Skip clean items — no needless writes on every apply.
                 if (!hadAppearance && !hadColumns) continue;
-
-                if (sj) {
-                  delete sj.border_color;
-                  delete sj.border_width;
-                  delete sj.bg_gradient;
-                }
-                const nextStyle = sj && Object.keys(sj).length > 0 ? sj : null;
 
                 const { error: itemError } = await supabase
                   .from('block_items')

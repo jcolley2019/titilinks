@@ -23,11 +23,14 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, MousePointer, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, MousePointer, Palette, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { ANIMATIONS, animationClass } from '@/lib/animations';
+import { cn } from '@/lib/utils';
 
 type BlockItem = Tables<'block_items'>;
 
@@ -72,6 +75,8 @@ interface PrimaryCtaEditorProps {
 
 export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMode }: PrimaryCtaEditorProps) {
   const { t } = useLanguage();
+  const { can } = useEntitlements();
+  const canAnimations = can('linkAnimations');
   // ES.FIX.1 STEP 3: the preview mirrors the public render path — seeded default
   // content (label/subtitle/badge, incl. NEW→NUEVO) translates via content-i18n.
   // Input fields keep raw stored values; only this preview translates.
@@ -81,6 +86,17 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const [existingItem, setExistingItem] = useState<BlockItem | null>(null);
   const [styleConfig, setStyleConfig] = useState<BlockStyleConfig>(DEFAULT_BLOCK_STYLE);
   const [styleExpanded, setStyleExpanded] = useState(false);
+
+  // ANIM.1: pick the CTA's motion effect. 'none' is free; the rest are PRO — a
+  // free profile sees the picker but a locked pick raises the upsell instead of
+  // writing (onSubmit strips it too). Stored on styleConfig.animation.
+  const pickAnimation = (id: string) => {
+    if (id !== 'none' && !canAnimations) {
+      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      return;
+    }
+    setStyleConfig((prev) => ({ ...prev, animation: id === 'none' ? undefined : id }));
+  };
 
   const form = useForm<FormData>({
     resolver: zodResolver(makeFormSchema(t)),
@@ -158,8 +174,13 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const onSubmit = async (data: FormData) => {
     setSaving(true);
     try {
-      // Save style config to block title
-      const configJson: CtaBlockConfig = { style: styleConfig };
+      // Save style config to block title. ANIM.1: strip the animation key at
+      // SAVE for a non-entitled profile (belt-and-suspenders with the picker).
+      const safeStyle =
+        canAnimations || styleConfig.animation == null
+          ? styleConfig
+          : { ...styleConfig, animation: undefined };
+      const configJson: CtaBlockConfig = { style: safeStyle };
       const { error: blockError } = await supabase
         .from('blocks')
         .update({ title: JSON.stringify(configJson) })
@@ -316,6 +337,56 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                     className="py-2"
                   />
                 </div>
+              </div>
+
+              {/* ANIM.1 — CTA motion effect. Six subtle options (only 'none'
+                  free; the rest PRO). Each chip previews its own animation. */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs">{t('linksEditor.animations')}</Label>
+                  {!canAnimations && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
+                      <Lock className="h-2.5 w-2.5" /> PRO
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {ANIMATIONS.map(({ id, labelKey }) => {
+                    const selected = (styleConfig.animation ?? 'none') === id;
+                    const locked = !canAnimations && id !== 'none';
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        data-testid={`cta-anim-chip-${id}`}
+                        aria-pressed={selected}
+                        onClick={() => pickAnimation(id)}
+                        className={cn(
+                          'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
+                          animationClass(id),
+                          selected
+                            ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                            : 'border-border text-muted-foreground',
+                        )}
+                      >
+                        {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
+                        {t(labelKey)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!canAnimations && (
+                  <button
+                    type="button"
+                    data-testid="cta-animations-upsell"
+                    onClick={() =>
+                      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
+                    }
+                    className="w-full py-2 text-xs font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
+                  >
+                    {t('linksEditor.upgradeToPro')}
+                  </button>
+                )}
               </div>
             </CollapsibleContent>
           </Collapsible>

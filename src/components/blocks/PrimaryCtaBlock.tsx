@@ -52,6 +52,7 @@ export function PrimaryCtaBlock({ block, onOutboundClick, theme, editMode }: The
         rel="noopener noreferrer"
         theme={theme}
         blockStyle={blockStyle}
+        animation={blockStyle.animation}
         title={tc(item.label)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         meta={item.is_adult ? '18+' : undefined}

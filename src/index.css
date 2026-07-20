@@ -693,3 +693,72 @@
     animation: none;
   }
 }
+
+/* ── ANIM.1: per-link motion effects (PRO) ──────────────────────────────
+   Six subtle effects applied to a LinkButton (or the primary CTA) via the
+   .lb-anim-<id> class — see src/lib/animations.ts for the catalog + contract.
+   The WHOLE button moves as one (every variant paints on a single root node,
+   so the gold frame and fill travel together). transform/opacity where
+   possible (no layout thrash); `glow` uses box-shadow (composited, no reflow)
+   because a halo is inherently a shadow. Each cycle is ~2.4–5s and gentle —
+   `shake` is a periodic nudge every 5s, never a constant vibration.
+
+   The ENTIRE section is gated behind prefers-reduced-motion: no-preference, so
+   under reduced motion none of these rules exist: the class stays in the DOM
+   but the button renders fully static and perfect. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes lb-anim-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+  .lb-anim-pulse { animation: lb-anim-pulse 2.4s ease-in-out infinite; }
+
+  @keyframes lb-anim-bounce {
+    0%, 55%, 100% { transform: translateY(0); }
+    28% { transform: translateY(-6px); }
+  }
+  .lb-anim-bounce { animation: lb-anim-bounce 2.6s ease-in-out infinite; }
+
+  /* Gentle periodic nudge — still for most of the cycle, a small wiggle at the
+     end, once every 5s. Deliberately NOT a constant vibration. */
+  @keyframes lb-anim-shake {
+    0%, 86%, 100% { transform: translateX(0); }
+    89% { transform: translateX(-3px); }
+    92% { transform: translateX(3px); }
+    95% { transform: translateX(-2px); }
+    98% { transform: translateX(2px); }
+  }
+  .lb-anim-shake { animation: lb-anim-shake 5s ease-in-out infinite; }
+
+  /* Gold halo breathing in and out. box-shadow overrides the resting drop
+     shadow while it runs — an acceptable trade for a glow. Gold = #C9A55C. */
+  @keyframes lb-anim-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(201, 165, 92, 0); }
+    50% { box-shadow: 0 0 16px 2px rgba(201, 165, 92, 0.45); }
+  }
+  .lb-anim-glow { animation: lb-anim-glow 2.8s ease-in-out infinite; }
+
+  /* A single light band sweeps across, then rests. The ::after overlay is
+     clipped to the button (overflow + border-radius: inherit) and never
+     intercepts taps. */
+  .lb-anim-shimmer { position: relative; overflow: hidden; }
+  .lb-anim-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      100deg,
+      transparent 25%,
+      rgba(255, 255, 255, 0.18) 50%,
+      transparent 75%
+    );
+    transform: translateX(-100%);
+    animation: lb-anim-shimmer 3.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes lb-anim-shimmer {
+    0% { transform: translateX(-100%); }
+    60%, 100% { transform: translateX(100%); }
+  }
+}

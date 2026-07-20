@@ -76,6 +76,11 @@ export interface BlockStyleConfig {
   // When either is undefined, LinkButton renders at its current default (full-width, default height).
   size?: 'big' | 'medium' | 'small' | 'button';
   span?: 'full' | 'half';
+  // ANIM.1: per-link motion effect id (none|pulse|shimmer|bounce|glow|shake).
+  // The primary CTA stores its animation HERE (its appearance lives on this
+  // JSON-in-title config). Per-link cards instead store it on
+  // block_items.style_json.animation. Both feed LinkButton's `animation` prop.
+  animation?: string;
 }
 
 export const DEFAULT_BLOCK_STYLE: BlockStyleConfig = {

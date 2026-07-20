@@ -42,6 +42,10 @@ export interface PlanEntitlements {
   emailSubscribe: boolean;
   /** Swipeable carousel of link cards (Featured Links → Carousel). */
   carousel: boolean;
+  /** Per-link motion effects (ANIM.1): pulse / shimmer / bounce / glow / shake.
+   *  Link.me sells animations as a paid feature; matched here. `none` is always
+   *  available to everyone, so a free profile still renders — it just can't move. */
+  linkAnimations: boolean;
   /** Business-tier extras. */
   teamCollab: boolean;
   whiteLabel: boolean;
@@ -63,6 +67,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     aiBio: false,
     emailSubscribe: false,
     carousel: false,
+    linkAnimations: false,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -81,6 +86,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     aiBio: true,
     emailSubscribe: true,
     carousel: true,
+    linkAnimations: true,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -99,6 +105,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     aiBio: true,
     emailSubscribe: true,
     carousel: true,
+    linkAnimations: true,
     teamCollab: true,
     whiteLabel: true,
     apiAccess: true,

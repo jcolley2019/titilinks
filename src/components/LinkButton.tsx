@@ -3,6 +3,7 @@ import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { relativeLuminance } from '@/lib/contrast';
 import { resolveButtonSurface } from '@/lib/surface';
+import { animationClass } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -30,6 +31,11 @@ interface BaseLinkButtonProps {
   /** Per-item title color override. Applied inline to the title so it wins over
    *  the hardcoded white on image-card (.lb-size-big/.lb-size-small) titles. */
   titleColor?: string;
+  /** ANIM.1: per-link motion effect id (none|pulse|shimmer|bounce|glow|shake).
+   *  Resolves to a `.lb-anim-<id>` class on the button root so the WHOLE button
+   *  (frame + fill) moves as one; inert under prefers-reduced-motion. Sourced
+   *  from block_items.style_json.animation (links) or the CTA's style config. */
+  animation?: string;
 }
 
 interface ButtonLinkButtonProps extends BaseLinkButtonProps {
@@ -236,6 +242,8 @@ export function LinkButton(props: LinkButtonProps) {
     `lb-span-${span}`,
     effectiveMedia ? 'has-media' : socialIcon ? 'has-social' : 'no-thumb',
     CLIPPED_SHAPES.includes(shape) ? `lb-shape-${shape}` : '',
+    // ANIM.1: a per-link motion class on the root moves the whole button as one.
+    animationClass(props.animation),
     className,
   ]
     .filter(Boolean)

@@ -21,7 +21,6 @@ import {
   Link as LinkIcon,
   Trash2,
   ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ShieldAlert,
   Settings2,
@@ -41,6 +40,8 @@ import { InlineColorPicker } from '@/components/ui/color-picker';
 import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { platformFromUrl } from '@/lib/platform-from-url';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { ANIMATIONS, animationClass } from '@/lib/animations';
 import {
   WHATSAPP_COUNTRIES,
   WA_DEFAULT_ISO_ES,
@@ -262,6 +263,8 @@ function LinkDetailPanel({
   // Card A is the primary (left) item; Card B is the Small partner (right). The
   // tapped half is the initial active slot so editing starts where you clicked.
   const { t, language } = useLanguage();
+  const { can } = useEntitlements();
+  const canAnimations = can('linkAnimations');
   const [cardA, setCardA] = useState<LinkItem>(item);
   const [cardB, setCardB] = useState<LinkItem | null>(partnerItem ?? null);
   const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
@@ -412,6 +415,19 @@ function LinkDetailPanel({
       else next[key] = value;
       return { ...prev, style_json: Object.keys(next).length ? next : null };
     });
+  };
+
+  // ANIM.1: the motion effect on THIS card, and the guarded picker. 'none' is
+  // free; the rest are PRO — a free profile sees the picker but a locked pick
+  // raises the upsell instead of writing (the save path strips it too).
+  const currentAnimation =
+    ((active.style_json as Record<string, any> | null)?.animation as string) ?? 'none';
+  const pickAnimation = (id: string) => {
+    if (id !== 'none' && !canAnimations) {
+      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      return;
+    }
+    setStyleField('animation', id === 'none' ? null : id);
   };
 
   // Per-card preview theme/style — mirror LinksBlock's per-item overrides so the
@@ -1154,28 +1170,56 @@ function LinkDetailPanel({
             );
           })()}
 
-          {/* Animations PRO Upsell — on-brand locked state (visual only) */}
-          <div className="rounded-xl border border-[#C9A55C]/30 bg-black/30 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#C9A55C]/20">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-[#C9A55C]" />
-                  <p className="text-base font-semibold text-white">{t('linksEditor.animations')}</p>
-                </div>
-                <p className="text-sm text-white/70">
-                  {t('linksEditor.animationsSubtitle')}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-white/50" />
+          {/* ANIM.1 — link animation picker. Six subtle motion effects (only
+              'none' is free; the rest are PRO). Each chip previews its own
+              animation. grid-cols-3 keeps six chips to two rows at panel width. */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-foreground">{t('linksEditor.animations')}</p>
+              {!canAnimations && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
+                  <Lock className="h-2.5 w-2.5" /> PRO
+                </span>
+              )}
             </div>
-            <div className="p-4">
-              <p className="text-sm text-white/90 mb-3">
-                {t('linksEditor.animationsUpsell')}
-              </p>
-              <button className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors">
+            <p className="text-xs text-muted-foreground">{t('linksEditor.animationsSubtitle')}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {ANIMATIONS.map(({ id, labelKey }) => {
+                const selected = currentAnimation === id;
+                const locked = !canAnimations && id !== 'none';
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={`anim-chip-${id}`}
+                    aria-pressed={selected}
+                    onClick={() => pickAnimation(id)}
+                    className={cn(
+                      'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
+                      animationClass(id),
+                      selected
+                        ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                        : 'border-border text-muted-foreground',
+                    )}
+                  >
+                    {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
+                    {t(labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+            {!canAnimations && (
+              <button
+                type="button"
+                data-testid="animations-upsell"
+                onClick={() =>
+                  toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
+                }
+                className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
+              >
                 {t('linksEditor.upgradeToPro')}
               </button>
-            </div>
+            )}
           </div>
         </div>
       </ScrollArea>
@@ -1215,6 +1259,7 @@ function LinkDetailPanel({
         )}
         <Button
           onClick={handleSave}
+          data-testid="link-detail-save"
           className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold"
         >
           {isPair && cardB
@@ -1284,6 +1329,8 @@ interface LinksEditorProps {
 
 export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl }: LinksEditorProps) {
   const { t } = useLanguage();
+  const { can } = useEntitlements();
+  const canAnimations = can('linkAnimations');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -1421,24 +1468,35 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
 
   // Shared payload shape for a single block_items row (used by the direct
   // single-item Save).
-  const buildItemPayload = (item: LinkItem, orderIndex: number) => ({
-    // Image cards (cover thumbnails) may have NO title — the image carries the
-    // meaning, so a deleted title stays deleted. Only fall back to the hostname
-    // when there's no image, so a plain button/text link is never left blank.
-    label: item.label.trim() || (item.image_url ? '' : labelFromUrl(item.url)),
-    url: normalizeUrl(item.url),
-    subtitle: item.subtitle || null,
-    badge: item.badge || null,
-    is_adult: item.is_adult || false,
-    image_url: item.image_url || null,
-    size: item.size || null,
-    bg_color: item.bg_color || null,
-    title_color: item.title_color || null,
-    style_json: (item.style_json && Object.keys(item.style_json).length > 0
-      ? item.style_json
-      : null) as Tables<'block_items'>['style_json'],
-    order_index: orderIndex,
-  });
+  const buildItemPayload = (item: LinkItem, orderIndex: number) => {
+    // ANIM.1: gate the animation appearance key at SAVE, not just in the UI — a
+    // free profile can never persist a motion effect (belt-and-suspenders with
+    // the picker's own guard). 'none'/absent needs no stripping.
+    let styleJson = item.style_json as Record<string, unknown> | null;
+    if (styleJson && !canAnimations && styleJson.animation != null) {
+      styleJson = { ...styleJson };
+      delete styleJson.animation;
+      if (Object.keys(styleJson).length === 0) styleJson = null;
+    }
+    return {
+      // Image cards (cover thumbnails) may have NO title — the image carries the
+      // meaning, so a deleted title stays deleted. Only fall back to the hostname
+      // when there's no image, so a plain button/text link is never left blank.
+      label: item.label.trim() || (item.image_url ? '' : labelFromUrl(item.url)),
+      url: normalizeUrl(item.url),
+      subtitle: item.subtitle || null,
+      badge: item.badge || null,
+      is_adult: item.is_adult || false,
+      image_url: item.image_url || null,
+      size: item.size || null,
+      bg_color: item.bg_color || null,
+      title_color: item.title_color || null,
+      style_json: (styleJson && Object.keys(styleJson).length > 0
+        ? styleJson
+        : null) as Tables<'block_items'>['style_json'],
+      order_index: orderIndex,
+    };
+  };
 
   // Direct single-item Save (G1): persist ONLY this item. New → insert
   // (append); existing → update preserving its order_index. Validates just

@@ -239,6 +239,7 @@ export function LinksBlock({
         blockStyle={itemBlockStyle}
         fillGradient={fillGradient}
         titleColor={item.title_color || undefined}
+        animation={sj?.animation as string | undefined}
         title={tc(item.label)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
