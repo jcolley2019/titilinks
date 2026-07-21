@@ -371,8 +371,6 @@ export function ProfileDashboard({
   const { entitlements } = useEntitlements();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
-  // PAGES.STYLE.1: giving a page a look unlike the profile default is Pro.
-  const canPerPageStyle = entitlements.perPageStyle;
   // Carousel is a Pro/Business feature (gates the menu row + its tap).
   const canCarousel = entitlements.carousel;
   // PIXELS.1: tracking pixels are their own Pro capability.
@@ -762,19 +760,8 @@ export function ProfileDashboard({
   // preview renders at this, so what it shows is what the page renders.
   const heroPreviewTargetAspect =
     currentPageStyle === 'full_bleed' ? canonicalFullBleedAspect() : canonicalHeroAspect();
-  // The default a page falls back to. Diverging from it is the Pro line.
-  const profileDefaultStyle: PageStyle =
-    (themeJson as any)?.pageStyle === 'full_bleed' ? 'full_bleed' : 'hero';
-
   const savePageStyle = async (newStyle: PageStyle) => {
     if (newStyle === currentPageStyle) return;
-    // Pro gate: a page styled unlike the profile default is a Pro capability.
-    // Free never reaches this with Page 2 (two pages is already Pro) — it bites
-    // on a downgraded account whose Page 2 outlived its plan.
-    if (newStyle !== profileDefaultStyle && !canPerPageStyle) {
-      toast(t('design.perPageStylePro'), { description: t('design.perPageStyleProDesc') });
-      return;
-    }
     // Merge-safe: spreads the raw existing theme (BUG.THEME.1 rule) and the
     // existing pages map, so a style write can't drop a label or heroInherit.
     // Untyped on purpose: a typed theme_json write trips TS2322 against the
@@ -1381,16 +1368,11 @@ export function ProfileDashboard({
               {pagesOpen ? (
                 <div className="dark text-foreground px-4 pt-5 pb-8 space-y-5">
                   {/* PAGES.STYLE.0/1: Hero / Full Screen switcher — writes the
-                      ACTIVE page's style. Diverging from the profile default is
-                      Pro, so the off-default option wears the lock. */}
+                      ACTIVE page's style. Free for every plan (STYLE.SPACE.1);
+                      the PRO sell here is the second page itself, below. */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <p className="text-white/70 text-xs font-semibold">{t('design.pageStyle')}</p>
-                      {pagesEnabled && !canPerPageStyle && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
-                          <Lock className="h-2.5 w-2.5" /> PRO
-                        </span>
-                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {([
@@ -1398,17 +1380,14 @@ export function ProfileDashboard({
                         { value: 'full_bleed', label: t('design.styleFullBleed'), desc: t('onboardingFlow.styleFullBleedDesc') },
                       ] as const).map((s) => {
                         const selected = currentPageStyle === s.value;
-                        const gated = !canPerPageStyle && s.value !== profileDefaultStyle;
                         return (
                           <button
                             key={s.value}
                             type="button"
                             onClick={() => savePageStyle(s.value)}
-                            aria-disabled={gated}
                             className={`flex flex-col items-start gap-1 rounded-xl border-2 px-3 py-3 text-left transition-all ${selected ? 'border-[#C9A55C] bg-[#C9A55C]/10' : 'border-white/10 hover:border-white/30'}`}
                           >
-                            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${selected ? 'text-[#C9A55C]' : gated ? 'text-white/30' : 'text-white/80'}`}>
-                              {gated && <Lock className="h-2.5 w-2.5 shrink-0" />}
+                            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${selected ? 'text-[#C9A55C]' : 'text-white/80'}`}>
                               {s.label}
                             </span>
                             <span className="text-[10px] leading-snug text-white/40">{s.desc}</span>
@@ -1418,7 +1397,7 @@ export function ProfileDashboard({
                     </div>
                     {pagesEnabled && (
                       <p className="text-white/40 text-[11px] mt-1.5">
-                        {canPerPageStyle ? t('design.pageStylePerPage') : t('design.pageStyleProHint')}
+                        {t('design.pageStylePerPage')}
                       </p>
                     )}
                   </div>

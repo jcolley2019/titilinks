@@ -693,7 +693,7 @@ function EmptyState({ textColor }: { textColor: string }) {
 // Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
 const HEADER_NAME_TOP = 10;  // space above the name (the red-line anchor), px
 const HEADER_GAP_A = -2;     // fixed gap name -> handle, px (negative = tighter)
-const HEADER_GAP_B = 10;      // fixed gap handle -> icons, px
+const HEADER_GAP_B = 6;      // fixed gap handle -> icons, px
 const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam; dial on a REAL phone (bigger = higher; content below rides up with them).
 const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
 const CARDS_LIFT = 85;      // px the link cards ride UP under the icons, closing the gap the header lift leaves behind. Bigger = cards higher / smaller gap; smaller = bigger gap.

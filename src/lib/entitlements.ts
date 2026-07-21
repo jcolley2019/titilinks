@@ -24,7 +24,8 @@ export interface PlanEntitlements {
   maxPages: number;
   /** Style a page differently from the profile-level default (PAGES.STYLE.1) —
    *  e.g. a hero Page 1 with a full-bleed Page 2. Distinct from `maxPages`:
-   *  having a second page and giving it a look of its own are separate sells. */
+   *  the second page itself stays the PRO sell; picking a style is free for
+   *  everyone (STYLE.SPACE.1). */
   perPageStyle: boolean;
   /** Max link items per links block. `Infinity` = unlimited. */
   maxLinks: number;
@@ -57,7 +58,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
   free: {
     label: 'Free',
     maxPages: 1,
-    perPageStyle: false,
+    perPageStyle: true,
     maxLinks: 5,
     maxSnapshots: 1,
     premiumThemes: false,

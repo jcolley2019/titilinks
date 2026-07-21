@@ -19,7 +19,7 @@
 // which page is active. That is "each page renders its own style" stated at the
 // only layer a spec can reach without seeded data.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { getThemeWithDefaults } from '../src/lib/theme-defaults';
 import {
   resolveEffectivePageStyle,
@@ -143,5 +143,93 @@ test.describe('per-page style — the swap feeds the render', () => {
     expect(swapped).not.toBe(base);
     expect(swapped.pageStyle).toBe('full_bleed');
     expect(base.pageStyle).toBe(before); // the write vehicle still holds the default
+  });
+});
+
+// ─── 3. STYLE.SPACE.1 — switching styles is free; the second page is the sell ─
+//
+// The style switcher lost its PRO gate (perPageStyle is free on every plan).
+// These are UI-level: the plan is mocked suite-21 style, the theme on the pages
+// read is pinned to hero so "Full Screen" is deterministically the off-state
+// option, and the write is asserted off the PATCH Request — nothing real
+// mutates. A desktop viewport lets both projects run this without a skip.
+
+const DESKTOP = { width: 1440, height: 1000 };
+
+async function openPagesPanel(page: Page, plan: 'free' | 'pro') {
+  // profiles — answer only the plan query (useEntitlements); the rest is real.
+  await page.route('**/rest/v1/profiles*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fulfill({ status: 204, body: '' });
+    if (!route.request().url().includes('select=plan')) return route.continue();
+    const wantsObject = (route.request().headers()['accept'] || '').includes('application/vnd.pgrst.object+json');
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(wantsObject ? { plan } : [{ plan }]),
+    });
+  });
+
+  // pages — reads stay real but theme_json is pinned to hero-everywhere, so the
+  // switcher's current style never depends on what the test account holds.
+  // Writes are swallowed (the PATCH is read off the Request, never the DB).
+  await page.route('**/rest/v1/pages*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+    try {
+      const res = await route.fetch();
+      const body = await res.json();
+      const pin = (row: Record<string, unknown>) => ({
+        ...row,
+        theme_json: { ...((row.theme_json as object) || {}), pageStyle: 'hero', pages: {} },
+      });
+      const pinned = Array.isArray(body) ? body.map(pin) : pin(body);
+      await route.fulfill({ response: res, body: JSON.stringify(pinned) });
+    } catch {
+      try { await route.continue(); } catch { /* page already closing */ }
+    }
+  });
+
+  await page.setViewportSize(DESKTOP);
+  await page.goto('/dashboard/editor');
+  await page.waitForLoadState('networkidle');
+
+  // The dashboard slides in from the gold pill (suite-16 style); the Pages row
+  // then opens the panel that carries the style switcher + second-page toggle.
+  await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
+  await page.getByRole('button', { name: /Pages/ }).filter({ visible: true }).first().click();
+  await expect(page.getByText('Page Style', { exact: true })).toBeVisible();
+}
+
+test.describe('STYLE.SPACE.1 — style switching is free', () => {
+  test('a free plan switches the page style — the write goes through, ungated', async ({ page }) => {
+    await openPagesPanel(page, 'free');
+
+    // The locked presentation is gone: the off-default option carries no
+    // aria-disabled and taps write instead of raising an upsell toast.
+    const fullScreen = page.getByRole('button', { name: /Full Screen/ });
+    await expect(fullScreen).toBeVisible();
+    await expect(fullScreen).not.toHaveAttribute('aria-disabled', 'true');
+
+    const patch = page.waitForRequest(
+      (r) => r.url().includes('/rest/v1/pages') && r.method() === 'PATCH',
+    );
+    await fullScreen.click();
+    const body = (await patch).postDataJSON();
+    const styles = Object.values(body.theme_json?.pages ?? {}).map(
+      (p) => (p as { style?: string })?.style,
+    );
+    expect(styles).toContain('full_bleed');
+  });
+
+  test('the second page stays PRO on free', async ({ page }) => {
+    await openPagesPanel(page, 'free');
+
+    const on = page.getByRole('button', { name: 'On', exact: true });
+    await expect(on).toHaveAttribute('aria-disabled', 'true');
+    // aria-disabled fails Playwright's actionability check, but a real pointer
+    // still lands on the button — force past the check to reach the upsell.
+    await on.click({ force: true });
+    await expect(page.getByText('Two pages is a Pro feature')).toBeVisible();
   });
 });
