@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
+import { resolveHeroGeometry } from '../src/lib/hero-framing';
 import type { PageStyle } from '../src/lib/theme-defaults';
 
 /**
@@ -113,6 +114,53 @@ const ratioOf = async (page: Page, testId: string) => {
   return box!.width / box!.height;
 };
 
+// ── FIX.MEDIA.1c render probes ──────────────────────────────────────────────
+// The stub video never decodes, so originally EVERY surface reported
+// `…;pending` and the parity assert matched trivially — nothing about the
+// measured container aspect (the thing that actually broke) was ever
+// exercised. Fake the clip's metadata at the prototype level instead: the
+// resolver leaves its fallback, paints the explicit rectangle, and both the
+// VALUES and the RENDER become assertable.
+
+const CLIP = { w: 1080, h: 1920 }; // 9:16 portrait — the common phone clip
+const CLIP_ASPECT = CLIP.w / CLIP.h;
+
+async function primeVideoMetadata(page: Page) {
+  await page.addInitScript(({ w, h }) => {
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { get: () => w });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { get: () => h });
+  }, CLIP);
+}
+
+// The aborted stub never fires loadedmetadata on its own; dispatch it so
+// React's onLoadedMetadata reads the faked dimensions. Media events don't
+// bubble — React attaches them per-element, so a direct dispatch lands.
+const fireVideoMetadata = (page: Page) =>
+  page.evaluate(() => {
+    document.querySelectorAll('video').forEach((v) => v.dispatchEvent(new Event('loadedmetadata')));
+  });
+
+/** The RENDER, not the values: the painted <video> rect vs its container. */
+async function paintedProbe(page: Page, scopeSel: string) {
+  const m = await page.evaluate((sel) => {
+    const vid = document.querySelector(sel) as HTMLVideoElement | null;
+    if (!vid) return null;
+    const pb = (vid.parentElement as HTMLElement).getBoundingClientRect();
+    const vb = vid.getBoundingClientRect();
+    return {
+      containerAspect: pb.width / pb.height,
+      fillX: (vb.width / pb.width) * 100,
+      fillY: (vb.height / pb.height) * 100,
+      attr: vid.getAttribute('data-hero-framing'),
+    };
+  }, scopeSel);
+  expect(m, `${scopeSel} should have a laid-out video`).not.toBeNull();
+  return m!;
+}
+
+const CANVAS_VIDEO = '[data-testid="device-frame"] video[data-hero-framing]';
+const PANEL_VIDEO = '[data-testid="hero-video-frame"] video';
+
 test.describe('FIX.MEDIA.1 — hero framing', () => {
   // The frame is the shape the page publishes at — the same device-preset
   // geometry the crop dialog frames to (DP.1 / CROP.3a-C), not an arbitrary 44vh
@@ -158,38 +206,147 @@ test.describe('FIX.MEDIA.1 — hero framing', () => {
     expect(fileChooser.isMultiple()).toBe(false);
   });
 
-  test('a slider drag moves BOTH previews, and saves nothing', async ({ page }) => {
-    const { writes } = await installMocks(page, { video: true });
-    await openVideoProfile(page);
+  // FIX.MEDIA.1c hardening: with real (faked) metadata the fingerprints carry
+  // resolved rectangles, so `…;pending == …;pending` can no longer satisfy the
+  // equality trivially — and the comparison now runs at BOTH page styles,
+  // because full_bleed is exactly where the editing canvas used to diverge.
+  for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
+    test(`a slider drag moves BOTH ${style} previews, and saves nothing`, async ({ page }, testInfo) => {
+      const { writes } = await installMocks(page, { video: true, style });
+      await primeVideoMetadata(page);
+      await openVideoProfile(page);
 
-    // Every <video> on screen: the panel preview, plus the live page preview
-    // behind it. Both must carry a resolved-framing fingerprint.
-    const framed = page.locator('video[data-hero-framing]');
-    // At least two: the panel preview AND the page preview behind it. One alone
-    // would make the equality below compare a surface with itself.
-    await expect.poll(() => framed.count()).toBeGreaterThanOrEqual(2);
-    const before = await framed.evaluateAll((els) =>
-      els.map((e) => e.getAttribute('data-hero-framing')),
-    );
-    // Preview == live: every surface resolved the SAME framing at the SAME
-    // container aspect, so the fingerprints are string-identical.
-    expect(new Set(before).size, `surfaces disagreed: ${JSON.stringify(before)}`).toBe(1);
+      // Every VISIBLE framed video: the panel preview plus the page canvas
+      // behind it. The CSS-hidden twin EPV (desktop/mobile branches are both
+      // mounted) has a zero-size box, can never resolve a rectangle, and is
+      // not a rendered surface — filter it out.
+      const collect = async () => {
+        await fireVideoMetadata(page);
+        return page.evaluate(() =>
+          Array.from(document.querySelectorAll('video[data-hero-framing]'))
+            .filter((e) => e.getBoundingClientRect().width > 0)
+            .map((e) => e.getAttribute('data-hero-framing')),
+        );
+      };
+      await expect.poll(async () => {
+        const attrs = await collect();
+        return attrs.length >= 2 && attrs.every((a) => !!a && !a.includes('pending'));
+      }, { message: 'every visible surface must resolve a real rectangle (no `pending`)' }).toBe(true);
 
-    // Drag zoom. Real-time is the whole point: no Save, no debounce wait.
-    const zoom = page.locator('input[type="range"]').first();
-    await zoom.fill('1.8');
+      // Desktop: the editor frame renders the canonical default preset, so the
+      // full fingerprint — rectangle included — is string-identical. Mobile:
+      // the canvas is truthfully viewport-shaped while the panel frames to the
+      // canonical preset (CROP.3a-C determinism), so the rectangles legitimately
+      // differ there; the resolved FRAMING must still agree field-for-field.
+      const key = (a: string | null) =>
+        testInfo.project.name === 'desktop' ? a : (a || '').split(';').slice(0, 4).join(';');
 
-    const after = await framed.evaluateAll((els) =>
-      els.map((e) => e.getAttribute('data-hero-framing')),
-    );
-    expect(new Set(after).size, `surfaces disagreed after drag: ${JSON.stringify(after)}`).toBe(1);
-    expect(after[0]).not.toEqual(before[0]);
-    expect(after[0]!.startsWith('1.80;'), `expected the dragged zoom, got ${after[0]}`).toBe(true);
+      const before = await collect();
+      expect(new Set(before.map(key)).size, `surfaces disagreed: ${JSON.stringify(before)}`).toBe(1);
 
-    // ...and it previewed without persisting. The debounced save is 400ms.
-    await page.waitForTimeout(150);
-    expect(writes).toEqual([]);
-  });
+      // Drag zoom. Real-time is the whole point: no Save, no debounce wait.
+      const zoom = page.locator('input[type="range"]').first();
+      await zoom.fill('1.8');
+
+      const after = await collect();
+      expect(new Set(after.map(key)).size, `surfaces disagreed after drag: ${JSON.stringify(after)}`).toBe(1);
+      expect(after[0]).not.toEqual(before[0]);
+      expect(after[0]!.startsWith('1.80;'), `expected the dragged zoom, got ${after[0]}`).toBe(true);
+
+      // ...and it previewed without persisting. The debounced save is 400ms.
+      await page.waitForTimeout(150);
+      expect(writes).toEqual([]);
+    });
+  }
+
+  // FIX.MEDIA.1c (A): edit chrome may reflow AROUND the media, but the hero
+  // container's measured geometry may not move. The whole contract in two
+  // numbers: the media fills the same fraction of its window in both modes.
+  // Pre-1c the full_bleed editing canvas sized itself to the desktop window's
+  // raw 100dvh instead of the device frame, so its rectangle tracked the
+  // MONITOR, not the previewed phone.
+  for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
+    test(`the editing canvas paints the same ${style} media rectangle as visitor mode`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop', 'device frame is desktop-only');
+      await installMocks(page, { video: true, style });
+      await primeVideoMetadata(page);
+      // A height no preset shares — a window-coupled canvas cannot pass by luck.
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto('/dashboard/editor');
+      await page.waitForLoadState('networkidle');
+
+      await fireVideoMetadata(page);
+      await expect.poll(async () => (await paintedProbe(page, CANVAS_VIDEO)).attr).not.toContain('pending');
+      const edit = await paintedProbe(page, CANVAS_VIDEO);
+
+      await page.getByTestId('preview-mode-toggle').click();
+      await fireVideoMetadata(page);
+      await expect.poll(async () => (await paintedProbe(page, CANVAS_VIDEO)).attr).not.toContain('pending');
+      const visitor = await paintedProbe(page, CANVAS_VIDEO);
+
+      expect(Math.abs(edit.fillX - visitor.fillX), `fillX edit=${edit.fillX} visitor=${visitor.fillX}`).toBeLessThan(0.5);
+      expect(Math.abs(edit.fillY - visitor.fillY), `fillY edit=${edit.fillY} visitor=${visitor.fillY}`).toBeLessThan(0.5);
+      expect(edit.attr).toEqual(visitor.attr);
+    });
+  }
+
+  // FIX.MEDIA.1c (B): the panel preview PAINTS the rectangle it declares.
+  // Pre-1c the panel's measured aspect was read once at dashboard mount —
+  // before the panel content existed — and stayed null forever, so the panel
+  // rendered the object-fit fallback and the fingerprint said `pending` while
+  // FIX.MEDIA.1's parity spec compared `pending` against `pending`.
+  for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
+    test(`the panel preview paints the ${style} rectangle it declares`, async ({ page }) => {
+      await installMocks(page, { video: true, style });
+      await primeVideoMetadata(page);
+      await openVideoProfile(page);
+
+      await fireVideoMetadata(page);
+      await expect.poll(async () => {
+        await fireVideoMetadata(page);
+        return (await paintedProbe(page, PANEL_VIDEO)).attr;
+      }, { message: 'panel fingerprint must carry a resolved rectangle' }).not.toContain('pending');
+
+      const p = await paintedProbe(page, PANEL_VIDEO);
+      // Values are truthful: the declared rectangle is what the shared resolver
+      // computes for the box's real measured shape and the clip's real aspect…
+      const geo = resolveHeroGeometry(CLIP_ASPECT, p.containerAspect, { scale: 1, posX: 50, posY: 50 })!;
+      // …and the render is the values: the painted rect IS that rectangle.
+      expect(Math.abs(p.fillX - geo.widthPct), `painted ${p.fillX} vs resolved ${geo.widthPct}`).toBeLessThan(0.5);
+      expect(Math.abs(p.fillY - geo.heightPct), `painted ${p.fillY} vs resolved ${geo.heightPct}`).toBeLessThan(0.5);
+    });
+  }
+
+  // FIX.MEDIA.1c (B), live reference: same page state, panel preview vs the
+  // public route. On desktop the public page renders in the stage at the
+  // canonical default device — the same preset the panel frames to — so the
+  // two surfaces must show the SAME fraction of the clip.
+  for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
+    test(`the panel preview paints the same ${style} fill as the public page`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop', 'compares against the desktop stage (canonical device)');
+      await installMocks(page, { video: true, style });
+      await primeVideoMetadata(page);
+      await openVideoProfile(page);
+      await fireVideoMetadata(page);
+      await expect.poll(async () => {
+        await fireVideoMetadata(page);
+        return (await paintedProbe(page, PANEL_VIDEO)).attr;
+      }).not.toContain('pending');
+      const panel = await paintedProbe(page, PANEL_VIDEO);
+
+      await page.goto('/joeyc');
+      await page.waitForLoadState('networkidle');
+      await fireVideoMetadata(page);
+      await expect.poll(async () => {
+        await fireVideoMetadata(page);
+        return (await paintedProbe(page, 'video[data-hero-framing]')).attr;
+      }).not.toContain('pending');
+      const live = await paintedProbe(page, 'video[data-hero-framing]');
+
+      expect(Math.abs(panel.fillX - live.fillX), `fillX panel=${panel.fillX} live=${live.fillX}`).toBeLessThan(0.5);
+      expect(Math.abs(panel.fillY - live.fillY), `fillY panel=${panel.fillY} live=${live.fillY}`).toBeLessThan(0.5);
+    });
+  }
 
   test('the Video Profile menu no longer offers a photo button', async ({ page }) => {
     await installMocks(page);

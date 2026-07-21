@@ -201,9 +201,17 @@ export function heroFramingAttr(input: HeroMediaStyleInput): string {
  * to the same rectangle, and a surface built at the WRONG aspect visibly can't.
  */
 export function useElementAspect(ref: RefObject<HTMLElement | null>): number | null {
+  // FIX.MEDIA.1c: surfaces like the Video Profile panel and the photo dialog
+  // mount their box AFTER their owner mounts (conditional render / portal). A
+  // mount-time-only `ref.current` read stays null forever there, and the
+  // resolver never leaves its aspect-unknown fallback. So track the ELEMENT:
+  // re-check the ref every render, and key the observer on the element itself.
+  const [el, setEl] = useState<HTMLElement | null>(null);
   const [aspect, setAspect] = useState<number | null>(null);
   useLayoutEffect(() => {
-    const el = ref.current;
+    if (ref.current !== el) setEl(ref.current);
+  });
+  useLayoutEffect(() => {
     if (!el || typeof ResizeObserver === 'undefined') return;
     const measure = () => {
       const { width, height } = el.getBoundingClientRect();
@@ -213,7 +221,7 @@ export function useElementAspect(ref: RefObject<HTMLElement | null>): number | n
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref]);
+  }, [el]);
   return aspect;
 }
 

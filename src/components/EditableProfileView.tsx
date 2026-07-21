@@ -2301,7 +2301,7 @@ export function EditableProfileView({
           // content below still starts where it always did and scrolls over it.
           style={
             editMode
-              ? { position: 'sticky', top: 0, height: '100dvh', marginBottom: '-100dvh', zIndex: 0 }
+              ? { position: 'sticky', top: 0, height: 'calc(var(--pv-vh, 1dvh) * 100)', marginBottom: 'calc(var(--pv-vh, 1dvh) * -100)', zIndex: 0 }
               : undefined
           }
         >

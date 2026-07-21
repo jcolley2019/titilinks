@@ -1755,7 +1755,13 @@ export function ProfileDashboard({
                       data-testid="hero-video-frame"
                       onClick={() => videoInputRef.current?.click()}
                       aria-label={heroVideoUrl ? t('dashboard.hero.changeVideo') : t('dashboard.hero.addVideo')}
-                      className={`relative block mx-auto rounded-2xl overflow-hidden bg-[#0e0c09] ${heroVideoUrl ? 'border border-white/10' : 'border border-dashed border-white/20 bg-white/5'}`}
+                      // FIX.MEDIA.1c: no border on this element — it is the box
+                      // useElementAspect measures AND the containing block the
+                      // resolver's percentages paint into. A border would shrink
+                      // the containing block 2px inside the measured shape and
+                      // skew the rectangle; the hairline lives on the overlay
+                      // span below instead.
+                      className={`relative block mx-auto rounded-2xl overflow-hidden bg-[#0e0c09] ${heroVideoUrl ? '' : 'bg-white/5'}`}
                       style={{
                         aspectRatio: String(heroPreviewTargetAspect),
                         // Height-capped, then width follows the aspect — so the
@@ -1779,6 +1785,10 @@ export function ProfileDashboard({
                           <span className="text-white/40 text-xs text-center">{t('dashboard.hero.noVideo')}</span>
                         </span>
                       )}
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute inset-0 rounded-2xl ${heroVideoUrl ? 'border border-white/10' : 'border border-dashed border-white/20'}`}
+                      />
                     </button>
                   </div>
                   <div className="flex gap-2">
