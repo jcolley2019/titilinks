@@ -227,7 +227,7 @@ function resolveIconBg(
 // pre-IR.1 look). Overflows => the row becomes a single drifting strip that
 // reuses the Gallery block's rAF scrollLeft loop (duplicated for a seamless
 // wrap), disabled under prefers-reduced-motion. A pointer/touch pauses it 8s.
-function HeaderIconRow({ nodes }: { nodes: ReactElement[] }) {
+function HeaderIconRow({ nodes, gapTop }: { nodes: ReactElement[]; gapTop: number }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [overflowing, setOverflowing] = useState(false);
   const pausedUntil = useRef(0);
@@ -293,7 +293,7 @@ function HeaderIconRow({ nodes }: { nodes: ReactElement[] }) {
       data-icon-row=""
       onPointerDown={pause}
       onTouchStart={pause}
-      style={{ marginTop: HEADER_GAP_B }}
+      style={{ marginTop: gapTop }}
       className={cn(
         'flex scrollbar-hide',
         overflowing ? 'justify-start overflow-x-auto' : `justify-center overflow-x-hidden ${ICON_ROW_GAP}`,
@@ -692,8 +692,9 @@ function EmptyState({ textColor }: { textColor: string }) {
 
 // Locked header spacing (Brick A) — tune in Brick B, hardcode in Brick C
 const HEADER_NAME_TOP = 10;  // space above the name (the red-line anchor), px
-const HEADER_GAP_A = -2;     // fixed gap name -> handle, px (negative = tighter)
-const HEADER_GAP_B = 6;      // fixed gap handle -> icons, px
+const HEADER_GAP_A = -2;     // default gap name -> handle, px (negative = tighter); HDR.SPACE.2 fallback for headerConfig.spacing.nameHandle
+const HEADER_GAP_B = 6;      // default gap handle -> icons, px; HDR.SPACE.2 fallback for headerConfig.spacing.handleIcons
+const HEADER_GAP_C = 16;     // default gap icons -> first content in view mode, px (the pre-HDR.SPACE.2 '1rem'); fallback for headerConfig.spacing.iconsContent
 const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam; dial on a REAL phone (bigger = higher; content below rides up with them).
 const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
 const CARDS_LIFT = 85;      // px the link cards ride UP under the icons, closing the gap the header lift leaves behind. Bigger = cards higher / smaller gap; smaller = bigger gap.
@@ -709,10 +710,13 @@ function NameHandleCard({
   draftDisplayName,
   nameFx,
   chrome,
+  gapNameHandle,
 }: {
   page: any;
   chrome: ChromeTokens;
   draftDisplayName?: string;
+  // HDR.SPACE.2 — resolved name -> handle gap (draft ?? saved ?? HEADER_GAP_A).
+  gapNameHandle: number;
   // Text-effect style (shadow/outline) for the name + handle. Carries no layout
   // properties, so it spreads over the text styles without moving anything.
   nameFx?: React.CSSProperties;
@@ -774,7 +778,7 @@ function NameHandleCard({
               ...nameFx,
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: HEADER_GAP_A }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: gapNameHandle }}>
             @{page.handle}
           </p>
         </div>
@@ -798,6 +802,7 @@ function SocialIconsCard({
   contentStartY, setContentStartY,
   onEditSocial,
   onSave,
+  gapHandleIcons,
 }: {
   socialItems: any[];
   chrome: ChromeTokens;
@@ -811,6 +816,8 @@ function SocialIconsCard({
   contentStartY: number; setContentStartY: (v: number) => void;
   onEditSocial: () => void;
   onSave: () => void;
+  // HDR.SPACE.2 — resolved handle -> icons gap (draft ?? saved ?? HEADER_GAP_B).
+  gapHandleIcons: number;
 }) {
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
@@ -826,7 +833,7 @@ function SocialIconsCard({
 
   return (
     <div
-      style={{ marginTop: HEADER_GAP_B, position: 'relative', zIndex: 20 }}
+      style={{ marginTop: gapHandleIcons, position: 'relative', zIndex: 20 }}
       className="relative"
     >
       {/* Icon row — size comes from the Social Platforms menu (headerConfig.iconSize) */}
@@ -1360,6 +1367,16 @@ export function EditableProfileView({
     iconsPaddingY: 8,
     iconSize: 'medium' as 'small'|'medium'|'large',
     nameHandleGap: 2,
+  };
+
+  // HDR.SPACE.2 — user-tunable header gaps (headerConfig.spacing). Absent keys
+  // fall back to the HEADER_GAP_* constants, so a page that never touched the
+  // sliders renders byte-identically. An open Name & Handle hub draft (L4)
+  // wins so the Spacing sliders preview live.
+  const headerSpacing = {
+    nameHandle: headerDraft?.spacing?.nameHandle ?? headerConfig.spacing?.nameHandle ?? HEADER_GAP_A,
+    handleIcons: headerDraft?.spacing?.handleIcons ?? headerConfig.spacing?.handleIcons ?? HEADER_GAP_B,
+    iconsContent: headerDraft?.spacing?.iconsContent ?? headerConfig.spacing?.iconsContent ?? HEADER_GAP_C,
   };
 
   // Header card sortable state
@@ -2497,7 +2514,7 @@ export function EditableProfileView({
             paddingRight: '1.5rem',
             marginTop: -HEADER_LIFT,
             transform: editMode ? undefined : `translateY(${-HEADER_OFFSET_Y}px)`,
-            paddingBottom: editMode ? 0 : '1rem',
+            paddingBottom: editMode ? 0 : headerSpacing.iconsContent,
           }}
         >
           {/* In edit mode, name/handle render as sortable cards below */}
@@ -2524,7 +2541,7 @@ export function EditableProfileView({
                     textShadow: 'none',
                     ...nameFx,
                     margin: 0,
-                    marginTop: HEADER_GAP_A,
+                    marginTop: headerSpacing.nameHandle,
                   }}
                 >
                   @{page.handle}
@@ -2602,7 +2619,7 @@ export function EditableProfileView({
                       </a>
                     );
                   });
-              return <HeaderIconRow nodes={iconNodes} />;
+              return <HeaderIconRow nodes={iconNodes} gapTop={headerSpacing.handleIcons} />;
             }
             return null;
           })}
@@ -3016,8 +3033,12 @@ export function EditableProfileView({
             className="pb-32 flex flex-col gap-[6px]"
             style={{ marginTop: -HEADER_LIFT }}
           >
-            {/* Free-drag header cards (outside DndContext) — hidden during photo crop/edit */}
-            <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 5, transform: `translateY(${-HEADER_OFFSET_Y}px)` }}>
+            {/* Free-drag header cards (outside DndContext) — hidden during photo crop/edit.
+                HDR.SPACE.2: the edit canvas composes the below-icons gap differently
+                (card gaps, no view-mode paddingBottom), so it mirrors the slider as a
+                DELTA from the default — absent config = 0 = today's canvas, and a drag
+                shifts the canvas by exactly the px the public page will shift. */}
+            <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 5, transform: `translateY(${-HEADER_OFFSET_Y}px)`, marginBottom: headerSpacing.iconsContent - HEADER_GAP_C }}>
             {photoStep === 'idle' && (() => {
               const allItems = socialBlocks.flatMap(b => b.items);
               const seen = new Set<string>();
@@ -3035,6 +3056,7 @@ export function EditableProfileView({
                     page={page}
                     draftDisplayName={headerDraft?.displayName}
                     nameFx={editNameFx}
+                    gapNameHandle={headerSpacing.nameHandle}
                     localNameSize={localNameSize}
                     localHandleSize={localHandleSize}
                     localNameColor={localNameColor}
@@ -3050,6 +3072,7 @@ export function EditableProfileView({
                     key={cardId}
                     chrome={chrome}
                     socialItems={dedupedSocialItems}
+                    gapHandleIcons={headerSpacing.handleIcons}
                     expanded={expandedHeaderCard === '__social_icons__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
                     localIconsPaddingY={localIconsPaddingY} setLocalIconsPaddingY={setLocalIconsPaddingY}

@@ -138,6 +138,10 @@ type HubSeed = {
   handleColor: string;
   font: string;
   textEffect: NonNullable<HeaderDraft['textEffect']>;
+  // HDR.SPACE.2 — the three header gaps, px (headerConfig.spacing).
+  spacingNameHandle: number;
+  spacingHandleIcons: number;
+  spacingIconsContent: number;
 };
 
 const TYPO_TABS: { key: TypoTab; labelKey: string }[] = [
@@ -403,6 +407,10 @@ export function ProfileDashboard({
   const [handleColorDraft, setHandleColorDraft] = useState('#ffffff99');
   const [fontDraft, setFontDraft] = useState('inter');
   const [fxDraft, setFxDraft] = useState<HubSeed['textEffect']>({ type: 'none' });
+  // HDR.SPACE.2 — Spacing sliders. Defaults mirror the EPV HEADER_GAP_* constants.
+  const [spacingNameHandleDraft, setSpacingNameHandleDraft] = useState(-2);
+  const [spacingHandleIconsDraft, setSpacingHandleIconsDraft] = useState(6);
+  const [spacingIconsContentDraft, setSpacingIconsContentDraft] = useState(16);
   // The snapshot the drafts were seeded from — also the Cancel target. Null until
   // the hub has been opened once.
   const [hubSeed, setHubSeed] = useState<HubSeed | null>(null);
@@ -594,6 +602,9 @@ export function ProfileDashboard({
     setHandleColorDraft(s.handleColor);
     setFontDraft(s.font);
     setFxDraft(s.textEffect);
+    setSpacingNameHandleDraft(s.spacingNameHandle);
+    setSpacingHandleIconsDraft(s.spacingHandleIcons);
+    setSpacingIconsContentDraft(s.spacingIconsContent);
   };
 
   // Seed drafts when the hub opens (avoids clobbering mid-edit). Re-seeding on
@@ -611,6 +622,9 @@ export function ProfileDashboard({
       handleColor: hc.handleColor || '#ffffff99',
       font: typo.font || 'inter',
       textEffect: { type: 'none', ...(typo.text_effect || {}) },
+      spacingNameHandle: typeof hc.spacing?.nameHandle === 'number' ? hc.spacing.nameHandle : -2,
+      spacingHandleIcons: typeof hc.spacing?.handleIcons === 'number' ? hc.spacing.handleIcons : 6,
+      spacingIconsContent: typeof hc.spacing?.iconsContent === 'number' ? hc.spacing.iconsContent : 16,
     };
     setTypoTab('name');
     applyHubSeed(seed);
@@ -626,7 +640,10 @@ export function ProfileDashboard({
     nameColorDraft !== hubSeed.nameColor ||
     handleColorDraft !== hubSeed.handleColor ||
     fontDraft !== hubSeed.font ||
-    JSON.stringify(fxDraft) !== JSON.stringify(hubSeed.textEffect)
+    JSON.stringify(fxDraft) !== JSON.stringify(hubSeed.textEffect) ||
+    spacingNameHandleDraft !== hubSeed.spacingNameHandle ||
+    spacingHandleIconsDraft !== hubSeed.spacingHandleIcons ||
+    spacingIconsContentDraft !== hubSeed.spacingIconsContent
   );
 
   // Live-mirror (L4): publish the whole draft whenever any hub value moves, so
@@ -642,9 +659,14 @@ export function ProfileDashboard({
       handleColor: handleColorDraft,
       font: fontDraft,
       textEffect: fxDraft,
+      spacing: {
+        nameHandle: spacingNameHandleDraft,
+        handleIcons: spacingHandleIconsDraft,
+        iconsContent: spacingIconsContentDraft,
+      },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nameFxOpen, open, nameDraft, nameSizeDraft, handleSizeDraft, nameColorDraft, handleColorDraft, fontDraft, fxDraft]);
+  }, [nameFxOpen, open, nameDraft, nameSizeDraft, handleSizeDraft, nameColorDraft, handleColorDraft, fontDraft, fxDraft, spacingNameHandleDraft, spacingHandleIconsDraft, spacingIconsContentDraft]);
 
   // Live-mirror (L4): the header draft lives only as long as the hub is open.
   // Clear it when the hub closes, when the whole dashboard closes (handleClose
@@ -694,6 +716,11 @@ export function ProfileDashboard({
           handleSize: handleSizeDraft,
           nameColor: nameColorDraft,
           handleColor: handleColorDraft,
+          spacing: {
+            nameHandle: spacingNameHandleDraft,
+            handleIcons: spacingHandleIconsDraft,
+            iconsContent: spacingIconsContentDraft,
+          },
         },
         typography: { ...existingTypo, font: fontDraft, text_effect: fxDraft },
       },
@@ -712,6 +739,9 @@ export function ProfileDashboard({
       handleColor: handleColorDraft,
       font: fontDraft,
       textEffect: fxDraft,
+      spacingNameHandle: spacingNameHandleDraft,
+      spacingHandleIcons: spacingHandleIconsDraft,
+      spacingIconsContent: spacingIconsContentDraft,
     });
     // Await the refetch before dropping the draft: clearing first would let the
     // preview fall back to the stale themeJson prop and flash the old values.
@@ -1592,6 +1622,30 @@ export function ProfileDashboard({
                           onChange={(e) => setHandleSizeDraft(Number(e.target.value))}
                           className="w-full accent-[#C9A55C]"
                         />
+                      </div>
+                      {/* HDR.SPACE.2 — the three header gaps, same slider conventions
+                          as the size rows above. Live via the L4 header draft. */}
+                      <div className="pt-4 border-t border-white/10 space-y-5">
+                        <p className="text-white/60 text-[11px] font-semibold uppercase tracking-wide">{t('typoHub.spacing')}</p>
+                        {([
+                          { labelKey: 'typoHub.spacingNameHandle', min: -6, max: 12, value: spacingNameHandleDraft, set: setSpacingNameHandleDraft },
+                          { labelKey: 'typoHub.spacingHandleIcons', min: 0, max: 20, value: spacingHandleIconsDraft, set: setSpacingHandleIconsDraft },
+                          { labelKey: 'typoHub.spacingIconsContent', min: 0, max: 24, value: spacingIconsContentDraft, set: setSpacingIconsContentDraft },
+                        ] as const).map((row) => (
+                          <div key={row.labelKey}>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-white/40 text-[10px]">{t(row.labelKey)}</span>
+                              <span className="text-white/40 text-[10px]">{row.value}px</span>
+                            </div>
+                            <input
+                              type="range" min={row.min} max={row.max} step={1} value={row.value}
+                              aria-label={t(row.labelKey)}
+                              onChange={(e) => row.set(Number(e.target.value))}
+                              className="w-full accent-[#C9A55C]"
+                            />
+                          </div>
+                        ))}
+                        <p className="text-white/30 text-[10px]">{t('typoHub.spacingHint')}</p>
                       </div>
                     </div>
                   )}

@@ -21,4 +21,12 @@ export interface HeaderDraft {
     width?: number;
     color?: string;
   };
+  // HDR.SPACE.2 — live mirror of the hub's Spacing sliders. Same shape as the
+  // persisted headerConfig.spacing; undefined keys fall back to the saved
+  // values and then to the header constants.
+  spacing?: {
+    nameHandle?: number;
+    handleIcons?: number;
+    iconsContent?: number;
+  };
 }
