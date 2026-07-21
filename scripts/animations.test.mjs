@@ -8,10 +8,13 @@ import {
   ANIMATION_IDS,
   animationClass,
   isAnimationId,
+  resolveAnimation,
 } from '../src/lib/animations';
 import {
   PER_ITEM_APPEARANCE_KEYS,
+  PRESERVED_THEME_KEYS,
   resetItemAppearanceStyleJson,
+  stripPreservedThemeKeys,
 } from '../src/lib/tpl-apply';
 
 let passed = 0;
@@ -100,5 +103,47 @@ for (const empty of [null, undefined, {}, [], 'x', 5]) {
   assert.equal(next, null, 'clean input → null');
 }
 ok('clean or non-object style_json is a no-op');
+
+// ── 4. ANIM.2 resolveAnimation — inherit / override / none matrix ───────────
+// Per-item wins when it says anything valid; absent/junk inherits the page;
+// an explicit item 'none' is deliberate stillness that beats a page value.
+assert.equal(resolveAnimation(undefined, undefined), 'none', 'nothing set → none');
+assert.equal(resolveAnimation(null, null), 'none', 'nulls → none');
+ok('no page value + no item value → none');
+
+assert.equal(resolveAnimation('glow', undefined), 'glow', 'item absent inherits page');
+assert.equal(resolveAnimation('glow', null), 'glow', 'item null inherits page');
+ok('an unset item inherits the page-level effect');
+
+assert.equal(resolveAnimation(undefined, 'pulse'), 'pulse', 'item effect with no page');
+assert.equal(resolveAnimation('glow', 'pulse'), 'pulse', 'item effect beats page');
+ok('a per-item effect overrides the page-level effect');
+
+assert.equal(resolveAnimation('glow', 'none'), 'none', "item 'none' beats page");
+assert.equal(resolveAnimation(undefined, 'none'), 'none', "item 'none' with no page");
+ok("an explicit per-item 'none' holds the button still against a page value");
+
+assert.equal(resolveAnimation('none', undefined), 'none', "page 'none' → none");
+assert.equal(resolveAnimation('bogus', undefined), 'none', 'junk page value → none');
+assert.equal(resolveAnimation(42, undefined), 'none', 'non-string page value → none');
+assert.equal(resolveAnimation('glow', 'bogus'), 'glow', 'junk item value inherits page');
+assert.equal(resolveAnimation('glow', 42), 'glow', 'non-string item value inherits page');
+ok('junk on either side degrades safely (item → inherit, page → none)');
+
+// ── 5. ANIM.2 template interaction ──────────────────────────────────────────
+// Page-level animation is TEMPLATE-STYLABLE: it must NOT be preserved across a
+// preset apply — presets may set (or clear, via wholesale buttons replace) it.
+assert.ok(!PRESERVED_THEME_KEYS.includes('animation'), 'animation not a preserved key');
+{
+  const stripped = stripPreservedThemeKeys({
+    pageStyle: 'hero',
+    buttons: { shape: 'pill', animation: 'pulse' },
+  });
+  assert.equal(stripped.pageStyle, undefined, 'pageStyle stripped (control)');
+  assert.equal(stripped.buttons.animation, 'pulse', 'incoming buttons.animation survives');
+}
+ok('page-level animation is template-stylable (survives stripPreservedThemeKeys)');
+// Per-item values keep being reset by applies (TPL.5): covered by section 3
+// above — PER_ITEM_APPEARANCE_KEYS includes `animation` and the reset strips it.
 
 console.log('\nAll ' + passed + ' checks passed.');

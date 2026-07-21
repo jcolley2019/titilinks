@@ -29,8 +29,8 @@ import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { ANIMATIONS, animationClass } from '@/lib/animations';
-import { cn } from '@/lib/utils';
+import { isAnimationId } from '@/lib/animations';
+import { AnimationChipRow } from './AnimationChipRow';
 
 type BlockItem = Tables<'block_items'>;
 
@@ -71,9 +71,12 @@ interface PrimaryCtaEditorProps {
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  /** ANIM.2: the page-level theme.buttons.animation — the value the Inherit
+   *  chip resolves to (labels + previews that chip). */
+  pageAnimation?: string;
 }
 
-export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMode }: PrimaryCtaEditorProps) {
+export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMode, pageAnimation }: PrimaryCtaEditorProps) {
   const { t } = useLanguage();
   const { can } = useEntitlements();
   const canAnimations = can('linkAnimations');
@@ -87,15 +90,21 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const [styleConfig, setStyleConfig] = useState<BlockStyleConfig>(DEFAULT_BLOCK_STYLE);
   const [styleExpanded, setStyleExpanded] = useState(false);
 
-  // ANIM.1: pick the CTA's motion effect. 'none' is free; the rest are PRO — a
-  // free profile sees the picker but a locked pick raises the upsell instead of
-  // writing (onSubmit strips it too). Stored on styleConfig.animation.
+  // ANIM.1/ANIM.2: pick the CTA's motion effect. ABSENT = Inherit the
+  // page-level effect (ANIM.2 default); an explicit 'none' holds the CTA still
+  // against a page value. Inherit/'none' are free; paintable effects are PRO —
+  // a free profile sees the picker but a locked pick raises the upsell instead
+  // of writing (onSubmit strips it too). Stored on styleConfig.animation.
+  const currentAnimation: string =
+    styleConfig.animation === 'none' || isAnimationId(styleConfig.animation)
+      ? styleConfig.animation
+      : 'inherit';
   const pickAnimation = (id: string) => {
-    if (id !== 'none' && !canAnimations) {
+    if (id !== 'none' && id !== 'inherit' && !canAnimations) {
       toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
       return;
     }
-    setStyleConfig((prev) => ({ ...prev, animation: id === 'none' ? undefined : id }));
+    setStyleConfig((prev) => ({ ...prev, animation: id === 'inherit' ? undefined : id }));
   };
 
   const form = useForm<FormData>({
@@ -174,10 +183,12 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const onSubmit = async (data: FormData) => {
     setSaving(true);
     try {
-      // Save style config to block title. ANIM.1: strip the animation key at
-      // SAVE for a non-entitled profile (belt-and-suspenders with the picker).
+      // Save style config to block title. ANIM.1/ANIM.2: strip the animation
+      // key at SAVE for a non-entitled profile (belt-and-suspenders with the
+      // picker). Only PAINTABLE effects strip — an explicit 'none' (hold still
+      // against a page value) and absent (inherit) are always free.
       const safeStyle =
-        canAnimations || styleConfig.animation == null
+        canAnimations || !isAnimationId(styleConfig.animation)
           ? styleConfig
           : { ...styleConfig, animation: undefined };
       const configJson: CtaBlockConfig = { style: safeStyle };
@@ -339,8 +350,9 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                 </div>
               </div>
 
-              {/* ANIM.1 — CTA motion effect. Six subtle options (only 'none'
-                  free; the rest PRO). Each chip previews its own animation. */}
+              {/* ANIM.1/ANIM.2 — CTA motion effect (shared AnimationChipRow;
+                  leading Inherit chip = follow the page-level Buttons-tab
+                  effect). */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">{t('linksEditor.animations')}</Label>
@@ -350,31 +362,14 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {ANIMATIONS.map(({ id, labelKey }) => {
-                    const selected = (styleConfig.animation ?? 'none') === id;
-                    const locked = !canAnimations && id !== 'none';
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        data-testid={`cta-anim-chip-${id}`}
-                        aria-pressed={selected}
-                        onClick={() => pickAnimation(id)}
-                        className={cn(
-                          'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
-                          animationClass(id),
-                          selected
-                            ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                            : 'border-border text-muted-foreground',
-                        )}
-                      >
-                        {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
-                        {t(labelKey)}
-                      </button>
-                    );
-                  })}
-                </div>
+                <AnimationChipRow
+                  value={currentAnimation}
+                  onPick={pickAnimation}
+                  canAnimations={canAnimations}
+                  testIdPrefix="cta-anim-chip"
+                  showInherit
+                  inheritedValue={pageAnimation}
+                />
                 {!canAnimations && (
                   <button
                     type="button"

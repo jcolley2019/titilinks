@@ -41,7 +41,8 @@ import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { ANIMATIONS, animationClass } from '@/lib/animations';
+import { isAnimationId } from '@/lib/animations';
+import { AnimationChipRow } from './AnimationChipRow';
 import {
   WHATSAPP_COUNTRIES,
   WA_DEFAULT_ISO_ES,
@@ -247,6 +248,7 @@ function LinkDetailPanel({
   onDraftChange,
   panelMode,
   avatarUrl,
+  pageAnimation,
 }: {
   item: LinkItem;
   partnerItem?: LinkItem | null;
@@ -259,6 +261,8 @@ function LinkDetailPanel({
   onDraftChange?: (item: LinkItem | null) => void;
   panelMode?: boolean;
   avatarUrl?: string;
+  /** ANIM.2: the page-level theme.buttons.animation — labels the Inherit chip. */
+  pageAnimation?: string;
 }) {
   // Card A is the primary (left) item; Card B is the Small partner (right). The
   // tapped half is the initial active slot so editing starts where you clicked.
@@ -417,17 +421,20 @@ function LinkDetailPanel({
     });
   };
 
-  // ANIM.1: the motion effect on THIS card, and the guarded picker. 'none' is
-  // free; the rest are PRO — a free profile sees the picker but a locked pick
-  // raises the upsell instead of writing (the save path strips it too).
-  const currentAnimation =
-    ((active.style_json as Record<string, any> | null)?.animation as string) ?? 'none';
+  // ANIM.1/ANIM.2: the motion effect on THIS card, and the guarded picker.
+  // ABSENT = Inherit the page-level effect (the ANIM.2 default); an explicit
+  // 'none' is stored to hold THIS card still against a page value. Inherit and
+  // 'none' are free; paintable effects are PRO — a free profile sees the picker
+  // but a locked pick raises the upsell instead of writing (save strips too).
+  const rawAnimation = (active.style_json as Record<string, any> | null)?.animation;
+  const currentAnimation: string =
+    rawAnimation === 'none' || isAnimationId(rawAnimation) ? rawAnimation : 'inherit';
   const pickAnimation = (id: string) => {
-    if (id !== 'none' && !canAnimations) {
+    if (id !== 'none' && id !== 'inherit' && !canAnimations) {
       toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
       return;
     }
-    setStyleField('animation', id === 'none' ? null : id);
+    setStyleField('animation', id === 'inherit' ? null : id);
   };
 
   // Per-card preview theme/style — mirror LinksBlock's per-item overrides so the
@@ -1170,10 +1177,13 @@ function LinkDetailPanel({
             );
           })()}
 
-          {/* ANIM.1 — link animation picker. Six subtle motion effects (only
-              'none' is free; the rest are PRO). Each chip previews its own
-              animation. grid-cols-3 keeps six chips to two rows at panel width. */}
-          <div className="space-y-1.5">
+          {/* ANIM.1/ANIM.2 — link animation picker (shared AnimationChipRow;
+              leading Inherit chip = follow the page-level Buttons-tab effect).
+              ANIM.2 spacing fix (field report: the PRO upsell sat cramped):
+              the section now carries the same `py-3 border-t` rhythm as its
+              neighboring 18+ row, and the internal gap steps up 1.5 → 2 to
+              match the sibling field groups. */}
+          <div data-testid="animations-section" className="py-3 border-t border-border space-y-2">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">{t('linksEditor.animations')}</p>
               {!canAnimations && (
@@ -1183,31 +1193,14 @@ function LinkDetailPanel({
               )}
             </div>
             <p className="text-xs text-muted-foreground">{t('linksEditor.animationsSubtitle')}</p>
-            <div className="grid grid-cols-3 gap-2">
-              {ANIMATIONS.map(({ id, labelKey }) => {
-                const selected = currentAnimation === id;
-                const locked = !canAnimations && id !== 'none';
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    data-testid={`anim-chip-${id}`}
-                    aria-pressed={selected}
-                    onClick={() => pickAnimation(id)}
-                    className={cn(
-                      'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
-                      animationClass(id),
-                      selected
-                        ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                        : 'border-border text-muted-foreground',
-                    )}
-                  >
-                    {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
-                    {t(labelKey)}
-                  </button>
-                );
-              })}
-            </div>
+            <AnimationChipRow
+              value={currentAnimation}
+              onPick={pickAnimation}
+              canAnimations={canAnimations}
+              testIdPrefix="anim-chip"
+              showInherit
+              inheritedValue={pageAnimation}
+            />
             {!canAnimations && (
               <button
                 type="button"
@@ -1325,9 +1318,12 @@ interface LinksEditorProps {
   onDraftChange?: (item: LinkItem | null) => void;
   /** Creator's profile photo — offered as a per-link "leading icon" option. */
   avatarUrl?: string;
+  /** ANIM.2: the page-level theme.buttons.animation — the value the per-item
+   *  Inherit chip resolves to (labels + previews that chip). */
+  pageAnimation?: string;
 }
 
-export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl }: LinksEditorProps) {
+export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl, pageAnimation }: LinksEditorProps) {
   const { t } = useLanguage();
   const { can } = useEntitlements();
   const canAnimations = can('linkAnimations');
@@ -1469,11 +1465,13 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // Shared payload shape for a single block_items row (used by the direct
   // single-item Save).
   const buildItemPayload = (item: LinkItem, orderIndex: number) => {
-    // ANIM.1: gate the animation appearance key at SAVE, not just in the UI — a
-    // free profile can never persist a motion effect (belt-and-suspenders with
-    // the picker's own guard). 'none'/absent needs no stripping.
+    // ANIM.1/ANIM.2: gate the animation appearance key at SAVE, not just in the
+    // UI — a free profile can never persist a motion effect (belt-and-suspenders
+    // with the picker's own guard). Only PAINTABLE effects strip: an explicit
+    // 'none' (hold this card still against a page value) and absent (inherit)
+    // are always free.
     let styleJson = item.style_json as Record<string, unknown> | null;
-    if (styleJson && !canAnimations && styleJson.animation != null) {
+    if (styleJson && !canAnimations && isAnimationId(styleJson.animation)) {
       styleJson = { ...styleJson };
       delete styleJson.animation;
       if (Object.keys(styleJson).length === 0) styleJson = null;
@@ -1635,6 +1633,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
           onDraftChange={onDraftChange}
           panelMode={panelMode}
           avatarUrl={avatarUrl}
+          pageAnimation={pageAnimation}
           onBack={directMode
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}

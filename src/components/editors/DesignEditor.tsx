@@ -26,8 +26,10 @@ import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography, type PageId } from '@/lib/theme-defaults';
 import { captureSnapshot } from '@/lib/snapshots';
 import { withEffectivePageStyle } from '@/lib/surface';
+import { isAnimationId } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { useLanguage } from '@/hooks/useLanguage';
 
 import { TemplateGallery } from './TemplateGallery';
@@ -80,6 +82,10 @@ interface DesignEditorProps {
 export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange, onClose, activePageId = 'page1' }: DesignEditorProps) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
+  const { can } = useEntitlements();
+  // ANIM.2: saveTheme strips the page-level animation for a non-entitled
+  // profile (belt-and-suspenders with the Buttons-tab picker's own guard).
+  const canAnimations = can('linkAnimations');
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
   // PAGES.STYLE.1: what the MENUS render from — `theme` with pageStyle
   // resolved to the active page. The `theme` draft itself stays the raw write
@@ -266,12 +272,18 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   const saveTheme = async (newTheme: ThemeJson) => {
     try {
+      // ANIM.2: a free profile can never PERSIST a page-level motion effect —
+      // strip it at save (the JSON round-trip below erases the undefined),
+      // exactly like the per-item editors gate style_json.animation.
+      const safeTheme = !canAnimations && isAnimationId(newTheme.buttons.animation)
+        ? { ...newTheme, buttons: { ...newTheme.buttons, animation: undefined } }
+        : newTheme;
       // Merge over the existing raw json so keys the theme editor doesn't
       // manage (headerConfig, headerCardOrder, avatar_url_page2, pages) survive.
       const extras = (themeJson && typeof themeJson === 'object') ? (themeJson as Record<string, unknown>) : {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...extras, ...JSON.parse(JSON.stringify(newTheme)) } })
+        .update({ theme_json: { ...extras, ...JSON.parse(JSON.stringify(safeTheme)) } })
         .eq('id', pageId);
 
       if (error) throw error;

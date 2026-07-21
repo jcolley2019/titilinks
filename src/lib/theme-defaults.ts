@@ -1,6 +1,7 @@
 // Default theme structure for pages.theme_json
 
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID } from '@/lib/device-presets';
+import type { AnimationId } from '@/lib/animations';
 
 export interface ThemeBackground {
   type: 'solid' | 'gradient' | 'image';
@@ -51,6 +52,12 @@ export interface ThemeButtons {
   // Reserved slot for the LinkButton visual direction (Phase 2 wires this up).
   // 'velvet' = frosted glass w/ gold hairline. 'obelisk' will be added later.
   variant_style?: 'velvet';
+  // ANIM.2: page-level button animation — one choice animates EVERY button
+  // surface (link cards, primary CTA, product_cards Buy pill, email_subscribe
+  // button). Absent/'none' = still. Per-item values override it through
+  // resolveAnimation(); TEMPLATE-STYLABLE — presets may set it (deliberately
+  // NOT in tpl-apply's PRESERVED_THEME_KEYS).
+  animation?: AnimationId;
 }
 
 export interface ThemeTypography {
@@ -82,6 +89,8 @@ export interface BlockStyleConfig {
   // The primary CTA stores its animation HERE (its appearance lives on this
   // JSON-in-title config). Per-link cards instead store it on
   // block_items.style_json.animation. Both feed LinkButton's `animation` prop.
+  // ANIM.2: this is now an OVERRIDE of the page-level theme.buttons.animation —
+  // absent = inherit the page value; an explicit 'none' = deliberately still.
   animation?: string;
 }
 

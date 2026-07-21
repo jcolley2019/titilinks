@@ -11,6 +11,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { cardSurface, isFullBleedTheme } from '@/lib/surface';
+import { animationClass, resolveAnimation } from '@/lib/animations';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 
 interface ProductConfig {
@@ -81,6 +82,10 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
   // derivation (was fill_color @ 8% alpha — invisible). Photos still cover it when
   // present; the frame keeps the layout color visible even on image tiles.
   const surface = cardSurface(theme);
+  // ANIM.2: the Buy pill is a button surface — it follows the page-level
+  // animation (no per-item override on this surface) via the same lb-anim-*
+  // class contract LinkButton uses; inert under prefers-reduced-motion.
+  const buyAnimClass = animationClass(resolveAnimation(theme.buttons.animation, undefined));
 
   const handleClick = (e: React.MouseEvent, item: BlockItem) => {
     // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
@@ -157,7 +162,7 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
             )}
             {cfg.showBuy && item.cta_label && (
               <span
-                className="inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${buyAnimClass}`.trim()}
                 style={{ backgroundColor: fill, color: theme.buttons.text_color }}
               >
                 {tc(item.cta_label)}

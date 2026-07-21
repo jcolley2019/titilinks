@@ -17,6 +17,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { getChromeTokens, coerceLegibleText } from '@/lib/contrast';
 import { fullBleedText } from '@/lib/surface';
+import { animationClass, resolveAnimation } from '@/lib/animations';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
 
@@ -135,6 +136,10 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
   // illegible button (the guarantee the old fixed gold gave for free).
   const btnBg = theme.buttons.fill_color;
   const btnText = coerceLegibleText(theme.buttons.text_color, btnBg);
+  // ANIM.2: the Subscribe button is a button surface — it follows the
+  // page-level animation (no per-item override on this surface) via the same
+  // lb-anim-* class contract LinkButton uses; inert under reduced motion.
+  const btnAnimClass = animationClass(resolveAnimation(theme.buttons.animation, undefined));
 
   // FS.SURFACE.1a: the Subscribe button paints the brand-gold action accent
   // (the one sanctioned solid on any page style) — a constant legible pair,
@@ -220,7 +225,7 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
             type="submit"
             disabled={loading}
             whileTap={{ scale: 0.98 }}
-            className="h-11 px-5 font-medium flex items-center gap-2 flex-shrink-0 disabled:opacity-70"
+            className={`h-11 px-5 font-medium flex items-center gap-2 flex-shrink-0 disabled:opacity-70 ${btnAnimClass}`.trim()}
             style={{
               backgroundColor: btnBg,
               color: btnText,

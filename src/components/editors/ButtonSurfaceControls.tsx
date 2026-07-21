@@ -7,9 +7,14 @@
 // can never offer a look the page can't render (spec 3b).
 import { useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
+import { Lock } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ThemeJson } from '@/lib/theme-defaults';
 import { coerceFullBleedVariant, ACTION_ACCENT, resolveButtonSurface, type ButtonVariant } from '@/lib/surface';
+import { isAnimationId, type AnimationId } from '@/lib/animations';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { AnimationChipRow } from './AnimationChipRow';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
@@ -68,8 +73,26 @@ export function ButtonSurfaceControls({
   onPatch: (updates: Partial<ThemeJson['buttons']>) => void;
 }) {
   const { t } = useLanguage();
+  const { can } = useEntitlements();
+  const canAnimations = can('linkAnimations');
   const [tintOpen, setTintOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
+
+  // ANIM.2: page-level animation — one choice for every button surface. 'none'
+  // is stored as ABSENT (saveTheme's JSON round-trip erases the undefined), so
+  // a page that never touched this renders byte-identical. Paintable picks are
+  // PRO (same convention as the per-item pickers: tap raises the upsell,
+  // DesignEditor.saveTheme strips as belt-and-suspenders).
+  const pageAnimation: string = isAnimationId(theme.buttons.animation)
+    ? theme.buttons.animation
+    : 'none';
+  const pickAnimation = (id: string) => {
+    if (id !== 'none' && !canAnimations) {
+      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      return;
+    }
+    onPatch({ animation: id === 'none' ? undefined : (id as AnimationId) });
+  };
 
   const buttons = theme.buttons;
   // FS.SURFACE.2d: chip state comes from the SAME resolver LinkButton
@@ -232,6 +255,39 @@ export function ButtonSurfaceControls({
           )}
         </div>
       )}
+
+      {/* ANIM.2 — page-level animation: one effect for EVERY button surface
+          (link cards, CTA, Buy pills, Subscribe). Shared chip row (no Inherit
+          here — this IS the value items inherit). Live-previews per chip. */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-medium">{t('design.animation')}</Label>
+          {!canAnimations && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-2 py-0.5">
+              <Lock className="h-2.5 w-2.5" /> PRO
+            </span>
+          )}
+        </div>
+        <AnimationChipRow
+          value={pageAnimation}
+          onPick={pickAnimation}
+          canAnimations={canAnimations}
+          testIdPrefix="page-anim-chip"
+        />
+        <p className="text-xs text-muted-foreground">{t('design.animationDesc')}</p>
+        {!canAnimations && (
+          <button
+            type="button"
+            data-testid="page-animations-upsell"
+            onClick={() =>
+              toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
+            }
+            className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
+          >
+            {t('linksEditor.upgradeToPro')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

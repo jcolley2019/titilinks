@@ -3,7 +3,7 @@ import type { ThemeJson, BlockStyleConfig } from '@/lib/theme-defaults';
 import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { relativeLuminance } from '@/lib/contrast';
 import { resolveButtonSurface } from '@/lib/surface';
-import { animationClass } from '@/lib/animations';
+import { animationClass, resolveAnimation } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -242,8 +242,11 @@ export function LinkButton(props: LinkButtonProps) {
     `lb-span-${span}`,
     effectiveMedia ? 'has-media' : socialIcon ? 'has-social' : 'no-thumb',
     CLIPPED_SHAPES.includes(shape) ? `lb-shape-${shape}` : '',
-    // ANIM.1: a per-link motion class on the root moves the whole button as one.
-    animationClass(props.animation),
+    // ANIM.1/ANIM.2: motion class on the root moves the whole button as one.
+    // Resolved HERE (the single choke point every LinkButton surface shares):
+    // per-item prop wins ('none' = deliberately still), else the page-level
+    // theme.buttons.animation, else nothing.
+    animationClass(resolveAnimation(themeButtons?.animation, props.animation)),
     className,
   ]
     .filter(Boolean)

@@ -1133,9 +1133,13 @@ export function ProfileDashboard({
       panelMode: true as const,
     };
 
+    // ANIM.2: the page-level animation (theme.buttons.animation) labels the
+    // per-item pickers' Inherit chip in the links + CTA editors.
+    const pageAnimation = ((themeJson as any)?.buttons?.animation as string | undefined);
+
     switch (activeBlockType) {
       case 'primary_cta':
-        return <PrimaryCtaEditor {...editorProps} />;
+        return <PrimaryCtaEditor {...editorProps} pageAnimation={pageAnimation} />;
       case 'social_links':
         return (
           <SocialLinksEditor
@@ -1176,7 +1180,7 @@ export function ProfileDashboard({
           />
         );
       case 'links':
-        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} avatarUrl={avatarUrl} />;
+        return <LinksEditor {...editorProps} directItemId={directItemId} directNew={directNew} onDraftChange={onDraftChange} avatarUrl={avatarUrl} pageAnimation={pageAnimation} />;
       case 'product_cards':
         return <ProductCardsEditor {...editorProps} />;
       case 'email_subscribe':
