@@ -446,6 +446,7 @@ export type Database = {
           onboarding_complete: boolean
           page_style: string | null
           plan: string
+          show_badge: boolean
           tiktok_pixel_id: string | null
           updated_at: string
           username: string | null
@@ -462,6 +463,7 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          show_badge?: boolean
           tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
@@ -478,6 +480,7 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          show_badge?: boolean
           tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
@@ -546,6 +549,13 @@ export type Database = {
       get_public_brand_fonts: {
         Args: { page_handle: string }
         Returns: Json
+      }
+      get_public_page_branding: {
+        Args: { p_page_id: string }
+        Returns: {
+          plan: string
+          show_badge: boolean
+        }[]
       }
       get_public_page_plan: {
         Args: { p_page_id: string }

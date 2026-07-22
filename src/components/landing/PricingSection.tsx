@@ -104,7 +104,7 @@ export function PricingSection() {
         tx('Custom fonts & Brand Kit', 'Fuentes personalizadas y Kit de marca'),
         tx('Email subscribe block', 'Bloque de suscripción'),
         tx('5 restore points', '5 puntos de restauración'),
-        tx('Remove branding', 'Sin marca TitiLinks'),
+        tx('TitiLinks badge — optional', 'Insignia de TitiLinks — opcional'),
       ],
       cta: tx('Get started', 'Comenzar'),
       popular: true,

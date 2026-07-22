@@ -48,7 +48,10 @@ interface ThemeJson {
 export default function Editor() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { can } = useEntitlements();
+  const { can, showBadge } = useEntitlements();
+  // PROMO.TOGGLE.1: free is always branded; paid tiers follow the owner's
+  // profiles.show_badge toggle. Same rule the public page applies.
+  const showBranding = !can('removeBranding') || showBadge;
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
@@ -701,7 +704,7 @@ export default function Editor() {
               headerDraft={headerDraft}
               themeDraft={themeDraft}
               editMode={!isVisitor}
-              showBranding={!can('removeBranding')}
+              showBranding={showBranding}
               onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
@@ -731,7 +734,7 @@ export default function Editor() {
           headerDraft={headerDraft}
           themeDraft={themeDraft}
           editMode={true}
-          showBranding={!can('removeBranding')}
+          showBranding={showBranding}
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
           onBlockReorder={handleBlockReorder}

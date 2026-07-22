@@ -33,7 +33,7 @@ export function useEntitlements() {
       if (!user) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('plan')
+        .select('plan, show_badge')
         .eq('id', user.id)
         .single();
 
@@ -55,6 +55,10 @@ export function useEntitlements() {
   return {
     plan,
     entitlements,
+    /** Whether the owner wants the "Made with TitiLinks" badge shown on paid
+     *  tiers (PROMO.TOGGLE.1). Defaults to true until loaded / on a null row —
+     *  free tier ignores this and is always branded. */
+    showBadge: (data as { show_badge?: boolean } | null)?.show_badge !== false,
     isLoading: !!user && isLoading,
     /** True if the current plan grants a boolean feature. */
     can: (feature: BooleanFeature) => canFeature(plan, feature),

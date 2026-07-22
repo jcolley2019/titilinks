@@ -1,15 +1,56 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Sun, Moon, Bell } from 'lucide-react';
+import { Globe, Sun, Moon, Bell, BadgeCheck, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/hooks/useAuth';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 export default function Settings() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
+  const { atLeast, showBadge } = useEntitlements();
+  const isPaid = atLeast('pro');
+  const queryClient = useQueryClient();
+
+  // PROMO.TOGGLE.1: toggle the public "Made with TitiLinks" badge (paid tiers).
+  // Optimistically flips the shared ['plan', user.id] cache so the editor
+  // preview follows immediately; rolls back + toasts on error.
+  const badgeMutation = useMutation({
+    mutationFn: async (next: boolean) => {
+      if (!user) throw new Error('not signed in');
+      const { error } = await supabase.from('profiles').update({ show_badge: next }).eq('id', user.id);
+      if (error) throw error;
+      return next;
+    },
+    onMutate: async (next: boolean) => {
+      const key = ['plan', user?.id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData(key);
+      queryClient.setQueryData(key, (old: { plan?: string; show_badge?: boolean } | null | undefined) =>
+        old ? { ...old, show_badge: next } : old,
+      );
+      return { prev, key };
+    },
+    onError: (_err, _next, ctx) => {
+      if (ctx) queryClient.setQueryData(ctx.key, ctx.prev);
+      toast({ title: t('settings.badgeError'), variant: 'destructive' });
+    },
+    onSuccess: () => {
+      toast({ title: t('settings.badgeSaved') });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', user?.id] });
+    },
+  });
 
   return (
     <DashboardLayout>
@@ -118,6 +159,52 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">{t('settings.weeklyDigestDesc')}</p>
               </div>
               <Switch />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* PROMO.TOGGLE.1 — optional "Made with TitiLinks" badge (paid tiers) */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5 text-primary" />
+              {t('settings.badgeTitle')}
+            </CardTitle>
+            <CardDescription>
+              {t('settings.badgeDesc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <Label className="text-base font-medium">{t('settings.badgeToggleLabel')}</Label>
+                {!isPaid && (
+                  <Link
+                    to="/#pricing"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#C9A55C]/15 px-2 py-0.5 text-[10px] font-bold text-[#C9A55C]"
+                  >
+                    <Lock className="h-2.5 w-2.5" /> PRO
+                  </Link>
+                )}
+              </div>
+              {isPaid ? (
+                <Switch
+                  checked={showBadge}
+                  disabled={badgeMutation.isPending}
+                  onCheckedChange={(checked) => badgeMutation.mutate(checked)}
+                />
+              ) : (
+                // Free stays branded — the switch is locked ON.
+                <Switch checked disabled />
+              )}
+            </div>
+
+            {/* Coming-soon rewards teaser — informational, not interactive */}
+            <div className="mt-4 flex items-start gap-2 opacity-60">
+              <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {t('settings.badgeRewardsChip')}
+              </span>
+              <p className="text-xs text-muted-foreground">{t('settings.badgeRewardsTeaser')}</p>
             </div>
           </CardContent>
         </Card>

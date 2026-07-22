@@ -25,7 +25,7 @@ import { EditableProfileView } from '@/components/EditableProfileView';
 import { TrackingPixels } from '@/components/TrackingPixels';
 import { DesktopStage } from '@/components/DesktopStage';
 import { ensureUserFontFaces, fontsFromBrandJson } from '@/lib/user-fonts';
-import { usePublicPagePlan } from '@/hooks/usePublicPagePlan';
+import { usePublicPageBranding } from '@/hooks/usePublicPageBranding';
 import { can } from '@/lib/entitlements';
 
 type Page = Tables<'pages'>;
@@ -73,9 +73,10 @@ export default function PublicProfile() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
-  // PRICE.TRUTH.1: page owner's plan, read through the same public
-  // security-definer RPC pattern as pixels/fonts above. Fails toward 'free'.
-  const ownerPlan = usePublicPagePlan(page?.id);
+  // PRICE.TRUTH.1 / PROMO.TOGGLE.1: page owner's plan + optional-badge toggle,
+  // read through the same public security-definer RPC pattern as pixels/fonts
+  // above. Fails toward { free, badge shown }.
+  const ownerBranding = usePublicPageBranding(page?.id);
   const [blocksByMode, setBlocksByMode] = useState<{ page1: BlockWithItems[]; page2: BlockWithItems[] }>({ page1: [], page2: [] });
   const [notFound, setNotFound] = useState(false);
   // PIXELS.1: the page owner's tracking-pixel IDs, read through a public
@@ -556,7 +557,7 @@ export default function PublicProfile() {
           page={page}
           blocks={blocks}
           editMode={false}
-          showBranding={!can(ownerPlan, 'removeBranding')}
+          showBranding={!can(ownerBranding.plan, 'removeBranding') || ownerBranding.show_badge}
           onBlockEdit={() => {}}
           onBlockToggle={() => {}}
           onBlockReorder={() => {}}

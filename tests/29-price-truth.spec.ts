@@ -31,23 +31,27 @@ const openEditProfile = async (page: Page) => {
   await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
 };
 
+// The public badge reads the owner's branding through get_public_page_branding
+// (PROMO.TOGGLE.1); the per-owner opt-out itself is covered in 30-promo-toggle.
 test.describe('PRICE.TRUTH.1 — branding badge', () => {
   test('Free public page shows the "Made with TitiLinks" badge', async ({ page }) => {
-    await page.route('**/rest/v1/rpc/get_public_page_plan*', (route) => route.fulfill({ json: 'free' }));
+    await page.route('**/rest/v1/rpc/get_public_page_branding*', (route) =>
+      route.fulfill({ json: [{ plan: 'free', show_badge: true }] }));
     await page.goto(PROFILE);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: /made with/i })).toBeVisible();
   });
 
-  test('Pro public page hides the badge', async ({ page }) => {
-    await page.route('**/rest/v1/rpc/get_public_page_plan*', (route) => route.fulfill({ json: 'pro' }));
+  test('Pro public page shows the badge by default (opt-out lives in Settings)', async ({ page }) => {
+    await page.route('**/rest/v1/rpc/get_public_page_branding*', (route) =>
+      route.fulfill({ json: [{ plan: 'pro', show_badge: true }] }));
     await page.goto(PROFILE);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('link', { name: /made with/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /made with/i })).toBeVisible();
   });
 
-  test('fails OPEN: an errored plan lookup still shows the badge', async ({ page }) => {
-    await page.route('**/rest/v1/rpc/get_public_page_plan*', (route) => route.fulfill({ status: 500, body: '' }));
+  test('fails OPEN: an errored branding lookup still shows the badge', async ({ page }) => {
+    await page.route('**/rest/v1/rpc/get_public_page_branding*', (route) => route.fulfill({ status: 500, body: '' }));
     await page.goto(PROFILE);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: /made with/i })).toBeVisible();

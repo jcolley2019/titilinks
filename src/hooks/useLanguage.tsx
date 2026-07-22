@@ -1545,6 +1545,13 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.emailNotificationsDesc': 'Receive updates about your page performance',
     'settings.weeklyDigest': 'Weekly digest',
     'settings.weeklyDigestDesc': 'Get a summary of your analytics every week',
+    'settings.badgeTitle': 'TitiLinks badge',
+    'settings.badgeDesc': "Show the 'Made with TitiLinks' badge on your public page.",
+    'settings.badgeToggleLabel': 'Show badge',
+    'settings.badgeSaved': 'Badge preference saved',
+    'settings.badgeError': "Couldn't save. Please try again.",
+    'settings.badgeRewardsChip': 'Coming soon',
+    'settings.badgeRewardsTeaser': 'Earn rewards when your badge brings new creators to TitiLinks.',
 
     // Dashboard Page
     'dash.title': 'Dashboard',
@@ -3318,6 +3325,13 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.emailNotificationsDesc': 'Recibe actualizaciones sobre el rendimiento de tu página',
     'settings.weeklyDigest': 'Resumen semanal',
     'settings.weeklyDigestDesc': 'Recibe un resumen de tus analíticas cada semana',
+    'settings.badgeTitle': 'Insignia de TitiLinks',
+    'settings.badgeDesc': "Muestra la insignia 'Hecho con TitiLinks' en tu página pública.",
+    'settings.badgeToggleLabel': 'Mostrar insignia',
+    'settings.badgeSaved': 'Preferencia de insignia guardada',
+    'settings.badgeError': 'No se pudo guardar. Inténtalo de nuevo.',
+    'settings.badgeRewardsChip': 'Próximamente',
+    'settings.badgeRewardsTeaser': 'Gana recompensas cuando tu insignia atraiga nuevos creadores a TitiLinks.',
 
     // Dashboard Page
     'dash.title': 'Panel',
