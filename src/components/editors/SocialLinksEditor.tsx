@@ -550,21 +550,35 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 { value: 'color', label: t('socialLinksEditor.colorBrand') },
                 { value: 'black', label: t('socialLinksEditor.colorBlack') },
                 { value: 'white', label: t('socialLinksEditor.colorWhite') },
-              ] as const).map((opt) => (
+              ] as const).map((opt) => {
+                // ICON.CONTRAST.1 — same-on-same combos are invalid: the
+                // glyph would match its own background.
+                const invalid =
+                  (opt.value === 'black' && localIconBgStyle === 'black') ||
+                  (opt.value === 'white' && localIconBgStyle === 'white');
+                return (
                 <button
                   key={opt.value}
                   type="button"
+                  disabled={invalid}
+                  title={invalid ? t('socialLinksEditor.noContrastHint') : undefined}
                   onClick={() => { setLocalIconColorMode(opt.value); onIconColorModeChange?.(opt.value); }}
                   className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                     localIconColorMode === opt.value
                       ? 'bg-[#C9A55C] text-[#0e0c09]'
-                      : 'bg-white/10 text-white/50'
+                      : invalid
+                        ? 'bg-white/5 text-white/25 cursor-not-allowed'
+                        : 'bg-white/10 text-white/50'
                   }`}
                 >
                   {opt.label}
                 </button>
-              ))}
+                );
+              })}
             </div>
+            {(localIconBgStyle === 'black' || localIconBgStyle === 'white') && (
+              <p className="text-[10px] text-white/40 mt-1">{t('socialLinksEditor.noContrastHint')}</p>
+            )}
           </div>
 
           {/* Icon Background (IR.1) — global, saved to page headerConfig.iconBgStyle.
@@ -579,21 +593,34 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 { value: 'dark', label: t('socialLinksEditor.bgDark') },
                 { value: 'white', label: t('socialLinksEditor.bgWhite') },
                 { value: 'black', label: t('socialLinksEditor.bgBlack') },
-              ] as const).map((opt) => (
+              ] as const).map((opt) => {
+                // ICON.CONTRAST.1 — mirror of the color-mode guard.
+                const invalid =
+                  (opt.value === 'black' && localIconColorMode === 'black') ||
+                  (opt.value === 'white' && localIconColorMode === 'white');
+                return (
                 <button
                   key={opt.value}
                   type="button"
+                  disabled={invalid}
+                  title={invalid ? t('socialLinksEditor.noContrastHint') : undefined}
                   onClick={() => { setLocalIconBgStyle(opt.value); onIconBgStyleChange?.(opt.value); }}
                   className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
                     localIconBgStyle === opt.value
                       ? 'bg-[#C9A55C] text-[#0e0c09]'
-                      : 'bg-white/10 text-white/50'
+                      : invalid
+                        ? 'bg-white/5 text-white/25 cursor-not-allowed'
+                        : 'bg-white/10 text-white/50'
                   }`}
                 >
                   {opt.label}
                 </button>
-              ))}
+                );
+              })}
             </div>
+            {(localIconColorMode === 'black' || localIconColorMode === 'white') && (
+              <p className="text-[10px] text-white/40 mt-1">{t('socialLinksEditor.noContrastHint')}</p>
+            )}
           </div>
 
           {/* Platform Picker Toggle */}

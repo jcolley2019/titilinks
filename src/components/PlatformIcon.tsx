@@ -10,6 +10,7 @@ import {
 } from 'react-icons/si';
 import { FaLinkedin, FaSkype, FaTwitter, FaAmazon } from 'react-icons/fa';
 import { Link as LinkIcon, Globe } from 'lucide-react';
+import { contrastRatio, relativeLuminance } from '@/lib/contrast';
 
 interface PlatformMeta {
   Icon: IconType;
@@ -110,6 +111,45 @@ function resolve(label: string): PlatformMeta | undefined {
 
 export function hasPlatformIcon(label: string): boolean {
   return resolve(label) !== undefined || normalize(label) === 'website';
+}
+
+// ─── ICON.CONTRAST.1 — glyph contrast rescue ────────────────────────────────
+// Every mark above is a single-color monochrome path tinted via `color`, so
+// the `color` field doubles as the glyph-luminance hint. Catalog audit
+// (51 platforms):
+//   White-glyph brands stored as #FFFFFF (8): TikTok, X (Twitter), Threads,
+//     GitHub, Steam, BeReal, Patreon, Roblox — invisible on a white circle.
+//   Black-glyph brands stored as #000000: none today; the rule covers any
+//     future addition automatically.
+//   Low-contrast-on-white brights rescued by the same rule (ratio vs #ffffff):
+//     Snapchat #FFFC00 (1.07), Buy Me a Coffee #FFDD00 (1.35), Kick #53FC18
+//     (1.37).
+//   Threshold 1.8: the worst rescue (Kick, 1.37) and the worst survivor
+//     (WhatsApp #25D366 on white, 1.99) leave a clean gap — saturated brand
+//     colors above it keep their identity.
+// Only an opaque hex background is measurable (the 'white'/'black' icon-bg
+// styles). Translucent or unknown backdrops (glass/dark/default/off) return
+// the caller's color untouched.
+const GLYPH_CONTRAST_MIN = 1.8;
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Resolve the glyph tint for an icon circle. `modeColor` is the icon-row
+ * mode's forced color (#000000 black mode, #ffffff white mode, undefined in
+ * color mode = brand). Returns `modeColor` unchanged when the intended color
+ * reads against `background`; otherwise the monochrome variant that contrasts
+ * with the background. Passing `modeColor` through means already-saved invalid
+ * combos (black-on-black, white-on-white) also render safe.
+ */
+export function resolveGlyphColor(
+  label: string,
+  modeColor: string | undefined,
+  background: string,
+): string | undefined {
+  if (!HEX_COLOR.test(background)) return modeColor;
+  const intended = modeColor ?? resolve(label)?.color ?? '#C9A55C';
+  if (contrastRatio(intended, background) >= GLYPH_CONTRAST_MIN) return modeColor;
+  return relativeLuminance(background) > 0.5 ? '#000000' : '#ffffff';
 }
 
 interface PlatformIconProps {

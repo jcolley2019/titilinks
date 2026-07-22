@@ -80,7 +80,7 @@ import { FeaturedMediaBlock } from '@/components/blocks/FeaturedMediaBlock';
 import { VideoFeedBlock } from '@/components/blocks/VideoFeedBlock';
 import { HeroCardBlock } from '@/components/blocks/HeroCardBlock';
 import { SocialIconRowBlock } from '@/components/blocks/SocialIconRowBlock';
-import { PlatformIcon } from '@/components/PlatformIcon';
+import { PlatformIcon, resolveGlyphColor } from '@/components/PlatformIcon';
 import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
@@ -852,7 +852,7 @@ function SocialIconsCard({
               style={{ background: iconBg.background }}
               title={item.label}
             >
-              <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[localIconSize]} color={resolvedIconColor} />
+              <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[localIconSize]} color={resolveGlyphColor(item.label, resolvedIconColor, iconBg.background)} />
             </a>
           ))}
           {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
@@ -2576,7 +2576,7 @@ export function EditableProfileView({
                     const gated = isEffectivelyGated(item);
                     const href = gated ? undefined : item.url || undefined;
                     const boxClass = cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[iSize], iconBg.className);
-                    const icon = <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[iSize]} color={resolvedIconColor} />;
+                    const icon = <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[iSize]} color={resolveGlyphColor(item.label, resolvedIconColor, iconBg.background)} />;
 
                     // No destination and nothing to gate — stays decorative.
                     if (!gated && !href) {
