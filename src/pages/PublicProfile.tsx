@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { TrackingPixels } from '@/components/TrackingPixels';
 import { DesktopStage } from '@/components/DesktopStage';
+import { ensureUserFontFaces, fontsFromBrandJson } from '@/lib/user-fonts';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -233,6 +234,20 @@ export default function PublicProfile() {
         });
       } catch (pxErr) {
         console.warn('[pixels] fetch failed:', pxErr);
+      }
+
+      // BRAND.1: best-effort read of the owner's uploaded fonts via the public
+      // security-definer RPC (profiles.brand_json is owner-only RLS, same
+      // pattern as pixels above), then register their @font-face rules so any
+      // `custom:` font key on this page resolves. Isolated try/catch: a fonts
+      // failure (missing function pre-migration) never 404s the profile.
+      try {
+        const { data: brandFonts } = await supabase.rpc('get_public_brand_fonts', {
+          page_handle: handle.toLowerCase(),
+        });
+        ensureUserFontFaces(fontsFromBrandJson(brandFonts));
+      } catch (fontErr) {
+        console.warn('[fonts] fetch failed:', fontErr);
       }
 
       // Fetch both modes (page1 = Page 1, page2 = Page 2) so the visitor

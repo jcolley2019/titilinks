@@ -47,6 +47,10 @@ export interface PlanEntitlements {
    *  Link.me sells animations as a paid feature; matched here. `none` is always
    *  available to everyone, so a free profile still renders — it just can't move. */
   linkAnimations: boolean;
+  /** Upload custom brand fonts (BRAND.1). The gate is on ADDING a font —
+   *  already-uploaded fonts keep rendering after a downgrade (never break a
+   *  live page); the free tier just can't upload new ones. */
+  customFonts: boolean;
   /** Business-tier extras. */
   teamCollab: boolean;
   whiteLabel: boolean;
@@ -69,6 +73,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     emailSubscribe: false,
     carousel: false,
     linkAnimations: false,
+    customFonts: false,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -88,6 +93,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,
+    customFonts: true,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -107,6 +113,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,
+    customFonts: true,
     teamCollab: true,
     whiteLabel: true,
     apiAccess: true,

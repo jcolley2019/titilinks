@@ -436,6 +436,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          brand_json: Json | null
           created_at: string
           display_name: string | null
           email: string
@@ -451,6 +452,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          brand_json?: Json | null
           created_at?: string
           display_name?: string | null
           email: string
@@ -466,6 +468,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          brand_json?: Json | null
           created_at?: string
           display_name?: string | null
           email?: string
@@ -540,6 +543,10 @@ export type Database = {
       get_block_owner: { Args: { block_id: string }; Returns: string }
       get_mode_owner: { Args: { mode_id: string }; Returns: string }
       get_page_owner: { Args: { page_id: string }; Returns: string }
+      get_public_brand_fonts: {
+        Args: { page_handle: string }
+        Returns: Json
+      }
       get_public_tracking_pixels: {
         Args: { page_handle: string }
         Returns: {

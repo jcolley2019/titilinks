@@ -60,6 +60,7 @@ import { TextBlocksPanel } from '@/components/editors/TextBlocksPanel';
 import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor';
 import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
 import { DesktopViewEditor } from '@/components/editors/DesktopViewEditor';
+import { UserFontsSection } from '@/components/editors/UserFontsSection';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSetupWizard';
@@ -1652,6 +1653,8 @@ export function ProfileDashboard({
 
                   {typoTab === 'font' && (
                     <div className="space-y-2">
+                      {/* BRAND.1 — upload affordance + "Your fonts" above the catalog. */}
+                      <UserFontsSection selectedKey={fontDraft} onSelect={setFontDraft} />
                       {FONT_OPTIONS.map((f) => {
                         const active = fontDraft === f.value;
                         return (

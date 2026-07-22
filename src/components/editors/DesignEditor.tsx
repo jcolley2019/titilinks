@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BUTTON_SHAPES, shapeSwatchStyle } from '@/lib/button-shapes';
+import { FONT_OPTIONS } from '@/lib/fonts';
 import { Palette, Pipette, Type, MousePointer, Save, Loader2, X, Check, Plus, Trash2, Bookmark, Sparkles, LayoutTemplate, HelpCircle, ExternalLink, AlertTriangle, RefreshCw, Image, Wallpaper, Clock } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -35,6 +36,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { TemplateGallery } from './TemplateGallery';
 import { CanvaDesignPicker } from './CanvaDesignPicker';
 import { ButtonSurfaceControls } from './ButtonSurfaceControls';
+import { UserFontsSection } from './UserFontsSection';
 
 // The Canva and custom-preset panels below are parked behind `{false && …}`.
 // Their queries were still firing on every editor mount, so each open of the
@@ -130,22 +132,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }
   }, []);
 
-  const FONT_OPTIONS = [
-    { value: 'inter', label: 'Inter', fontFamily: "'Inter', sans-serif" },
-    { value: 'system', label: 'System Default', fontFamily: 'system-ui, sans-serif' },
-    { value: 'playfair', label: 'Playfair Display', fontFamily: "'Playfair Display', serif" },
-    { value: 'bebas', label: 'Bebas Neue', fontFamily: "'Bebas Neue', cursive" },
-    { value: 'abril', label: 'Abril Fatface', fontFamily: "'Abril Fatface', cursive" },
-    { value: 'pacifico', label: 'Pacifico', fontFamily: "'Pacifico', cursive" },
-    { value: 'orbitron', label: 'Orbitron', fontFamily: "'Orbitron', sans-serif" },
-    { value: 'caveat', label: 'Caveat', fontFamily: "'Caveat', cursive" },
-    { value: 'archivo', label: 'Archivo Black', fontFamily: "'Archivo Black', sans-serif" },
-    { value: 'lora', label: 'Lora', fontFamily: "'Lora', serif" },
-    { value: 'patrick', label: 'Patrick Hand', fontFamily: "'Patrick Hand', cursive" },
-    { value: 'space', label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
-    { value: 'serif', label: 'Georgia (Serif)', fontFamily: 'Georgia, serif' },
-    { value: 'mono', label: 'Monospace', fontFamily: 'monospace' },
-  ];
+  // BRAND.1: the catalog now comes from the SHARED source (src/lib/fonts.ts)
+  // — this tab previously carried a local duplicate of the same list.
 
   // Check Canva connection status on mount and handle callback params
   useEffect(() => {
@@ -1289,6 +1277,11 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
           {/* Font Tab — global font family */}
           <TabsContent value="font" className="space-y-4">
             <Label className="text-sm font-medium">{t('design.chooseFont')}</Label>
+            {/* BRAND.1 — upload affordance + "Your fonts" above the catalog. */}
+            <UserFontsSection
+              selectedKey={theme.typography.font}
+              onSelect={(k) => updateTypography({ font: k })}
+            />
             <div className="space-y-1">
               {FONT_OPTIONS.map((font) => (
                 <button

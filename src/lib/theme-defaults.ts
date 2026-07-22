@@ -61,10 +61,11 @@ export interface ThemeButtons {
 }
 
 export interface ThemeTypography {
-  font: 'inter' | 'system' | 'serif' | 'mono' |
-        'playfair' | 'bebas' | 'abril' | 'pacifico' |
-        'orbitron' | 'caveat' | 'archivo' | 'lora' |
-        'patrick' | 'space';
+  // A catalog FontKey ('inter' | 'playfair' | … — the canonical list lives in
+  // src/lib/fonts.ts) OR, since BRAND.1, an uploaded font key of the form
+  // `custom:<family>` (metadata in profiles.brand_json.fonts[], resolved by
+  // resolveFontFamily, face registered by src/lib/user-fonts.ts).
+  font: string;
   text_color: string;
 }
 
