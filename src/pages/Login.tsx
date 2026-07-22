@@ -376,6 +376,19 @@ export default function Login() {
                       t('login.signIn')
                     )}
                   </Button>
+
+                  {mode === 'signup' && (
+                    <p className="text-center text-xs text-muted-foreground">
+                      {t('login.legalPrefix')}
+                      <Link to="/terms" className="text-primary hover:underline">
+                        {t('footer.terms')}
+                      </Link>
+                      {t('login.legalConnector')}
+                      <Link to="/privacy" className="text-primary hover:underline">
+                        {t('footer.privacy')}
+                      </Link>
+                    </p>
+                  )}
                 </form>
 
                 <div className="relative my-6">

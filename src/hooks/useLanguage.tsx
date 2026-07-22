@@ -759,6 +759,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'footer.legal': 'Legal',
     'footer.copyright': 'All rights reserved.',
     'footer.made': 'Made with ✨ for creators everywhere',
+    'footer.terms': 'Terms of Service',
+    'footer.privacy': 'Privacy Policy',
 
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Style',
@@ -1599,6 +1601,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.backToHome': 'Back to home',
     'login.welcomeBack': 'Welcome Back',
     'login.createAccount': 'Create Account',
+    'login.legalPrefix': 'By signing up, you agree to our ',
+    'login.legalConnector': ' and ',
     'login.resetPassword': 'Reset Password',
     'login.signInSubtitle': 'Sign in to manage your links',
     'login.signUpSubtitle': 'Sign up to create your TitiLinks page',
@@ -2539,6 +2543,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'footer.legal': 'Legal',
     'footer.copyright': 'Todos los derechos reservados.',
     'footer.made': 'Hecho con ✨ para creadores en todo el mundo',
+    'footer.terms': 'Términos de Servicio',
+    'footer.privacy': 'Política de Privacidad',
 
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Estilo',
@@ -3379,6 +3385,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'login.backToHome': 'Volver al inicio',
     'login.welcomeBack': 'Bienvenido de nuevo',
     'login.createAccount': 'Crear cuenta',
+    'login.legalPrefix': 'Al registrarte, aceptas nuestros ',
+    'login.legalConnector': ' y nuestra ',
     'login.resetPassword': 'Restablecer contraseña',
     'login.signInSubtitle': 'Inicia sesión para gestionar tus enlaces',
     'login.signUpSubtitle': 'Regístrate para crear tu página TitiLinks',
