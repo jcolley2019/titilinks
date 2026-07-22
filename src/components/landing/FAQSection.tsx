@@ -7,10 +7,10 @@ import {
 } from '@/components/ui/accordion';
 
 const faqs = [
-  { question: 'Is TitiLinks really free?', answer: 'Yes! Our free tier includes unlimited links, basic analytics, and beautiful themes. No credit card required. Upgrade to Pro only if you need advanced features like mode switching and custom domains.' },
+  { question: 'Is TitiLinks really free?', answer: 'Yes! Our free tier includes unlimited links, basic analytics, and beautiful themes. No credit card required. Upgrade to Pro only if you need advanced features like a second page, link animations, or full analytics.' },
   { question: 'How fast will my page load?', answer: 'We optimize for speed obsessively. Average load times are under 100ms globally. Your visitors see your content before they can blink, which means they stay longer and click more.' },
   { question: 'What is mode switching?', answer: 'Mode switching lets you show different content to different audiences. For example, show your product catalog to shoppers, and your portfolio to potential employers—all from the same link.' },
-  { question: 'Can I use my own domain?', answer: 'Yes! Pro and Business plans include custom domain support. Connect your own domain (like links.yourname.com) for a fully branded experience.' },
+  { question: 'Can I use my own domain?', answer: "Not yet — every TitiLinks page lives at titilinks.com/yourhandle for now. Custom domains are on our roadmap." },
   { question: 'How do analytics work?', answer: 'We track every view, click, and interaction on your page. See where your traffic comes from, which links perform best, and how visitors engage with your content—all in real-time.' },
   { question: 'Can I switch plans anytime?', answer: 'Absolutely. Upgrade, downgrade, or cancel anytime. No long-term contracts, no hidden fees. If you downgrade, you keep access to Pro features until your billing period ends.' }
 ];

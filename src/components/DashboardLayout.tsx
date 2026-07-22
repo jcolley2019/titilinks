@@ -79,7 +79,6 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
     ],
     Business: [
       t('dashLayout.everythingInPro'),
-      t('dashLayout.customDomain'),
       t('dashLayout.removeBranding'),
       t('dashLayout.apiAccess'),
     ],

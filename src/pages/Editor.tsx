@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import type { LinkItem } from '@/components/editors/LinksEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
@@ -47,6 +48,7 @@ interface ThemeJson {
 export default function Editor() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { can } = useEntitlements();
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
@@ -699,6 +701,7 @@ export default function Editor() {
               headerDraft={headerDraft}
               themeDraft={themeDraft}
               editMode={!isVisitor}
+              showBranding={!can('removeBranding')}
               onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
               onBlockEdit={handleEditBlock}
               onBlockToggle={handleBlockToggle}
@@ -728,6 +731,7 @@ export default function Editor() {
           headerDraft={headerDraft}
           themeDraft={themeDraft}
           editMode={true}
+          showBranding={!can('removeBranding')}
           onBlockEdit={handleEditBlock}
           onBlockToggle={handleBlockToggle}
           onBlockReorder={handleBlockReorder}

@@ -115,6 +115,10 @@ interface EditableProfileViewProps {
   selectedMode: 'page1' | 'page2';
   onModeChange: (mode: 'page1' | 'page2') => void;
   onOutboundClick?: ClickHandler;
+  /** PRICE.TRUTH.1: shows/hides the public footer credit — Free plans show
+   *  it, Pro/Business don't (removeBranding entitlement). Callers resolve
+   *  the plan; EPV just renders the boolean. */
+  showBranding: boolean;
   onAddContent?: () => void;
   onEditVideo?: () => void;
   // PHOTO.ROUTE.1: external "open the photo editor" request, from the guided
@@ -1220,6 +1224,7 @@ export function EditableProfileView({
   selectedMode,
   onModeChange,
   onOutboundClick,
+  showBranding,
   onAddContent,
   onEditVideo,
   openPhotoRequest = 0,
@@ -3150,11 +3155,18 @@ export function EditableProfileView({
         )}
 
         {/* Footer */}
-        <footer className="mt-12 pb-8 text-center">
-          <p className="text-xs opacity-60" style={{ color: theme.typography.text_color }}>
-            Powered by <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
-          </p>
-        </footer>
+        {showBranding && (
+          <footer className="mt-12 pb-8 text-center">
+            <a
+              href="/?ref=badge"
+              onClick={editMode ? (e) => e.preventDefault() : undefined}
+              className="text-xs opacity-60 hover:opacity-90"
+              style={{ color: theme.typography.text_color }}
+            >
+              {t('publicFooter.madeWith')} <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
+            </a>
+          </footer>
+        )}
       </div>
 
       {/* Hidden file input for gallery instant upload */}

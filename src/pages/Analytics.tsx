@@ -16,6 +16,7 @@ import {
   ExternalLink,
   AlertCircle,
   Link2,
+  Lock,
 } from 'lucide-react';
 import {
   Table,
@@ -27,11 +28,33 @@ import {
 } from '@/components/ui/table';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { formatDistanceToNow } from 'date-fns';
+
+/** Wraps a PRO-only analytics section — free plans see a blurred preview
+ *  with an upgrade CTA instead of the live data (PRICE.TRUTH.1). */
+function ProGate({ locked, children }: { locked: boolean; children: React.ReactNode }) {
+  const { t } = useLanguage();
+  if (!locked) return <>{children}</>;
+  return (
+    <div className="relative">
+      <div className="pointer-events-none select-none opacity-40 blur-[2px]">{children}</div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-4">
+        <Lock className="h-5 w-5 text-primary" />
+        <p className="text-sm font-medium text-foreground">{t('analytics.proOnlyTitle')}</p>
+        <Button asChild size="sm">
+          <Link to="/#pricing">{t('analytics.upgradeToPro')}</Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function Analytics() {
   const analytics = useAnalytics();
   const { t } = useLanguage();
+  const { can } = useEntitlements();
+  const canAdvanced = can('analyticsAdvanced');
 
   if (analytics.loading) {
     return (
@@ -94,18 +117,22 @@ export default function Analytics() {
             value={analytics.clicks7Days}
             subValue={`${analytics.clicks30Days} ${t('analytics.last30d')}`}
           />
-          <MetricCard
-            icon={<Eye className="h-5 w-5" />}
-            label={analytics.pageLabels.page1}
-            value={analytics.viewsByMode.page1}
-            subValue={`${analytics.clicksByMode.page1} ${t('analytics.clicks')}`}
-          />
-          <MetricCard
-            icon={<Eye className="h-5 w-5" />}
-            label={analytics.pageLabels.page2}
-            value={analytics.viewsByMode.page2}
-            subValue={`${analytics.clicksByMode.page2} ${t('analytics.clicks')}`}
-          />
+          <ProGate locked={!canAdvanced}>
+            <MetricCard
+              icon={<Eye className="h-5 w-5" />}
+              label={analytics.pageLabels.page1}
+              value={analytics.viewsByMode.page1}
+              subValue={`${analytics.clicksByMode.page1} ${t('analytics.clicks')}`}
+            />
+          </ProGate>
+          <ProGate locked={!canAdvanced}>
+            <MetricCard
+              icon={<Eye className="h-5 w-5" />}
+              label={analytics.pageLabels.page2}
+              value={analytics.viewsByMode.page2}
+              subValue={`${analytics.clicksByMode.page2} ${t('analytics.clicks')}`}
+            />
+          </ProGate>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -118,30 +145,32 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {analytics.goals.primaryOfferId || analytics.goals.secondaryId ? (
-                <div className="space-y-4">
-                  <GoalMetric
-                    label={t('analytics.primaryOfferGoal')}
-                    clicks={analytics.goalClicks.primaryOffer}
-                    isSet={!!analytics.goals.primaryOfferId}
-                  />
-                  <GoalMetric
-                    label={`${analytics.pageLabels.page2} ${t('analytics.goal')}`}
-                    clicks={analytics.goalClicks.secondary}
-                    isSet={!!analytics.goals.secondaryId}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Target className="h-10 w-10 text-muted-foreground mb-3" />
-                  <p className="text-muted-foreground mb-4">
-                    {t('analytics.setGoalsDesc')}
-                  </p>
-                  <Button asChild size="sm">
-                    <Link to="/dashboard/editor">{t('analytics.setGoals')}</Link>
-                  </Button>
-                </div>
-              )}
+              <ProGate locked={!canAdvanced}>
+                {analytics.goals.primaryOfferId || analytics.goals.secondaryId ? (
+                  <div className="space-y-4">
+                    <GoalMetric
+                      label={t('analytics.primaryOfferGoal')}
+                      clicks={analytics.goalClicks.primaryOffer}
+                      isSet={!!analytics.goals.primaryOfferId}
+                    />
+                    <GoalMetric
+                      label={`${analytics.pageLabels.page2} ${t('analytics.goal')}`}
+                      clicks={analytics.goalClicks.secondary}
+                      isSet={!!analytics.goals.secondaryId}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Target className="h-10 w-10 text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground mb-4">
+                      {t('analytics.setGoalsDesc')}
+                    </p>
+                    <Button asChild size="sm">
+                      <Link to="/dashboard/editor">{t('analytics.setGoals')}</Link>
+                    </Button>
+                  </div>
+                )}
+              </ProGate>
             </CardContent>
           </Card>
 
@@ -154,21 +183,23 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {analytics.topDestinations.length > 0 ? (
-                <div className="space-y-3">
-                  {analytics.topDestinations.map((dest, index) => (
-                    <DestinationRow
-                      key={dest.domain}
-                      rank={index + 1}
-                      domain={dest.domain}
-                      count={dest.count}
-                      maxCount={analytics.topDestinations[0]?.count || 1}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState message={t('analytics.noClicks')} />
-              )}
+              <ProGate locked={!canAdvanced}>
+                {analytics.topDestinations.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.topDestinations.map((dest, index) => (
+                      <DestinationRow
+                        key={dest.domain}
+                        rank={index + 1}
+                        domain={dest.domain}
+                        count={dest.count}
+                        maxCount={analytics.topDestinations[0]?.count || 1}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message={t('analytics.noClicks')} />
+                )}
+              </ProGate>
             </CardContent>
           </Card>
 
@@ -181,32 +212,34 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {analytics.referrerBreakdown.tiktok > 0 ||
-              analytics.referrerBreakdown.instagram > 0 ||
-              analytics.referrerBreakdown.other > 0 ? (
-                <div className="space-y-4">
-                  <ReferrerBar
-                    label="TikTok"
-                    count={analytics.referrerBreakdown.tiktok}
-                    total={analytics.pageViews30Days}
-                    color="bg-pink-500"
-                  />
-                  <ReferrerBar
-                    label="Instagram"
-                    count={analytics.referrerBreakdown.instagram}
-                    total={analytics.pageViews30Days}
-                    color="bg-purple-500"
-                  />
-                  <ReferrerBar
-                    label={t('analytics.otherDirect')}
-                    count={analytics.referrerBreakdown.other}
-                    total={analytics.pageViews30Days}
-                    color="bg-muted-foreground"
-                  />
-                </div>
-              ) : (
-                <EmptyState message={t('analytics.noTraffic')} />
-              )}
+              <ProGate locked={!canAdvanced}>
+                {analytics.referrerBreakdown.tiktok > 0 ||
+                analytics.referrerBreakdown.instagram > 0 ||
+                analytics.referrerBreakdown.other > 0 ? (
+                  <div className="space-y-4">
+                    <ReferrerBar
+                      label="TikTok"
+                      count={analytics.referrerBreakdown.tiktok}
+                      total={analytics.pageViews30Days}
+                      color="bg-pink-500"
+                    />
+                    <ReferrerBar
+                      label="Instagram"
+                      count={analytics.referrerBreakdown.instagram}
+                      total={analytics.pageViews30Days}
+                      color="bg-purple-500"
+                    />
+                    <ReferrerBar
+                      label={t('analytics.otherDirect')}
+                      count={analytics.referrerBreakdown.other}
+                      total={analytics.pageViews30Days}
+                      color="bg-muted-foreground"
+                    />
+                  </div>
+                ) : (
+                  <EmptyState message={t('analytics.noTraffic')} />
+                )}
+              </ProGate>
             </CardContent>
           </Card>
 
@@ -219,26 +252,28 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {analytics.pageViews30Days > 0 ? (
-                <div className="space-y-4">
-                  <ModeBar
-                    label={analytics.pageLabels.page1}
-                    views={analytics.viewsByMode.page1}
-                    clicks={analytics.clicksByMode.page1}
-                    totalViews={analytics.pageViews30Days}
-                    icon={<Eye className="h-4 w-4" />}
-                  />
-                  <ModeBar
-                    label={analytics.pageLabels.page2}
-                    views={analytics.viewsByMode.page2}
-                    clicks={analytics.clicksByMode.page2}
-                    totalViews={analytics.pageViews30Days}
-                    icon={<Eye className="h-4 w-4" />}
-                  />
-                </div>
-              ) : (
-                <EmptyState message={t('analytics.noViews')} />
-              )}
+              <ProGate locked={!canAdvanced}>
+                {analytics.pageViews30Days > 0 ? (
+                  <div className="space-y-4">
+                    <ModeBar
+                      label={analytics.pageLabels.page1}
+                      views={analytics.viewsByMode.page1}
+                      clicks={analytics.clicksByMode.page1}
+                      totalViews={analytics.pageViews30Days}
+                      icon={<Eye className="h-4 w-4" />}
+                    />
+                    <ModeBar
+                      label={analytics.pageLabels.page2}
+                      views={analytics.viewsByMode.page2}
+                      clicks={analytics.clicksByMode.page2}
+                      totalViews={analytics.pageViews30Days}
+                      icon={<Eye className="h-4 w-4" />}
+                    />
+                  </div>
+                ) : (
+                  <EmptyState message={t('analytics.noViews')} />
+                )}
+              </ProGate>
             </CardContent>
           </Card>
         </div>
@@ -257,6 +292,7 @@ export default function Analytics() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <ProGate locked={!canAdvanced}>
             {analytics.shortLinks.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
@@ -291,6 +327,7 @@ export default function Analytics() {
             ) : (
               <EmptyState message={t('analytics.noShortLinks')} />
             )}
+            </ProGate>
           </CardContent>
         </Card>
       </motion.div>

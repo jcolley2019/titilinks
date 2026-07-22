@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
+import { usePublicPagePlan } from '@/hooks/usePublicPagePlan';
+import { can } from '@/lib/entitlements';
 import { translateContent } from '@/lib/content-i18n';
 import { getChromeTokens, coerceLegibleText } from '@/lib/contrast';
 import { fullBleedText } from '@/lib/surface';
@@ -42,8 +44,16 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // PRICE.TRUTH.1: email capture is a PRO feature. A block created before a
+  // downgrade is never deleted, but stops rendering publicly on free pages —
+  // the editor still shows it (with a notice) so the owner can upgrade or
+  // remove it themselves. Plan lookup fails toward 'free' (hides the block)
+  // rather than toward silently keeping it live.
+  const ownerPlan = usePublicPagePlan(pageId);
+
   const item = block.items[0];
   if (!item) return null;
+  if (!can(ownerPlan, 'emailSubscribe')) return null;
 
   // Parse config
   let config = {

@@ -33,6 +33,7 @@ import { randomUUID } from '@/lib/utils';
 import { HeroVideo } from '@/components/EditableProfileView';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import type { BooleanFeature } from '@/lib/entitlements';
 import { resolveEffectivePageStyle, resolveHeroConfig } from '@/lib/surface';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
 // FIX.MEDIA.1: the panel preview resolves through the SAME function the live
@@ -165,9 +166,11 @@ interface DashboardRow {
   subtitleKey: string;
   blockType: BlockWithItems['type'] | null;
   toastKey?: string;
-  /** Pro/Business-only row. The unlocking entitlement is resolved per row by
-   *  `rowUnlocked` — carousel by default, tracking-pixels by its own flag. */
-  pro?: boolean;
+  /** Pro/Business-only row, naming the entitlement that unlocks it (e.g.
+   *  'carousel', 'trackingPixels', 'emailSubscribe'). Data-driven so
+   *  `rowUnlocked` and the tap-gate read one source of truth instead of
+   *  guessing from `titleKey` (PRICE.TRUTH.1). */
+  proFeature?: BooleanFeature;
 }
 
 interface DashboardSection {
@@ -231,7 +234,7 @@ const sections: DashboardSection[] = [
         titleKey: 'blocks.carousel.title',
         subtitleKey: 'blocks.carousel.subtitle',
         blockType: 'carousel',
-        pro: true,
+        proFeature: 'carousel',
       },
       {
         icon: <Youtube className="h-6 w-6 text-white" />,
@@ -251,6 +254,7 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.createForm',
         subtitleKey: 'dashboard.createFormDesc',
         blockType: 'email_subscribe',
+        proFeature: 'emailSubscribe',
       },
     ],
   },
@@ -355,7 +359,7 @@ const sections: DashboardSection[] = [
         titleKey: 'dashboard.trackingPixels',
         subtitleKey: 'dashboard.trackingPixelsDesc',
         blockType: null,
-        pro: true,
+        proFeature: 'trackingPixels',
       },
     ],
   },
@@ -387,15 +391,13 @@ export function ProfileDashboard({
   const { entitlements } = useEntitlements();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
-  // Carousel is a Pro/Business feature (gates the menu row + its tap).
-  const canCarousel = entitlements.carousel;
-  // PIXELS.1: tracking pixels are their own Pro capability.
+  // PIXELS.1: tracking pixels have their own dedicated tap-gate branch below.
   const canTrackingPixels = entitlements.trackingPixels;
-  // Resolve a Pro-flagged row to the entitlement that unlocks it, so the list
-  // badge and the tap-gate read one source of truth. Carousel is the default;
-  // Tracking Pixels has its own flag. Non-pro rows are always unlocked.
+  // Resolve a Pro-flagged row to the entitlement that unlocks it (data-driven
+  // via row.proFeature), so the list badge and the generic tap-gate read one
+  // source of truth. Non-pro rows are always unlocked.
   const rowUnlocked = (row: DashboardRow): boolean =>
-    !row.pro ? true : row.titleKey === 'dashboard.trackingPixels' ? canTrackingPixels : canCarousel;
+    !row.proFeature || entitlements[row.proFeature];
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designOpen, setDesignOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -1110,11 +1112,13 @@ export function ProfileDashboard({
       return;
     }
 
-    // Pro gate: a Pro-only row (carousel) is locked for Free — show an upsell.
-    if (row.pro && !canCarousel) {
-      toast(t('dashboard.carouselProTitle'), {
-        description: t('dashboard.carouselProDesc'),
-      });
+    // Pro gate: a Pro-only row is locked for Free — show its upsell.
+    if (row.proFeature && !entitlements[row.proFeature]) {
+      const [titleKey, descKey] =
+        row.proFeature === 'emailSubscribe'
+          ? ['dashboard.emailSubscribeProTitle', 'dashboard.emailSubscribeProDesc']
+          : ['dashboard.carouselProTitle', 'dashboard.carouselProDesc'];
+      toast(t(titleKey), { description: t(descKey) });
       return;
     }
 
@@ -2083,7 +2087,7 @@ export function ProfileDashboard({
                           <div className="flex-1 text-left">
                             <p className="text-sm font-bold text-white flex items-center gap-1.5">
                               {t(row.titleKey)}
-                              {row.pro && !rowUnlocked(row) && (
+                              {row.proFeature && !rowUnlocked(row) && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-[#C9A55C]/15 text-[#C9A55C] text-[10px] font-bold px-1.5 py-0.5">
                                   <Lock className="h-2.5 w-2.5" /> PRO
                                 </span>

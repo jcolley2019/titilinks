@@ -165,6 +165,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.on': 'On',
     'dashboard.carouselProTitle': 'Carousel is a Pro feature',
     'dashboard.carouselProDesc': 'Upgrade to Pro to add a swipeable carousel of link cards.',
+    'dashboard.emailSubscribeProTitle': 'Email capture is a Pro feature',
+    'dashboard.emailSubscribeProDesc': 'Upgrade to Pro to collect email subscribers from your page.',
     'dashboard.textFx.effectNone': 'None',
     'dashboard.textFx.effectShadow': 'Shadow',
     'dashboard.textFx.effectOutline': 'Outline',
@@ -287,6 +289,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'emailSubscribeEditor.preview': 'Preview',
     'emailSubscribeEditor.dialogTitle': 'Edit Email Subscribe',
     'emailSubscribeEditor.dialogDescription': 'Collect email subscribers from your page visitors.',
+    'emailSubscribeEditor.freeNotice': "This block won't show on your public page on the Free plan. Upgrade to Pro to start collecting subscribers again.",
     'primaryCtaEditor.loadFailed': 'Failed to load block data',
     'primaryCtaEditor.saveSuccess': 'Primary CTA saved',
     'primaryCtaEditor.saveFailed': 'Failed to save',
@@ -1518,6 +1521,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'analytics.destination': 'Destination',
     'analytics.lastClick': 'Last Click',
     'analytics.noShortLinks': 'No short links created yet',
+    'analytics.proOnlyTitle': 'Pro feature',
+    'analytics.upgradeToPro': 'Upgrade to Pro',
+    'publicFooter.madeWith': 'Made with',
 
     // Settings Page
     'settings.title': 'Settings',
@@ -1933,6 +1939,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.on': 'Activado',
     'dashboard.carouselProTitle': 'El carrusel es una función Pro',
     'dashboard.carouselProDesc': 'Actualiza a Pro para agregar un carrusel deslizable de tarjetas de enlaces.',
+    'dashboard.emailSubscribeProTitle': 'La captura de correos es una función Pro',
+    'dashboard.emailSubscribeProDesc': 'Actualiza a Pro para recopilar suscriptores de correo desde tu página.',
     'dashboard.textFx.effectNone': 'Ninguno',
     'dashboard.textFx.effectShadow': 'Sombra',
     'dashboard.textFx.effectOutline': 'Contorno',
@@ -2054,6 +2062,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'emailSubscribeEditor.preview': 'Vista previa',
     'emailSubscribeEditor.dialogTitle': 'Editar suscripción por correo',
     'emailSubscribeEditor.dialogDescription': 'Recopila suscriptores de correo de quienes visitan tu página.',
+    'emailSubscribeEditor.freeNotice': 'Este bloque no se mostrará en tu página pública con el plan Gratis. Actualiza a Pro para volver a recopilar suscriptores.',
     'primaryCtaEditor.loadFailed': 'No se pudieron cargar los datos del bloque',
     'primaryCtaEditor.saveSuccess': 'CTA principal guardado',
     'primaryCtaEditor.saveFailed': 'No se pudo guardar',
@@ -3285,6 +3294,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'analytics.destination': 'Destino',
     'analytics.lastClick': 'Último clic',
     'analytics.noShortLinks': 'Aún no se han creado enlaces cortos',
+    'analytics.proOnlyTitle': 'Función Pro',
+    'analytics.upgradeToPro': 'Mejorar a Pro',
+    'publicFooter.madeWith': 'Hecho con',
 
     // Settings Page
     'settings.title': 'Ajustes',

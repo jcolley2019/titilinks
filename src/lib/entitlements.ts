@@ -27,18 +27,23 @@ export interface PlanEntitlements {
    *  the second page itself stays the PRO sell; picking a style is free for
    *  everyone (STYLE.SPACE.1). */
   perPageStyle: boolean;
-  /** Max link items per links block. `Infinity` = unlimited. */
+  /** Max link items per links block. `Infinity` = unlimited. Free is
+   *  uncapped (PRICE.TRUTH.1) — nothing in the app enforces a lower number,
+   *  and the marketing copy has always promised unlimited links. */
   maxLinks: number;
   /** Max MANUAL profile snapshots (named restore points) retained per page.
    *  Auto snapshots (the pre-destructive-action safety net) are exempt and
    *  ring-buffered separately. Enforced at capture time (SNAP.1). */
   maxSnapshots: number;
   premiumThemes: boolean;
-  analytics: boolean;
+  /** Advanced analytics (per-mode/per-link breakdown, top destinations,
+   *  referrer/traffic-source data). Basic analytics — page views and total
+   *  clicks — are free and ungated everywhere; this flag gates only the
+   *  advanced sections on the Analytics page (PRICE.TRUTH.1). */
+  analyticsAdvanced: boolean;
   /** Meta / TikTok / GA4 tracking pixels injected on the public profile. Paid
    *  everywhere in the market (Linktree, Link.me), so Pro+ here. */
   trackingPixels: boolean;
-  customDomain: boolean;
   aiBio: boolean;
   emailSubscribe: boolean;
   /** Swipeable carousel of link cards (Featured Links → Carousel). */
@@ -51,6 +56,11 @@ export interface PlanEntitlements {
    *  already-uploaded fonts keep rendering after a downgrade (never break a
    *  live page); the free tier just can't upload new ones. */
   customFonts: boolean;
+  /** Hides the "Made with TitiLinks" chip on the public page (PRICE.TRUTH.1).
+   *  Distinct from `whiteLabel`: this only drops the small footer credit;
+   *  `whiteLabel` is the broader, still-unbuilt Business-tier concept
+   *  (custom app chrome/branding) and must not be conflated with it. */
+  removeBranding: boolean;
   /** Business-tier extras. */
   teamCollab: boolean;
   whiteLabel: boolean;
@@ -63,17 +73,17 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     label: 'Free',
     maxPages: 1,
     perPageStyle: true,
-    maxLinks: 5,
+    maxLinks: Infinity,
     maxSnapshots: 1,
     premiumThemes: false,
-    analytics: false,
+    analyticsAdvanced: false,
     trackingPixels: false,
-    customDomain: false,
     aiBio: false,
     emailSubscribe: false,
     carousel: false,
     linkAnimations: false,
     customFonts: false,
+    removeBranding: false,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -86,14 +96,14 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxLinks: Infinity,
     maxSnapshots: 5,
     premiumThemes: true,
-    analytics: true,
+    analyticsAdvanced: true,
     trackingPixels: true,
-    customDomain: true,
     aiBio: true,
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,
     customFonts: true,
+    removeBranding: true,
     teamCollab: false,
     whiteLabel: false,
     apiAccess: false,
@@ -106,14 +116,14 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     maxLinks: Infinity,
     maxSnapshots: 20,
     premiumThemes: true,
-    analytics: true,
+    analyticsAdvanced: true,
     trackingPixels: true,
-    customDomain: true,
     aiBio: true,
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,
     customFonts: true,
+    removeBranding: true,
     teamCollab: true,
     whiteLabel: true,
     apiAccess: true,

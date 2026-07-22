@@ -13,8 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, Mail, Check } from 'lucide-react';
+import { Loader2, Mail, Check, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +52,8 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
   // ES.FIX.1 STEP 3: the live preview mirrors EmailSubscribeBlock — each stored
   // config value routes through content-i18n. Input fields keep raw values.
   const tc = (text: string | null | undefined) => translateContent(text, t);
+  const { can } = useEntitlements();
+  const canEmailSubscribe = can('emailSubscribe');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<EmailSubscribeConfig>(DEFAULT_CONFIG);
@@ -142,6 +145,12 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-5 py-4">
+          {!canEmailSubscribe && (
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-primary" />
+              <span>{t('emailSubscribeEditor.freeNotice')}</span>
+            </div>
+          )}
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">{t('emailSubscribeEditor.titleLabel')}</Label>

@@ -547,6 +547,10 @@ export type Database = {
         Args: { page_handle: string }
         Returns: Json
       }
+      get_public_page_plan: {
+        Args: { p_page_id: string }
+        Returns: string
+      }
       get_public_tracking_pixels: {
         Args: { page_handle: string }
         Returns: {

@@ -21,7 +21,7 @@ import {
  * Usage:
  *   const { entitlements, can, atLeast } = useEntitlements();
  *   if (entitlements.maxPages < 2) {  // show Pro upsell for 2nd page }
- *   if (can('analytics')) {  // render analytics }
+ *   if (can('analyticsAdvanced')) {  // render advanced analytics }
  *   if (atLeast('pro')) {  // ... }
  */
 export function useEntitlements() {
