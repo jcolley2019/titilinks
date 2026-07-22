@@ -26,6 +26,7 @@ import {
   Sparkles,
   Camera,
   MonitorSmartphone,
+  Brush,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -61,6 +62,7 @@ import { TrackingPixelsEditor } from '@/components/editors/TrackingPixelsEditor'
 import { SnapshotsEditor } from '@/components/editors/SnapshotsEditor';
 import { DesktopViewEditor } from '@/components/editors/DesktopViewEditor';
 import { UserFontsSection } from '@/components/editors/UserFontsSection';
+import { BrandKitEditor } from '@/components/editors/BrandKitEditor';
 import { DesignEditor } from '@/components/editors/DesignEditor';
 import { TemplateGallery } from '@/components/editors/TemplateGallery';
 import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSetupWizard';
@@ -278,6 +280,15 @@ const sections: DashboardSection[] = [
         blockType: null,
       },
       {
+        // BRAND.2: brand colors + fonts, saved once, applied to the current
+        // page in one snapshot-guarded tap. Not pro-gated at the row — the
+        // PRO gate lives on font UPLOADING (BRAND.1), not on the kit.
+        icon: <Brush className="h-6 w-6 text-white" />,
+        titleKey: 'dashboard.brandKit',
+        subtitleKey: 'dashboard.brandKitDesc',
+        blockType: null,
+      },
+      {
         // Routed to the gallery panel by titleKey in handleRowTap; carries no
         // toastKey (a dead 'dashboard.openDesignTab' key was removed in TEXT.1 —
         // it never fired, the titleKey branch shadows it).
@@ -423,6 +434,8 @@ export function ProfileDashboard({
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   // DESK.STAGE.2: the Desktop view sub-panel (Style group).
   const [desktopViewOpen, setDesktopViewOpen] = useState(false);
+  // BRAND.2: the Brand Kit sub-panel (Style group).
+  const [brandKitOpen, setBrandKitOpen] = useState(false);
   // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
   // two-level nav state — null = list view, a block id = editing that block.
   const [textBlocksOpen, setTextBlocksOpen] = useState(false);
@@ -1083,6 +1096,10 @@ export function ProfileDashboard({
         setDesktopViewOpen(true);
         return;
       }
+      if (row.titleKey === 'dashboard.brandKit') {
+        setBrandKitOpen(true);
+        return;
+      }
       if (row.titleKey === 'dashboard.snapshots') {
         // No row-level gate: Free opens the panel and gets its 1 snapshot; the
         // quota upsell lives inside the panel's Save action (SNAP.1b).
@@ -1293,6 +1310,16 @@ export function ProfileDashboard({
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-bold text-white">{t('dashboard.desktopView')}</h2>
+                </>
+              ) : brandKitOpen ? (
+                <>
+                  <button
+                    onClick={() => setBrandKitOpen(false)}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <h2 className="text-lg font-bold text-white">{t('dashboard.brandKit')}</h2>
                 </>
               ) : nameFxOpen ? (
                 <>
@@ -1572,6 +1599,8 @@ export function ProfileDashboard({
                 <SnapshotsEditor pageId={pageId} onRestored={onRefresh} />
               ) : desktopViewOpen ? (
                 <DesktopViewEditor pageId={pageId} themeJson={themeJson} onRefresh={onRefresh} />
+              ) : brandKitOpen ? (
+                <BrandKitEditor pageId={pageId} onRefresh={onRefresh} />
               ) : nameFxOpen ? (
                 // Fills the scrollport so the footer's mt-auto has room to push
                 // against. gap-6 replaces space-y-6 deliberately: space-y sets
