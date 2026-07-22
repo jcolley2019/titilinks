@@ -158,7 +158,7 @@ function getFontFamily(theme: ThemeJson): string {
     case 'lora': return "'Lora', serif";
     case 'patrick': return "'Patrick Hand', cursive";
     case 'space': return "'Space Grotesk', sans-serif";
-    default: return "'Inter', sans-serif";
+    default: return resolveFontFamily(theme.typography.font) ?? "'Inter', sans-serif";
   }
 }
 
