@@ -4,20 +4,21 @@ import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { useLanguage } from '@/hooks/useLanguage';
-import { PhoneCard, EXAMPLES, type Lang } from '@/components/PhoneMockup';
+import { PhoneCard, TEMPLATE_EXAMPLES, type Lang } from '@/components/PhoneMockup';
 import { TPL_CATEGORIES, type TplCategory } from '@/lib/tpl-presets';
 
-// TPL.PAGE.1 — a gallery of the SAME live phone mockups the landing hero shows,
-// grouped by TPL category. Category chips filter client-side; each mockup's
-// "Start with this style" CTA carries the persona's preset id into signup, where
-// the Editor applies it post-onboarding. The badge (the TitiLinks footer
-// wordmark) renders inside every mockup via the shared PhoneMockup renderer.
+// TPL.PAGE.1 — a gallery of live phone mockups (the hero's seven plus the
+// TPL.PAGE.2 templates-only personas), grouped by TPL category. Category chips
+// filter client-side; each mockup's "Start with this style" CTA carries the
+// persona's preset id into signup, where the Editor applies it post-onboarding.
+// The badge (the TitiLinks footer wordmark) renders inside every mockup via the
+// shared PhoneMockup renderer.
 
-// Only the categories that actually have a persona get a chip — the rest are
-// hidden (per the TPL.PAGE.1 sign-off: booking/local_business/media/minimal have
-// no hero asset yet). Chip order follows TPL_CATEGORIES.
+// Chips derive straight from the persona data: a category gets a chip iff a
+// persona carries it (all eight do as of TPL.PAGE.2 — no hardcoded hide list).
+// Chip order follows TPL_CATEGORIES.
 const presentCategories = new Set(
-  EXAMPLES.map((e) => e.category).filter(Boolean) as TplCategory[]
+  TEMPLATE_EXAMPLES.map((e) => e.category).filter(Boolean) as TplCategory[]
 );
 const visibleCategories = TPL_CATEGORIES.filter((c) => presentCategories.has(c.id));
 
@@ -28,7 +29,8 @@ export default function Templates() {
   const lang: Lang = language === 'es' ? 'es' : 'en';
   const [active, setActive] = useState<TplCategory | 'all'>('all');
 
-  const shown = active === 'all' ? EXAMPLES : EXAMPLES.filter((e) => e.category === active);
+  const shown =
+    active === 'all' ? TEMPLATE_EXAMPLES : TEMPLATE_EXAMPLES.filter((e) => e.category === active);
 
   const chips: { id: TplCategory | 'all'; label: string }[] = [
     { id: 'all', label: t('tpl.category.all') },

@@ -4,18 +4,25 @@
 // grouped under category chips. Each mockup carries a "Start with this style"
 // CTA whose href hands a TPL preset id into signup (/login?mode=signup&template=).
 //
-//   1. Chips render for populated categories only (creator/music/fitness/store);
-//      the four preset-only categories (booking/local_business/media/minimal)
-//      have no persona and get NO chip.
-//   2. All seven persona mockups render in the default "All" view.
-//   3. A chip filters the gallery client-side (fitness → only the athlete mockup).
-//   4. Each CTA href carries the persona's preset id.
+// TPL.PAGE.2 — all eight categories are populated: four templates-only personas
+// (salon/cafe/photographer/minimal) join the hero's seven, and chips derive
+// straight from the persona data.
+//
+//   1. All eight category chips render (chips come from the data — no hidden set).
+//   2. All eleven persona mockups render in the default "All" view.
+//   3. Every chip filters the gallery client-side to ≥1 mockup of its own
+//      personas (spot-checks that other categories drop out).
+//   4. Each CTA href carries the persona's preset id (incl. the new
+//      reserva/negocio/estudio/minimal personas).
 //   5. EN/ES: chip labels + CTA copy follow the site language.
 //
 // Mutation-verified: the pre-TPL.PAGE.1 page showed hard-coded marketing chips
 // (Fashion/Telegram/…), a "Coming Soon" line, NO phone mockups, none of the
 // tpl-* testids, and CTAs linked to a bare /login — so every assertion below
-// fails against the old page.
+// fails against the old page. Against the pre-TPL.PAGE.2 page the
+// booking/local_business/media/minimal chips did not render (count 0), the four
+// new mockup/CTA testids did not exist, and the "All" view held seven mockups —
+// so tests 1–4 fail there too.
 
 import { test, expect, type Page } from '@playwright/test';
 
@@ -33,23 +40,36 @@ const PERSONA_PRESET: Record<string, string> = {
   musician: 'musica',
   athlete: 'entrena',
   business: 'tienda',
+  // TPL.PAGE.2 — templates-only personas
+  salon: 'reserva',
+  cafe: 'negocio',
+  photographer: 'estudio',
+  minimal: 'minimal',
 };
 
-test.describe('TPL.PAGE.1 — Templates gallery', () => {
-  test('only populated category chips render (hidden ones absent)', async ({ page }) => {
+// category chip → the persona mockups it must surface
+const CATEGORY_PERSONAS: Record<string, string[]> = {
+  creator: ['creator', 'travel', 'actriz'],
+  booking: ['salon'],
+  store: ['business'],
+  music: ['dj', 'musician'],
+  fitness: ['athlete'],
+  local_business: ['cafe'],
+  media: ['photographer'],
+  minimal: ['minimal'],
+};
+
+test.describe('TPL.PAGE.1/2 — Templates gallery', () => {
+  test('all eight category chips render from the data', async ({ page }) => {
     await bootLang(page, 'en');
     await page.goto('/templates');
 
-    for (const id of ['all', 'creator', 'music', 'fitness', 'store']) {
+    for (const id of ['all', ...Object.keys(CATEGORY_PERSONAS)]) {
       await expect(page.getByTestId(`tpl-chip-${id}`)).toBeVisible();
-    }
-    // No persona → no chip.
-    for (const id of ['booking', 'local_business', 'media', 'minimal']) {
-      await expect(page.getByTestId(`tpl-chip-${id}`)).toHaveCount(0);
     }
   });
 
-  test('all seven persona mockups render in the default view', async ({ page }) => {
+  test('all eleven persona mockups render in the default view', async ({ page }) => {
     await bootLang(page, 'en');
     await page.goto('/templates');
     for (const key of Object.keys(PERSONA_PRESET)) {
@@ -57,22 +77,19 @@ test.describe('TPL.PAGE.1 — Templates gallery', () => {
     }
   });
 
-  test('a chip filters the gallery (fitness → only the athlete mockup)', async ({ page }) => {
+  test('every chip filters the gallery to its own personas', async ({ page }) => {
     await bootLang(page, 'en');
     await page.goto('/templates');
 
-    await page.getByTestId('tpl-chip-fitness').click();
-    await expect(page.getByTestId('tpl-mockup-athlete')).toBeVisible();
-    // Creator personas drop out of the filtered view.
-    await expect(page.getByTestId('tpl-mockup-creator')).toHaveCount(0);
-    await expect(page.getByTestId('tpl-mockup-business')).toHaveCount(0);
-
-    // Creator chip surfaces its three personas and hides the athlete.
-    await page.getByTestId('tpl-chip-creator').click();
-    await expect(page.getByTestId('tpl-mockup-creator')).toBeVisible();
-    await expect(page.getByTestId('tpl-mockup-travel')).toBeVisible();
-    await expect(page.getByTestId('tpl-mockup-actriz')).toBeVisible();
-    await expect(page.getByTestId('tpl-mockup-athlete')).toHaveCount(0);
+    for (const [category, keys] of Object.entries(CATEGORY_PERSONAS)) {
+      await page.getByTestId(`tpl-chip-${category}`).click();
+      for (const key of keys) {
+        await expect(page.getByTestId(`tpl-mockup-${key}`)).toBeVisible();
+      }
+      // A persona from another category drops out of the filtered view.
+      const outsider = category === 'fitness' ? 'creator' : 'athlete';
+      await expect(page.getByTestId(`tpl-mockup-${outsider}`)).toHaveCount(0);
+    }
   });
 
   test('every CTA href carries the persona preset id', async ({ page }) => {

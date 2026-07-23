@@ -14,7 +14,8 @@
 
 import {
   Instagram, Youtube, Music, Globe, ShoppingBag, Ticket, Link2, Headphones,
-  Plane, Film, Calendar, Play, Sparkles, MapPin, type LucideIcon,
+  Plane, Film, Calendar, Play, Sparkles, MapPin, UtensilsCrossed, Clock,
+  Briefcase, Mail, type LucideIcon,
 } from 'lucide-react';
 import type { TplCategory } from '@/lib/tpl-presets';
 import creatorCover from '@/assets/demo-creator.webp';
@@ -31,6 +32,10 @@ import athleteG3 from '@/assets/demo-athlete-g3.webp';
 import businessCover from '@/assets/demo-business.webp';
 import businessP1 from '@/assets/demo-business-p1.webp';
 import businessP2 from '@/assets/demo-business-p2.webp';
+import demoBooking from '@/assets/demo-booking.webp';
+import demoCafe from '@/assets/demo-cafe.webp';
+import demoMedia from '@/assets/demo-media.webp';
+import demoMinimal from '@/assets/demo-minimal.webp';
 
 export const BG = 'hsl(30 15% 6%)'; // warm near-black, #0e0c09
 export const SURFACE = 'hsl(30 12% 12%)';
@@ -223,6 +228,95 @@ export const EXAMPLES: Example[] = [
     ],
   },
 ];
+
+// TPL.PAGE.2 — Templates-page-only personas. The landing hero marquee maps
+// EXAMPLES directly and stays at seven, so the four personas that populate the
+// remaining categories (booking/local_business/media/minimal) live in their own
+// array. The Templates page renders TEMPLATE_EXAMPLES (hero seven + these
+// four); the hero renderers never see them.
+export const TEMPLATE_EXTRAS: Example[] = [
+  {
+    key: 'salon',
+    name: 'Camila Reyes',
+    handle: '@camila.beauty',
+    followers: '58K',
+    accent: '#DBA49B',
+    cover: demoBooking,
+    socials: SOCIALS,
+    category: 'booking',
+    presetId: 'reserva',
+    blocks: [
+      { type: 'cta', bg: '#DBA49B', fg: '#3b1712', Icon: Calendar, en: 'Book an appointment', es: 'Reserva una cita' },
+      {
+        type: 'cardpair',
+        items: [
+          { img: demoBooking, en: 'Hair & styling', es: 'Cabello y estilo' },
+          { img: businessP2, en: 'Skin & beauty', es: 'Piel y belleza' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'cafe',
+    name: 'Emma Larsen',
+    handle: '@emmas.cafe',
+    followers: '24K',
+    accent: '#E8A44D',
+    cover: demoCafe,
+    socials: SOCIALS,
+    category: 'local_business',
+    presetId: 'negocio',
+    blocks: [
+      {
+        type: 'buttons',
+        items: [
+          { Icon: UtensilsCrossed, bg: '#E8A44D', fg: '#3a2405', en: 'See the menu', es: 'Ver el menú' },
+          { Icon: MapPin, bg: '#C9822E', fg: '#2a1602', en: 'Directions', es: 'Cómo llegar' },
+          { Icon: Clock, bg: '#6B4423', fg: '#ffffff', en: 'Opening hours', es: 'Horarios' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'photographer',
+    name: 'Marcus Cole',
+    handle: '@marcuscole.photo',
+    followers: '176K',
+    accent: '#7C9CC4',
+    cover: demoMedia,
+    socials: SOCIALS,
+    category: 'media',
+    presetId: 'estudio',
+    blocks: [
+      { type: 'gallery', imgs: [creatorA, athleteG1, creatorB, businessP1] },
+      { type: 'bigcard', img: creatorBig, en: 'Watch my showreel', es: 'Mira mi showreel' },
+    ],
+  },
+  {
+    key: 'minimal',
+    name: 'Daniel Osei',
+    handle: '@danielosei',
+    followers: '12K',
+    accent: '#E9E4D8',
+    cover: demoMinimal,
+    socials: SOCIALS,
+    category: 'minimal',
+    presetId: 'minimal',
+    blocks: [
+      {
+        type: 'buttons',
+        items: [
+          { Icon: Globe, bg: '#2E2B27', fg: '#EDE8DC', en: 'My website', es: 'Mi sitio web' },
+          { Icon: Briefcase, bg: '#2E2B27', fg: '#EDE8DC', en: 'Work with me', es: 'Trabaja conmigo' },
+          { Icon: Mail, bg: '#2E2B27', fg: '#EDE8DC', en: 'Contact', es: 'Contacto' },
+        ],
+      },
+    ],
+  },
+];
+
+// Every mockup the Templates gallery shows. The hero keeps consuming EXAMPLES.
+export const TEMPLATE_EXAMPLES: Example[] = [...EXAMPLES, ...TEMPLATE_EXTRAS];
 
 /* ── Card chrome ────────────────────────────────────────────────────── */
 
