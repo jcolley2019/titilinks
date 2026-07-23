@@ -699,7 +699,7 @@ export default function Editor() {
           )}
           <div
             data-testid="device-frame"
-            className="overflow-y-auto overflow-x-hidden scrollbar-hide"
+            className="relative overflow-hidden"
             style={{
               // Exact logical CSS-viewport of the selected device — the frame
               // renders at these px so the composition is device-truthful. The
@@ -719,38 +719,51 @@ export default function Editor() {
               borderRadius: '44px',
               outline: '1px solid rgba(255,255,255,0.1)',
               boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
             } as CSSProperties}
           >
-            {/* DP.2: same shared render path in both modes. Visitor mode drops
-                editMode (public chrome + gating), shows enabled blocks only, and
-                routes gated taps through the 18+ modal. The live-mirror props
-                (previewBlocks/headerDraft/themeDraft) still flow, so unsaved
-                drafts remain visible in visitor mode. */}
-            <EditableProfileView
-              page={page}
-              blocks={isVisitor ? visitorBlocks : previewBlocks}
-              headerDraft={headerDraft}
-              themeDraft={themeDraft}
-              editMode={!isVisitor}
-              showBranding={showBranding}
-              onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
-              onBlockEdit={handleEditBlock}
-              onBlockToggle={handleBlockToggle}
-              onBlockReorder={handleBlockReorder}
-              onRefresh={refresh}
-              selectedMode={selectedMode}
-              onModeChange={setSelectedMode}
-              onAddContent={() => setProfileDashboardOpen(true)}
-              onEditVideo={handleEditVideo}
-              openPhotoRequest={photoRequestDesktop}
-              videoPosDraft={videoPosDraft}
-              onItemEdit={handleItemEdit}
-              onItemDelete={handleItemDelete}
-              onItemAdd={handleItemAdd}
-              onItemsReorder={handleItemsReorder}
-            />
+            {/* FIX.STAGE.3: the scaled element must NOT be the scroller — a
+                fractional `scale` on the scrolling element forces the GPU
+                compositor to re-tile scrolled content on every scale churn,
+                which intermittently drops rastered tiles (grey regions) on
+                full-bleed pages. Same split as DesktopStage: the parent owns
+                the transform, this unscaled child owns the scrolling. */}
+            <div
+              data-testid="device-frame-scroll"
+              className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              } as CSSProperties}
+            >
+              {/* DP.2: same shared render path in both modes. Visitor mode drops
+                  editMode (public chrome + gating), shows enabled blocks only, and
+                  routes gated taps through the 18+ modal. The live-mirror props
+                  (previewBlocks/headerDraft/themeDraft) still flow, so unsaved
+                  drafts remain visible in visitor mode. */}
+              <EditableProfileView
+                page={page}
+                blocks={isVisitor ? visitorBlocks : previewBlocks}
+                headerDraft={headerDraft}
+                themeDraft={themeDraft}
+                editMode={!isVisitor}
+                showBranding={showBranding}
+                onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
+                onBlockEdit={handleEditBlock}
+                onBlockToggle={handleBlockToggle}
+                onBlockReorder={handleBlockReorder}
+                onRefresh={refresh}
+                selectedMode={selectedMode}
+                onModeChange={setSelectedMode}
+                onAddContent={() => setProfileDashboardOpen(true)}
+                onEditVideo={handleEditVideo}
+                openPhotoRequest={photoRequestDesktop}
+                videoPosDraft={videoPosDraft}
+                onItemEdit={handleItemEdit}
+                onItemDelete={handleItemDelete}
+                onItemAdd={handleItemAdd}
+                onItemsReorder={handleItemsReorder}
+              />
+            </div>
           </div>
         </div>
       </div>

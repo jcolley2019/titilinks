@@ -100,8 +100,9 @@ test.describe('LEGAL.3 — back control on legal pages', () => {
 
     await expect(backBtn(page)).toBeVisible();
     await backBtn(page).click();
-    // Back to the landing page we came from.
-    await expect(page).toHaveURL(/8080\/$/);
+    // Back to the landing page we came from. Origin-relative (TEST.PORT.31):
+    // asserting on the pathname keeps the suite green on any dev-server port.
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/');
   });
 
   test('back falls back to / on a direct visit', async ({ page }) => {
@@ -109,7 +110,7 @@ test.describe('LEGAL.3 — back control on legal pages', () => {
     await page.goto('/privacy'); // fresh load → location.key === 'default'
     await expect(backBtn(page)).toBeVisible();
     await backBtn(page).click();
-    await expect(page).toHaveURL(/8080\/$/);
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/');
   });
 });
 
