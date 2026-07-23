@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Navbar } from '@/components/landing/Navbar';
@@ -21,8 +23,17 @@ const DOCS = {
 type LegalDoc = keyof typeof DOCS;
 
 export default function LegalPage({ doc }: { doc: LegalDoc }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
   const markdown = DOCS[doc][language];
+
+  // Go back within the app when there is history; a direct visit (no in-app
+  // entry) has location.key === 'default', so fall back to the landing page.
+  const goBack = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/');
+  };
 
   useEffect(() => {
     const heading = markdown.split('\n', 1)[0].replace(/^#\s*/, '').trim();
@@ -33,6 +44,14 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
     <div className="relative min-h-screen text-foreground" style={{ backgroundColor: 'hsl(30 15% 6%)' }}>
       <Navbar />
       <main className="mx-auto max-w-[70ch] px-5 pt-28 pb-24">
+        <button
+          type="button"
+          onClick={goBack}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-white/55 transition-colors hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('legal.back')}
+        </button>
         <article
           className="
             [&_h1]:mb-8 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:text-white sm:[&_h1]:text-4xl

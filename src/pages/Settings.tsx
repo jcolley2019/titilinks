@@ -208,6 +208,12 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+          <Link to="/terms" className="transition-colors hover:text-foreground">{t('footer.terms')}</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/privacy" className="transition-colors hover:text-foreground">{t('footer.privacy')}</Link>
+        </div>
       </motion.div>
     </DashboardLayout>
   );

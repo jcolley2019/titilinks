@@ -761,6 +761,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'footer.made': 'Made with ✨ for creators everywhere',
     'footer.terms': 'Terms of Service',
     'footer.privacy': 'Privacy Policy',
+    'legal.back': 'Back',
 
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Style',
@@ -2545,6 +2546,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'footer.made': 'Hecho con ✨ para creadores en todo el mundo',
     'footer.terms': 'Términos de Servicio',
     'footer.privacy': 'Política de Privacidad',
+    'legal.back': 'Volver',
 
     // Onboarding Flow
     'onboardingFlow.stepStyle': 'Estilo',

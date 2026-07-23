@@ -302,6 +302,11 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
             <LogOut className="h-5 w-5" />
             {t('dashLayout.signOut')}
           </Button>
+          <div className="mt-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Link to="/terms" className="transition-colors hover:text-foreground">{t('footer.terms')}</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/privacy" className="transition-colors hover:text-foreground">{t('footer.privacy')}</Link>
+          </div>
         </div>
       </aside>
 
@@ -423,6 +428,11 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               <LogOut className="h-5 w-5" />
               {t('dashLayout.signOut')}
             </Button>
+            <div className="mt-3 flex items-center gap-2 px-3 text-xs text-muted-foreground">
+              <Link to="/terms" className="transition-colors hover:text-foreground">{t('footer.terms')}</Link>
+              <span aria-hidden="true">·</span>
+              <Link to="/privacy" className="transition-colors hover:text-foreground">{t('footer.privacy')}</Link>
+            </div>
           </nav>
         </motion.aside>
       )}

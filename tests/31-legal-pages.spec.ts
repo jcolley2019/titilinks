@@ -86,3 +86,63 @@ test.describe('LEGAL.2 — language toggle switches the doc live', () => {
     await expect(h1(page)).toContainText(/Términos de Servicio/i);
   });
 });
+
+// ─── LEGAL.3 — in-app legal links + back control ────────────────────────────
+
+test.describe('LEGAL.3 — back control on legal pages', () => {
+  const backBtn = (page: Page) => page.getByRole('button', { name: /back/i });
+
+  test('back returns to the previous in-app page', async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Terms of Service' }).first().click();
+    await expect(page).toHaveURL(/\/terms$/);
+
+    await expect(backBtn(page)).toBeVisible();
+    await backBtn(page).click();
+    // Back to the landing page we came from.
+    await expect(page).toHaveURL(/8080\/$/);
+  });
+
+  test('back falls back to / on a direct visit', async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/privacy'); // fresh load → location.key === 'default'
+    await expect(backBtn(page)).toBeVisible();
+    await backBtn(page).click();
+    await expect(page).toHaveURL(/8080\/$/);
+  });
+});
+
+test.describe('LEGAL.3 — logged-in dashboard exposes legal links', () => {
+  // The dashboard had no legal links before LEGAL.3, so a visible in-app link
+  // that navigates is mutation-verified. On desktop the first match is the
+  // sidebar row; on mobile it is the Settings-page-bottom row (sidebar hidden).
+  test('a visible Terms link navigates to /terms', async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/dashboard/settings');
+    const terms = page.locator('a:visible', { hasText: 'Terms of Service' }).first();
+    await expect(terms).toBeVisible();
+    await terms.click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await expect(h1(page)).toContainText(/Terms of Service/i);
+  });
+
+  test('a visible Privacy link navigates to /privacy', async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/dashboard/settings');
+    const privacy = page.locator('a:visible', { hasText: 'Privacy Policy' }).first();
+    await expect(privacy).toBeVisible();
+    await privacy.click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(h1(page)).toContainText(/Privacy Policy/i);
+  });
+
+  test('the sidebar itself carries both legal links', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'sidebar is behind the menu on mobile');
+    await bootLang(page, 'en');
+    await page.goto('/dashboard/settings');
+    const aside = page.locator('aside');
+    await expect(aside.getByRole('link', { name: 'Terms of Service' })).toBeVisible();
+    await expect(aside.getByRole('link', { name: 'Privacy Policy' })).toBeVisible();
+  });
+});
