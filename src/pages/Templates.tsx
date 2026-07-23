@@ -1,49 +1,52 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { useLanguage } from '@/hooks/useLanguage';
-import { 
-  Shirt, 
-  Dumbbell, 
-  Users, 
-  TrendingUp, 
-  Music, 
-  Store, 
-  Share2, 
-  Trophy,
-  Send,
-  MessageCircle
-} from 'lucide-react';
+import { PhoneCard, EXAMPLES, type Lang } from '@/components/PhoneMockup';
+import { TPL_CATEGORIES, type TplCategory } from '@/lib/tpl-presets';
 
-const categories = [
-  { key: 'fashion', icon: Shirt },
-  { key: 'healthFitness', icon: Dumbbell },
-  { key: 'influencer', icon: Users },
-  { key: 'marketing', icon: TrendingUp },
-  { key: 'music', icon: Music },
-  { key: 'smallBusiness', icon: Store },
-  { key: 'socialMedia', icon: Share2 },
-  { key: 'sports', icon: Trophy },
-  { key: 'telegram', icon: Send },
-  { key: 'whatsapp', icon: MessageCircle },
-];
+// TPL.PAGE.1 — a gallery of the SAME live phone mockups the landing hero shows,
+// grouped by TPL category. Category chips filter client-side; each mockup's
+// "Start with this style" CTA carries the persona's preset id into signup, where
+// the Editor applies it post-onboarding. The badge (the TitiLinks footer
+// wordmark) renders inside every mockup via the shared PhoneMockup renderer.
+
+// Only the categories that actually have a persona get a chip — the rest are
+// hidden (per the TPL.PAGE.1 sign-off: booking/local_business/media/minimal have
+// no hero asset yet). Chip order follows TPL_CATEGORIES.
+const presentCategories = new Set(
+  EXAMPLES.map((e) => e.category).filter(Boolean) as TplCategory[]
+);
+const visibleCategories = TPL_CATEGORIES.filter((c) => presentCategories.has(c.id));
+
+const CARD_WIDTH = 240;
 
 export default function Templates() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const lang: Lang = language === 'es' ? 'es' : 'en';
+  const [active, setActive] = useState<TplCategory | 'all'>('all');
+
+  const shown = active === 'all' ? EXAMPLES : EXAMPLES.filter((e) => e.category === active);
+
+  const chips: { id: TplCategory | 'all'; label: string }[] = [
+    { id: 'all', label: t('tpl.category.all') },
+    ...visibleCategories.map((c) => ({ id: c.id, label: t(c.label) })),
+  ];
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="pt-24 pb-16">
-        <div className="container max-w-6xl mx-auto px-4">
-          {/* Hero Section */}
+        <div className="container max-w-5xl mx-auto px-4">
+          {/* Heading */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               {t('templates.title')} <span className="text-primary italic">{t('templates.title2')}</span>
@@ -53,44 +56,68 @@ export default function Templates() {
             </p>
           </motion.div>
 
-          {/* Categories Grid */}
+          {/* Category chips */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto"
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="flex flex-wrap justify-center gap-2.5 mb-12"
           >
-            {categories.map((category, index) => (
-              <motion.div
-                key={category.key}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, delay: 0.1 * index }}
-              >
-                <Link
-                  to={`/templates/${category.key}`}
-                  className="group flex items-center gap-3 px-6 py-3 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 rounded-full transition-all duration-300"
+            {chips.map((chip) => {
+              const isActive = active === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  data-testid={`tpl-chip-${chip.id}`}
+                  aria-pressed={isActive}
+                  onClick={() => setActive(chip.id)}
+                  className={
+                    'px-5 py-2 rounded-full text-sm font-medium border transition-all duration-300 ' +
+                    (isActive
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/50 text-foreground border-border hover:border-primary/40 hover:text-primary')
+                  }
                 >
-                  <category.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    {t(`templates.category.${category.key}`)}
-                  </span>
+                  {chip.label}
+                </button>
+              );
+            })}
+          </motion.div>
+
+          {/* Mockup gallery — swipeable row on mobile, centered wrap (2-3 per row)
+              on desktop. */}
+          <div
+            data-testid="tpl-gallery"
+            className="flex gap-8 overflow-x-auto pb-4 snap-x snap-mandatory md:flex-wrap md:justify-center md:overflow-visible md:pb-0"
+          >
+            {shown.map((ex, index) => (
+              <motion.div
+                key={ex.key}
+                data-testid={`tpl-mockup-${ex.key}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 * index }}
+                className="snap-center shrink-0 flex flex-col items-center"
+                style={{ width: CARD_WIDTH }}
+              >
+                <PhoneCard example={ex} lang={lang} displayWidth={CARD_WIDTH} />
+                <p className="mt-5 text-base font-semibold text-foreground">{ex.name}</p>
+                <Link
+                  to={`/login?mode=signup&template=${ex.presetId}`}
+                  className="mt-3 w-full"
+                >
+                  <button
+                    type="button"
+                    data-testid={`tpl-start-${ex.key}`}
+                    className="w-full rounded-full gradient-gold text-primary-foreground text-sm font-semibold px-6 py-2.5 transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
+                  >
+                    {t('templates.startWithStyle')}
+                  </button>
                 </Link>
               </motion.div>
             ))}
-          </motion.div>
-
-          {/* Coming Soon Notice */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="text-center mt-16"
-          >
-            <p className="text-muted-foreground">
-              {t('templates.comingSoon')}
-            </p>
-          </motion.div>
+          </div>
         </div>
       </main>
 

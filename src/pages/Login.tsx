@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Mail, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { PENDING_TEMPLATE_KEY, TPL_PRESETS } from '@/lib/tpl-presets';
 import { z } from 'zod';
 
 export default function Login() {
@@ -37,9 +38,26 @@ export default function Login() {
     email: z.string().email(t('login.validationEmail')),
   });
 
+  // TPL.PAGE.1 — a ?template=<presetId> from the Templates page "Start with this
+  // style" CTA is stashed for the post-signup Editor to apply. Validated against
+  // the real preset ids so only a known template is ever queued.
+  useEffect(() => {
+    const id = searchParams.get('template');
+    if (id && TPL_PRESETS.some((p) => p.id === id)) {
+      try { localStorage.setItem(PENDING_TEMPLATE_KEY, id); } catch { /* storage disabled */ }
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (user && !authLoading && !onboardingLoading) {
-      navigate(onboardingComplete ? '/dashboard/editor' : '/onboarding');
+      if (onboardingComplete) {
+        // Existing account with a built page — a template browsed just now must
+        // NOT overwrite it. Drop any pending handoff before entering the editor.
+        try { localStorage.removeItem(PENDING_TEMPLATE_KEY); } catch { /* storage disabled */ }
+        navigate('/dashboard/editor');
+      } else {
+        navigate('/onboarding');
+      }
     }
   }, [user, authLoading, onboardingLoading, onboardingComplete, navigate]);
 

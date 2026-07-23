@@ -11,6 +11,8 @@ import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
+import { useApplyLayout } from '@/components/editors/gallery-shared';
+import { TPL_PRESETS, PENDING_TEMPLATE_KEY } from '@/lib/tpl-presets';
 import type { LinkItem } from '@/components/editors/LinksEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
@@ -543,6 +545,34 @@ export default function Editor() {
   };
 
   const currentMode = modes.find((m) => m.type === selectedMode);
+
+  // ── TPL.PAGE.1: post-signup template handoff ──
+  // A visitor who picked a style on /templates arrives here (after onboarding
+  // built their page1) with a preset id stashed in localStorage. Apply it once,
+  // through the SAME snapshot-guarded TPL path the Layouts gallery uses, then
+  // consume the flag. Login already cleared the flag for returning accounts, so
+  // this only fires for a fresh signup's first Editor mount.
+  const pendingApplyRan = useRef(false);
+  const { applyLayout: applyPendingLayout } = useApplyLayout({
+    pageId: page?.id ?? '',
+    modeId: currentMode?.id ?? null,
+    activePageId: selectedMode,
+    themeJson: page?.theme_json,
+    onApply: refresh,
+  });
+  useEffect(() => {
+    if (pendingApplyRan.current) return;
+    if (loading || !page || !currentMode) return;
+    let id: string | null = null;
+    try { id = localStorage.getItem(PENDING_TEMPLATE_KEY); } catch { id = null; }
+    if (!id) return;
+    // Consume the handoff exactly once — whether or not it resolves to a preset.
+    try { localStorage.removeItem(PENDING_TEMPLATE_KEY); } catch { /* storage disabled */ }
+    const preset = TPL_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    pendingApplyRan.current = true;
+    applyPendingLayout(preset);
+  }, [loading, page, currentMode, applyPendingLayout]);
 
   // ── Render ──
 

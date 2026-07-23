@@ -26,6 +26,13 @@ export type TplCategory =
   | 'creator' | 'booking' | 'store' | 'music'
   | 'fitness' | 'local_business' | 'media' | 'minimal';
 
+// TPL.PAGE.1 — localStorage handoff key. The Templates page "Start with this
+// style" CTA stores a preset id here on the way into signup; the Editor reads
+// it once on first mount and applies the preset through the normal TPL apply
+// path (snapshot-guarded), then clears it. Shared so writer (Login) and reader
+// (Editor) can never drift on the string.
+export const PENDING_TEMPLATE_KEY = 'titilinks:pendingTemplate';
+
 export interface TplItemSeed {
   label: string;              // English-canonical → CONTENT_MAP
   subtitle?: string;          // English-canonical → CONTENT_MAP

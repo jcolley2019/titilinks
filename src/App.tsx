@@ -17,7 +17,6 @@ import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import LegalPage from "./pages/LegalPage";
 import Templates from "./pages/Templates";
-import TemplateCategory from "./pages/TemplateCategory";
 import CanvaConnect from "./pages/CanvaConnect";
 import CanvaCallback from "./pages/CanvaCallback";
 import OnboardingFlow from "./pages/OnboardingFlow";
@@ -83,7 +82,6 @@ const App = () => (
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/go/:itemId" element={<AdultLinkHop />} />
             <Route path="/templates" element={<Templates />} />
-            <Route path="/templates/:category" element={<TemplateCategory />} />
             <Route path="/terms" element={<LegalPage doc="terms" />} />
             <Route path="/privacy" element={<LegalPage doc="privacy" />} />
             <Route path="/api/canva/connect" element={<CanvaConnect />} />
