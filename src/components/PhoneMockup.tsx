@@ -36,6 +36,12 @@ import demoBooking from '@/assets/demo-booking.webp';
 import demoCafe from '@/assets/demo-cafe.webp';
 import demoMedia from '@/assets/demo-media.webp';
 import demoMinimal from '@/assets/demo-minimal.webp';
+import demoActress from '@/assets/demo-actress.webp';
+import demoShoot from '@/assets/demo-shoot.webp';
+import demoPhoto1 from '@/assets/demo-photo-1.webp';
+import demoPhoto2 from '@/assets/demo-photo-2.webp';
+import demoPhoto3 from '@/assets/demo-photo-3.webp';
+import demoPhoto4 from '@/assets/demo-photo-4.webp';
 
 export const BG = 'hsl(30 15% 6%)'; // warm near-black, #0e0c09
 export const SURFACE = 'hsl(30 12% 12%)';
@@ -190,13 +196,13 @@ export const EXAMPLES: Example[] = [
     handle: '@valentina.cruz',
     followers: '1.4M',
     accent: '#C9A55C',
-    cover: creatorCover,
+    cover: demoActress,
     socials: SOCIALS,
     category: 'creator',
     presetId: 'actriz',
     blocks: [],
     fullBleed: {
-      img: creatorCover,
+      img: demoActress,
       goldFrame: true,
       links: [
         { Icon: Film, en: 'Latest film', es: 'Última película' },
@@ -288,8 +294,8 @@ export const TEMPLATE_EXTRAS: Example[] = [
     category: 'media',
     presetId: 'estudio',
     blocks: [
-      { type: 'gallery', imgs: [creatorA, athleteG1, creatorB, businessP1] },
-      { type: 'bigcard', img: creatorBig, en: 'Watch my showreel', es: 'Mira mi showreel' },
+      { type: 'gallery', imgs: [demoPhoto1, demoPhoto2, demoPhoto3, demoPhoto4] },
+      { type: 'bigcard', img: demoShoot, en: 'Watch my showreel', es: 'Mira mi showreel' },
     ],
   },
   {
@@ -315,8 +321,25 @@ export const TEMPLATE_EXTRAS: Example[] = [
   },
 ];
 
-// Every mockup the Templates gallery shows. The hero keeps consuming EXAMPLES.
-export const TEMPLATE_EXAMPLES: Example[] = [...EXAMPLES, ...TEMPLATE_EXTRAS];
+// TPL.PAGE.3 — the Templates gallery shows every persona in a curated order
+// that alternates gender/look so no two similar-presentation personas sit
+// adjacent at the desktop 3-across wrap. The hero marquee keeps consuming
+// EXAMPLES in its own order.
+const GALLERY_ORDER = [
+  'creator', // Maya
+  'dj', // Rafa
+  'salon', // Camila
+  'musician', // Leo
+  'travel', // Sofía
+  'photographer', // Marcus
+  'cafe', // Emma
+  'athlete', // Jordan
+  'actriz', // Valentina
+  'minimal', // Daniel
+  'business', // Aura
+];
+const byKey = new Map([...EXAMPLES, ...TEMPLATE_EXTRAS].map((e) => [e.key, e]));
+export const TEMPLATE_EXAMPLES: Example[] = GALLERY_ORDER.map((k) => byKey.get(k)!);
 
 /* ── Card chrome ────────────────────────────────────────────────────── */
 

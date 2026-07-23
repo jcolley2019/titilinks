@@ -23,6 +23,14 @@
 // booking/local_business/media/minimal chips did not render (count 0), the four
 // new mockup/CTA testids did not exist, and the "All" view held seven mockups —
 // so tests 1–4 fail there too.
+//
+// TPL.PAGE.3 — Valentina renders her own actress asset (the hero + gallery
+// shared persona data both pick it up) and Marcus's page holds photography
+// content (demo-shoot showreel + demo-photo-1..4 thumbs, no Maya-set assets).
+// Mutation-verified: at the TPL.PAGE.2 HEAD Valentina's fullBleed img was
+// demo-creator.webp (no demo-actress match) and Marcus's card carried
+// creator-a/creator-b/creator-big with no demo-shoot — both new tests fail
+// against that revision.
 
 import { test, expect, type Page } from '@playwright/test';
 
@@ -100,6 +108,27 @@ test.describe('TPL.PAGE.1/2 — Templates gallery', () => {
         has: page.getByTestId(`tpl-start-${key}`),
       });
       await expect(link).toHaveCount(1);
+    }
+  });
+
+  test('Valentina renders the actress asset, not the Maya set', async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/templates');
+
+    const card = page.getByTestId('tpl-mockup-actriz');
+    await expect(card.locator('img[src*="demo-actress"]')).toBeVisible();
+    await expect(card.locator('img[src*="demo-creator"]')).toHaveCount(0);
+  });
+
+  test("Marcus's card holds photography content, no creator assets", async ({ page }) => {
+    await bootLang(page, 'en');
+    await page.goto('/templates');
+
+    const card = page.getByTestId('tpl-mockup-photographer');
+    await expect(card.locator('img[src*="demo-shoot"]')).toBeVisible();
+    await expect(card.locator('img[src*="demo-photo-"]')).toHaveCount(4);
+    for (const asset of ['creator-a', 'creator-b', 'creator-big']) {
+      await expect(card.locator(`img[src*="${asset}"]`)).toHaveCount(0);
     }
   });
 
