@@ -19,6 +19,26 @@ import { translations } from '../src/hooks/useLanguage';
 const PROFILE = '/joeyc';
 const BLOCK_ID = 'ic-social-block';
 
+// TEST.FLAKE.26 — route.fetch() re-issues the intercepted request to the live
+// Supabase backend; under a full battery that passthrough intermittently
+// stalled and threw at the fetch boundary, failing the mock (not the feature).
+// Retry the re-fetch a few times with a generous per-attempt timeout so a
+// transient stall no longer flakes the spec.
+const routeFetchWithRetry = async (
+  route: import('@playwright/test').Route,
+  attempts = 4,
+) => {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await route.fetch({ timeout: 20_000 });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('route.fetch failed after retries');
+};
+
 // Patch page.theme_json.headerConfig, pass the real modes through, then answer
 // blocks/block_items with the fixture (same shape as 11-icon-row).
 const seedIcons = async (
@@ -27,7 +47,7 @@ const seedIcons = async (
   labels: string[],
 ) => {
   await page.route('**/rest/v1/pages*', async (route) => {
-    const res = await route.fetch();
+    const res = await routeFetchWithRetry(route);
     let body = await res.json();
     const patch = (p: any) => {
       if (!p || typeof p !== 'object') return p;
@@ -41,7 +61,7 @@ const seedIcons = async (
 
   let modeId = '';
   await page.route('**/rest/v1/modes*', async (route) => {
-    const res = await route.fetch();
+    const res = await routeFetchWithRetry(route);
     const body = await res.json();
     const rows = Array.isArray(body) ? body : [body];
     modeId = rows.find((m: any) => m?.type === 'page1')?.id ?? rows[0]?.id ?? '';
@@ -134,12 +154,22 @@ test.describe('icon contrast — picker guard', () => {
   test('same-on-same chips disable in both directions with the hint', async ({ page }) => {
     // Deterministic starting combo on the GET; stub PATCH so the shared test
     // account is never mutated by chip clicks.
+    // TEST.FLAKE.26: capture the real page row ONCE (via a resilient re-fetch)
+    // and replay it from cache on every later GET, so a mid-test refetch never
+    // rides a flaky live route.fetch() passthrough. The replayed body is
+    // byte-identical to what the passthrough produced — headerConfig was always
+    // patched to the same {color, default} combo regardless of what is saved.
+    let cachedPage: string | null = null;
     await page.route('**/rest/v1/pages*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({ status: 204, body: '' });
         return;
       }
-      const res = await route.fetch();
+      if (cachedPage) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: cachedPage });
+        return;
+      }
+      const res = await routeFetchWithRetry(route);
       let body = await res.json();
       const patch = (p: any) => {
         if (!p || typeof p !== 'object') return p;
@@ -148,7 +178,10 @@ test.describe('icon contrast — picker guard', () => {
         return { ...p, theme_json: theme };
       };
       body = Array.isArray(body) ? body.map(patch) : patch(body);
-      await route.fulfill({ response: res, body: JSON.stringify(body) });
+      const out = JSON.stringify(body);
+      // Only replay a well-formed page row — never cache an empty/racey body.
+      if (Array.isArray(body) ? body.length > 0 : !!body) cachedPage = out;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: out });
     });
 
     await page.goto('/dashboard/editor');

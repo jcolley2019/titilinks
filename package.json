@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/kill-stale-dev.mjs 8085",
     "dev": "vite",
+    "kill-stale": "node scripts/kill-stale-dev.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

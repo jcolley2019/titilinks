@@ -7,7 +7,11 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    // HOUSE.1: titilinks lives on 8085 (titiactriz keeps 8080) so both dev
+    // servers run simultaneously. strictPort makes a stale 8085 fail LOUDLY
+    // instead of silently drifting to 8086 and serving Playwright stale code.
+    port: 8085,
+    strictPort: true,
     hmr: {
       overlay: false,
     },
