@@ -8,6 +8,7 @@ import creatorBig from '@/assets/demo-creator-big.webp';
 import creatorA from '@/assets/demo-creator-a.webp';
 import creatorB from '@/assets/demo-creator-b.webp';
 import musicianCover from '@/assets/demo-musician.webp';
+import demoDj from '@/assets/demo-dj.webp';
 import athleteCover from '@/assets/demo-athlete.webp';
 import athleteBig from '@/assets/demo-athlete-big.webp';
 import athleteG1 from '@/assets/demo-athlete-g1.webp';
@@ -86,11 +87,11 @@ const EXAMPLES: Example[] = [
     handle: '@rafa.sets',
     followers: '312K',
     accent: '#B36BFF',
-    cover: musicianCover,
+    cover: demoDj,
     socials: SOCIALS,
     blocks: [],
     fullBleed: {
-      img: musicianCover,
+      img: demoDj,
       links: [
         { Icon: Headphones, en: "Tonight's set", es: 'Set de esta noche' },
         { Icon: Music, en: 'Latest mix', es: 'Último mix' },
