@@ -1527,6 +1527,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'analytics.proOnlyTitle': 'Pro feature',
     'analytics.upgradeToPro': 'Upgrade to Pro',
     'publicFooter.madeWith': 'Made with',
+    'publicFooter.cta': 'Create your free page',
 
     // Settings Page
     'settings.title': 'Settings',
@@ -3312,6 +3313,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'analytics.proOnlyTitle': 'Función Pro',
     'analytics.upgradeToPro': 'Mejorar a Pro',
     'publicFooter.madeWith': 'Hecho con',
+    'publicFooter.cta': 'Crea tu página gratis',
 
     // Settings Page
     'settings.title': 'Ajustes',

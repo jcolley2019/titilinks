@@ -3156,14 +3156,15 @@ export function EditableProfileView({
 
         {/* Footer */}
         {showBranding && (
-          <footer className="mt-12 pb-8 text-center">
+          <footer className="mt-12 pb-10 text-center">
             <a
               href="/?ref=badge"
               onClick={editMode ? (e) => e.preventDefault() : undefined}
               className="text-xs opacity-60 hover:opacity-90"
               style={{ color: theme.typography.text_color }}
             >
-              {t('publicFooter.madeWith')} <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span>
+              <span className="block">{t('publicFooter.madeWith')} <span className="font-bold"><span style={{ color: '#F5F3EE' }}>Titi</span><span style={{ color: '#C9A55C', fontStyle: 'italic' }}>Links</span></span></span>
+              <span className="mt-1 block text-sm font-medium" style={{ color: '#C9A55C' }}>{t('publicFooter.cta')} →</span>
             </a>
           </footer>
         )}

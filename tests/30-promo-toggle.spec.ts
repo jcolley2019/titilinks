@@ -17,7 +17,9 @@ import { test, expect, type Page } from '@playwright/test';
 
 const PROFILE = '/joeyc';
 
-const badge = (page: Page) => page.getByRole('link', { name: /made with/i });
+// BADGE.CTA.1 — the footer badge is now a two-line signup invitation, so
+// target the gated footer link by its href rather than by exact text.
+const badge = (page: Page) => page.locator('a[href="/?ref=badge"]');
 
 async function routeBranding(page: Page, plan: 'free' | 'pro' | 'business', show_badge: boolean) {
   await page.route('**/rest/v1/rpc/get_public_page_branding*', (route) =>
