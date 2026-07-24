@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   PenSquare,
   BarChart3,
+  QrCode,
   LogOut,
   Menu,
   X,
@@ -50,8 +51,20 @@ const baseNavItems = [
   { path: '/dashboard', labelKey: 'dashLayout.dashboard', icon: LayoutDashboard },
   { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
   { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
+  { path: '/dashboard/qr', labelKey: 'dashLayout.qrCode', icon: QrCode },
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
+
+// The condensed mobile bottom bar shows only primary destinations; secondary
+// tools (QR code, short links) live in the sidebar + slide-out menu so the
+// 5-slot thumb bar (plus the Live button) never overflows.
+const BOTTOM_NAV_PATHS = new Set([
+  '/dashboard',
+  '/dashboard/editor',
+  '/dashboard/analytics',
+  '/dashboard/setup',
+  '/dashboard/settings',
+]);
 
 export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps) {
   const location = useLocation();
@@ -462,7 +475,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
       {!isEditorPage && (
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-bottom">
           <div className="flex items-center justify-around py-2">
-            {navItems.slice(0, 5).map((item) => {
+            {navItems.filter((item) => BOTTOM_NAV_PATHS.has(item.path)).slice(0, 5).map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link

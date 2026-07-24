@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
+import QRCodePage from "./pages/QRCode";
 import Settings from "./pages/Settings";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import AdultLinkHop from "./pages/AdultLinkHop";
@@ -66,6 +67,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/qr"
+              element={
+                <ProtectedRoute>
+                  <QRCodePage />
                 </ProtectedRoute>
               }
             />
