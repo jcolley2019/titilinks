@@ -14,6 +14,8 @@ import Analytics from "./pages/Analytics";
 import QRCodePage from "./pages/QRCode";
 import Settings from "./pages/Settings";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
+import SlugRedirect from "./pages/SlugRedirect";
+import ShortLinks from "./pages/ShortLinks";
 import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import LegalPage from "./pages/LegalPage";
@@ -78,6 +80,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/dashboard/short-links"
+              element={
+                <ProtectedRoute>
+                  <ShortLinks />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/dashboard/setup" element={<Navigate to="/dashboard/editor" replace />} />
             <Route path="/dashboard/ai-setup" element={<Navigate to="/dashboard/editor" replace />} />
             <Route
@@ -89,6 +99,7 @@ const App = () => (
               }
             />
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
+            <Route path="/s/:slug" element={<SlugRedirect />} />
             <Route path="/go/:itemId" element={<AdultLinkHop />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/terms" element={<LegalPage doc="terms" />} />

@@ -35,6 +35,10 @@ export interface PlanEntitlements {
    *  Auto snapshots (the pre-destructive-action safety net) are exempt and
    *  ring-buffered separately. Enforced at capture time (SNAP.1). */
   maxSnapshots: number;
+  /** Max custom short links (user-chosen /s/:slug destinations) per account.
+   *  Enforced in the UI today (SHORT.1); server-side enforcement arrives with
+   *  ENT.SRV in the BILL sprint. */
+  maxShortLinks: number;
   premiumThemes: boolean;
   /** Advanced analytics (per-mode/per-link breakdown, top destinations,
    *  referrer/traffic-source data). Basic analytics — page views and total
@@ -75,6 +79,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     perPageStyle: true,
     maxLinks: Infinity,
     maxSnapshots: 1,
+    maxShortLinks: 3,
     premiumThemes: false,
     analyticsAdvanced: false,
     trackingPixels: false,
@@ -95,6 +100,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     perPageStyle: true,
     maxLinks: Infinity,
     maxSnapshots: 5,
+    maxShortLinks: 25,
     premiumThemes: true,
     analyticsAdvanced: true,
     trackingPixels: true,
@@ -115,6 +121,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     perPageStyle: true,
     maxLinks: Infinity,
     maxSnapshots: 20,
+    maxShortLinks: 100,
     premiumThemes: true,
     analyticsAdvanced: true,
     trackingPixels: true,

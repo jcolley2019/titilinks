@@ -6,6 +6,7 @@ import {
   PenSquare,
   BarChart3,
   QrCode,
+  Link2,
   LogOut,
   Menu,
   X,
@@ -52,6 +53,7 @@ const baseNavItems = [
   { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
   { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
   { path: '/dashboard/qr', labelKey: 'dashLayout.qrCode', icon: QrCode },
+  { path: '/dashboard/short-links', labelKey: 'dashLayout.shortLinks', icon: Link2 },
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
 

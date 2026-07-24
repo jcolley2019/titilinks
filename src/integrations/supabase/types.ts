@@ -538,6 +538,41 @@ export type Database = {
           },
         ]
       }
+      custom_short_links: {
+        Row: {
+          clicks: number
+          created_at: string
+          id: string
+          slug: string
+          target_url: string
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          slug: string
+          target_url: string
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          id?: string
+          slug?: string
+          target_url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_short_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -574,6 +609,10 @@ export type Database = {
         Returns: {
           destination_url: string
         }[]
+      }
+      resolve_short_link_by_slug: {
+        Args: { p_slug: string }
+        Returns: string
       }
       subscribe_to_page: {
         Args: { p_email: string; p_name?: string; p_page_id: string }
