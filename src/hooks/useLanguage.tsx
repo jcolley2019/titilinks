@@ -1586,6 +1586,30 @@ export const translations: Record<Language, Record<string, string>> = {
     'billingSuccess.manageBilling': 'Billing settings',
     'billingSuccess.reference': 'Reference:',
 
+    // BILL.B4 — account deletion (irreversible; Stripe is cancelled first)
+    'danger.title': 'Delete account',
+    'danger.desc': 'This is permanent. There is no undo, and nothing can be restored afterwards.',
+    'danger.itemPage': 'Your public page goes offline immediately',
+    'danger.itemData': 'Every link, block, photo, restore point, short link and subscriber is erased',
+    'danger.itemSubscription': 'Any active subscription is cancelled right away — no further charges',
+    'danger.itemHandle': 'Your handle is released and someone else can claim it',
+    'danger.button': 'Delete my account',
+    'danger.dialogTitle': 'Delete your account permanently?',
+    'danger.dialogBody': 'This cannot be undone. Your page, content, analytics and subscribers are deleted for good.',
+    'danger.confirmLabel': 'To confirm, type',
+    'danger.mismatch': "That doesn't match.",
+    'danger.cancel': 'Keep my account',
+    'danger.confirmButton': 'Delete forever',
+    'danger.deleting': 'Deleting…',
+    'danger.failed': "Couldn't delete your account",
+
+    // BILL.B4 — post-deletion landing (public: the account no longer exists)
+    'goodbye.title': 'Your account has been deleted',
+    'goodbye.body': 'Thank you for having been part of TitiLinks. Your page and all its data are gone.',
+    'goodbye.deleted': 'Any active subscription was cancelled — you will not be charged again.',
+    'goodbye.home': 'Back to home',
+    'goodbye.startOver': 'Start a new page',
+
     // Dashboard Page
     'dash.title': 'Dashboard',
     'dash.welcome': 'Welcome to your TitiLinks dashboard',
@@ -3441,6 +3465,30 @@ export const translations: Record<Language, Record<string, string>> = {
     'billingSuccess.goToEditor': 'Empezar a crear',
     'billingSuccess.manageBilling': 'Ajustes de facturación',
     'billingSuccess.reference': 'Referencia:',
+
+    // BILL.B4 — eliminación de cuenta (irreversible; Stripe se cancela primero)
+    'danger.title': 'Eliminar cuenta',
+    'danger.desc': 'Esto es permanente. No se puede deshacer y nada podrá recuperarse después.',
+    'danger.itemPage': 'Tu página pública queda fuera de línea de inmediato',
+    'danger.itemData': 'Se borran todos tus enlaces, bloques, fotos, puntos de restauración, enlaces cortos y suscriptores',
+    'danger.itemSubscription': 'Cualquier suscripción activa se cancela al instante — no habrá más cargos',
+    'danger.itemHandle': 'Tu usuario queda libre y otra persona podrá reclamarlo',
+    'danger.button': 'Eliminar mi cuenta',
+    'danger.dialogTitle': '¿Eliminar tu cuenta permanentemente?',
+    'danger.dialogBody': 'Esto no se puede deshacer. Tu página, contenido, analíticas y suscriptores se eliminan para siempre.',
+    'danger.confirmLabel': 'Para confirmar, escribe',
+    'danger.mismatch': 'No coincide.',
+    'danger.cancel': 'Conservar mi cuenta',
+    'danger.confirmButton': 'Eliminar para siempre',
+    'danger.deleting': 'Eliminando…',
+    'danger.failed': 'No se pudo eliminar tu cuenta',
+
+    // BILL.B4 — página posterior a la eliminación (pública: la cuenta ya no existe)
+    'goodbye.title': 'Tu cuenta ha sido eliminada',
+    'goodbye.body': 'Gracias por haber formado parte de TitiLinks. Tu página y todos sus datos ya no existen.',
+    'goodbye.deleted': 'Cualquier suscripción activa fue cancelada — no se te volverá a cobrar.',
+    'goodbye.home': 'Volver al inicio',
+    'goodbye.startOver': 'Crear una página nueva',
 
     // Dashboard Page
     'dash.title': 'Panel',

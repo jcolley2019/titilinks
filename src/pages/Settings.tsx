@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -323,6 +324,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* BILL.B4 — danger zone, last on the page and visually separated */}
+        <DeleteAccountCard />
 
         <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
           <Link to="/terms" className="transition-colors hover:text-foreground">{t('footer.terms')}</Link>

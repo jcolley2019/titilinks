@@ -18,6 +18,7 @@ import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SlugRedirect from "./pages/SlugRedirect";
 import ShortLinks from "./pages/ShortLinks";
 import BillingSuccess from "./pages/BillingSuccess";
+import Goodbye from "./pages/Goodbye";
 import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import LegalPage from "./pages/LegalPage";
@@ -110,6 +111,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Public: the auth user is already gone by the time anyone lands here. */}
+            <Route path="/goodbye" element={<Goodbye />} />
             <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/s/:slug" element={<SlugRedirect />} />
             <Route path="/go/:itemId" element={<AdultLinkHop />} />
