@@ -117,6 +117,85 @@ test.describe('SHORT.1 — short links tool', () => {
     await expect(page.getByText('/s/alpha')).toBeVisible();
   });
 
+  // --- TOOLS.FIX.1 — upfront slug guidance + one unified focus ring ---------
+  //
+  // Mutation-verified: on the shipped build the hint element did not exist
+  // (rules surfaced only as a red error AFTER a rejected attempt), and the
+  // Input's `focus-visible:ring-0` left the inherited `focus-visible:
+  // ring-offset-2` in place — a 2px background-coloured offset ring that masked
+  // the group's focus-within ring down to just the /s/ prefix. Both halves of
+  // this test fail on that build.
+
+  const HINTS = [
+    { lang: 'en' as Lang, hint: /Lowercase letters, numbers, and hyphens \(3–32\)/, example: 'summer-sale' },
+    { lang: 'es' as Lang, hint: /Minúsculas, números y guiones \(3–32\)/, example: 'oferta-verano' },
+  ];
+
+  for (const c of HINTS) {
+    test(`slug rules are visible before any input in ${c.lang.toUpperCase()}`, async ({ page }) => {
+      await bootLang(page, c.lang);
+      await routeProfilePlan(page, 'free');
+      await routeShortLinks(page, []);
+      await page.goto('/dashboard/short-links');
+      await page.waitForLoadState('networkidle');
+
+      const slug = page.getByTestId('short-link-slug');
+      const hint = page.getByTestId('short-link-slug-hint');
+
+      // Guidance is present on arrival — before a keystroke and before any error.
+      await expect(slug).toHaveValue('');
+      await expect(page.getByTestId('short-link-error')).toHaveCount(0);
+      await expect(hint).toBeVisible();
+      await expect(hint).toHaveText(c.hint);
+      await expect(hint).toContainText(c.example);
+
+      // The placeholder itself is a slug that would actually be accepted.
+      const placeholder = await slug.getAttribute('placeholder');
+      expect(placeholder).toBe(c.example);
+      expect(placeholder).toMatch(/^[a-z0-9-]{3,32}$/);
+
+      // A rejected attempt adds the red error WITHOUT removing the guidance.
+      await slug.fill('youtube/joey');
+      await page.getByTestId('short-link-url').fill('example.com/x');
+      await page.getByTestId('short-link-create').click();
+      await expect(page.getByTestId('short-link-error')).toBeVisible();
+      await expect(hint).toBeVisible();
+    });
+  }
+
+  test('the /s/ prefix and slug field share one focus ring', async ({ page }) => {
+    await bootLang(page, 'en');
+    await routeProfilePlan(page, 'free');
+    await routeShortLinks(page, []);
+    await page.goto('/dashboard/short-links');
+    await page.waitForLoadState('networkidle');
+
+    const slug = page.getByTestId('short-link-slug');
+    const group = page.getByTestId('short-link-slug-group');
+
+    // Unfocused: no ring anywhere.
+    await expect(group).toHaveCSS('box-shadow', 'none');
+
+    await slug.focus();
+
+    // Focused: the ring belongs to the GROUP, so it wraps prefix + field.
+    const groupShadow = await group.evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(groupShadow).not.toBe('none');
+    expect(groupShadow).toMatch(/[1-9]\d*px/);
+
+    // ...and the field paints no offset ring of its own to clip it with.
+    const offset = await slug.evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('--tw-ring-offset-width').trim(),
+    );
+    expect(offset).toBe('0px');
+
+    // The prefix sits inside the ringed group, not outside it.
+    const box = (await group.boundingBox())!;
+    const field = (await slug.boundingBox())!;
+    expect(field.x).toBeGreaterThan(box.x);
+    expect(field.x + field.width).toBeLessThanOrEqual(box.x + box.width + 1);
+  });
+
   test('creates a new short link', async ({ page }) => {
     await bootLang(page, 'en');
     await routeProfilePlan(page, 'free');

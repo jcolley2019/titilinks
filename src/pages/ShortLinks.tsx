@@ -160,12 +160,20 @@ export default function ShortLinks() {
         {/* Create */}
         <Card>
           <CardContent className="p-5 space-y-4">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-start">
               <div>
                 <Label htmlFor="short-link-slug" className="text-xs font-medium text-muted-foreground">
                   {t('shortLinks.slugLabel')}
                 </Label>
-                <div className="mt-1.5 flex items-center rounded-md border border-border bg-background focus-within:ring-1 focus-within:ring-ring">
+                {/* Prefix + field are ONE control: the group owns the focus ring
+                    (focus-within) and the Input cancels both its own ring and the
+                    ring-offset it inherits — that offset ring painted in the
+                    background colour and used to mask the group ring down to just
+                    the /s/ prefix. */}
+                <div
+                  data-testid="short-link-slug-group"
+                  className="mt-1.5 flex items-center rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                >
                   <span className="pl-3 pr-1 text-sm text-muted-foreground select-none">/s/</span>
                   <Input
                     id="short-link-slug"
@@ -176,12 +184,22 @@ export default function ShortLinks() {
                       if (error) setError(null);
                     }}
                     placeholder={t('shortLinks.slugPlaceholder')}
-                    className="border-0 bg-transparent px-1 focus-visible:ring-0"
+                    className="min-w-0 flex-1 border-0 bg-transparent px-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    aria-describedby="short-link-slug-hint"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
                   />
                 </div>
+                {/* Permanent guidance — the rules are visible before the first
+                    keystroke, not only after a rejected attempt. */}
+                <p
+                  id="short-link-slug-hint"
+                  data-testid="short-link-slug-hint"
+                  className="mt-1.5 text-xs text-muted-foreground"
+                >
+                  {t('shortLinks.slugHint')}
+                </p>
               </div>
               <div>
                 <Label htmlFor="short-link-url" className="text-xs font-medium text-muted-foreground">
@@ -203,14 +221,21 @@ export default function ShortLinks() {
                   spellCheck={false}
                 />
               </div>
-              <Button
-                data-testid="short-link-create"
-                onClick={handleCreate}
-                disabled={!canSubmit}
-                className="gap-1.5 sm:w-auto"
-              >
-                <Plus className="h-4 w-4" /> {t('shortLinks.create')}
-              </Button>
+              <div>
+                {/* Mirrors the field labels so the button lines up with the
+                    inputs rather than with the hint line. */}
+                <Label aria-hidden className="hidden text-xs font-medium invisible sm:block">
+                  &nbsp;
+                </Label>
+                <Button
+                  data-testid="short-link-create"
+                  onClick={handleCreate}
+                  disabled={!canSubmit}
+                  className="mt-1.5 w-full gap-1.5 sm:w-auto"
+                >
+                  <Plus className="h-4 w-4" /> {t('shortLinks.create')}
+                </Button>
+              </div>
             </div>
 
             {error && (

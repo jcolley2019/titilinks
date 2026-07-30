@@ -32,6 +32,13 @@ function resolveColors(style: QRStyle, gold: boolean): { fg: string; bg: string 
 }
 
 const EXPORT_QR = 1024; // intrinsic QR resolution (px) — also the PNG/SVG export source
+const QR_MARGIN = 4; // quiet-zone modules — the spec minimum scanners expect
+
+/** qrcode.react writes `style={{width: size, height: size}}` inline on the
+ *  <canvas>/<svg>, which outranks any Tailwind width/height class while a class
+ *  like `max-w-*` still clamps the box — that mismatch is what rendered the code
+ *  as a tall "barcode". Size the element through `style` so it stays square. */
+const QR_FIT = { width: '100%', height: '100%' } as const;
 
 /** QR.1 — branded page QR code tool.
  *  Renders an on-brand, scannable QR for the account's single public page URL
@@ -196,16 +203,22 @@ export default function QRCodePage() {
                 className="flex flex-col items-center gap-4 rounded-2xl border border-border p-6 w-full max-w-[280px]"
                 style={{ backgroundColor: bg }}
               >
-                <QRCodeCanvas
-                  ref={canvasRef}
-                  value={publicUrl}
-                  size={EXPORT_QR}
-                  bgColor={bg}
-                  fgColor={fg}
-                  level="M"
-                  marginSize={2}
-                  className="h-auto w-full max-w-[220px]"
-                />
+                {/* aspect-square wrapper + style-driven fit => a true square at
+                    every viewport; the bitmap stays EXPORT_QR for the PNG. */}
+                <div className="aspect-square w-full max-w-[220px]">
+                  <QRCodeCanvas
+                    ref={canvasRef}
+                    data-testid="qr-canvas"
+                    value={publicUrl}
+                    size={EXPORT_QR}
+                    bgColor={bg}
+                    fgColor={fg}
+                    level="M"
+                    marginSize={QR_MARGIN}
+                    style={QR_FIT}
+                    className="block"
+                  />
+                </div>
                 <div className="text-center leading-tight">
                   <div className="font-bold tracking-tight" style={{ color: fg }}>
                     TitiLinks
@@ -278,7 +291,14 @@ export default function QRCodePage() {
       {/* Hidden SVG source for vector export (kept off-screen, not display:none so it renders) */}
       {publicUrl && (
         <div ref={svgWrapRef} aria-hidden className="pointer-events-none fixed -left-[9999px] top-0">
-          <QRCodeSVG value={publicUrl} size={EXPORT_QR} bgColor={bg} fgColor={fg} level="M" marginSize={2} />
+          <QRCodeSVG
+            value={publicUrl}
+            size={EXPORT_QR}
+            bgColor={bg}
+            fgColor={fg}
+            level="M"
+            marginSize={QR_MARGIN}
+          />
         </div>
       )}
     </DashboardLayout>
