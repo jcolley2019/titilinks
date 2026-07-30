@@ -10,10 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type BillingInterval = 'month' | 'year';
 
-/** Stripe SANDBOX price ids, keyed by billing interval. */
+// LIVE mode price IDs (founding). Sandbox IDs retired 2026-07-30.
+/** Stripe LIVE price ids, keyed by billing interval. */
 export const PRO_PRICE_IDS: Record<BillingInterval, string> = {
-  month: 'price_1Tw3jiGnt7Tsx25PQEBDG0SY', // pro_monthly_founding — $9/mo
-  year: 'price_1Tw447Gnt7Tsx25PVouXzkmj', // pro_yearly_founding — $84/yr ($7/mo)
+  month: 'price_1TyxwSGsBkpXqKefgLaRcaj8', // pro_monthly_founding — $9/mo
+  year: 'price_1TyxwSGsBkpXqKefJIFkofdu', // pro_yearly_founding — $84/yr ($7/mo)
 };
 
 /** Stripe lookup keys, for logs and support conversations. */

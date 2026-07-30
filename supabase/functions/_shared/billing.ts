@@ -6,13 +6,13 @@
 // bundle is Vite/TS and this runs in Deno Edge, so there is no shared import.
 // The client copy is a convenience; THIS copy decides.
 //
-// Stripe SANDBOX ids. Business-tier prices exist in Stripe but are deliberately
+// Stripe LIVE ids. Business-tier prices exist in Stripe but are deliberately
 // absent here — the tier is hidden in the UI and must not be purchasable.
 
 export type BillingInterval = "month" | "year";
 
 export interface PriceDefinition {
-  /** Stripe price id (sandbox). */
+  /** Stripe price id (live). */
   id: string;
   /** Stripe lookup key — the stable name; ids change when a price is recreated. */
   lookupKey: string;
@@ -21,15 +21,16 @@ export interface PriceDefinition {
   interval: BillingInterval;
 }
 
+// LIVE mode price IDs (founding). Sandbox IDs retired 2026-07-30.
 export const PRO_PRICES: PriceDefinition[] = [
   {
-    id: "price_1Tw3jiGnt7Tsx25PQEBDG0SY",
+    id: "price_1TyxwSGsBkpXqKefgLaRcaj8",
     lookupKey: "pro_monthly_founding",
     plan: "pro",
     interval: "month",
   },
   {
-    id: "price_1Tw447Gnt7Tsx25PVouXzkmj",
+    id: "price_1TyxwSGsBkpXqKefJIFkofdu",
     lookupKey: "pro_yearly_founding",
     plan: "pro",
     interval: "year",

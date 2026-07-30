@@ -18,11 +18,18 @@
 // deterministic and nothing reaches api.stripe.com.
 
 import { test, expect, type Page } from '@playwright/test';
+import { PRO_PRICES } from '../supabase/functions/_shared/billing.ts';
 
 type Lang = 'en' | 'es';
 
-const PRICE_MONTHLY = 'price_1Tw3jiGnt7Tsx25PQEBDG0SY'; // pro_monthly_founding
-const PRICE_YEARLY = 'price_1Tw447Gnt7Tsx25PVouXzkmj'; // pro_yearly_founding
+// Read from the server allowlist rather than re-typing ids: a price id rotation
+// (sandbox → live) must not need a test edit, and asserting against the
+// authority is what "the checkout asked for a purchasable price" actually means.
+const priceIdFor = (interval: 'month' | 'year') =>
+  PRO_PRICES.find((p) => p.interval === interval)!.id;
+
+const PRICE_MONTHLY = priceIdFor('month'); // pro_monthly_founding
+const PRICE_YEARLY = priceIdFor('year'); // pro_yearly_founding
 const PENDING_CHECKOUT_KEY = 'titilinks-pending-checkout';
 
 const bootLang = (page: Page, lang: Lang) =>

@@ -327,7 +327,10 @@ for (const p of PRO_PRICES) {
   assert.equal(priceDefinitionFor(p.id)?.lookupKey, p.lookupKey);
   assert.equal(priceDefinitionFor(p.id)?.plan, 'pro');
 }
-for (const bad of [null, undefined, '', 'price_business', 'PRICE_1TW3JIGNT7TSX25PQEBDG0SY', 42, {}]) {
+// Derived, not re-typed: the uppercased form of a REAL price id must still be
+// rejected, and that stays a case-sensitivity test after any id rotation.
+const uppercasedRealId = PRO_PRICES[0].id.toUpperCase();
+for (const bad of [null, undefined, '', 'price_business', uppercasedRealId, 42, {}]) {
   assert.equal(priceDefinitionFor(bad), null, `${JSON.stringify(bad)} is not purchasable`);
 }
 assert.equal(ALLOWED_PRICE_IDS.length, 2);

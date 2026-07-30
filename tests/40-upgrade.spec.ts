@@ -17,12 +17,17 @@
 // route-mocked at the functions/v1 layer and return URLs back into this app.
 
 import { test, expect, type Page } from '@playwright/test';
+import { PRO_PRICES } from '../supabase/functions/_shared/billing.ts';
 
 type Lang = 'en' | 'es';
 type Plan = 'free' | 'pro' | 'business';
 
-const PRICE_MONTHLY = 'price_1Tw3jiGnt7Tsx25PQEBDG0SY'; // pro_monthly_founding
-const PRICE_YEARLY = 'price_1Tw447Gnt7Tsx25PVouXzkmj'; // pro_yearly_founding
+// Read from the server allowlist rather than re-typing ids — see 36-billing.
+const priceIdFor = (interval: 'month' | 'year') =>
+  PRO_PRICES.find((p) => p.interval === interval)!.id;
+
+const PRICE_MONTHLY = priceIdFor('month'); // pro_monthly_founding
+const PRICE_YEARLY = priceIdFor('year'); // pro_yearly_founding
 
 const bootLang = (page: Page, lang: Lang) =>
   page.addInitScript((l) => localStorage.setItem('titilinks-language', l), lang);
