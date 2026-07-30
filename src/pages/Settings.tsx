@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Sun, Moon, Bell, BadgeCheck, Lock } from 'lucide-react';
+import { Globe, Sun, Moon, Bell, BadgeCheck, CreditCard, Loader2, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { openBillingPortal } from '@/lib/billing';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -17,9 +20,29 @@ export default function Settings() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
-  const { atLeast, showBadge } = useEntitlements();
+  const { atLeast, showBadge, entitlements } = useEntitlements();
   const isPaid = atLeast('pro');
   const queryClient = useQueryClient();
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  // BILL.B1 — hand off to the Stripe Customer Portal. Cancellations, card
+  // updates and invoices all live there; nothing about the subscription is
+  // editable in this app.
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    const { error, status } = await openBillingPortal();
+    if (error) {
+      setPortalLoading(false);
+      // 409 from create-portal-session = a paid plan with no Stripe customer
+      // (e.g. granted by hand). Point them at pricing rather than a dead portal.
+      const noAccount = status === 409;
+      toast({
+        title: noAccount ? t('settings.billingNoAccount') : t('settings.billingPortalError'),
+        description: noAccount ? undefined : error,
+        variant: 'destructive',
+      });
+    }
+  };
 
   // PROMO.TOGGLE.1: toggle the public "Made with TitiLinks" badge (paid tiers).
   // Optimistically flips the shared ['plan', user.id] cache so the editor
@@ -159,6 +182,44 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">{t('settings.weeklyDigestDesc')}</p>
               </div>
               <Switch />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* BILL.B1 — plan + Stripe Customer Portal handoff */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              {t('settings.billingTitle')}
+            </CardTitle>
+            <CardDescription>
+              {t('settings.billingDesc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <Label className="text-base font-medium">{t('settings.billingCurrentPlan')}</Label>
+                <p className="truncate text-sm text-muted-foreground" data-testid="settings-current-plan">
+                  {entitlements.label}
+                </p>
+              </div>
+              {isPaid ? (
+                <Button
+                  variant="outline"
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  data-testid="settings-manage-billing"
+                >
+                  {portalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t('settings.billingManage')}
+                </Button>
+              ) : (
+                <Button asChild className="gradient-primary text-primary-foreground" data-testid="settings-billing-upgrade">
+                  <Link to="/#pricing">{t('settings.billingUpgrade')}</Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

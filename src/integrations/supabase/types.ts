@@ -446,7 +446,11 @@ export type Database = {
           onboarding_complete: boolean
           page_style: string | null
           plan: string
+          referred_by: string | null
           show_badge: boolean
+          stripe_customer_id: string | null
+          subscription_period_end: string | null
+          subscription_status: string | null
           tiktok_pixel_id: string | null
           updated_at: string
           username: string | null
@@ -463,7 +467,11 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          referred_by?: string | null
           show_badge?: boolean
+          stripe_customer_id?: string | null
+          subscription_period_end?: string | null
+          subscription_status?: string | null
           tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
@@ -480,12 +488,24 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          referred_by?: string | null
           show_badge?: boolean
+          stripe_customer_id?: string | null
+          subscription_period_end?: string | null
+          subscription_status?: string | null
           tiktok_pixel_id?: string | null
           updated_at?: string
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       short_links: {
         Row: {

@@ -1557,6 +1557,26 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.badgeRewardsChip': 'Coming soon',
     'settings.badgeRewardsTeaser': 'Earn rewards when your badge brings new creators to TitiLinks.',
 
+    // BILL.B1 — billing section + Stripe Customer Portal
+    'settings.billingTitle': 'Plan & billing',
+    'settings.billingDesc': 'Your plan, payment method and invoices.',
+    'settings.billingCurrentPlan': 'Current plan',
+    'settings.billingManage': 'Manage billing',
+    'settings.billingUpgrade': 'Upgrade to Pro',
+    'settings.billingPortalError': "Couldn't open the billing portal. Please try again.",
+    'settings.billingNoAccount': 'No billing account yet — start a subscription from the pricing page.',
+
+    // BILL.B1 — /billing/success (plan flips via webhook, so this page waits)
+    'billingSuccess.activatingTitle': 'Activating your Pro plan',
+    'billingSuccess.activatingBody': 'Payment received. Your new features unlock in a few seconds — this page updates on its own.',
+    'billingSuccess.activeTitle': 'Welcome to Pro',
+    'billingSuccess.activeBody': 'Everything is unlocked. Two pages, premium themes, full analytics, custom fonts and more.',
+    'billingSuccess.slowTitle': 'Still activating',
+    'billingSuccess.slowBody': "Your payment went through, but the plan hasn't switched over yet. It usually lands within a minute — refresh, or check your billing details if it persists.",
+    'billingSuccess.goToEditor': 'Start building',
+    'billingSuccess.manageBilling': 'Billing settings',
+    'billingSuccess.reference': 'Reference:',
+
     // Dashboard Page
     'dash.title': 'Dashboard',
     'dash.welcome': 'Welcome to your TitiLinks dashboard',
@@ -3383,6 +3403,26 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.badgeError': 'No se pudo guardar. Inténtalo de nuevo.',
     'settings.badgeRewardsChip': 'Próximamente',
     'settings.badgeRewardsTeaser': 'Gana recompensas cuando tu insignia atraiga nuevos creadores a TitiLinks.',
+
+    // BILL.B1 — sección de facturación + portal de clientes de Stripe
+    'settings.billingTitle': 'Plan y facturación',
+    'settings.billingDesc': 'Tu plan, método de pago y facturas.',
+    'settings.billingCurrentPlan': 'Plan actual',
+    'settings.billingManage': 'Gestionar facturación',
+    'settings.billingUpgrade': 'Mejorar a Pro',
+    'settings.billingPortalError': 'No se pudo abrir el portal de facturación. Inténtalo de nuevo.',
+    'settings.billingNoAccount': 'Aún no tienes cuenta de facturación — inicia una suscripción desde la página de precios.',
+
+    // BILL.B1 — /billing/success (el plan cambia por webhook, así que esta página espera)
+    'billingSuccess.activatingTitle': 'Activando tu plan Pro',
+    'billingSuccess.activatingBody': 'Pago recibido. Tus nuevas funciones se desbloquean en unos segundos — esta página se actualiza sola.',
+    'billingSuccess.activeTitle': 'Bienvenido a Pro',
+    'billingSuccess.activeBody': 'Todo está desbloqueado. Dos páginas, temas premium, analíticas completas, fuentes personalizadas y más.',
+    'billingSuccess.slowTitle': 'Aún activando',
+    'billingSuccess.slowBody': 'Tu pago se procesó, pero el plan todavía no ha cambiado. Normalmente tarda menos de un minuto — recarga la página o revisa tus datos de facturación si continúa.',
+    'billingSuccess.goToEditor': 'Empezar a crear',
+    'billingSuccess.manageBilling': 'Ajustes de facturación',
+    'billingSuccess.reference': 'Referencia:',
 
     // Dashboard Page
     'dash.title': 'Panel',

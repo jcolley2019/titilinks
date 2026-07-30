@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SlugRedirect from "./pages/SlugRedirect";
 import ShortLinks from "./pages/ShortLinks";
+import BillingSuccess from "./pages/BillingSuccess";
 import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import LegalPage from "./pages/LegalPage";
@@ -95,6 +96,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/success"
+              element={
+                <ProtectedRoute>
+                  <BillingSuccess />
                 </ProtectedRoute>
               }
             />

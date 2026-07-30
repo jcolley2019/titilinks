@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Check, Crown, Sparkles } from 'lucide-react';
+import { Check, Crown, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useAuth } from '@/hooks/useAuth';
+import { startCheckout, stashPendingCheckout } from '@/lib/billing';
+import { toast } from '@/hooks/use-toast';
 import { PhoneFrame } from './PhoneFrame';
 
 const BG = 'hsl(30 15% 6%)';
@@ -62,11 +65,34 @@ function ProScreenMock() {
 export function PricingSection() {
   const { language } = useLanguage();
   const reduce = useReducedMotion();
+  const { user } = useAuth();
   const tx = (en: string, es: string) => (language === 'es' ? es : en);
   // TASK 3: annual is the default — surfaces the founding $7/mo price first.
   const [isAnnual, setIsAnnual] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const period = isAnnual ? tx('/mo, billed annually', '/mes, facturado anual') : tx('/month', '/mes');
+
+  // BILL.B1 — the Pro CTA does one of two things depending on auth state:
+  //   signed out → stash which interval they picked, then send them to signup;
+  //                Editor resumes the checkout once the session exists.
+  //   signed in  → straight to a Stripe Checkout session for that interval.
+  const interval = isAnnual ? 'year' : 'month';
+
+  const handleUpgrade = async () => {
+    setCheckoutLoading(true);
+    const { error } = await startCheckout(interval);
+    // On success `startCheckout` has already navigated to Stripe; only the
+    // failure path ever runs the lines below.
+    if (error) {
+      setCheckoutLoading(false);
+      toast({
+        title: tx('Could not start checkout', 'No se pudo iniciar el pago'),
+        description: error,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const plans = [
     {
@@ -262,14 +288,31 @@ export function PricingSection() {
                   {plan.comingSoon ? (
                     <button
                       disabled
+                      data-testid={`pricing-cta-${plan.id}`}
                       className="w-full cursor-default rounded-full py-2.5 text-sm font-semibold text-white/45"
                       style={{ border: `1px solid ${HAIRLINE}` }}
                     >
                       {plan.cta}
                     </button>
+                  ) : plan.id === 'pro' && user ? (
+                    <button
+                      type="button"
+                      onClick={handleUpgrade}
+                      disabled={checkoutLoading}
+                      data-testid="pricing-cta-pro"
+                      data-billing-interval={interval}
+                      className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-center text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+                      style={{ backgroundColor: GOLD, color: BG }}
+                    >
+                      {checkoutLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {checkoutLoading ? tx('Redirecting…', 'Redirigiendo…') : tx('Upgrade to Pro', 'Mejorar a Pro')}
+                    </button>
                   ) : (
                     <Link
                       to="/login?mode=signup"
+                      onClick={plan.id === 'pro' ? () => stashPendingCheckout(interval) : undefined}
+                      data-testid={`pricing-cta-${plan.id}`}
+                      data-billing-interval={plan.id === 'pro' ? interval : undefined}
                       className="block w-full rounded-full py-2.5 text-center text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.99]"
                       style={
                         plan.popular

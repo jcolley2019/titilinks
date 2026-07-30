@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Mail, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { PENDING_TEMPLATE_KEY, TPL_PRESETS } from '@/lib/tpl-presets';
+import { consumePendingCheckout, startCheckout } from '@/lib/billing';
 import { z } from 'zod';
 
 export default function Login() {
@@ -48,8 +49,26 @@ export default function Login() {
     }
   }, [searchParams]);
 
+  // BILL.B1 — a checkout intent stashed by the pricing CTA before signup is
+  // resumed HERE, at the auth boundary, so it survives the email-confirmation
+  // round trip (the visitor lands back on /login and picks up where they left
+  // off). One-shot: `consumePendingCheckout` clears the key as it reads it, and
+  // this ref stops React's double-invoked effects from firing two sessions.
+  const checkoutResumed = useRef(false);
+
   useEffect(() => {
     if (user && !authLoading && !onboardingLoading) {
+      const resume = !checkoutResumed.current ? consumePendingCheckout() : null;
+      if (resume) {
+        checkoutResumed.current = true;
+        void startCheckout(resume).then(({ error }) => {
+          // Success navigates to Stripe and never gets here. On failure fall
+          // through to the normal destination rather than trapping them on /login.
+          if (error) navigate(onboardingComplete ? '/dashboard/editor' : '/onboarding');
+        });
+        return;
+      }
+
       if (onboardingComplete) {
         // Existing account with a built page — a template browsed just now must
         // NOT overwrite it. Drop any pending handoff before entering the editor.
