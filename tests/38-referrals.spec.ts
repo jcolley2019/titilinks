@@ -271,6 +271,61 @@ test.describe('settings referral section', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BILL.B3b — the public badge credits the page owner
+// ---------------------------------------------------------------------------
+// The badge href comes from EPV's `badgeRefCode` prop, fed by
+// get_public_page_branding.referral_code through usePublicPageBranding. The prop
+// is OPTIONAL, so the two editor-mounted EPV instances keep the generic link.
+//
+// Mutation-verified: reverting the EPV href ternary to the literal
+// "/?ref=badge" fails the first test here.
+test.describe('public badge attribution', () => {
+  const PROFILE = '/joeyc';
+
+  /** Stub the public branding RPC. Returns a table → array of rows. */
+  const routeBranding = (page: Page, row: Record<string, unknown>) =>
+    page.route('**/rest/v1/rpc/get_public_page_branding*', (route) =>
+      route.fulfill({ json: [row] }),
+    );
+
+  test('a free page badge links with the owner referral code', async ({ page }) => {
+    await routeBranding(page, { plan: 'free', show_badge: true, referral_code: CODE });
+    await page.goto(PROFILE);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator(`a[href="/?ref=${CODE}"]`)).toBeVisible();
+    // The generic link must be gone — the visit is attributed now.
+    await expect(page.locator('a[href="/?ref=badge"]')).toHaveCount(0);
+  });
+
+  test('a pro page that keeps the badge on is also credited', async ({ page }) => {
+    await routeBranding(page, { plan: 'pro', show_badge: true, referral_code: CODE });
+    await page.goto(PROFILE);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator(`a[href="/?ref=${CODE}"]`)).toBeVisible();
+  });
+
+  test('no referral_code falls back to the generic badge link', async ({ page }) => {
+    // The shape the RPC returned before the referrals migration ran — the badge
+    // must keep working rather than emitting /?ref=null.
+    await routeBranding(page, { plan: 'free', show_badge: true });
+    await page.goto(PROFILE);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('a[href="/?ref=badge"]')).toBeVisible();
+    await expect(page.locator('a[href="/?ref=null"]')).toHaveCount(0);
+  });
+
+  test('a pro page with the badge off has no link to credit', async ({ page }) => {
+    await routeBranding(page, { plan: 'pro', show_badge: false, referral_code: CODE });
+    await page.goto(PROFILE);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator(`a[href="/?ref=${CODE}"]`)).toHaveCount(0);
+    await expect(page.locator('a[href="/?ref=badge"]')).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ENT.SRV — the server is the floor, and the client explains its refusal
 // ---------------------------------------------------------------------------
 test.describe('server-side quota refusal', () => {

@@ -119,6 +119,9 @@ interface EditableProfileViewProps {
    *  it, Pro/Business don't (removeBranding entitlement). Callers resolve
    *  the plan; EPV just renders the boolean. */
   showBranding: boolean;
+  /** BILL.B3 — the page owner's referral code, so the public badge credits
+   *  them. Null/absent falls back to the generic /?ref=badge link. */
+  badgeRefCode?: string | null;
   onAddContent?: () => void;
   onEditVideo?: () => void;
   // PHOTO.ROUTE.1: external "open the photo editor" request, from the guided
@@ -1225,6 +1228,7 @@ export function EditableProfileView({
   onModeChange,
   onOutboundClick,
   showBranding,
+  badgeRefCode,
   onAddContent,
   onEditVideo,
   openPhotoRequest = 0,
@@ -3158,7 +3162,7 @@ export function EditableProfileView({
         {showBranding && (
           <footer className="mt-12 pb-10 text-center">
             <a
-              href="/?ref=badge"
+              href={badgeRefCode ? `/?ref=${badgeRefCode}` : '/?ref=badge'}
               onClick={editMode ? (e) => e.preventDefault() : undefined}
               className="text-xs opacity-60 hover:opacity-90"
               style={{ color: theme.typography.text_color }}

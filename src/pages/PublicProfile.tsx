@@ -558,6 +558,7 @@ export default function PublicProfile() {
           blocks={blocks}
           editMode={false}
           showBranding={!can(ownerBranding.plan, 'removeBranding') || ownerBranding.show_badge}
+          badgeRefCode={ownerBranding.referral_code}
           onBlockEdit={() => {}}
           onBlockToggle={() => {}}
           onBlockReorder={() => {}}
