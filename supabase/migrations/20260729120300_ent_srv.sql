@@ -18,6 +18,9 @@
 -- scripts/billing.test.mjs parses this file and fails the guard battery if the
 -- numbers drift.
 
+-- Postgres refuses to change a function's return type via create or replace (42P13), so drop the old signature first.
+drop function if exists public.subscribe_to_page(uuid, text, text);
+
 -- ---------------------------------------------------------------------------
 -- The quota tables, in SQL
 -- ---------------------------------------------------------------------------
