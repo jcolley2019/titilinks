@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Lock, Loader2, Pencil, Check, X } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import {
   listSnapshots,
   captureSnapshot,
@@ -60,6 +61,7 @@ function relativeTime(iso: string, lang: string): string {
 export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
   const { t, language } = useLanguage();
   const { plan, entitlements } = useEntitlements();
+  const showUpsell = useProUpsell();
   const [snapshots, setSnapshots] = useState<SnapshotRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState(() => defaultSnapshotName(language));
@@ -107,7 +109,7 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
       await reload();
     } catch (e) {
       if (e instanceof SnapshotQuotaError) {
-        toast(t('snapshots.proTitle'), { description: t('snapshots.proDesc') });
+        showUpsell(t('snapshots.proTitle'), t('snapshots.proDesc'));
         await reload();
       } else {
         console.error('[snapshots] save failed:', e);
@@ -339,7 +341,7 @@ export function SnapshotsEditor({ pageId, onRestored }: SnapshotsEditorProps) {
                 {t('snapshots.upsellBenefit')}
               </p>
               <button
-                onClick={() => toast(t('snapshots.proTitle'), { description: t('snapshots.proDesc') })}
+                onClick={() => showUpsell(t('snapshots.proTitle'), t('snapshots.proDesc'))}
                 data-testid="snapshots-upsell"
                 className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm flex items-center justify-center gap-1.5"
               >

@@ -1575,6 +1575,21 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.billingPortalError': "Couldn't open the billing portal. Please try again.",
     'settings.billingNoAccount': 'No billing account yet — start a subscription from the pricing page.',
 
+    // UPGRADE.1 — in-app upgrade page + the shared upsell action.
+    // Price, anchor, founding line and features come from src/lib/pricing.ts —
+    // do NOT restate them here or the two surfaces will drift.
+    'upsell.seePro': 'See Pro',
+    'upgrade.title': 'Upgrade to Pro',
+    'upgrade.subtitle': 'Unlock everything, at the founding price.',
+    'upgrade.cta': 'Upgrade to Pro',
+    'upgrade.redirecting': 'Redirecting…',
+    'upgrade.reassurance': 'Cancel anytime. No hidden fees.',
+    'upgrade.checkoutError': 'Could not start checkout',
+    'upgrade.currentPlan': 'Current plan',
+    'upgrade.paidTitle': "You're on Pro",
+    'upgrade.paidSubtitle': 'Everything is unlocked.',
+    'upgrade.paidBody': 'Payment method, invoices and cancellation all live in the billing portal.',
+
     // BILL.B1 — /billing/success (plan flips via webhook, so this page waits)
     'billingSuccess.activatingTitle': 'Activating your Pro plan',
     'billingSuccess.activatingBody': 'Payment received. Your new features unlock in a few seconds — this page updates on its own.',
@@ -1696,6 +1711,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashLayout.profilePhoto': 'Profile photo',
     'dashLayout.customHandle': 'Custom handle',
     'dashLayout.addContentBlocks': 'Add content blocks',
+    // UPGRADE.1 — sidebar entry, free plans only
+    'dashLayout.upgrade': 'Upgrade',
     'dashLayout.upgradePlan': 'Upgrade your plan',
     'dashLayout.unlockFeatures': 'Unlock more features and grow your audience faster.',
     'dashLayout.unlockFeaturesMobile': 'Unlock more features and grow faster.',
@@ -3455,6 +3472,21 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.billingPortalError': 'No se pudo abrir el portal de facturación. Inténtalo de nuevo.',
     'settings.billingNoAccount': 'Aún no tienes cuenta de facturación — inicia una suscripción desde la página de precios.',
 
+    // UPGRADE.1 — página de mejora dentro de la app + acción compartida del upsell.
+    // El precio, el ancla, la línea de precio de lanzamiento y las funciones vienen
+    // de src/lib/pricing.ts — NO los repitas aquí o las dos superficies se separarán.
+    'upsell.seePro': 'Ver Pro',
+    'upgrade.title': 'Mejora a Pro',
+    'upgrade.subtitle': 'Desbloquea todo, al precio de lanzamiento.',
+    'upgrade.cta': 'Mejorar a Pro',
+    'upgrade.redirecting': 'Redirigiendo…',
+    'upgrade.reassurance': 'Cancela cuando quieras. Sin cargos ocultos.',
+    'upgrade.checkoutError': 'No se pudo iniciar el pago',
+    'upgrade.currentPlan': 'Plan actual',
+    'upgrade.paidTitle': 'Ya tienes Pro',
+    'upgrade.paidSubtitle': 'Todo está desbloqueado.',
+    'upgrade.paidBody': 'El método de pago, las facturas y la cancelación están en el portal de facturación.',
+
     // BILL.B1 — /billing/success (el plan cambia por webhook, así que esta página espera)
     'billingSuccess.activatingTitle': 'Activando tu plan Pro',
     'billingSuccess.activatingBody': 'Pago recibido. Tus nuevas funciones se desbloquean en unos segundos — esta página se actualiza sola.',
@@ -3576,6 +3608,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashLayout.profilePhoto': 'Foto de perfil',
     'dashLayout.customHandle': 'Handle personalizado',
     'dashLayout.addContentBlocks': 'Agregar bloques de contenido',
+    // UPGRADE.1 — entrada del menú lateral, solo en el plan gratis
+    'dashLayout.upgrade': 'Mejorar',
     'dashLayout.upgradePlan': 'Mejora tu plan',
     'dashLayout.unlockFeatures': 'Desbloquea más funciones y haz crecer tu audiencia más rápido.',
     'dashLayout.unlockFeaturesMobile': 'Desbloquea más funciones y crece más rápido.',

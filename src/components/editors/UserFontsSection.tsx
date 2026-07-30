@@ -10,6 +10,7 @@ import { useRef } from 'react';
 import { Lock, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import { useUserFonts } from '@/hooks/useUserFonts';
 import { customFontKey, resolveFontFamily } from '@/lib/fonts';
 
@@ -21,6 +22,7 @@ interface UserFontsSectionProps {
 export function UserFontsSection({ selectedKey, onSelect }: UserFontsSectionProps) {
   const { t } = useLanguage();
   const { fonts, busy, canUpload, addFont, removeFont } = useUserFonts();
+  const showUpsell = useProUpsell();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File | null) => {
@@ -28,7 +30,7 @@ export function UserFontsSection({ selectedKey, onSelect }: UserFontsSectionProp
     const err = await addFont(file);
     if (err === 'invalidType') toast.error(t('fonts.invalidType'));
     else if (err === 'tooLarge') toast.error(t('fonts.tooLarge'));
-    else if (err === 'notAllowed') toast(t('fonts.proTitle'), { description: t('fonts.proDesc') });
+    else if (err === 'notAllowed') showUpsell(t('fonts.proTitle'), t('fonts.proDesc'));
     else if (err) toast.error(t('fonts.uploadFailed'));
     else toast.success(t('fonts.uploaded'));
   };
@@ -75,7 +77,7 @@ export function UserFontsSection({ selectedKey, onSelect }: UserFontsSectionProp
         <button
           type="button"
           data-testid="font-upload-upsell"
-          onClick={() => toast(t('fonts.proTitle'), { description: t('fonts.proDesc') })}
+          onClick={() => showUpsell(t('fonts.proTitle'), t('fonts.proDesc'))}
           className="w-full flex items-center gap-2.5 rounded-xl border border-dashed border-white/15 px-3 py-2.5 text-left hover:border-white/30 transition-colors"
         >
           <Upload className="h-4 w-4 text-white/40 flex-shrink-0" />

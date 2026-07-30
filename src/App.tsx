@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SlugRedirect from "./pages/SlugRedirect";
 import ShortLinks from "./pages/ShortLinks";
+import Upgrade from "./pages/Upgrade";
 import BillingSuccess from "./pages/BillingSuccess";
 import Goodbye from "./pages/Goodbye";
 import AdultLinkHop from "./pages/AdultLinkHop";
@@ -90,6 +91,15 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ShortLinks />
+                </ProtectedRoute>
+              }
+            />
+            {/* UPGRADE.1 — in-app Pro pitch; paid plans get the portal handoff */}
+            <Route
+              path="/dashboard/upgrade"
+              element={
+                <ProtectedRoute>
+                  <Upgrade />
                 </ProtectedRoute>
               }
             />

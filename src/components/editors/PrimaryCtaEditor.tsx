@@ -29,6 +29,7 @@ import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import { isAnimationId } from '@/lib/animations';
 import { AnimationChipRow } from './AnimationChipRow';
 
@@ -80,6 +81,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const { t } = useLanguage();
   const { can } = useEntitlements();
   const canAnimations = can('linkAnimations');
+  const showUpsell = useProUpsell();
   // ES.FIX.1 STEP 3: the preview mirrors the public render path — seeded default
   // content (label/subtitle/badge, incl. NEW→NUEVO) translates via content-i18n.
   // Input fields keep raw stored values; only this preview translates.
@@ -101,7 +103,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
       : 'inherit';
   const pickAnimation = (id: string) => {
     if (id !== 'none' && id !== 'inherit' && !canAnimations) {
-      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'));
       return;
     }
     setStyleConfig((prev) => ({ ...prev, animation: id === 'inherit' ? undefined : id }));
@@ -374,9 +376,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                   <button
                     type="button"
                     data-testid="cta-animations-upsell"
-                    onClick={() =>
-                      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
-                    }
+                    onClick={() => showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'))}
                     className="w-full py-2 text-xs font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
                   >
                     {t('linksEditor.upgradeToPro')}

@@ -5,6 +5,15 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
 import { startCheckout, stashPendingCheckout } from '@/lib/billing';
+import {
+  PRO_PRICE,
+  intervalToggleLabels,
+  proAnchorLabel,
+  proDesc,
+  proFeatures,
+  proFoundingLabel,
+  proPeriodLabel,
+} from '@/lib/pricing';
 import { toast } from '@/hooks/use-toast';
 import { PhoneFrame } from './PhoneFrame';
 
@@ -71,13 +80,16 @@ export function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  const period = isAnnual ? tx('/mo, billed annually', '/mes, facturado anual') : tx('/month', '/mes');
-
   // BILL.B1 — the Pro CTA does one of two things depending on auth state:
   //   signed out → stash which interval they picked, then send them to signup;
   //                Editor resumes the checkout once the session exists.
   //   signed in  → straight to a Stripe Checkout session for that interval.
   const interval = isAnnual ? 'year' : 'month';
+
+  // UPGRADE.1 — price, anchor, features and toggle copy come from
+  // src/lib/pricing.ts, shared verbatim with /dashboard/upgrade.
+  const period = proPeriodLabel(language, interval);
+  const toggle = intervalToggleLabels(language);
 
   const handleUpgrade = async () => {
     setCheckoutLoading(true);
@@ -118,20 +130,11 @@ export function PricingSection() {
     {
       id: 'pro',
       name: 'Pro',
-      price: isAnnual ? '$7' : '$9',
-      anchorPrice: tx('then $15/mo', 'luego $15/mes'),
+      price: PRO_PRICE[interval],
+      anchorPrice: proAnchorLabel(language),
       periodLabel: period,
-      desc: tx('Everything to grow your brand and audience.', 'Todo para hacer crecer tu marca y audiencia.'),
-      features: [
-        tx('Two pages', 'Dos páginas'),
-        tx('All premium themes', 'Todos los temas premium'),
-        tx('Full analytics', 'Analíticas completas'),
-        tx('Link animations', 'Animaciones de enlaces'),
-        tx('Custom fonts & Brand Kit', 'Fuentes personalizadas y Kit de marca'),
-        tx('Email subscribe block', 'Bloque de suscripción'),
-        tx('5 restore points', '5 puntos de restauración'),
-        tx('TitiLinks badge — optional', 'Insignia de TitiLinks — opcional'),
-      ],
+      desc: proDesc(language),
+      features: proFeatures(language),
       cta: tx('Get started', 'Comenzar'),
       popular: true,
       comingSoon: false,
@@ -195,19 +198,19 @@ export function PricingSection() {
 
           {/* Billing toggle */}
           <div className="mt-8 flex items-center justify-center gap-4">
-            <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-white/45'}`}>{tx('Monthly', 'Mensual')}</span>
+            <span className={`text-sm font-medium ${!isAnnual ? 'text-white' : 'text-white/45'}`}>{toggle.monthly}</span>
             <button
               onClick={() => setIsAnnual((v) => !v)}
-              aria-label={tx('Toggle annual billing', 'Cambiar a facturación anual')}
+              aria-label={toggle.aria}
               className="relative h-7 w-14 rounded-full transition-colors"
               style={{ backgroundColor: isAnnual ? GOLD : 'hsl(30 12% 20%)' }}
             >
               <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition-transform ${isAnnual ? 'translate-x-7' : ''}`} />
             </button>
-            <span className={`text-sm font-medium ${isAnnual ? 'text-white' : 'text-white/45'}`}>{tx('Annual', 'Anual')}</span>
+            <span className={`text-sm font-medium ${isAnnual ? 'text-white' : 'text-white/45'}`}>{toggle.annual}</span>
             {isAnnual && (
               <span className="ml-1 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${GOLD}22`, color: GOLD }}>
-                {tx('Save 20%', 'Ahorra 20%')}
+                {toggle.save}
               </span>
             )}
           </div>
@@ -264,7 +267,7 @@ export function PricingSection() {
                             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                             style={{ backgroundColor: `${GOLD}22`, color: GOLD }}
                           >
-                            {tx('Founding price — lock it in forever', 'Precio de lanzamiento — consérvalo para siempre')}
+                            {proFoundingLabel(language)}
                           </span>
                         </div>
                       )}

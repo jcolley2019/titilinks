@@ -8,12 +8,12 @@
 import { useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { Lock } from 'lucide-react';
-import { toast } from 'sonner';
 import type { ThemeJson } from '@/lib/theme-defaults';
 import { coerceFullBleedVariant, ACTION_ACCENT, resolveButtonSurface, type ButtonVariant } from '@/lib/surface';
 import { isAnimationId, type AnimationId } from '@/lib/animations';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import { AnimationChipRow } from './AnimationChipRow';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -75,6 +75,7 @@ export function ButtonSurfaceControls({
   const { t } = useLanguage();
   const { can } = useEntitlements();
   const canAnimations = can('linkAnimations');
+  const showUpsell = useProUpsell();
   const [tintOpen, setTintOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
 
@@ -88,7 +89,7 @@ export function ButtonSurfaceControls({
     : 'none';
   const pickAnimation = (id: string) => {
     if (id !== 'none' && !canAnimations) {
-      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'));
       return;
     }
     onPatch({ animation: id === 'none' ? undefined : (id as AnimationId) });
@@ -279,9 +280,7 @@ export function ButtonSurfaceControls({
           <button
             type="button"
             data-testid="page-animations-upsell"
-            onClick={() =>
-              toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
-            }
+            onClick={() => showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'))}
             className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
           >
             {t('linksEditor.upgradeToPro')}

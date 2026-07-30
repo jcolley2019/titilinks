@@ -41,6 +41,7 @@ import { leadingIconFor } from '@/components/blocks/link-leading-icon';
 import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import { isAnimationId } from '@/lib/animations';
 import { AnimationChipRow } from './AnimationChipRow';
 import {
@@ -269,6 +270,7 @@ function LinkDetailPanel({
   const { t, language } = useLanguage();
   const { can } = useEntitlements();
   const canAnimations = can('linkAnimations');
+  const showUpsell = useProUpsell();
   const [cardA, setCardA] = useState<LinkItem>(item);
   const [cardB, setCardB] = useState<LinkItem | null>(partnerItem ?? null);
   const [activeSlot, setActiveSlot] = useState<'a' | 'b'>(
@@ -431,7 +433,7 @@ function LinkDetailPanel({
     rawAnimation === 'none' || isAnimationId(rawAnimation) ? rawAnimation : 'inherit';
   const pickAnimation = (id: string) => {
     if (id !== 'none' && id !== 'inherit' && !canAnimations) {
-      toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') });
+      showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'));
       return;
     }
     setStyleField('animation', id === 'inherit' ? null : id);
@@ -1205,9 +1207,7 @@ function LinkDetailPanel({
               <button
                 type="button"
                 data-testid="animations-upsell"
-                onClick={() =>
-                  toast(t('linksEditor.animations'), { description: t('linksEditor.animationsUpsell') })
-                }
+                onClick={() => showUpsell(t('linksEditor.animations'), t('linksEditor.animationsUpsell'))}
                 className="w-full py-2 text-sm font-semibold rounded-lg bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 transition-colors"
               >
                 {t('linksEditor.upgradeToPro')}

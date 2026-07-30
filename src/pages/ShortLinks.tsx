@@ -255,7 +255,11 @@ export default function ShortLinks() {
               >
                 <span>{t('shortLinks.quotaReached').replace('{max}', String(limit))}</span>
                 {plan === 'business' ? null : (
-                  <Link to="/#pricing" className="font-medium text-primary hover:underline">
+                  <Link
+                    to="/dashboard/upgrade"
+                    data-testid="short-link-upgrade-cta"
+                    className="font-medium text-primary hover:underline"
+                  >
                     {t('shortLinks.upgradeCta')}
                   </Link>
                 )}

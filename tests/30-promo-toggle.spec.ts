@@ -68,10 +68,11 @@ test.describe('PROMO.TOGGLE.1 — settings', () => {
 
     // Section renders...
     await expect(page.getByText('TitiLinks badge').first()).toBeVisible();
-    // ...with the PRO upsell chip linking to pricing...
+    // ...with the PRO upsell chip linking to the in-app upgrade page
+    // (UPGRADE.1 — it used to point at the public /#pricing anchor)...
     const proChip = page.getByRole('link', { name: 'PRO', exact: true });
     await expect(proChip).toBeVisible();
-    await expect(proChip).toHaveAttribute('href', /#pricing/);
+    await expect(proChip).toHaveAttribute('href', '/dashboard/upgrade');
     // ...and a disabled (locked) switch.
     await expect(page.locator('[role="switch"][disabled]').first()).toBeVisible();
   });

@@ -33,6 +33,7 @@ import { randomUUID } from '@/lib/utils';
 import { HeroVideo } from '@/components/EditableProfileView';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import type { BooleanFeature } from '@/lib/entitlements';
 import { resolveEffectivePageStyle, resolveHeroConfig } from '@/lib/surface';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
@@ -389,6 +390,9 @@ export function ProfileDashboard({
   const { t } = useLanguage();
   const { user } = useAuth();
   const { entitlements } = useEntitlements();
+  // UPGRADE.1: every Pro gate below raises the SAME toast, now carrying a
+  // "See Pro" action that lands on /dashboard/upgrade.
+  const showUpsell = useProUpsell();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
   // PIXELS.1: tracking pixels have their own dedicated tap-gate branch below.
@@ -1088,7 +1092,7 @@ export function ProfileDashboard({
       if (row.titleKey === 'dashboard.trackingPixels') {
         // Pro gate: Free gets the upsell (lock pattern); Pro/Business opens it.
         if (!canTrackingPixels) {
-          toast(t('pixels.proTitle'), { description: t('pixels.proDesc') });
+          showUpsell(t('pixels.proTitle'), t('pixels.proDesc'));
           return;
         }
         setPixelsOpen(true);
@@ -1118,7 +1122,7 @@ export function ProfileDashboard({
         row.proFeature === 'emailSubscribe'
           ? ['dashboard.emailSubscribeProTitle', 'dashboard.emailSubscribeProDesc']
           : ['dashboard.carouselProTitle', 'dashboard.carouselProDesc'];
-      toast(t(titleKey), { description: t(descKey) });
+      showUpsell(t(titleKey), t(descKey));
       return;
     }
 
@@ -1489,9 +1493,10 @@ export function ProfileDashboard({
                         onClick={() =>
                           canTwoPages
                             ? setPageEnabled(true)
-                            : toast(t('dashboard.pages.twoPagesProTitle'), {
-                                description: t('dashboard.pages.twoPagesProDesc'),
-                              })
+                            : showUpsell(
+                                t('dashboard.pages.twoPagesProTitle'),
+                                t('dashboard.pages.twoPagesProDesc'),
+                              )
                         }
                         aria-disabled={!canTwoPages}
                         className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1 ${pagesEnabled ? 'bg-[#C9A55C] text-[#0e0c09]' : canTwoPages ? 'text-white/70' : 'text-white/30'}`}

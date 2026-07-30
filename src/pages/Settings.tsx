@@ -234,7 +234,7 @@ export default function Settings() {
                 </Button>
               ) : (
                 <Button asChild className="gradient-primary text-primary-foreground" data-testid="settings-billing-upgrade">
-                  <Link to="/#pricing">{t('settings.billingUpgrade')}</Link>
+                  <Link to="/dashboard/upgrade">{t('settings.billingUpgrade')}</Link>
                 </Button>
               )}
             </div>
@@ -258,7 +258,8 @@ export default function Settings() {
                 <Label className="text-base font-medium">{t('settings.badgeToggleLabel')}</Label>
                 {!isPaid && (
                   <Link
-                    to="/#pricing"
+                    to="/dashboard/upgrade"
+                    data-testid="settings-badge-pro-lock"
                     className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#C9A55C]/15 px-2 py-0.5 text-[10px] font-bold text-[#C9A55C]"
                   >
                     <Lock className="h-2.5 w-2.5" /> PRO

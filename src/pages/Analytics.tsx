@@ -43,7 +43,9 @@ function ProGate({ locked, children }: { locked: boolean; children: React.ReactN
         <Lock className="h-5 w-5 text-primary" />
         <p className="text-sm font-medium text-foreground">{t('analytics.proOnlyTitle')}</p>
         <Button asChild size="sm">
-          <Link to="/#pricing">{t('analytics.upgradeToPro')}</Link>
+          <Link to="/dashboard/upgrade" data-testid="analytics-upgrade-cta">
+            {t('analytics.upgradeToPro')}
+          </Link>
         </Button>
       </div>
     </div>

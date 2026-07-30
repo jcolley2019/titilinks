@@ -18,7 +18,9 @@ import {
   Crown,
   Zap,
   ArrowRight,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  type LucideIcon
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -47,8 +49,16 @@ const planBadgeStyles: Record<UserPlan, string> = {
   Business: 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C]',
 };
 
+interface NavItem {
+  path: string;
+  labelKey: string;
+  icon: LucideIcon;
+  /** UPGRADE.1 — renders in brand gold instead of the muted nav treatment. */
+  gold?: boolean;
+}
+
 // Nav item definitions with translation keys
-const baseNavItems = [
+const baseNavItems: NavItem[] = [
   { path: '/dashboard', labelKey: 'dashLayout.dashboard', icon: LayoutDashboard },
   { path: '/dashboard/editor', labelKey: 'dashLayout.editor', icon: PenSquare },
   { path: '/dashboard/analytics', labelKey: 'dashLayout.analytics', icon: BarChart3 },
@@ -56,6 +66,33 @@ const baseNavItems = [
   { path: '/dashboard/short-links', labelKey: 'dashLayout.shortLinks', icon: Link2 },
   { path: '/dashboard/settings', labelKey: 'dashLayout.settings', icon: Cog },
 ];
+
+// UPGRADE.1 — appended for FREE plans only. Pro/Business never see it: there is
+// nothing left to sell them, and Settings already owns "Manage billing".
+const upgradeNavItem: NavItem = {
+  path: '/dashboard/upgrade',
+  labelKey: 'dashLayout.upgrade',
+  icon: Sparkles,
+  gold: true,
+};
+
+/** Nav row classes. Gold rows keep the same geometry — only the colour changes,
+ *  so the Upgrade entry reads as an accent, not a different kind of control. */
+const navItemClasses = (item: NavItem, isActive: boolean): string => {
+  const base = 'flex items-center gap-3 px-4 py-3 rounded-lg transition-all';
+  if (item.gold) {
+    return `${base} ${
+      isActive
+        ? 'bg-[#C9A55C] text-[#0e0c09]'
+        : 'text-[#C9A55C] hover:bg-[#C9A55C]/10'
+    }`;
+  }
+  return `${base} ${
+    isActive
+      ? 'bg-primary text-primary-foreground'
+      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+  }`;
+};
 
 // The condensed mobile bottom bar shows only primary destinations; secondary
 // tools (QR code, short links) live in the sidebar + slide-out menu so the
@@ -185,13 +222,17 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
   }, [user]);
 
   // Build nav items - only include Setup if user hasn't set up their profile
-  const navItems = hasPage === false
+  const withSetup: NavItem[] = hasPage === false
     ? [
         ...baseNavItems.slice(0, 3), // Dashboard, Editor, Analytics
         { path: '/dashboard/setup', labelKey: 'dashLayout.profileSetup', icon: UserCircle },
         ...baseNavItems.slice(3), // AI Setup, Settings
       ]
     : baseNavItems;
+
+  // UPGRADE.1 — Upgrade sits last, after Settings, on free plans only.
+  const navItems: NavItem[] =
+    userPlan === 'Free' ? [...withSetup, upgradeNavItem] : withSetup;
 
   const handleSignOut = async () => {
     await signOut();
@@ -267,7 +308,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
                       </div>
                     ))}
                   </div>
-                  <Link to="/#pricing">
+                  <Link to="/dashboard/upgrade" data-testid="plan-badge-view-plans">
                     <Button size="sm" className="w-full mt-2 gap-1">
                       {t('dashLayout.viewPlans')} <ArrowRight className="h-3 w-3" />
                     </Button>
@@ -292,11 +333,8 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`}
+                data-testid={item.gold ? 'nav-upgrade' : undefined}
+                className={navItemClasses(item, isActive)}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="font-medium">{t(item.labelKey)}</span>
@@ -351,7 +389,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
                   <p className="text-[11px] text-muted-foreground">
                     {t('dashLayout.unlockFeaturesMobile')}
                   </p>
-                  <Link to="/#pricing">
+                  <Link to="/dashboard/upgrade" data-testid="plan-badge-view-plans">
                     <Button size="sm" className="w-full text-xs h-7 gap-1">
                       {t('dashLayout.viewPlans')} <ArrowRight className="h-3 w-3" />
                     </Button>
@@ -424,11 +462,8 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
+                  data-testid={item.gold ? 'nav-upgrade' : undefined}
+                  className={navItemClasses(item, isActive)}
                 >
                   <item.icon className="h-5 w-5" />
                   <span className="font-medium">{t(item.labelKey)}</span>
