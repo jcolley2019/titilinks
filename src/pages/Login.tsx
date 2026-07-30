@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Mail, Lock, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { PENDING_TEMPLATE_KEY, TPL_PRESETS } from '@/lib/tpl-presets';
 import { consumePendingCheckout, startCheckout } from '@/lib/billing';
+import { claimPendingReferral } from '@/lib/referrals';
 import { z } from 'zod';
 
 export default function Login() {
@@ -55,6 +56,20 @@ export default function Login() {
   // off). One-shot: `consumePendingCheckout` clears the key as it reads it, and
   // this ref stops React's double-invoked effects from firing two sessions.
   const checkoutResumed = useRef(false);
+
+  // BILL.B3 — offer any captured ?ref=<code> to claim_referral as soon as a
+  // session exists. Fire-and-forget: the RPC is write-once (an established
+  // account is a silent no-op) and attribution must never block or delay the
+  // redirect. The server decides — it enforces the code's validity, the
+  // no-self-referral rule and the fresh-signup window.
+  const referralClaimed = useRef(false);
+
+  useEffect(() => {
+    if (!user || authLoading) return;
+    if (referralClaimed.current) return;
+    referralClaimed.current = true;
+    void claimPendingReferral();
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (user && !authLoading && !onboardingLoading) {

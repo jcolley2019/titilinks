@@ -48,6 +48,23 @@ import {
   PRO_PRICES,
   priceDefinitionFor,
 } from '../supabase/functions/_shared/billing.ts';
+import {
+  MAX_EARNED_MONTHS_PER_YEAR,
+  REFERRAL_CODE_ALPHABET,
+  REFERRAL_CODE_LENGTH,
+  REF_COUPON_ID,
+  REF_COUPON_SPEC,
+  RESERVED_REF_VALUES,
+  RETENTION_HOLD_DAYS,
+  decideClawback,
+  decideQualification,
+  decideRelease,
+  holdElapsed,
+  isSelfReferral,
+  isValidReferralCode,
+  qualifyAtFrom,
+} from '../supabase/functions/_shared/referrals.ts';
+import { ENTITLEMENTS } from '../src/lib/entitlements.ts';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -372,6 +389,225 @@ ok('price allowlist accepts only the two Pro prices — Business is not purchasa
     `client-side billing writes found — Stripe must be the only writer:\n  ${offenders.join('\n  ')}`,
   );
   ok('census: zero client-side writes to plan / stripe_customer_id / subscription_*');
+}
+
+// ── 10. referral rules R1-R6 ─────────────────────────────────────────────────
+
+// Every threshold is asserted against the NAMED constant, not a literal, so the
+// tests follow a deliberate policy change but still catch an accidental one.
+assert.equal(RETENTION_HOLD_DAYS, 30, 'rule R2 hold — ToS Section 8.2');
+assert.equal(MAX_EARNED_MONTHS_PER_YEAR, 12, 'rule R5 cap — ToS Section 8.4');
+assert.equal(REF_COUPON_ID, 'ref_month_free');
+assert.equal(REF_COUPON_SPEC.percent_off, 100, 'a free month means 100% off');
+assert.equal(REF_COUPON_SPEC.duration, 'once', 'one month, not forever');
+ok('rule R6: thresholds are named constants with ToS references');
+
+// Rule R2 — the hold arithmetic.
+{
+  const paidAt = '2026-01-01T00:00:00.000Z';
+  const qualifyAt = qualifyAtFrom(paidAt);
+  assert.equal(qualifyAt, '2026-01-31T00:00:00.000Z', '30 days after the first paid invoice');
+  assert.equal(holdElapsed(qualifyAt, '2026-01-30T23:59:59.000Z'), false, 'day 29 is too early');
+  assert.equal(holdElapsed(qualifyAt, qualifyAt), true, 'the boundary itself qualifies');
+  assert.equal(holdElapsed(qualifyAt, '2026-02-05T00:00:00.000Z'), true);
+  assert.throws(() => qualifyAtFrom('not-a-date'), /invalid firstPaidAt/);
+  ok('rule R2: the 30-day hold is inclusive at the boundary and rejects bad input');
+}
+
+// Rule R3 — self-referral, both tests.
+{
+  assert.equal(isSelfReferral({ referrerProfileId: 'a', referredProfileId: 'a' }), true, 'same profile');
+  assert.equal(
+    isSelfReferral({
+      referrerProfileId: 'a',
+      referredProfileId: 'b',
+      referrerCustomerId: 'cus_same',
+      referredCustomerId: 'cus_same',
+    }),
+    true,
+    'two profiles, one Stripe customer — same person',
+  );
+  assert.equal(
+    isSelfReferral({
+      referrerProfileId: 'a',
+      referredProfileId: 'b',
+      referrerCustomerId: 'cus_1',
+      referredCustomerId: 'cus_2',
+    }),
+    false,
+    'genuinely different people',
+  );
+  // A null customer on either side must NOT be read as a match.
+  assert.equal(
+    isSelfReferral({ referrerProfileId: 'a', referredProfileId: 'b', referrerCustomerId: null, referredCustomerId: null }),
+    false,
+    'two unknown customers are not the same customer',
+  );
+  assert.equal(isSelfReferral({ referrerProfileId: null, referredProfileId: 'b' }), false, 'no referrer at all');
+  ok('rule R3: self-referral caught by profile id AND shared Stripe customer');
+}
+
+// Rules R1 + R3 + R5 — the qualification gate, table-driven.
+{
+  const base = {
+    referredProfileId: 'referred',
+    referredBy: 'referrer',
+    referredCustomerId: 'cus_r',
+    referrerCustomerId: 'cus_a',
+    realPayment: true,
+    firstInvoice: true,
+    earnedInWindow: 0,
+    alreadyRecorded: false,
+    paidAt: '2026-03-01T00:00:00.000Z',
+  };
+
+  const QUAL_TABLE = [
+    [{}, 'record', 'the happy path'],
+    [{ referredBy: null }, 'skip', 'organic signup — nobody to pay'],
+    [{ referredBy: undefined }, 'skip', 'missing referrer'],
+    // Rule R1 — this row is the whole anti-farming argument: a free signup
+    // never produces a real payment, so it never reaches "record".
+    [{ realPayment: false }, 'skip', 'free signup / $0 invoice earns nothing'],
+    [{ firstInvoice: false }, 'skip', 'renewals do not re-earn'],
+    [{ referredBy: 'referred' }, 'skip', 'self-referral by id'],
+    [{ referrerCustomerId: 'cus_r' }, 'skip', 'self-referral by shared customer'],
+    [{ alreadyRecorded: true }, 'skip', 'no second grant for one account'],
+    [{ earnedInWindow: MAX_EARNED_MONTHS_PER_YEAR }, 'record', 'at the cap — recorded, not granted'],
+    [{ earnedInWindow: 99 }, 'record', 'far over the cap — still recorded'],
+  ];
+
+  for (const [override, action, why] of QUAL_TABLE) {
+    const d = decideQualification({ ...base, ...override });
+    assert.equal(d.action, action, `decideQualification: ${why}`);
+  }
+
+  // The cap records but never grants (rule R5 — attribution is kept for the
+  // future cash program; dropping the row would lose it permanently).
+  const atCap = decideQualification({ ...base, earnedInWindow: MAX_EARNED_MONTHS_PER_YEAR });
+  assert.equal(atCap.grantable, false);
+  assert.equal(atCap.reason, 'cap_exceeded');
+  const underCap = decideQualification({ ...base, earnedInWindow: MAX_EARNED_MONTHS_PER_YEAR - 1 });
+  assert.equal(underCap.grantable, true, 'one below the cap still earns');
+  assert.equal(underCap.qualifyAt, qualifyAtFrom(base.paidAt));
+  ok(`rules R1/R3/R5: ${QUAL_TABLE.length} qualification cases, cap records without granting`);
+}
+
+// Rule R2 — release, with the void-before-hold ordering.
+{
+  const hold = { qualifyAt: '2026-04-01T00:00:00.000Z', grantable: true };
+
+  assert.equal(
+    decideRelease({ ...hold, status: 'pending', referredStillActive: true, nowIso: '2026-04-02T00:00:00.000Z' }).action,
+    'grant',
+    'hold elapsed and still subscribed → grant',
+  );
+  assert.equal(
+    decideRelease({ ...hold, status: 'pending', referredStillActive: true, nowIso: '2026-03-20T00:00:00.000Z' }).action,
+    'wait',
+    'inside the hold → wait',
+  );
+
+  // THE ordering case: cancelled during the hold, but not swept until after it.
+  // Checking the hold first would pay out here.
+  const lapsed = decideRelease({
+    ...hold,
+    status: 'pending',
+    referredStillActive: false,
+    nowIso: '2026-05-01T00:00:00.000Z',
+  });
+  assert.equal(lapsed.action, 'void', 'a lapsed subscription voids even after the hold elapsed');
+  assert.equal(lapsed.reason, 'cancellation');
+
+  assert.equal(
+    decideRelease({ ...hold, grantable: false, status: 'pending', referredStillActive: true, nowIso: '2026-05-01T00:00:00.000Z' }).action,
+    'wait',
+    'over the cap → tracked, never granted',
+  );
+  for (const status of ['granted', 'void']) {
+    assert.equal(
+      decideRelease({ ...hold, status, referredStillActive: true, nowIso: '2026-05-01T00:00:00.000Z' }).action,
+      'wait',
+      `${status} is terminal — never released twice`,
+    );
+  }
+  ok('rule R2: release voids a lapsed referral even after the hold, and is idempotent');
+}
+
+// Rule R4 — clawback depends on whether the month was already handed over.
+{
+  for (const reason of ['refund', 'chargeback', 'cancellation']) {
+    assert.deepEqual(decideClawback('pending', reason), { action: 'void', reason, log: true });
+    assert.deepEqual(decideClawback('granted', reason), { action: 'revoke_if_possible', reason, log: true });
+    assert.deepEqual(decideClawback('void', reason), { action: 'noop', reason, log: true });
+  }
+  // Logging is unconditional: an unrecoverable clawback still has to be visible.
+  for (const status of ['pending', 'granted', 'void']) {
+    assert.equal(decideClawback(status, 'refund').log, true, `${status} clawback is always logged`);
+  }
+  ok('rule R4: clawback voids pending, attempts revoke on granted, always logs');
+}
+
+// Referral codes: shape, reserved values, and the ?ref=badge collision.
+{
+  assert.equal(REFERRAL_CODE_LENGTH, 8);
+  assert.equal(isValidReferralCode('abcd2345'), true);
+  assert.equal(isValidReferralCode('badge'), false, '?ref=badge is the generic badge link, not a referral');
+  for (const bad of ['', 'abc', 'abcd23456', 'ABCD2345', 'abcd234!', 'abcd2340', 'abcd234l', null, 42, undefined]) {
+    assert.equal(isValidReferralCode(bad), false, `${JSON.stringify(bad)} is not a code`);
+  }
+  // Look-alike exclusions: 0, 1, i, l, o must never appear in the alphabet.
+  for (const ch of ['0', '1', 'i', 'l', 'o']) {
+    assert.equal(REFERRAL_CODE_ALPHABET.includes(ch), false, `'${ch}' is a look-alike and is excluded`);
+  }
+  assert.equal(RESERVED_REF_VALUES.includes('badge'), true);
+  // 'badge' is 5 chars, codes are 8 — a real code can never collide with it.
+  assert.notEqual('badge'.length, REFERRAL_CODE_LENGTH);
+  ok('referral codes: 8 chars, no look-alikes, ?ref=badge reserved and non-colliding');
+}
+
+// ── 11. ENT.SRV quota mirror: SQL must agree with entitlements.ts ────────────
+
+// plan_limit()/plan_allows() in 20260729120300_ent_srv.sql duplicate
+// src/lib/entitlements.ts because Postgres and the Vite bundle share no runtime.
+// Two copies of a number is a bug waiting to happen, so the guard battery parses
+// the migration and compares.
+{
+  const migration = readFileSync(
+    path.resolve(import.meta.dirname, '../supabase/migrations/20260729120300_ent_srv.sql'),
+    'utf-8',
+  );
+
+  /** Pull `when 'business' then N when 'pro' then M else K end` for a limit. */
+  const limitFromSql = (name) => {
+    const block = migration.match(
+      new RegExp(`when '${name}' then[\\s\\S]{0,200}?when 'business' then (\\d+) when 'pro' then (\\d+) else (\\d+) end`),
+    );
+    assert.ok(block, `plan_limit is missing a '${name}' branch`);
+    return { business: +block[1], pro: +block[2], free: +block[3] };
+  };
+
+  for (const key of ['maxSnapshots', 'maxShortLinks', 'maxPages']) {
+    const sql = limitFromSql(key);
+    for (const plan of ['free', 'pro', 'business']) {
+      assert.equal(
+        sql[plan],
+        ENTITLEMENTS[plan][key],
+        `ENT.SRV drift: plan_limit('${plan}','${key}') = ${sql[plan]} but entitlements.ts says ${ENTITLEMENTS[plan][key]}`,
+      );
+    }
+  }
+
+  // Boolean flags: every feature plan_allows() knows must be pro+ in both places.
+  const flags = [...migration.matchAll(/when '(\w+)' then coalesce\(p_plan, 'free'\) in \('pro', 'business'\)/g)]
+    .map((m) => m[1]);
+  assert.ok(flags.length >= 4, 'plan_allows should police at least four boolean flags');
+  for (const flag of flags) {
+    assert.equal(ENTITLEMENTS.free[flag], false, `entitlements.ts: free must NOT have ${flag}`);
+    assert.equal(ENTITLEMENTS.pro[flag], true, `entitlements.ts: pro must have ${flag}`);
+    assert.equal(ENTITLEMENTS.business[flag], true, `entitlements.ts: business must have ${flag}`);
+  }
+
+  ok(`ENT.SRV: SQL quotas match entitlements.ts (3 limits × 3 tiers, ${flags.length} flags)`);
 }
 
 console.log(`\nAll ${passed} billing checks passed.`);

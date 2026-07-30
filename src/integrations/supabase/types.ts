@@ -446,6 +446,7 @@ export type Database = {
           onboarding_complete: boolean
           page_style: string | null
           plan: string
+          referral_code: string | null
           referred_by: string | null
           show_badge: boolean
           stripe_customer_id: string | null
@@ -467,6 +468,7 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          referral_code?: string | null
           referred_by?: string | null
           show_badge?: boolean
           stripe_customer_id?: string | null
@@ -488,6 +490,7 @@ export type Database = {
           onboarding_complete?: boolean
           page_style?: string | null
           plan?: string
+          referral_code?: string | null
           referred_by?: string | null
           show_badge?: boolean
           stripe_customer_id?: string | null
@@ -598,6 +601,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_referral: { Args: { p_code: string }; Returns: boolean }
       get_block_owner: { Args: { block_id: string }; Returns: string }
       get_mode_owner: { Args: { mode_id: string }; Returns: string }
       get_page_owner: { Args: { page_id: string }; Returns: string }
@@ -609,6 +613,7 @@ export type Database = {
         Args: { p_page_id: string }
         Returns: {
           plan: string
+          referral_code: string | null
           show_badge: boolean
         }[]
       }

@@ -106,7 +106,11 @@ export default function ShortLinks() {
 
     if (err || !data) {
       // 23505 = unique_violation (claimed on another device between checks).
-      setError(err?.code === '23505' ? t('shortLinks.errTaken') : t('shortLinks.errSave'));
+      // 42501 = the ENT.SRV insert policy refused: the server counts rows itself,
+      // so this fires when the client's cached list was stale (a link created on
+      // another device). Say "quota", not "couldn't save" — the reason is known.
+      if (err?.code === '42501') setError(t('shortLinks.errQuota'));
+      else setError(err?.code === '23505' ? t('shortLinks.errTaken') : t('shortLinks.errSave'));
       return;
     }
     setLinks((prev) => [data, ...prev]);

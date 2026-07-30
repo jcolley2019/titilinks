@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ReferralCapture } from "@/components/ReferralCapture";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Editor from "./pages/Editor";
@@ -38,6 +39,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          {/* BILL.B3 — stashes ?ref=<code> on any route; renders nothing. */}
+          <ReferralCapture />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />

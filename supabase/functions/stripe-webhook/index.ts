@@ -33,6 +33,13 @@ import {
   type StripeEventLike,
   type StripeSubscriptionLike,
 } from "../_shared/plan-lifecycle.ts";
+import {
+  applyReferralCouponFor,
+  ensureReferralCoupon,
+  qualifyReferralOnFirstPayment,
+  releaseDueGrants,
+  voidGrantsForReferred,
+} from "../_shared/referrals.ts";
 
 // Stripe reads only the status code; the body is for humans reading logs.
 const ack = (body: Record<string, unknown> = { received: true }) =>
@@ -157,10 +164,10 @@ async function handleSubscriptionChange(
 
   await patchProfile(svc, profile.id, subscriptionPatch(sub, { revoked }));
 
-  // B3 hooks the referral void (rule R2) / clawback (rule R4) in here — losing
-  // the subscription must kill a pending or granted free month.
+  // Rules R2 / R4 — losing paid access voids a free month still inside its
+  // retention hold, and flags an already-granted one for clawback.
   if (revoked || planForSubscriptionStatus(sub.status) === "free") {
-    console.log(`[stripe-webhook] ${profile.id} lost paid access via ${event.type}`);
+    await voidGrantsForReferred(svc, profile.id, String(event.type));
   }
 }
 
@@ -185,11 +192,33 @@ async function handleInvoicePaid(svc: Svc, event: StripeEventLike) {
   }
 
   // Rule R1: a referral qualifies on the first REAL paid invoice — never on
-  // signup, never on a $0 (fully-couponed / credited) invoice. B3 hooks the
-  // pending-grant write here; B2 records the decision so the wiring is visible.
-  console.log(
-    `[stripe-webhook] invoice.paid ${profile.id}: real=${real} first=${first} referred_by=${profile.referred_by ?? "none"}`,
-  );
+  // signup, never on a $0 (fully-couponed / credited) invoice. Free signups
+  // therefore earn nothing by construction: no invoice, no grant row.
+  if (real && first) {
+    await qualifyReferralOnFirstPayment(svc, {
+      referredProfileId: profile.id,
+      referredBy: profile.referred_by,
+      referredCustomerId: profile.stripe_customer_id ?? resolveCustomerId(event),
+      paidAt: new Date().toISOString(),
+    });
+  } else {
+    console.log(
+      `[stripe-webhook] invoice.paid ${profile.id}: real=${real} first=${first} — no referral credit`,
+    );
+  }
+
+  // Rule R2 — any paid invoice is also the moment to release grants whose 30-day
+  // hold has elapsed, so a platform with paying traffic sweeps itself and the
+  // common case needs no cron. Failures here must not fail the invoice event:
+  // the rows stay pending and the next sweep retries them.
+  try {
+    await ensureReferralCoupon((path, init) => stripeFetch(path, init));
+    await releaseDueGrants(svc, new Date().toISOString(), (profileId) =>
+      applyReferralCouponFor(svc, profileId, (path, init) => stripeFetch(path, init)),
+    );
+  } catch (err) {
+    console.error("[stripe-webhook] referral sweep failed (rows stay pending):", String(err));
+  }
 }
 
 async function handleInvoicePaymentFailed(svc: Svc, event: StripeEventLike) {

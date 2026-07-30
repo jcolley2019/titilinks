@@ -1555,7 +1555,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.badgeSaved': 'Badge preference saved',
     'settings.badgeError': "Couldn't save. Please try again.",
     'settings.badgeRewardsChip': 'Coming soon',
-    'settings.badgeRewardsTeaser': 'Earn rewards when your badge brings new creators to TitiLinks.',
+    'settings.badgeRewardsTeaser': 'Cash rewards for high-volume referrers are on the way.',
+
+    // BILL.B3 — referral share link (rewards land after a paid month, ToS §8)
+    'settings.referralTitle': 'Give a month, get a month',
+    'settings.referralDesc': 'Share your link. When someone you refer subscribes, you both get a free month.',
+    'settings.referralCopy': 'Copy link',
+    'settings.referralCopied': 'Link copied',
+    'settings.referralCopyFailed': "Couldn't copy the link. Select it and copy manually.",
+    'settings.referralUnavailable': 'Your referral link is being set up — check back shortly.',
+    'settings.referralHowItWorks': 'Free months are credited once your referral has been a paying subscriber for 30 days. Free signups don’t count.',
 
     // BILL.B1 — billing section + Stripe Customer Portal
     'settings.billingTitle': 'Plan & billing',
@@ -3402,7 +3411,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.badgeSaved': 'Preferencia de insignia guardada',
     'settings.badgeError': 'No se pudo guardar. Inténtalo de nuevo.',
     'settings.badgeRewardsChip': 'Próximamente',
-    'settings.badgeRewardsTeaser': 'Gana recompensas cuando tu insignia atraiga nuevos creadores a TitiLinks.',
+    'settings.badgeRewardsTeaser': 'Pronto habrá recompensas en efectivo para quienes recomienden a gran escala.',
+
+    // BILL.B3 — enlace de recomendación (las recompensas llegan tras un mes pagado, ToS §8)
+    'settings.referralTitle': 'Regala un mes, gana un mes',
+    'settings.referralDesc': 'Comparte tu enlace. Cuando alguien que recomiendas se suscribe, ambos reciben un mes gratis.',
+    'settings.referralCopy': 'Copiar enlace',
+    'settings.referralCopied': 'Enlace copiado',
+    'settings.referralCopyFailed': 'No se pudo copiar el enlace. Selecciónalo y cópialo manualmente.',
+    'settings.referralUnavailable': 'Tu enlace de recomendación se está preparando — vuelve en un momento.',
+    'settings.referralHowItWorks': 'Los meses gratis se acreditan cuando tu recomendado lleva 30 días como suscriptor de pago. Los registros gratuitos no cuentan.',
 
     // BILL.B1 — sección de facturación + portal de clientes de Stripe
     'settings.billingTitle': 'Plan y facturación',

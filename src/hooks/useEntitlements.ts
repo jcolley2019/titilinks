@@ -33,7 +33,7 @@ export function useEntitlements() {
       if (!user) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('plan, show_badge')
+        .select('plan, show_badge, referral_code')
         .eq('id', user.id)
         .single();
 
@@ -59,6 +59,10 @@ export function useEntitlements() {
      *  tiers (PROMO.TOGGLE.1). Defaults to true until loaded / on a null row —
      *  free tier ignores this and is always branded. */
     showBadge: (data as { show_badge?: boolean } | null)?.show_badge !== false,
+    /** The owner's referral code (BILL.B3). Null until the referrals migration
+     *  has run, or while the query is in flight — callers must render the share
+     *  UI conditionally rather than building a link to `/?ref=null`. */
+    referralCode: (data as { referral_code?: string | null } | null)?.referral_code ?? null,
     isLoading: !!user && isLoading,
     /** True if the current plan grants a boolean feature. */
     can: (feature: BooleanFeature) => canFeature(plan, feature),

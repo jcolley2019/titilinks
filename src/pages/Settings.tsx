@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Globe, Sun, Moon, Bell, BadgeCheck, CreditCard, Loader2, Lock } from 'lucide-react';
+import { Globe, Sun, Moon, Bell, BadgeCheck, Check, Copy, CreditCard, Loader2, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { openBillingPortal } from '@/lib/billing';
+import { referralLinkFor } from '@/lib/referrals';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,10 +21,25 @@ export default function Settings() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
-  const { atLeast, showBadge, entitlements } = useEntitlements();
+  const { atLeast, showBadge, entitlements, referralCode } = useEntitlements();
   const isPaid = atLeast('pro');
   const queryClient = useQueryClient();
   const [portalLoading, setPortalLoading] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
+
+  // BILL.B3 — share link. Matches the ShortLinks copy affordance (transient
+  // check, toast on failure) rather than inventing a second one.
+  const handleCopyReferral = async () => {
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(referralLinkFor(referralCode));
+      setReferralCopied(true);
+      toast({ title: t('settings.referralCopied') });
+      setTimeout(() => setReferralCopied(false), 1500);
+    } catch {
+      toast({ title: t('settings.referralCopyFailed'), variant: 'destructive' });
+    }
+  };
 
   // BILL.B1 — hand off to the Stripe Customer Portal. Cancellations, card
   // updates and invoices all live there; nothing about the subscription is
@@ -260,12 +276,50 @@ export default function Settings() {
               )}
             </div>
 
-            {/* Coming-soon rewards teaser — informational, not interactive */}
-            <div className="mt-4 flex items-start gap-2 opacity-60">
-              <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                {t('settings.badgeRewardsChip')}
-              </span>
-              <p className="text-xs text-muted-foreground">{t('settings.badgeRewardsTeaser')}</p>
+            {/* BILL.B3 — the referral link is live now; the "Coming soon" chip it
+                replaces was a placeholder for exactly this. The rewards TEASER
+                copy stays, but points at the future cash program rather than the
+                give/get month, which ships today. */}
+            <div className="mt-5 border-t border-border pt-4">
+              <Label className="text-base font-medium">{t('settings.referralTitle')}</Label>
+              <p className="mt-1 text-sm text-muted-foreground">{t('settings.referralDesc')}</p>
+
+              {referralCode ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <code
+                    className="min-w-0 flex-1 truncate rounded-md border border-border bg-muted/50 px-3 py-2 text-xs"
+                    data-testid="settings-referral-link"
+                  >
+                    {referralLinkFor(referralCode)}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyReferral}
+                    data-testid="settings-referral-copy"
+                    className="shrink-0"
+                  >
+                    {referralCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                    {referralCopied ? t('settings.referralCopied') : t('settings.referralCopy')}
+                  </Button>
+                </div>
+              ) : (
+                // No code yet (migration not run, or still loading) — say so
+                // rather than rendering a link to /?ref=null.
+                <p className="mt-3 text-xs text-muted-foreground" data-testid="settings-referral-pending">
+                  {t('settings.referralUnavailable')}
+                </p>
+              )}
+
+              <p className="mt-3 text-xs text-muted-foreground">{t('settings.referralHowItWorks')}</p>
+
+              {/* Still-coming cash program — informational, not interactive */}
+              <div className="mt-3 flex items-start gap-2 opacity-60">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  {t('settings.badgeRewardsChip')}
+                </span>
+                <p className="text-xs text-muted-foreground">{t('settings.badgeRewardsTeaser')}</p>
+              </div>
             </div>
           </CardContent>
         </Card>

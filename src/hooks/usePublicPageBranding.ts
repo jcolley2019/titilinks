@@ -8,9 +8,14 @@ export interface PublicPageBranding {
   /** Whether the owner wants the "Made with TitiLinks" badge shown. Only
    *  meaningful on paid tiers — free is always branded regardless (PROMO.TOGGLE.1). */
   show_badge: boolean;
+  /** The owner's referral code, so the public badge can credit them
+   *  (`/?ref=<code>` instead of the generic `/?ref=badge`) — BILL.B3. Null until
+   *  the referrals migration has run, or on any lookup failure; callers must fall
+   *  back to the generic link rather than emitting `/?ref=null`. */
+  referral_code: string | null;
 }
 
-const FAIL_OPEN: PublicPageBranding = { plan: 'free', show_badge: true };
+const FAIL_OPEN: PublicPageBranding = { plan: 'free', show_badge: true, referral_code: null };
 
 /**
  * Best-effort read of a PUBLIC page owner's branding state — plan tier plus the
@@ -49,6 +54,9 @@ export function usePublicPageBranding(pageId: string | undefined): PublicPageBra
           plan: normalizePlan(row.plan),
           // Only an explicit false hides the badge; null/undefined ⇒ shown.
           show_badge: row.show_badge !== false,
+          // Absent pre-migration (the RPC returned two columns then) — the badge
+          // href falls back to the generic /?ref=badge link.
+          referral_code: typeof row.referral_code === 'string' ? row.referral_code : null,
         });
       } catch {
         if (!cancelled) setBranding(FAIL_OPEN);
