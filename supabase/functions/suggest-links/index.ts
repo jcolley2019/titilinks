@@ -1,4 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
+
+const FN = "suggest-links";
+const DAILY_LIMIT = 40;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +12,14 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const user = await getAuthedUser(req);
+  if (!user) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -32,6 +44,25 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Per-user daily quota (service role: RLS is owner-read only).
+    const svc = serviceClient();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error: countError } = await svc
+      .from("ai_usage_events")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("fn", FN)
+      .gte("created_at", oneDayAgo);
+    if (countError) {
+      console.error(`[${FN}] quota count failed:`, countError);
+      // Non-blocking: allow the request (mirror shortlinks).
+    } else if (count !== null && count >= DAILY_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: `Daily limit of ${DAILY_LIMIT} reached. Please try again tomorrow.` }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -128,6 +159,12 @@ serve(async (req) => {
         url: link.url || "https://example.com",
       }));
     }
+
+    // Record usage only on a successful AI dispatch.
+    const { error: usageError } = await svc
+      .from("ai_usage_events")
+      .insert({ user_id: user.id, fn: FN });
+    if (usageError) console.error(`[${FN}] usage insert failed:`, usageError);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

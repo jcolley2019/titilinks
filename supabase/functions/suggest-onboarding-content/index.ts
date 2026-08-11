@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
+
+const FN = "suggest-onboarding-content";
+const DAILY_LIMIT = 40;
+const MAX_TEXT = 500;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +13,14 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const user = await getAuthedUser(req);
+  if (!user) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -20,11 +33,40 @@ serve(async (req) => {
       );
     }
 
+    // Input cap: reject oversized text before spending an AI call.
+    for (const field of [brand_description, audience, goal]) {
+      if (typeof field === "string" && field.length > MAX_TEXT) {
+        return new Response(
+          JSON.stringify({ error: `Input text must be ${MAX_TEXT} characters or less` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
         JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Per-user daily quota (service role: RLS is owner-read only).
+    const svc = serviceClient();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error: countError } = await svc
+      .from("ai_usage_events")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("fn", FN)
+      .gte("created_at", oneDayAgo);
+    if (countError) {
+      console.error(`[${FN}] quota count failed:`, countError);
+      // Non-blocking: allow the request (mirror shortlinks).
+    } else if (count !== null && count >= DAILY_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: `Daily limit of ${DAILY_LIMIT} reached. Please try again tomorrow.` }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -124,6 +166,12 @@ serve(async (req) => {
     if (result.bio) {
       result.bio = result.bio.slice(0, 150);
     }
+
+    // Record usage only on a successful AI dispatch.
+    const { error: usageError } = await svc
+      .from("ai_usage_events")
+      .insert({ user_id: user.id, fn: FN });
+    if (usageError) console.error(`[${FN}] usage insert failed:`, usageError);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

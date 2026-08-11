@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
+
+const FN = "generate-bio";
+const DAILY_LIMIT = 40;
+const MAX_TEXT = 500;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,9 +32,46 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const user = await getAuthedUser(req);
+  if (!user) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
-    const { display_name, creator_type, tone, primary_offer_description } = 
+    const { display_name, creator_type, tone, primary_offer_description } =
       await req.json() as GenerateBioRequest;
+
+    // Input cap: reject oversized text before spending an AI call.
+    for (const field of [display_name, creator_type, tone, primary_offer_description]) {
+      if (typeof field === "string" && field.length > MAX_TEXT) {
+        return new Response(
+          JSON.stringify({ error: `Input text must be ${MAX_TEXT} characters or less` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Per-user daily quota (service role: RLS is owner-read only).
+    const svc = serviceClient();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error: countError } = await svc
+      .from("ai_usage_events")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("fn", FN)
+      .gte("created_at", oneDayAgo);
+    if (countError) {
+      console.error(`[${FN}] quota count failed:`, countError);
+      // Non-blocking: allow the request (mirror shortlinks).
+    } else if (count !== null && count >= DAILY_LIMIT) {
+      return new Response(
+        JSON.stringify({ error: `Daily limit of ${DAILY_LIMIT} reached. Please try again tomorrow.` }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -162,6 +204,12 @@ Both should reflect their personality and what they offer.`;
       bio_short: bios.bio_short?.slice(0, 90) || FALLBACK_BIOS.bio_short,
       bio_long: bios.bio_long?.slice(0, 180) || FALLBACK_BIOS.bio_long,
     };
+
+    // Record usage only on a successful AI dispatch.
+    const { error: usageError } = await svc
+      .from("ai_usage_events")
+      .insert({ user_id: user.id, fn: FN });
+    if (usageError) console.error(`[${FN}] usage insert failed:`, usageError);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
