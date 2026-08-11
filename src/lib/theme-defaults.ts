@@ -10,23 +10,15 @@ export interface ThemeBackground {
   image_url: string;
   overlay_color: string;
   overlay_opacity: number;
-  source: 'upload' | 'canva' | null;
+  source: 'upload' | null;
 }
 
 export type HeaderLayout = 'overlay' | 'card' | 'split' | 'cinematic' | 'immersive';
 
-export interface CanvaImportMetadata {
-  design_id: string;
-  title: string;
-  thumbnail_url: string | null;
-  target: 'header' | 'background';
-  imported_at: string;
-}
-
 export interface ThemeHeader {
   image_url: string;
   enabled: boolean;
-  source: 'upload' | 'canva' | null;
+  source: 'upload' | null;
   layout: HeaderLayout;
 }
 
@@ -155,7 +147,6 @@ export interface ThemeJson {
   header?: ThemeHeader;
   auto_contrast?: boolean;
   online_indicator?: boolean;
-  canva_last_import?: CanvaImportMetadata;
   // Profile-level page layout style — the DEFAULT a page falls back to when
   // it has no `pages.<id>.style` of its own. 'full_bleed' pages restrict card
   // surfaces to the FS.SURFACE system (glass/clear/fade — never solid).
@@ -343,7 +334,6 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
       ...(parsed.header || {}),
     },
     auto_contrast: parsed.auto_contrast ?? DEFAULT_THEME.auto_contrast,
-    canva_last_import: parsed.canva_last_import,
     pageStyle: parsed.pageStyle,
   };
 }

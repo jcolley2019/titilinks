@@ -82,7 +82,7 @@ This inconsistency is real but not currently breaking anything — all readers k
 | `FeaturedMediaEditor` | `editors/FeaturedMediaEditor.tsx` | 544 | ❌ | n/a | n/a |
 | `SocialIconRowEditor` | `editors/SocialIconRowEditor.tsx` | 632 | ❌ | n/a | n/a |
 | `HeroCardEditor` | `editors/HeroCardEditor.tsx` | 490 | ❌ | n/a | n/a |
-| Helper editors | `editors/SuggestLinksDialog.tsx` (300), `editors/ThumbnailUpload.tsx`, `editors/CanvaDesignPicker.tsx`, `editors/TemplateGallery.tsx`, `editors/DesignEditor.tsx`, `editors/ThemePreview.tsx` | — | n/a | n/a | n/a |
+| Helper editors | `editors/SuggestLinksDialog.tsx` (300), `editors/ThumbnailUpload.tsx`, `editors/TemplateGallery.tsx`, `editors/DesignEditor.tsx`, `editors/ThemePreview.tsx` | — | n/a | n/a | n/a |
 
 So **4 of the 11 block editors do NOT yet implement `panelMode`** — that's the remaining Phase 2 editor work.
 
@@ -174,7 +174,6 @@ ThemeJson:
   header?          ThemeHeader (image_url, enabled, source, layout: 'overlay'|'card'|'split'|'cinematic'|'immersive')
   auto_contrast?   boolean
   online_indicator? boolean
-  canva_last_import? CanvaImportMetadata
 
 BlockStyleConfig (per-block, stored in block.title JSON for some block types):
   variant: 'filled'|'outline'|'glass'|'minimal'
@@ -204,7 +203,6 @@ The `size` and `span` fields on `BlockStyleConfig` are only ever read from `bloc
 | AI onboarding content | `supabase/functions/suggest-onboarding-content/index.ts` + `src/pages/AISetup.tsx` | ✅ Built |
 | Auto-populate placeholder blocks | `src/pages/Editor.tsx:53-88` — runs from `theme_json.linkLayout` + `linkCount` | ✅ Built |
 | Modes / Page 1 / Page 2 | `modes` table with `type: 'shop'|'recruit'` + `detectMode` in `src/pages/PublicProfile.tsx:39-71` (URL params, UTM, referrer) | ✅ Built |
-| Canva integration | `supabase/functions/canva-*` (6 edge functions) + `canva_connections` + `pending_canva_auth` tables + `src/components/editors/CanvaDesignPicker.tsx` | ✅ Built |
 | Sticky CTA bar | `src/components/StickyCtaBar.tsx` + `modes.sticky_cta_enabled` col | ✅ Built |
 | Email capture | `page_subscribers` table + `subscribe_to_page` RPC | ✅ Built |
 | AI bio generator | `supabase/functions/generate-bio/index.ts` | ✅ Built |

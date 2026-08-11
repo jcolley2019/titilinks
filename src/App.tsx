@@ -24,8 +24,6 @@ import AdultLinkHop from "./pages/AdultLinkHop";
 import PublicProfile from "./pages/PublicProfile";
 import LegalPage from "./pages/LegalPage";
 import Templates from "./pages/Templates";
-import CanvaConnect from "./pages/CanvaConnect";
-import CanvaCallback from "./pages/CanvaCallback";
 import OnboardingFlow from "./pages/OnboardingFlow";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -129,8 +127,6 @@ const App = () => (
             <Route path="/templates" element={<Templates />} />
             <Route path="/terms" element={<LegalPage doc="terms" />} />
             <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-            <Route path="/api/canva/connect" element={<CanvaConnect />} />
-            <Route path="/api/canva/callback" element={<CanvaCallback />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
