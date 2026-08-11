@@ -18,6 +18,7 @@ import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { safeHref } from '@/lib/safe-url';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -826,7 +827,10 @@ export default function Editor() {
         open={!!pendingGate}
         onOpenChange={(o) => { if (!o) setPendingGate(null); }}
         onConfirm={() => {
-          if (pendingGate) window.open(pendingGate.url, '_blank', 'noopener,noreferrer');
+          // TL.SEC.XSS.1: window.open runs a `javascript:` URL too. An unsafe
+          // destination just closes the gate without opening anything.
+          const destination = pendingGate ? safeHref(pendingGate.url) : undefined;
+          if (destination) window.open(destination, '_blank', 'noopener,noreferrer');
           setPendingGate(null);
         }}
         onCancel={() => setPendingGate(null)}

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ThumbnailImage } from '@/components/ThumbnailImage';
 import type { ThemedBlockProps } from './types';
 import { cardSurface } from '@/lib/surface';
+import { safeHref } from '@/lib/safe-url';
 
 interface FeedVideo {
   video_id: string;
@@ -183,7 +184,7 @@ export function VideoFeedBlock({ block, onOutboundClick, theme }: ThemedBlockPro
             )}
             {meta.url && (
               <a
-                href={meta.url}
+                href={safeHref(meta.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onChannelAnchor}
@@ -243,7 +244,7 @@ export function VideoFeedBlock({ block, onOutboundClick, theme }: ThemedBlockPro
           {views && when && <span>•</span>}
           {when && <span>{when}</span>}
           <a
-            href={activeVideo.url}
+            href={safeHref(activeVideo.url)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={onWatchAnchor}

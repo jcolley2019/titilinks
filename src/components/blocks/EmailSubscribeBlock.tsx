@@ -20,6 +20,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { getChromeTokens, coerceLegibleText } from '@/lib/contrast';
 import { fullBleedText } from '@/lib/surface';
 import { animationClass, resolveAnimation } from '@/lib/animations';
+import { safeHref } from '@/lib/safe-url';
 import type { BlockWithItems } from './types';
 import type { ThemeJson } from '@/lib/theme-defaults';
 
@@ -113,10 +114,13 @@ export function EmailSubscribeBlock({ block, theme, pageId }: EmailSubscribeBloc
       if (result.success) {
         setSuccess(true);
 
-        // Redirect if configured
-        if (config.redirect_url) {
+        // Redirect if configured. TL.SEC.XSS.1: an unsafe scheme simply does
+        // not redirect — the success state stays up, exactly as it does when
+        // no redirect_url is configured at all.
+        const redirectUrl = safeHref(config.redirect_url);
+        if (redirectUrl) {
           setTimeout(() => {
-            window.location.href = config.redirect_url;
+            window.location.href = redirectUrl;
           }, 1500);
         }
       } else {

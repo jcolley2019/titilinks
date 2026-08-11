@@ -4,6 +4,7 @@ import { DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { relativeLuminance } from '@/lib/contrast';
 import { resolveButtonSurface } from '@/lib/surface';
 import { animationClass, resolveAnimation } from '@/lib/animations';
+import { safeHref } from '@/lib/safe-url';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 
@@ -295,7 +296,7 @@ export function LinkButton(props: LinkButtonProps) {
   if (props.as === 'a') {
     return (
       <a
-        href={props.href}
+        href={safeHref(props.href)}
         target={props.target}
         rel={props.rel}
         onClick={onClick}

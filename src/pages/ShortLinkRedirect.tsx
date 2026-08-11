@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/useLanguage";
+import { safeHref } from "@/lib/safe-url";
 
 export default function ShortLinkRedirect() {
   const { code } = useParams<{ code: string }>();
@@ -38,7 +39,10 @@ export default function ShortLinkRedirect() {
           return;
         }
 
-        const destinationUrl = data[0].destination_url;
+        // TL.SEC.XSS.1: destination_url is stored data reaching a navigation
+        // sink — a `javascript:` target would execute in this origin on
+        // assignment. An unsafe scheme is treated as a miss.
+        const destinationUrl = safeHref(data[0].destination_url);
         if (destinationUrl) {
           // Perform 302-style redirect
           window.location.href = destinationUrl;

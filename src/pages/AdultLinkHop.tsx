@@ -23,6 +23,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 import { readHopDestination, clearHopDestination } from '@/lib/adult-gate';
+import { safeHref } from '@/lib/safe-url';
 
 // A beat long enough for the neutral frame to paint, so the hop reads as a
 // deliberate step rather than a flash of unstyled nothing.
@@ -70,13 +71,18 @@ export default function AdultLinkHop() {
       }
 
       if (cancelled) return;
-      if (!url) {
+      // TL.SEC.XSS.1: block_items.url is owner-writable and anon-readable, so
+      // this hop is a navigation sink fed straight from a row. An unsafe scheme
+      // fails the hop rather than forwarding to it — safeHref(null) also covers
+      // the no-destination case this check used to handle alone.
+      const destination = safeHref(url);
+      if (!destination) {
         setFailed(true);
         return;
       }
       clearHopDestination(itemId);
       // replace, not assign: the hop must not sit in the back stack.
-      window.location.replace(url);
+      window.location.replace(destination);
     };
 
     const timer = window.setTimeout(resolveAndForward, HOP_DELAY_MS);

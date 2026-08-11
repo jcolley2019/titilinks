@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
+import { safeHref } from '@/lib/safe-url';
 
 /** SHORT.1 — /s/:slug custom short-link redirect (v1, client-side).
  *
@@ -31,7 +32,10 @@ export default function SlugRedirect() {
         setState('error');
         return;
       }
-      const target = typeof data === 'string' && data ? data : null;
+      // TL.SEC.XSS.1: an unsafe scheme is a miss, not a redirect. ShortLinks'
+      // normalizeUrl runs client-side only, so a direct PostgREST write can put
+      // any string in target_url.
+      const target = safeHref(typeof data === 'string' ? data : null);
       if (target) {
         window.location.replace(target);
       } else {

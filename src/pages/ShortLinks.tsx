@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { validateSlug } from '@/lib/reserved-slugs';
+import { safeHref } from '@/lib/safe-url';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
@@ -310,7 +311,7 @@ export default function ShortLinks() {
                     </button>
                   </div>
                   <a
-                    href={link.target_url}
+                    href={safeHref(link.target_url)}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:underline truncate"

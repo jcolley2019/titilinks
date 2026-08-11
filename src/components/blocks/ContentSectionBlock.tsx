@@ -19,6 +19,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { gatedHref, isGated, isAdultUrl, configHopId, stashHopDestination } from '@/lib/adult-gate';
+import { safeHref } from '@/lib/safe-url';
 
 export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -173,7 +174,7 @@ export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }:
             const hopId = configHopId(block.id);
             return (
               <a
-                href={gated ? undefined : config.view_all_url}
+                href={gated ? undefined : safeHref(config.view_all_url)}
                 target={gated ? undefined : '_blank'}
                 rel={gated ? undefined : 'noopener noreferrer'}
                 role={gated ? 'button' : undefined}

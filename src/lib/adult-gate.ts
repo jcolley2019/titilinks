@@ -15,6 +15,7 @@
 
 import { PLATFORM_CATALOG } from './platform-catalog';
 import { platformFromUrl } from './platform-from-url';
+import { safeHref } from './safe-url';
 
 const ADULT_CATEGORY = 'ADULT (18+)';
 
@@ -68,15 +69,19 @@ export function isEffectivelyGated(item: GatableItem): boolean {
  * The href an anchor may carry for this item.
  *
  * Returns undefined for a gated item in public/view mode, so the URL is absent
- * from the rendered DOM entirely. Edit mode is unaffected: the threat model is
- * the public page, and the editor needs its real links.
+ * from the rendered DOM entirely. Gating itself is unaffected in edit mode: the
+ * threat model there is the public page, and the editor needs its real links.
+ *
+ * TL.SEC.XSS.1: whatever survives gating still passes safeHref, in BOTH modes.
+ * A `javascript:` URI is not an adult domain, so the 18+ gate has no opinion on
+ * it — and the editor is not a safe place to execute one either.
  */
 export function gatedHref(
   url: string,
   isAdult: boolean | null | undefined,
   editMode?: boolean
 ): string | undefined {
-  return isEffectivelyGated({ url, is_adult: isAdult }) && !editMode ? undefined : url;
+  return isEffectivelyGated({ url, is_adult: isAdult }) && !editMode ? undefined : safeHref(url);
 }
 
 /** True when this item must be gated on the surface currently rendering it. */

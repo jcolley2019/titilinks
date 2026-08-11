@@ -64,6 +64,7 @@ import { ThumbnailImage } from '@/components/ThumbnailImage';
 import { SmoothImage } from '@/components/SmoothImage';
 import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
+import { safeHref } from '@/lib/safe-url';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -852,7 +853,7 @@ function SocialIconsCard({
           {socialItems.map((item) => (
             <a
               key={item.id}
-              href={item.url || undefined}
+              href={safeHref(item.url)}
               target="_blank"
               rel="noopener noreferrer"
               className={cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[localIconSize], iconBg.className)}
@@ -2583,7 +2584,11 @@ export function EditableProfileView({
                     // <button>) adds no UA padding, border, or margin, so the
                     // box next to the protected header geometry is unchanged.
                     const gated = isEffectivelyGated(item);
-                    const href = gated ? undefined : item.url || undefined;
+                    // TL.SEC.XSS.1: the 18+ gate has no opinion on a
+                    // `javascript:` URI — it is not an adult domain — so what
+                    // survives gating is sanitized here. One assignment covers
+                    // the href, target, rel, and the decorative-span fallback.
+                    const href = gated ? undefined : safeHref(item.url);
                     const boxClass = cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[iSize], iconBg.className);
                     const icon = <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[iSize]} color={resolveGlyphColor(item.label, resolvedIconColor, iconBg.background)} />;
 
