@@ -10,10 +10,56 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.4"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          created_at: string
+          fn: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fn: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fn?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       block_items: {
         Row: {
           badge: string | null
@@ -129,38 +175,40 @@ export type Database = {
           },
         ]
       }
-      canva_connections: {
+      custom_short_links: {
         Row: {
-          access_token: string
+          clicks: number
           created_at: string
-          expires_at: string
           id: string
-          refresh_token: string
-          scope: string
-          updated_at: string
+          slug: string
+          target_url: string
           user_id: string
         }
         Insert: {
-          access_token: string
+          clicks?: number
           created_at?: string
-          expires_at: string
           id?: string
-          refresh_token: string
-          scope: string
-          updated_at?: string
+          slug: string
+          target_url: string
           user_id: string
         }
         Update: {
-          access_token?: string
+          clicks?: number
           created_at?: string
-          expires_at?: string
           id?: string
-          refresh_token?: string
-          scope?: string
-          updated_at?: string
+          slug?: string
+          target_url?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_short_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_theme_presets: {
         Row: {
@@ -334,59 +382,70 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
+        Relationships: []
+      }
+      pending_grants: {
+        Row: {
+          created_at: string
+          first_paid_at: string
+          grantable: boolean
+          granted_at: string | null
+          id: string
+          qualify_at: string
+          referred_coupon_id: string | null
+          referred_id: string
+          referrer_coupon_id: string | null
+          referrer_id: string
+          status: string
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_paid_at: string
+          grantable?: boolean
+          granted_at?: string | null
+          id?: string
+          qualify_at: string
+          referred_coupon_id?: string | null
+          referred_id: string
+          referrer_coupon_id?: string | null
+          referrer_id: string
+          status?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_paid_at?: string
+          grantable?: boolean
+          granted_at?: string | null
+          id?: string
+          qualify_at?: string
+          referred_coupon_id?: string | null
+          referred_id?: string
+          referrer_coupon_id?: string | null
+          referrer_id?: string
+          status?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "fk_goal_primary_offer"
-            columns: ["goal_primary_offer_item_id"]
-            isOneToOne: false
-            referencedRelation: "block_items"
+            foreignKeyName: "pending_grants_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_goal_secondary"
-            columns: ["goal_secondary_item_id"]
-            isOneToOne: false
-            referencedRelation: "block_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pages_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "pending_grants_referrer_id_fkey"
+            columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
-      }
-      pending_canva_auth: {
-        Row: {
-          code_verifier: string
-          created_at: string
-          expires_at: string
-          id: string
-          redirect_origin: string | null
-          state: string
-          user_id: string
-        }
-        Insert: {
-          code_verifier: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          redirect_origin?: string | null
-          state: string
-          user_id: string
-        }
-        Update: {
-          code_verifier?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          redirect_origin?: string | null
-          state?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       profile_snapshots: {
         Row: {
@@ -424,13 +483,6 @@ export type Database = {
             referencedRelation: "pages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "profile_snapshots_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -443,7 +495,7 @@ export type Database = {
           ga4_id: string | null
           id: string
           meta_pixel_id: string | null
-          onboarding_complete: boolean
+          onboarding_complete: boolean | null
           page_style: string | null
           plan: string
           referral_code: string | null
@@ -465,7 +517,7 @@ export type Database = {
           ga4_id?: string | null
           id: string
           meta_pixel_id?: string | null
-          onboarding_complete?: boolean
+          onboarding_complete?: boolean | null
           page_style?: string | null
           plan?: string
           referral_code?: string | null
@@ -487,7 +539,7 @@ export type Database = {
           ga4_id?: string | null
           id?: string
           meta_pixel_id?: string | null
-          onboarding_complete?: boolean
+          onboarding_complete?: boolean | null
           page_style?: string | null
           plan?: string
           referral_code?: string | null
@@ -561,40 +613,29 @@ export type Database = {
           },
         ]
       }
-      custom_short_links: {
+      stripe_webhook_events: {
         Row: {
-          clicks: number
-          created_at: string
+          error: string | null
           id: string
-          slug: string
-          target_url: string
-          user_id: string
+          processed_at: string | null
+          received_at: string
+          type: string
         }
         Insert: {
-          clicks?: number
-          created_at?: string
-          id?: string
-          slug: string
-          target_url: string
-          user_id: string
+          error?: string | null
+          id: string
+          processed_at?: string | null
+          received_at?: string
+          type: string
         }
         Update: {
-          clicks?: number
-          created_at?: string
+          error?: string | null
           id?: string
-          slug?: string
-          target_url?: string
-          user_id?: string
+          processed_at?: string | null
+          received_at?: string
+          type?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "custom_short_links_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -602,25 +643,21 @@ export type Database = {
     }
     Functions: {
       claim_referral: { Args: { p_code: string }; Returns: boolean }
+      current_plan: { Args: never; Returns: string }
+      generate_referral_code: { Args: never; Returns: string }
       get_block_owner: { Args: { block_id: string }; Returns: string }
       get_mode_owner: { Args: { mode_id: string }; Returns: string }
       get_page_owner: { Args: { page_id: string }; Returns: string }
-      get_public_brand_fonts: {
-        Args: { page_handle: string }
-        Returns: Json
-      }
+      get_public_brand_fonts: { Args: { page_handle: string }; Returns: Json }
       get_public_page_branding: {
         Args: { p_page_id: string }
         Returns: {
           plan: string
-          referral_code: string | null
+          referral_code: string
           show_badge: boolean
         }[]
       }
-      get_public_page_plan: {
-        Args: { p_page_id: string }
-        Returns: string
-      }
+      get_public_page_plan: { Args: { p_page_id: string }; Returns: string }
       get_public_tracking_pixels: {
         Args: { page_handle: string }
         Returns: {
@@ -629,16 +666,16 @@ export type Database = {
           tiktok_pixel_id: string
         }[]
       }
-      resolve_short_link: {
-        Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
-        Returns: {
-          destination_url: string
-        }[]
+      plan_allows: {
+        Args: { p_feature: string; p_plan: string }
+        Returns: boolean
       }
-      resolve_short_link_by_slug: {
-        Args: { p_slug: string }
-        Returns: string
+      plan_limit: { Args: { p_limit: string; p_plan: string }; Returns: number }
+      referral_earned_in_window: {
+        Args: { p_referrer: string }
+        Returns: number
       }
+      resolve_short_link_by_slug: { Args: { p_slug: string }; Returns: string }
       subscribe_to_page: {
         Args: { p_email: string; p_name?: string; p_page_id: string }
         Returns: Json
@@ -647,15 +684,14 @@ export type Database = {
     Enums: {
       block_type:
         | "primary_cta"
+        | "links"
+        | "social_links"
         | "product_cards"
         | "featured_media"
-        | "social_links"
-        | "links"
         | "hero_card"
         | "social_icon_row"
         | "email_subscribe"
         | "content_section"
-        | "product_catalog"
         | "gallery"
         | "bio"
         | "video_feed"
@@ -788,19 +824,21 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       block_type: [
         "primary_cta",
+        "links",
+        "social_links",
         "product_cards",
         "featured_media",
-        "social_links",
-        "links",
         "hero_card",
         "social_icon_row",
         "email_subscribe",
         "content_section",
-        "product_catalog",
         "gallery",
         "bio",
         "video_feed",
