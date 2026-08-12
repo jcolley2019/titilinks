@@ -1,7 +1,4 @@
 project_id = "qnrrixfwicybhchvuutu"
 
-[functions.shortlinks]
-verify_jwt = false
-
 [functions.qr]
 verify_jwt = false

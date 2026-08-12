@@ -14,7 +14,6 @@ import Editor from "./pages/Editor";
 import Analytics from "./pages/Analytics";
 import QRCodePage from "./pages/QRCode";
 import Settings from "./pages/Settings";
-import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SlugRedirect from "./pages/SlugRedirect";
 import ShortLinks from "./pages/ShortLinks";
 import Upgrade from "./pages/Upgrade";
@@ -121,7 +120,6 @@ const App = () => (
             />
             {/* Public: the auth user is already gone by the time anyone lands here. */}
             <Route path="/goodbye" element={<Goodbye />} />
-            <Route path="/l/:code" element={<ShortLinkRedirect />} />
             <Route path="/s/:slug" element={<SlugRedirect />} />
             <Route path="/go/:itemId" element={<AdultLinkHop />} />
             <Route path="/templates" element={<Templates />} />

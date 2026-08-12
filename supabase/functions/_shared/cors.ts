@@ -1,6 +1,6 @@
 // Shared CORS headers + JSON response helpers for the BILL edge functions.
 //
-// The pre-BILL functions (ai-enhance, shortlinks, …) each inline their
+// The pre-BILL functions (ai-enhance, …) each inline their
 // own `corsHeaders` object. Those are deliberately left alone — this module is
 // the shared home for new functions, not a refactor of the old ones.
 
