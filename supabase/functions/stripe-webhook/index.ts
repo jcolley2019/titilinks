@@ -205,11 +205,12 @@ async function handleChargeRefunded(svc: Svc, event: StripeEventLike) {
 /**
  * `charge.dispute.created` — a chargeback.
  *
- * The Dispute object carries `charge` and `payment_intent` but NOT `customer`
- * (true on every Stripe API version; this app pins none — see _shared/stripe.ts,
- * which sends no Stripe-Version header and therefore rides the account default).
- * So the charge is fetched and re-entered through the ordinary resolveProfile
- * path, which reads both its metadata and its customer id.
+ * The Dispute object carries `charge` and `payment_intent` but NOT `customer` —
+ * true on every Stripe API version, so this does not rest on the pin, but the
+ * fetched charge below DOES: it comes back shaped by STRIPE_API_VERSION
+ * (_shared/stripe.ts), and `charge.customer` is the field this depends on.
+ * The charge is re-entered through the ordinary resolveProfile path, which reads
+ * both its metadata and its customer id.
  */
 async function handleDisputeCreated(svc: Svc, event: StripeEventLike) {
   const dispute = (event.data?.object ?? {}) as Record<string, unknown>;

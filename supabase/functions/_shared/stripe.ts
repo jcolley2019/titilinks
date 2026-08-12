@@ -8,6 +8,32 @@
 
 const STRIPE_API = "https://api.stripe.com/v1";
 
+/**
+ * BILL.PIN.1 — the Stripe API version every outbound call is pinned to.
+ *
+ * Sent as `Stripe-Version` on every request. Without it the calls ride the
+ * ACCOUNT DEFAULT, so Stripe rolling that forward would change object shapes
+ * under code that never changed — silently, and in production first.
+ *
+ * BUMPING THIS CONSTANT IS A DELIBERATE ACT. It is not a dependency upgrade to
+ * be done in passing: it changes the shape of what `stripeFetch` returns, and
+ * every field the webhook reads off a fetched object must be re-verified
+ * against the new version's reference before it ships. At minimum re-check
+ *   • subscription: `status`, `current_period_end` vs `items.data[].current_period_end`
+ *   • invoice: `subscription` vs `parent.subscription_details`
+ *   • charge: `customer`, and `dispute.charge` (the Dispute carries no customer)
+ * — see `_shared/plan-lifecycle.ts`, which already straddles two shapes for the
+ * first two, and `stripe-webhook/index.ts` handleDisputeCreated for the third.
+ *
+ * WEBHOOK PAYLOADS DO NOT COME FROM THIS. Events are delivered at the version
+ * pinned on the ENDPOINT in the Stripe dashboard (Developers → Webhooks → the
+ * endpoint → API version), which nothing we deploy can set. The two must be
+ * kept equal by hand. Verified equal at 2026-06-24.dahlia for endpoint
+ * `titilinks-live` on 2026-08-12; re-verify whenever either moves, and note the
+ * endpoint version is per-endpoint, so test and live mode can diverge.
+ */
+export const STRIPE_API_VERSION = "2026-06-24.dahlia";
+
 /** The Stripe secret key from the edge-function environment. Never logged. */
 export function stripeSecretKey(): string {
   const key = Deno.env.get("STRIPE_SECRET_KEY");
@@ -65,6 +91,8 @@ export async function stripeFetch<T = Record<string, unknown>>(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${stripeSecretKey()}`,
     "Content-Type": "application/x-www-form-urlencoded",
+    // Pinned, not inherited — see STRIPE_API_VERSION.
+    "Stripe-Version": STRIPE_API_VERSION,
   };
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
