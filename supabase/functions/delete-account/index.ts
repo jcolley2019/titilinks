@@ -13,10 +13,9 @@
 //           → profile_snapshots, custom_short_links, pending_grants
 //
 // What it does NOT touch, and so is deleted explicitly below:
-//   • canva_connections, custom_theme_presets, pending_canva_auth — these carry a
-//     bare `user_id uuid NOT NULL` with NO foreign key, so nothing cascades to
-//     them. They would silently outlive the account (canva_connections holds
-//     OAuth tokens, which makes it the one that actually matters).
+//   • custom_theme_presets — carries a bare `user_id uuid NOT NULL` with NO
+//     foreign key, so nothing cascades to it. It would silently outlive the
+//     account.
 //   • storage objects. Buckets are not relational; every upload lives under
 //     `{user_id}/…` in avatars / products / fonts / page-assets.
 //
@@ -31,7 +30,7 @@ import { stripeFetch } from "../_shared/stripe.ts";
 const USER_BUCKETS = ["avatars", "products", "fonts", "page-assets"] as const;
 
 /** Tables with a user_id but no FK to profiles — no cascade reaches them. */
-const ORPHAN_TABLES = ["canva_connections", "custom_theme_presets", "pending_canva_auth"] as const;
+const ORPHAN_TABLES = ["custom_theme_presets"] as const;
 
 /** Subscription states worth cancelling; anything else is already over. */
 const CANCELLABLE = ["active", "trialing", "past_due", "unpaid", "paused"];
