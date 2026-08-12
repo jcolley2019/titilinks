@@ -562,57 +562,6 @@ export type Database = {
           },
         ]
       }
-      short_links: {
-        Row: {
-          block_item_id: string | null
-          click_count: number | null
-          code: string
-          created_at: string
-          destination_url: string
-          id: string
-          last_clicked_at: string | null
-          page_id: string
-          updated_at: string
-        }
-        Insert: {
-          block_item_id?: string | null
-          click_count?: number | null
-          code: string
-          created_at?: string
-          destination_url: string
-          id?: string
-          last_clicked_at?: string | null
-          page_id: string
-          updated_at?: string
-        }
-        Update: {
-          block_item_id?: string | null
-          click_count?: number | null
-          code?: string
-          created_at?: string
-          destination_url?: string
-          id?: string
-          last_clicked_at?: string | null
-          page_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "short_links_block_item_id_fkey"
-            columns: ["block_item_id"]
-            isOneToOne: false
-            referencedRelation: "block_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "short_links_page_id_fkey"
-            columns: ["page_id"]
-            isOneToOne: false
-            referencedRelation: "pages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       stripe_webhook_events: {
         Row: {
           error: string | null

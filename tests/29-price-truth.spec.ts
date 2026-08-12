@@ -101,6 +101,12 @@ test.describe('PRICE.TRUTH.1 — analytics split', () => {
     await routeProfilePlan(page, 'pro');
     await page.goto('/dashboard/analytics');
     await page.waitForLoadState('networkidle');
+    // Assert the page actually RENDERED before asserting the absence of the
+    // lock. On its own, toHaveCount(0) is also satisfied by the error branch —
+    // which is exactly how this spec stayed green while a dropped table blanked
+    // the whole page (TL.FIX.ANALYTICS.1).
+    await expect(page.getByTestId('analytics-content')).toBeVisible();
+    await expect(page.getByText('Failed to load analytics')).toHaveCount(0);
     await expect(page.getByText('Pro feature')).toHaveCount(0);
   });
 });

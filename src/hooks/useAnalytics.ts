@@ -7,7 +7,7 @@ import type { Tables, Json } from '@/integrations/supabase/types';
 
 type Event = Tables<'events'>;
 type Page = Tables<'pages'>;
-type ShortLink = Tables<'short_links'>;
+type ShortLink = Tables<'custom_short_links'>;
 
 interface PageLabels {
   page1: string;
@@ -101,16 +101,22 @@ export function useAnalytics(): AnalyticsData {
 
         setEvents(eventsData || []);
 
-        // Fetch short links for this page
+        // Fetch this owner's short links (custom_short_links is user-keyed,
+        // not page-keyed). Deliberately NON-FATAL: a short-links failure must
+        // never blank the whole analytics page the way the dropped legacy
+        // table did — log it and fall back to an empty list.
         const { data: shortLinksData, error: shortLinksError } = await supabase
-          .from('short_links')
+          .from('custom_short_links')
           .select('*')
-          .eq('page_id', pageData.id)
-          .order('click_count', { ascending: false });
+          .eq('user_id', user.id)
+          .order('clicks', { ascending: false });
 
-        if (shortLinksError) throw shortLinksError;
-
-        setShortLinks(shortLinksData || []);
+        if (shortLinksError) {
+          console.error('Error fetching short links:', shortLinksError);
+          setShortLinks([]);
+        } else {
+          setShortLinks(shortLinksData || []);
+        }
       } catch (err) {
         console.error('Error fetching analytics:', err);
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
@@ -225,7 +231,7 @@ export function useAnalytics(): AnalyticsData {
 
     // Total short link clicks
     const totalShortLinkClicks = shortLinks.reduce(
-      (sum, link) => sum + (link.click_count || 0),
+      (sum, link) => sum + (link.clicks || 0),
       0
     );
 

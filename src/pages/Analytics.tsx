@@ -95,6 +95,7 @@ export default function Analytics() {
   return (
     <DashboardLayout>
       <motion.div
+        data-testid="analytics-content"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -303,22 +304,22 @@ export default function Analytics() {
                       <TableHead className="w-24">{t('analytics.code')}</TableHead>
                       <TableHead>{t('analytics.destination')}</TableHead>
                       <TableHead className="w-24 text-right">{t('analytics.clicks')}</TableHead>
-                      <TableHead className="w-32 text-right">{t('analytics.lastClick')}</TableHead>
+                      <TableHead className="w-32 text-right">{t('analytics.created')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {analytics.shortLinks.map((link) => (
                       <TableRow key={link.id}>
-                        <TableCell className="font-mono text-sm">/l/{link.code}</TableCell>
+                        <TableCell className="font-mono text-sm">/s/{link.slug}</TableCell>
                         <TableCell className="max-w-[300px] truncate text-muted-foreground">
-                          {link.destination_url}
+                          {link.target_url}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {link.click_count || 0}
+                          {link.clicks || 0}
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground text-sm">
-                          {link.last_clicked_at
-                            ? formatDistanceToNow(new Date(link.last_clicked_at), { addSuffix: true })
+                          {link.created_at
+                            ? formatDistanceToNow(new Date(link.created_at), { addSuffix: true })
                             : '—'}
                         </TableCell>
                       </TableRow>
