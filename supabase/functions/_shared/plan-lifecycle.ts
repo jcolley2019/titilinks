@@ -20,6 +20,11 @@ export const HANDLED_EVENT_TYPES = [
   "customer.subscription.deleted",
   "invoice.paid",
   "invoice.payment_failed",
+  // BILL.REF.2 — money going back out is what makes a referral clawback real.
+  // Neither of these touches `plan` (Stripe sends the subscription events for
+  // that); they exist so rule R4 can void or debit the grant the payment earned.
+  "charge.refunded",
+  "charge.dispute.created",
 ] as const;
 
 export type HandledEventType = (typeof HANDLED_EVENT_TYPES)[number];

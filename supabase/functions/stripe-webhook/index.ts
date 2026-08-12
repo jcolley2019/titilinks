@@ -34,11 +34,12 @@ import {
   type StripeSubscriptionLike,
 } from "../_shared/plan-lifecycle.ts";
 import {
-  applyReferralCouponFor,
-  ensureReferralCoupon,
+  applyReferralCreditFor,
+  debitReferralCreditFor,
   qualifyReferralOnFirstPayment,
   releaseDueGrants,
   voidGrantsForReferred,
+  type VoidReason,
 } from "../_shared/referrals.ts";
 
 // Stripe reads only the status code; the body is for humans reading logs.
@@ -167,8 +168,79 @@ async function handleSubscriptionChange(
   // Rules R2 / R4 — losing paid access voids a free month still inside its
   // retention hold, and flags an already-granted one for clawback.
   if (revoked || planForSubscriptionStatus(sub.status) === "free") {
-    await voidGrantsForReferred(svc, profile.id, String(event.type));
+    await clawbackFor(svc, profile.id, String(event.type), "cancellation");
   }
+}
+
+/**
+ * Rule R4 — one entry point for every way a referred account's money goes back.
+ *
+ * The Stripe caller is injected here rather than inside referrals.ts so that
+ * module stays importable from the Node test run (no Deno globals).
+ */
+function clawbackFor(svc: Svc, profileId: string, why: string, reason: VoidReason) {
+  return voidGrantsForReferred(svc, profileId, why, reason, (id) =>
+    debitReferralCreditFor(svc, id, (path, init) => stripeFetch(path, init)),
+  );
+}
+
+/**
+ * `charge.refunded` — the referred account got its money back, so the month it
+ * earned is void (pending) or debited (granted).
+ *
+ * A PARTIAL refund lands here too and is treated the same as a full one: rule R1
+ * gates the reward on a real first payment, and a payment that has been partly
+ * returned is no longer that. Erring toward clawback is the correct bias for a
+ * give/get program — the alternative is paying out on money we handed back.
+ */
+async function handleChargeRefunded(svc: Svc, event: StripeEventLike) {
+  const profile = await resolveProfile(svc, event);
+  if (!profile) {
+    console.warn("[stripe-webhook] charge.refunded for an unknown customer — acked, no write");
+    return;
+  }
+  await clawbackFor(svc, profile.id, "charge.refunded", "refund");
+}
+
+/**
+ * `charge.dispute.created` — a chargeback.
+ *
+ * The Dispute object carries `charge` and `payment_intent` but NOT `customer`
+ * (true on every Stripe API version; this app pins none — see _shared/stripe.ts,
+ * which sends no Stripe-Version header and therefore rides the account default).
+ * So the charge is fetched and re-entered through the ordinary resolveProfile
+ * path, which reads both its metadata and its customer id.
+ */
+async function handleDisputeCreated(svc: Svc, event: StripeEventLike) {
+  const dispute = (event.data?.object ?? {}) as Record<string, unknown>;
+
+  const chargeId = typeof dispute.charge === "string"
+    ? dispute.charge
+    : (dispute.charge as { id?: string } | undefined)?.id;
+
+  if (!chargeId) {
+    console.warn("[stripe-webhook] charge.dispute.created carried no charge id — acked");
+    return;
+  }
+
+  let charge: Record<string, unknown>;
+  try {
+    charge = await stripeFetch<Record<string, unknown>>(`/charges/${chargeId}`, { method: "GET" });
+  } catch (err) {
+    // Throw: a dispute we cannot attribute is worth Stripe's retry, unlike an
+    // event for a customer we have genuinely never seen.
+    throw new Error(`could not fetch disputed charge ${chargeId}: ${String(err)}`);
+  }
+
+  const profile = await resolveProfile(svc, { ...event, data: { object: charge } });
+  if (!profile) {
+    console.warn(
+      `[stripe-webhook] charge.dispute.created on ${chargeId} for an unknown customer — acked, no write`,
+    );
+    return;
+  }
+
+  await clawbackFor(svc, profile.id, "charge.dispute.created", "chargeback");
 }
 
 async function handleInvoicePaid(svc: Svc, event: StripeEventLike) {
@@ -212,9 +284,8 @@ async function handleInvoicePaid(svc: Svc, event: StripeEventLike) {
   // common case needs no cron. Failures here must not fail the invoice event:
   // the rows stay pending and the next sweep retries them.
   try {
-    await ensureReferralCoupon((path, init) => stripeFetch(path, init));
     await releaseDueGrants(svc, new Date().toISOString(), (profileId) =>
-      applyReferralCouponFor(svc, profileId, (path, init) => stripeFetch(path, init)),
+      applyReferralCreditFor(svc, profileId, (path, init) => stripeFetch(path, init)),
     );
   } catch (err) {
     console.error("[stripe-webhook] referral sweep failed (rows stay pending):", String(err));
@@ -320,6 +391,12 @@ Deno.serve(async (req) => {
         break;
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(svc, event);
+        break;
+      case "charge.refunded":
+        await handleChargeRefunded(svc, event);
+        break;
+      case "charge.dispute.created":
+        await handleDisputeCreated(svc, event);
         break;
     }
 

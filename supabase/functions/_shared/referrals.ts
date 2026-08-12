@@ -39,18 +39,23 @@ export const MAX_EARNED_MONTHS_PER_YEAR = 12;
 export const CAP_WINDOW_DAYS = 365;
 
 /**
- * The Stripe coupon both sides are credited with. Created on demand via the API
- * if absent (see `REF_COUPON_SPEC`). ToS Section 8.1.
+ * What one earned "free month" is worth, in cents, per side per grant.
+ * ToS Section 8.1.
+ *
+ * 900 = the $9/month founding rate in `PRO_PRICE.month` (src/lib/pricing.ts).
+ * It is a FLAT amount regardless of the referred subscription's interval: an
+ * annual referrer earns the same $9 credit a monthly one does, which is what
+ * "one free month" means at the monthly rate.
+ *
+ * REVISIT WHEN FOUNDING PRICING ENDS. If PRO_PRICE.month moves off $9 (or the
+ * $15 anchor becomes the real rate), this number is what customers are owed and
+ * must be re-decided deliberately — the two are not wired together, because the
+ * marketing price is a display string and this is money.
  */
-export const REF_COUPON_ID = "ref_month_free";
+export const REF_CREDIT_CENTS = 900;
 
-/** Spec used when creating REF_COUPON_ID — one month, 100% off, once. */
-export const REF_COUPON_SPEC = {
-  id: REF_COUPON_ID,
-  percent_off: 100,
-  duration: "once",
-  name: "Referral — one month free",
-} as const;
+/** Currency the referral credit is denominated in. */
+export const REF_CREDIT_CURRENCY = "usd";
 
 /** Lifecycle of a row in `pending_grants`. */
 export type GrantStatus = "pending" | "granted" | "void";
@@ -217,10 +222,12 @@ export function decideRelease(input: ReleaseInput): ReleaseDecision {
  * Rule R4 — what a refund/chargeback does, which depends on whether the month
  * was already handed over.
  *
- * A granted coupon that has been redeemed cannot be un-redeemed at Stripe, so
- * "revoke_if_possible" means: delete the unredeemed discount where the API
- * allows, and log either way. Logging is unconditional on purpose — an
- * unrecoverable clawback still has to be visible.
+ * "revoke_if_possible" is a DEBIT of the same amount that was credited, not an
+ * undo: Stripe's customer credit balance is an append-only ledger, so the
+ * clawback is a new positive balance transaction. It can drive the balance to a
+ * debit (the customer owes it on their next invoice), which is the correct
+ * outcome for a refunded referral. Logging is unconditional on purpose — a
+ * clawback that fails at Stripe still has to be visible.
  */
 export function decideClawback(status: GrantStatus, reason: VoidReason): {
   action: "void" | "revoke_if_possible" | "noop";
@@ -354,7 +361,7 @@ export async function qualifyReferralOnFirstPayment(db: Db, args: QualifyArgs): 
 export async function releaseDueGrants(
   db: Db,
   nowIso = new Date().toISOString(),
-  applyCoupon?: (profileId: string) => Promise<string | null>,
+  applyCredit?: (profileId: string) => Promise<string | null>,
 ): Promise<void> {
   const { data: due } = await db
     .from("pending_grants")
@@ -393,7 +400,7 @@ export async function releaseDueGrants(
       continue;
     }
 
-    await grantFreeMonths(db, grant, applyCoupon);
+    await grantFreeMonths(db, grant, applyCredit);
   }
 }
 
@@ -408,56 +415,95 @@ export async function voidGrant(db: Db, grantId: string, reason: VoidReason): Pr
 }
 
 /**
- * Rules R2/R4 — a referred account losing paid access kills its grant.
+ * Rules R2/R4 — a referred account losing paid access, refunding, or disputing
+ * kills its grant.
  *
- * Pending → void. Already granted → logged for clawback; the coupon is left to
- * `decideClawback`'s revoke_if_possible path, because a redeemed discount cannot
- * be taken back at Stripe and must not silently look reversed.
+ * `reason` is the typed VoidReason that lands in the row / the log; `why` is the
+ * free-text originating event, kept alongside it for support. They are separate
+ * because the caller knows both the policy reason (refund vs chargeback vs
+ * cancellation) and the raw Stripe event type, and collapsing them would lose
+ * one of the two.
+ *
+ * Pending → void. Already granted → both sides are DEBITED the credit they were
+ * given, and the clawback is logged either way.
  */
-export async function voidGrantsForReferred(db: Db, referredId: string, why: string): Promise<void> {
+export async function voidGrantsForReferred(
+  db: Db,
+  referredId: string,
+  why: string,
+  reason: VoidReason,
+  debitCredit?: (profileId: string) => Promise<string | null>,
+): Promise<void> {
   const { data: grant } = await db
     .from("pending_grants")
-    .select("id, status")
+    .select("id, status, referrer_id, referred_id")
     .eq("referred_id", referredId)
     .maybeSingle();
 
   if (!grant) return;
 
-  const decision = decideClawback(grant.status as GrantStatus, "cancellation");
+  const decision = decideClawback(grant.status as GrantStatus, reason);
 
   if (decision.action === "void") {
     await voidGrant(db, grant.id, decision.reason);
     return;
   }
 
-  // Rule R4: log regardless — an unrecoverable clawback still has to be visible.
+  if (decision.action === "revoke_if_possible" && debitCredit) {
+    // Both sides were credited, so both sides are debited. Each is attempted
+    // independently: one failing must not stop the other, because a half-clawed
+    // -back grant is still better than none and the log carries the remainder.
+    for (const profileId of [grant.referrer_id, grant.referred_id]) {
+      try {
+        const txn = await debitCredit(profileId);
+        console.warn(
+          `[referrals] CLAWBACK debit ${REF_CREDIT_CENTS} from ${profileId} for grant ${grant.id} → ${txn ?? "no Stripe customer"}`,
+        );
+      } catch (err) {
+        // Forensics over atomicity: a failed debit is recorded, never retried
+        // into a loop and never allowed to fail the webhook.
+        console.error(
+          `[referrals] CLAWBACK debit FAILED for ${profileId} (grant ${grant.id}):`,
+          String(err),
+        );
+      }
+    }
+  }
+
+  // Rule R4: log regardless — a clawback that could not be collected still has
+  // to be visible.
   console.warn(
-    `[referrals] CLAWBACK ${decision.action} for grant ${grant.id} (referred ${referredId}, ${why}) — already ${grant.status}`,
+    `[referrals] CLAWBACK ${decision.action} for grant ${grant.id} (referred ${referredId}, ${why}, reason=${decision.reason}) — already ${grant.status}`,
   );
 }
 
 /**
  * Credit both sides with one free month.
  *
- * `applyCoupon` is injected so the Stripe calls stay out of this module (and out
+ * `applyCredit` is injected so the Stripe calls stay out of this module (and out
  * of the Node test run). Failing to credit is NOT fatal to the sweep: the row
  * stays pending and the next invoice.paid retries it, which is better than
  * marking a month granted that Stripe never applied.
+ *
+ * The `*_coupon_id` columns are named for the coupon mechanism this replaced;
+ * they now hold the Stripe balance-transaction id. Kept as-is deliberately — the
+ * column is "what Stripe object recorded this side's month", and renaming it
+ * would need a migration for zero behavioural gain.
  */
 export async function grantFreeMonths(
   db: Db,
   grant: { id: string; referrer_id: string; referred_id: string },
-  applyCoupon?: (profileId: string) => Promise<string | null>,
+  applyCredit?: (profileId: string) => Promise<string | null>,
 ): Promise<void> {
-  let referrerCoupon: string | null = null;
-  let referredCoupon: string | null = null;
+  let referrerCredit: string | null = null;
+  let referredCredit: string | null = null;
 
-  if (applyCoupon) {
+  if (applyCredit) {
     try {
-      referrerCoupon = await applyCoupon(grant.referrer_id);
-      referredCoupon = await applyCoupon(grant.referred_id);
+      referrerCredit = await applyCredit(grant.referrer_id);
+      referredCredit = await applyCredit(grant.referred_id);
     } catch (err) {
-      console.error(`[referrals] coupon apply failed for grant ${grant.id}:`, String(err));
+      console.error(`[referrals] credit apply failed for grant ${grant.id}:`, String(err));
       return; // stays pending — retried on the next sweep
     }
   }
@@ -467,8 +513,8 @@ export async function grantFreeMonths(
     .update({
       status: "granted",
       granted_at: new Date().toISOString(),
-      referrer_coupon_id: referrerCoupon,
-      referred_coupon_id: referredCoupon,
+      referrer_coupon_id: referrerCredit,
+      referred_coupon_id: referredCredit,
     })
     .eq("id", grant.id)
     .eq("status", "pending");
@@ -476,38 +522,29 @@ export async function grantFreeMonths(
   console.log(`[referrals] grant ${grant.id} released — both sides credited one month`);
 }
 
+/** The injected Stripe caller these helpers need — the real one is `stripeFetch`. */
+type StripeCall = <T>(
+  path: string,
+  init?: { method?: "GET" | "POST"; body?: Record<string, unknown> },
+) => Promise<T>;
+
 /**
- * Ensure the shared referral coupon exists, creating it if absent.
+ * Move REF_CREDIT_CENTS on a profile's Stripe customer credit balance.
  *
- * `stripeCall` is injected (same reason as above). Stripe returns a 404-ish error
- * for a missing coupon rather than null, so the create is attempted on any
- * lookup failure and a duplicate-id error is treated as success.
+ * Stripe's sign convention, which is the whole reason this is one function and
+ * not two: a NEGATIVE amount is a credit (reduces what they owe), a POSITIVE
+ * amount is a debit. `sign` makes the call site say which it means.
+ *
+ * Credit balance rather than a coupon because it is the only mechanism that
+ * stacks: three referrals leave $27 sitting on the customer, a remainder carries
+ * to the next invoice, and — the reason this brick exists — a grant can be
+ * clawed back by posting the opposite transaction.
  */
-export async function ensureReferralCoupon(
-  stripeCall: <T>(path: string, init?: { method?: "GET" | "POST"; body?: Record<string, unknown> }) => Promise<T>,
-): Promise<void> {
-  try {
-    await stripeCall(`/coupons/${REF_COUPON_ID}`, { method: "GET" });
-    return;
-  } catch {
-    /* not there — create it below */
-  }
-
-  try {
-    await stripeCall("/coupons", { method: "POST", body: { ...REF_COUPON_SPEC } });
-    console.log(`[referrals] created Stripe coupon ${REF_COUPON_ID}`);
-  } catch (err) {
-    const msg = String(err);
-    if (/already exists/i.test(msg)) return; // raced with another invocation
-    throw new Error(`could not ensure coupon ${REF_COUPON_ID}: ${msg}`);
-  }
-}
-
-/** Apply the referral coupon to a profile's Stripe customer as account credit. */
-export async function applyReferralCouponFor(
+async function moveReferralBalance(
   db: Db,
   profileId: string,
-  stripeCall: <T>(path: string, init?: { method?: "GET" | "POST"; body?: Record<string, unknown> }) => Promise<T>,
+  stripeCall: StripeCall,
+  sign: 1 | -1,
 ): Promise<string | null> {
   const { data: profile } = await db
     .from("profiles")
@@ -516,18 +553,48 @@ export async function applyReferralCouponFor(
     .maybeSingle();
 
   const customer = profile?.stripe_customer_id;
-  // A referrer with no Stripe customer has nothing to discount yet. Returning
-  // null (rather than throwing) lets the other side still be credited; the
-  // coupon is re-applied when they do subscribe.
+  // Someone with no Stripe customer has no balance to move yet. Returning null
+  // (rather than throwing) lets the other side still be settled.
   if (!customer) {
-    console.log(`[referrals] ${profileId} has no Stripe customer — month deferred`);
+    console.log(`[referrals] ${profileId} has no Stripe customer — balance move skipped`);
     return null;
   }
 
-  await stripeCall(`/customers/${customer}`, {
+  const credited = sign < 0;
+  const txn = await stripeCall<{ id?: string }>(`/customers/${customer}/balance_transactions`, {
     method: "POST",
-    body: { coupon: REF_COUPON_ID },
+    body: {
+      amount: sign * REF_CREDIT_CENTS,
+      currency: REF_CREDIT_CURRENCY,
+      description: credited
+        ? "TitiLinks referral reward — one month"
+        : "TitiLinks referral reward reversed (refund/chargeback)",
+    },
   });
 
-  return REF_COUPON_ID;
+  return txn?.id ?? null;
+}
+
+/**
+ * Credit a profile's Stripe customer with one referral month.
+ * Returns the balance-transaction id, or null when they have no customer yet.
+ */
+export function applyReferralCreditFor(
+  db: Db,
+  profileId: string,
+  stripeCall: StripeCall,
+): Promise<string | null> {
+  return moveReferralBalance(db, profileId, stripeCall, -1);
+}
+
+/**
+ * Rule R4 — take a referral month back off a profile's Stripe customer.
+ * The balance may go into debit; that is the point.
+ */
+export function debitReferralCreditFor(
+  db: Db,
+  profileId: string,
+  stripeCall: StripeCall,
+): Promise<string | null> {
+  return moveReferralBalance(db, profileId, stripeCall, 1);
 }

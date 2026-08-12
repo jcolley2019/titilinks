@@ -52,8 +52,8 @@ import {
   MAX_EARNED_MONTHS_PER_YEAR,
   REFERRAL_CODE_ALPHABET,
   REFERRAL_CODE_LENGTH,
-  REF_COUPON_ID,
-  REF_COUPON_SPEC,
+  REF_CREDIT_CENTS,
+  REF_CREDIT_CURRENCY,
   RESERVED_REF_VALUES,
   RETENTION_HOLD_DAYS,
   decideClawback,
@@ -63,8 +63,10 @@ import {
   isSelfReferral,
   isValidReferralCode,
   qualifyAtFrom,
+  voidGrantsForReferred,
 } from '../supabase/functions/_shared/referrals.ts';
 import { ENTITLEMENTS } from '../src/lib/entitlements.ts';
+import { PRO_PRICE } from '../src/lib/pricing.ts';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -220,11 +222,16 @@ ok(`rule R1: ${INVOICE_TABLE.length} invoice shapes gate rewards on real first p
 // ── 5. handled event types ───────────────────────────────────────────────────
 
 for (const t of HANDLED_EVENT_TYPES) assert.ok(isHandledEvent(t), `${t} is handled`);
-for (const t of ['customer.created', 'charge.succeeded', 'invoice.finalized', '', 'INVOICE.PAID']) {
+for (const t of ['customer.created', 'charge.succeeded', 'invoice.finalized', '', 'INVOICE.PAID', 'charge.dispute.closed']) {
   assert.equal(isHandledEvent(t), false, `${t} is not handled`);
 }
-assert.equal(HANDLED_EVENT_TYPES.length, 6, 'the handled set is exactly the six documented events');
-ok('handled-event set is closed and case-sensitive');
+assert.equal(HANDLED_EVENT_TYPES.length, 8, 'the handled set is exactly the eight documented events');
+// BILL.REF.2 — the two money-back events are what make rule R4 real. Asserted by
+// name, not just by count, so a rename cannot quietly keep the total at eight.
+for (const t of ['charge.refunded', 'charge.dispute.created']) {
+  assert.ok(isHandledEvent(t), `${t} must be handled — rule R4 clawback depends on it`);
+}
+ok('handled-event set is closed and case-sensitive (8, incl. refund + dispute)');
 
 // ── 6. signature verification against real HMACs ─────────────────────────────
 
@@ -400,9 +407,16 @@ ok('price allowlist accepts only the two Pro prices — Business is not purchasa
 // tests follow a deliberate policy change but still catch an accidental one.
 assert.equal(RETENTION_HOLD_DAYS, 30, 'rule R2 hold — ToS Section 8.2');
 assert.equal(MAX_EARNED_MONTHS_PER_YEAR, 12, 'rule R5 cap — ToS Section 8.4');
-assert.equal(REF_COUPON_ID, 'ref_month_free');
-assert.equal(REF_COUPON_SPEC.percent_off, 100, 'a free month means 100% off');
-assert.equal(REF_COUPON_SPEC.duration, 'once', 'one month, not forever');
+assert.equal(REF_CREDIT_CENTS, 900, 'rule R6 reward — ToS Section 8.1, one month at the founding rate');
+assert.equal(REF_CREDIT_CURRENCY, 'usd');
+// The reward is denominated in the founding MONTHLY price, flat across intervals.
+// If founding pricing moves, this fails and the amount owed gets re-decided
+// deliberately rather than drifting away from what the page promises.
+assert.equal(
+  PRO_PRICE.month,
+  `$${REF_CREDIT_CENTS / 100}`,
+  `REF_CREDIT_CENTS (${REF_CREDIT_CENTS}) must track PRO_PRICE.month (${PRO_PRICE.month}) — revisit when founding pricing ends`,
+);
 ok('rule R6: thresholds are named constants with ToS references');
 
 // Rule R2 — the hold arithmetic.
@@ -548,6 +562,109 @@ ok('rule R6: thresholds are named constants with ToS references');
     assert.equal(decideClawback(status, 'refund').log, true, `${status} clawback is always logged`);
   }
   ok('rule R4: clawback voids pending, attempts revoke on granted, always logs');
+}
+
+// Rule R4, the effect half — voidGrantsForReferred must carry the CALLER'S reason
+// through to the row, and must debit BOTH sides when the month was already given.
+//
+// BILL.REF.2 fixed a hardcoded 'cancellation' here: a refund and a chargeback used
+// to be recorded as a cancellation, which made the forensics lie about why money
+// came back. The reason is now a parameter, so these cases are worth pinning.
+{
+  /** Smallest fake that answers the exact PostgREST chain these helpers build. */
+  const fakeDb = (grant) => {
+    const writes = [];
+    const chain = (table) => {
+      const node = {
+        select: () => node,
+        eq: () => node,
+        update: (patch) => { writes.push({ table, patch }); return node; },
+        maybeSingle: async () => ({ data: grant }),
+        // `await db.from(...).update(...).eq(...).eq(...)` — thenable tail.
+        then: (res) => res({ data: null, error: null }),
+      };
+      return node;
+    };
+    return { from: chain, writes };
+  };
+
+  const GRANT = { id: 'g1', referrer_id: 'p_referrer', referred_id: 'p_referred' };
+
+  // The clawback path logs loudly by design (rule R4). Muted here so a passing
+  // guard run does not scroll a wall of CLAWBACK warnings that read as failures.
+  const realConsole = { log: console.log, warn: console.warn, error: console.error };
+  console.log = console.warn = console.error = () => {};
+  const restore = () => Object.assign(console, realConsole);
+  try {
+
+  // Pending → void, and the void carries the reason the CALLER passed.
+  for (const reason of ['refund', 'chargeback', 'cancellation']) {
+    const db = fakeDb({ ...GRANT, status: 'pending' });
+    const debited = [];
+    await voidGrantsForReferred(db, 'p_referred', `evt:${reason}`, reason, async (id) => {
+      debited.push(id);
+      return 'cbtxn_x';
+    });
+    const voidWrite = db.writes.find((w) => w.patch.status === 'void');
+    assert.ok(voidWrite, `pending grant is voided for ${reason}`);
+    assert.equal(voidWrite.patch.void_reason, reason,
+      `void_reason must be the caller's '${reason}', not a hardcoded cancellation`);
+    assert.deepEqual(debited, [], 'a pending month was never credited, so nothing is debited');
+  }
+
+  // Granted → BOTH sides debited, in referrer-then-referred order.
+  {
+    const db = fakeDb({ ...GRANT, status: 'granted' });
+    const debited = [];
+    await voidGrantsForReferred(db, 'p_referred', 'charge.refunded', 'refund', async (id) => {
+      debited.push(id);
+      return `cbtxn_${id}`;
+    });
+    assert.deepEqual(
+      debited,
+      ['p_referrer', 'p_referred'],
+      'a granted month was handed to BOTH sides, so BOTH are debited',
+    );
+    assert.deepEqual(db.writes, [], 'a granted row is not re-written to void — it stays granted, clawed back');
+  }
+
+  // Forensics over atomicity: the referrer's debit blowing up must not cost the
+  // referred side its debit, and must not throw out of the webhook handler.
+  {
+    const db = fakeDb({ ...GRANT, status: 'granted' });
+    const attempted = [];
+    await voidGrantsForReferred(db, 'p_referred', 'charge.dispute.created', 'chargeback', async (id) => {
+      attempted.push(id);
+      if (id === 'p_referrer') throw new Error('stripe is down');
+      return 'cbtxn_ok';
+    });
+    assert.deepEqual(attempted, ['p_referrer', 'p_referred'], 'one failed debit does not skip the other');
+  }
+
+  // Void is terminal: no debit, no write, no throw.
+  {
+    const db = fakeDb({ ...GRANT, status: 'void' });
+    const debited = [];
+    await voidGrantsForReferred(db, 'p_referred', 'charge.refunded', 'refund', async (id) => {
+      debited.push(id); return null;
+    });
+    assert.deepEqual(debited, [], 'an already-void grant claws nothing back twice');
+    assert.deepEqual(db.writes, []);
+  }
+
+  // No grant at all — the overwhelmingly common case — is a silent no-op.
+  {
+    const db = fakeDb(null);
+    let called = false;
+    await voidGrantsForReferred(db, 'p_referred', 'charge.refunded', 'refund', async () => { called = true; return null; });
+    assert.equal(called, false, 'a refund for a non-referred account touches nothing');
+    assert.deepEqual(db.writes, []);
+  }
+  } finally {
+    restore();
+  }
+
+  ok('rule R4 effects: reason flows through, granted debits BOTH sides, one failure never skips the other');
 }
 
 // Referral codes: shape, reserved values, and the ?ref=badge collision.
