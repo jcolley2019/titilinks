@@ -35,6 +35,7 @@ import {
   resolveCustomerId,
   resolveSubscriptionId,
   resolveUserId,
+  selectAuthoritativeSubscription,
   subscriptionPatch,
 } from '../supabase/functions/_shared/plan-lifecycle.ts';
 import {
@@ -728,6 +729,120 @@ ok('rule R6: thresholds are named constants with ToS references');
   }
 
   ok(`ENT.SRV: SQL quotas match entitlements.ts (3 limits × 3 tiers, ${flags.length} flags)`);
+}
+
+// ── 12. BILL.RECON.1 — which subscription speaks for the customer ────────────
+
+// The reconciler starts from profiles.stripe_customer_id and gets back a LIST
+// (status=all), so something has to pick. Section 1 pins what a status means;
+// this pins which subscription that meaning is read off. Both live in
+// plan-lifecycle.ts precisely so the nightly job and the webhook cannot reach
+// different verdicts about the same customer.
+{
+  const sub = (status, overrides = {}) => ({ id: `sub_${status}`, status, ...overrides });
+  const at = (seconds) => ({ current_period_end: seconds });
+
+  const EARLY = 1_800_000_000;
+  const LATE = 1_900_000_000;
+
+  assert.equal(selectAuthoritativeSubscription([]), null, 'no subscriptions at all → null');
+
+  {
+    const only = sub('active', at(EARLY));
+    assert.equal(selectAuthoritativeSubscription([only]), only, 'a lone active subscription is the answer');
+  }
+
+  // Step 2. Every revoking status, at the latest period end available — recency
+  // must not rescue a subscription that grants nothing.
+  assert.equal(
+    selectAuthoritativeSubscription(ACCESS_REVOKING_STATUSES.map((s) => sub(s, at(LATE)))),
+    null,
+    'nothing grants access → null, and the caller derives the free patch from the absence',
+  );
+
+  // THE upgrade case: Stripe leaves the old subscription behind. The canceled one
+  // is given the LATER period end on purpose — if the filter ran after the sort,
+  // this is the row that would silently win and hold the account on a dead plan.
+  {
+    const live = sub('active', at(EARLY));
+    const dead = sub('canceled', at(LATE));
+    assert.equal(selectAuthoritativeSubscription([dead, live]), live,
+      'a canceled sub is never selected, even carrying a later period end');
+    assert.equal(selectAuthoritativeSubscription([live, dead]), live, 'and not by arrival order either');
+  }
+
+  // Selectable IFF it grants a paid plan — derived from section 1's table rather
+  // than a second hand-written status list, which is the whole anti-drift point.
+  for (const [status, expectedPlan] of PLAN_TABLE) {
+    const one = sub(status, at(EARLY));
+    assert.equal(
+      selectAuthoritativeSubscription([one]) === one,
+      expectedPlan !== 'free',
+      `${status}: selectable iff planForSubscriptionStatus grants a paid plan`,
+    );
+  }
+  ok(`selection: null on empty/all-revoking, and selectable iff paid (${PLAN_TABLE.length} statuses)`);
+
+  // Step 1, first key: latest period end wins across two DIFFERENT granting
+  // statuses — trialing and past_due both grant, so status cannot be the sort.
+  {
+    const soon = sub('trialing', at(EARLY));
+    const later = sub('past_due', at(LATE));
+    assert.equal(selectAuthoritativeSubscription([soon, later]), later, 'the later period end wins');
+    assert.equal(selectAuthoritativeSubscription([later, soon]), later, 'arrival order does not change it');
+  }
+
+  // Step 1, tie-break: same period end → the later `created`.
+  {
+    const older = sub('active', { id: 'sub_older', ...at(EARLY), created: 1_700_000_000 });
+    const newer = sub('active', { id: 'sub_newer', ...at(EARLY), created: 1_750_000_000 });
+    assert.equal(selectAuthoritativeSubscription([older, newer]), newer, 'tie on period end → later created');
+    assert.equal(selectAuthoritativeSubscription([newer, older]), newer, 'in either arrival order');
+  }
+
+  // A usable period end BEATS none at all. The malformed one is given the later
+  // `created` on purpose: present-beats-missing is decided before the tie-break
+  // ever runs, so a granting subscription Stripe left without a period cannot
+  // take the seat by being newer.
+  {
+    const noEnd = sub('active', { id: 'sub_no_end', created: 1_750_000_000 });
+    const withEnd = sub('active', { id: 'sub_with_end', ...at(LATE), created: 1_700_000_000 });
+    assert.equal(selectAuthoritativeSubscription([withEnd, noEnd]), withEnd,
+      'a subscription with a period end outranks one without');
+    assert.equal(selectAuthoritativeSubscription([noEnd, withEnd]), withEnd, 'in either arrival order');
+  }
+  ok('selection: latest period end, present beats missing, then latest created — order-independent');
+
+  // Totality. Stripe JSON arrives untyped and this runs unattended on a schedule:
+  // junk must produce an answer or null, never a throw nobody is watching.
+  const JUNK = [null, undefined, 42, 'sub_x', [], {}, { status: null }, { status: 7 }, { status: 'ACTIVE' }];
+
+  assert.equal(selectAuthoritativeSubscription(JUNK), null, 'junk carries no access-granting status');
+  {
+    const real = sub('active', at(EARLY));
+    assert.equal(selectAuthoritativeSubscription([...JUNK, real, ...JUNK]), real,
+      'one real subscription survives a sea of junk');
+  }
+
+  // Malformed fields ON a granting subscription: an unparseable period end and a
+  // NaN `created` both read as absent, so the well-formed subscription wins on
+  // the period-end rule rather than on where it happened to sit in the list.
+  {
+    const mangled = sub('active', { id: 'sub_mangled', current_period_end: 'soon', items: null, created: Number.NaN });
+    const sane = sub('active', { id: 'sub_sane', ...at(LATE), created: 1_700_000_000 });
+    assert.equal(selectAuthoritativeSubscription([mangled, sane]), sane, 'garbage timestamps do not outrank a sane subscription');
+    assert.equal(selectAuthoritativeSubscription([sane, mangled]), sane, 'in either arrival order');
+  }
+
+  // Only when NOTHING can be ranked does arrival order decide — the last resort,
+  // and the reason the answer is deterministic instead of arbitrary.
+  {
+    const first = sub('active', { id: 'sub_first', current_period_end: 'soon' });
+    const second = sub('active', { id: 'sub_second', created: Number.NaN });
+    assert.equal(selectAuthoritativeSubscription([first, second]), first, 'wholly undecidable → first encountered');
+    assert.equal(selectAuthoritativeSubscription([second, first]), second, 'and there, the ORDER is what decides');
+  }
+  ok('selection is total: empty, null elements, junk types and NaN timestamps never throw');
 }
 
 console.log(`\nAll ${passed} billing checks passed.`);

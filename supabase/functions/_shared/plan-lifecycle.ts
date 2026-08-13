@@ -77,6 +77,8 @@ export interface StripeSubscriptionLike {
   id?: string;
   status?: string;
   customer?: string | { id?: string };
+  /** Unix seconds. Read only as the tie-break in `selectAuthoritativeSubscription`. */
+  created?: number;
   current_period_end?: number;
   cancel_at_period_end?: boolean;
   items?: { data?: Array<{ current_period_end?: number }> };
@@ -135,6 +137,100 @@ export function subscriptionPatch(
   if (customer) patch.stripe_customer_id = customer;
 
   return patch;
+}
+
+/** Period end as milliseconds, or null when the subscription carries none. */
+function periodEndMillis(sub: StripeSubscriptionLike): number | null {
+  const iso = periodEndOf(sub);
+  if (iso === null) return null;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** `created` as unix seconds, or null when absent or not a finite number. */
+function createdSecondsOf(sub: StripeSubscriptionLike): number | null {
+  const created = sub.created;
+  return typeof created === "number" && Number.isFinite(created) ? created : null;
+}
+
+/**
+ * Does `candidate` beat the current incumbent? Undecidable comparisons return
+ * false, which is what makes the incumbent (the first encountered) keep the seat.
+ */
+function outranks(candidate: StripeSubscriptionLike, incumbent: StripeSubscriptionLike): boolean {
+  const candidateEnd = periodEndMillis(candidate);
+  const incumbentEnd = periodEndMillis(incumbent);
+  if (candidateEnd !== incumbentEnd) {
+    // A usable period end outranks none at all. A granting subscription Stripe
+    // gave no period to is the malformed one; it must not take the seat from a
+    // well-formed subscription just by arriving first.
+    if (candidateEnd === null) return false;
+    if (incumbentEnd === null) return true;
+    return candidateEnd > incumbentEnd;
+  }
+
+  const candidateCreated = createdSecondsOf(candidate);
+  const incumbentCreated = createdSecondsOf(incumbent);
+  if (
+    candidateCreated !== null && incumbentCreated !== null &&
+    candidateCreated !== incumbentCreated
+  ) {
+    return candidateCreated > incumbentCreated;
+  }
+
+  return false;
+}
+
+/**
+ * Pick the ONE subscription a customer's plan should be derived from.
+ *
+ * Consumed by the reconciler (BILL.RECON), which starts from
+ * `profiles.stripe_customer_id`, lists that customer's subscriptions with
+ * `status=all`, and has to decide which one speaks for the account — an upgrade
+ * leaves a canceled subscription beside the live one, a failed checkout leaves an
+ * `incomplete` one. The webhook never faces the question: an event names its
+ * subscription. So the choice would otherwise be private to the reconciler, and
+ * the nightly job could reach a different verdict than the live path for the same
+ * customer. It lives here, beside `planForSubscriptionStatus`, so "which
+ * subscription counts" is decided in exactly one place and `npm run guard`
+ * covers it.
+ *
+ * The rule, in two steps:
+ *
+ *   1. Keep only subscriptions whose status grants access — routed through
+ *      `planForSubscriptionStatus` rather than re-reading the status list, so
+ *      this can never drift from the plan-flip table. Of those, the latest
+ *      `periodEndOf()` wins, and a subscription that HAS a usable period end
+ *      beats one that has none — a granting subscription with no period is the
+ *      malformed one and must not win on arrival order. Equal ends, or none on
+ *      either side, fall through to the latest `created`; still undecided, the
+ *      first encountered keeps the seat, so a given list order always yields
+ *      the same answer.
+ *
+ *   2. Nothing grants access → null. A canceled subscription is never selected,
+ *      however recent it is; no access-granting subscription means no access, and
+ *      the caller derives the free/revoked patch from the absence.
+ *
+ * Total by construction: Stripe's JSON arrives untyped and this runs unattended
+ * on a schedule, so an empty list, a null element, a missing status or a
+ * non-numeric timestamp each produce an answer or null — never a throw.
+ */
+export function selectAuthoritativeSubscription(
+  subs: StripeSubscriptionLike[],
+): StripeSubscriptionLike | null {
+  if (!Array.isArray(subs)) return null;
+
+  const granting = subs.filter((sub) =>
+    sub !== null && typeof sub === "object" && !Array.isArray(sub) &&
+    planForSubscriptionStatus(sub.status) !== "free"
+  );
+  if (granting.length === 0) return null;
+
+  let winner = granting[0];
+  for (const candidate of granting.slice(1)) {
+    if (outranks(candidate, winner)) winner = candidate;
+  }
+  return winner;
 }
 
 /** Minimal event envelope shared by every handler. */
