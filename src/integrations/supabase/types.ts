@@ -629,6 +629,15 @@ export type Database = {
         Args: { p_email: string; p_name?: string; p_page_id: string }
         Returns: Json
       }
+      track_event: {
+        Args: {
+          p_event_type: Database["public"]["Enums"]["event_type"]
+          p_metadata?: Json
+          p_mode: Database["public"]["Enums"]["mode_type"]
+          p_page_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       block_type:

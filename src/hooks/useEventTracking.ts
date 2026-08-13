@@ -42,12 +42,12 @@ function sendBeaconEvent(
     return;
   }
 
-  const url = `${supabaseUrl}/rest/v1/events`;
+  const url = `${supabaseUrl}/rest/v1/rpc/track_event`;
   const body = JSON.stringify({
-    page_id: pageId,
-    mode: mode,
-    event_type: eventType,
-    metadata_json: metadata,
+    p_page_id: pageId,
+    p_mode: mode,
+    p_event_type: eventType,
+    p_metadata: metadata,
   });
 
   const headers = {
@@ -89,12 +89,12 @@ export function useEventTracking(pageId: string | null, mode: ModeType) {
     if (!pageId) return;
 
     try {
-      await supabase.from('events').insert([{
-        page_id: pageId,
-        mode: mode,
-        event_type: eventType,
-        metadata_json: metadata,
-      }]);
+      await supabase.rpc('track_event', {
+        p_page_id: pageId,
+        p_mode: mode,
+        p_event_type: eventType,
+        p_metadata: metadata,
+      });
     } catch (error) {
       console.error('Failed to track event:', error);
     }
