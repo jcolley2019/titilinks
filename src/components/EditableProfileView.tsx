@@ -65,6 +65,7 @@ import { SmoothImage } from '@/components/SmoothImage';
 import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
+import { validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -1471,6 +1472,12 @@ export function EditableProfileView({
 
     for (const file of filesToAdd) {
       try {
+        const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+        if (!validation.valid) {
+          toast.error(`${file.name}: ${validation.error}`);
+          continue;
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
 
