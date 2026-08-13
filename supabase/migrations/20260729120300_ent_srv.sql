@@ -39,8 +39,8 @@ as $$
     when 'maxShortLinks' then
       case coalesce(p_plan, 'free')
         when 'business' then 100 when 'pro' then 25 else 3 end
-    -- ENTITLEMENTS.maxPages — enforcement deferred (see the report); the value
-    -- is defined here so the quota table is complete and reviewable.
+    -- ENTITLEMENTS.maxPages — enforced since Aug 13, 2026 (ENT.PAGES.1) on the
+    -- `pages` INSERT policy; mirrored in 20260813000000_ent_pages_quota.sql.
     when 'maxPages' then
       case coalesce(p_plan, 'free')
         when 'business' then 2 when 'pro' then 2 else 1 end
@@ -253,9 +253,11 @@ grant execute on function public.subscribe_to_page(uuid, text, text) to anon, au
 --       and public.plan_allows(coalesce(p.plan, 'free'), 'trackingPixels')
 --   `plan_allows` already knows the flag; only the one clause is missing.
 --
--- maxPages: the quota is defined in plan_limit() above but not enforced, because
---   an INSERT policy on `pages` sits directly in the onboarding and page-2
---   creation paths and was outside this sprint's brief. The policy body is:
+-- maxPages: NO LONGER DEFERRED. The quota is defined in plan_limit() above and
+--   was left unenforced by this sprint because the INSERT policy on `pages` sits
+--   directly in the onboarding write path. It was enforced on Aug 13, 2026 by
+--   ENT.PAGES.1 — see the mirror in 20260813000000_ent_pages_quota.sql — using
+--   exactly the body this paragraph originally specified:
 --       (select count(*) from public.pages where user_id = auth.uid())
 --         < public.plan_limit(public.current_plan(), 'maxPages')
 --   added to the existing owner insert policy's WITH CHECK.
