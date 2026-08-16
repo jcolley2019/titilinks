@@ -34,6 +34,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { removePublicObject } from '@/lib/storage-cleanup';
 
 const MAX_ITEMS = ITEM_CAPS.product_cards;
 
@@ -242,6 +243,8 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       for (const item of toDelete) {
         const { error } = await supabase.from('block_items').delete().eq('id', item.id);
         if (error) throw error;
+        // Row gone, so drop its file too — best-effort, never blocks the save.
+        removePublicObject('products', item.image_url);
       }
 
       // Upsert kept items in display order.

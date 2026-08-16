@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { removePublicObject } from '@/lib/storage-cleanup';
 
 type BlockItem = Tables<'block_items'>;
 
@@ -421,6 +422,8 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
       for (const item of toDelete) {
         const { error } = await supabase.from('block_items').delete().eq('id', item.id);
         if (error) throw error;
+        // Row gone, so drop its file too — best-effort, never blocks the save.
+        removePublicObject('products', item.image_url);
       }
 
       // Update or create items

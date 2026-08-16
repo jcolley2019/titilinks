@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Loader2, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
+import { removePublicObject } from '@/lib/storage-cleanup';
 
 const MAX_ITEMS = ITEM_CAPS.gallery;
 
@@ -175,6 +176,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
       for (const item of toDelete) {
         const { error } = await supabase.from('block_items').delete().eq('id', item.id);
         if (error) throw error;
+        // Row gone, so drop its file too — best-effort, never blocks the save.
+        removePublicObject('products', item.image_url);
       }
 
       // Update or create items

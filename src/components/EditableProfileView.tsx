@@ -88,6 +88,7 @@ import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
 import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { resolveFontFamily } from '@/lib/fonts';
+import { removePublicObject } from '@/lib/storage-cleanup';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
 
@@ -1515,12 +1516,21 @@ export function EditableProfileView({
   };
 
   const handleGalleryDelete = async (itemId: string) => {
+    // Read the URL BEFORE the delete: the row is the only pointer to the file.
+    const { data: doomed } = await supabase
+      .from('block_items')
+      .select('image_url')
+      .eq('id', itemId)
+      .maybeSingle();
+
     const { error } = await supabase.from('block_items').delete().eq('id', itemId);
     if (error) {
       console.error('Delete error:', error);
       toast.error(t('editor.photo.deleteFailed'));
       return;
     }
+    // Only after the row is gone, and only best-effort — see removePublicObject.
+    removePublicObject('products', doomed?.image_url);
     toast.success(t('editor.photo.removed'));
     onRefresh();
   };
