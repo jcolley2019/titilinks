@@ -81,7 +81,12 @@ export function stripPreservedThemeKeys<T extends object>(theme: T): any {
  *  (TPL.3b/TPL.5 total-ownership ruling). Content keys (icon_source/icon_image/
  *  icon_color, label, url, image) are deliberately NOT here. ANIM.1 adds
  *  `animation`: it's appearance, so an applied layout clears link animations
- *  along with colors. This is the single reset list TemplateGallery drives from. */
+ *  along with colors. This is the single reset list TemplateGallery drives from.
+ *
+ *  TL.GAL.3a — `crop` must NEVER join this list. A gallery crop is how the user
+ *  framed their own photo: CONTENT, like label/url/image, not a look a template
+ *  supplies. Wiping it on an apply would silently re-frame every photo on the
+ *  page and there is no undo for the framing they chose. */
 export const PER_ITEM_APPEARANCE_KEYS = [
   'border_color',
   'border_width',

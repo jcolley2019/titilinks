@@ -89,6 +89,7 @@ import { TextBlock } from '@/components/blocks/TextBlock';
 import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { resolveFontFamily } from '@/lib/fonts';
 import { removePublicObject } from '@/lib/storage-cleanup';
+import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
 
@@ -482,6 +483,46 @@ function PhotoDeleteConfirm({
   );
 }
 
+/** TL.GAL.3a — the photo inside a gallery tile, for all three layouts.
+ *
+ *  Framing has ONE definition (src/lib/gallery-framing.ts), the way hero media
+ *  has resolveHeroMediaStyle: an item with a stored crop paints the resolved
+ *  rectangle, and an item without one — a photo never framed in the crop sheet
+ *  — keeps TL.GAL.2's object-cover classes byte-identical. The three layouts
+ *  render this from a single component so the crop UI lands in one place.
+ *
+ *  The crop path drops `inset-0 w-full h-full`: the resolved rectangle IS the
+ *  geometry, and leaving those classes on would fight it. `object-cover` stays
+ *  in both paths. A crop can never leave the tile showing (TL.GAL.3b.1's fill
+ *  floor), so no matte of any colour is ever behind the photo. */
+function GalleryPhoto({ src, label, styleJson }: { src: string; label: string | null; styleJson: unknown }) {
+  const crop = resolveGalleryMediaStyle(styleJson);
+  return (
+    <img
+      src={src}
+      alt={label || 'Gallery photo'}
+      className={crop ? 'absolute object-cover' : 'absolute inset-0 w-full h-full object-cover'}
+      style={crop ?? undefined}
+      loading="lazy"
+    />
+  );
+}
+
+/**
+ * TL.GAL.4 / 4b / 4c — every filmstrip tier glides 45% slower than it used to.
+ * 0.75 at the first gate, 0.65 at the second, 0.55 once the speed chips were
+ * actually saving and Joey could judge a tier he had really selected.
+ *
+ * The rate is one TILE (72% of the strip, matching the `w-[72%]` tiles) per
+ * `speedMs`, so the obvious way to slow it down would be to raise the three
+ * speedMs tiers. This factor does it instead, for two reasons: those three
+ * numbers are the stored contract with GalleryEditor's slow/medium/fast chips,
+ * and 0.72 has to keep meaning "one tile" or the wrap arithmetic below stops
+ * reading as arithmetic. One factor across the whole formula scales all three
+ * tiers by the same amount, so fast > medium > slow comes through untouched.
+ */
+const FILMSTRIP_GLIDE_SCALE = 0.55;
+
 function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void; onDelete?: (itemId: string) => void }) {
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -524,15 +565,28 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     if (!el) return;
     let raf = 0;
     let last = performance.now();
+    // Accumulate in a float — the same fix the icon-row drift above already
+    // carries, and the reason TL.GAL.4 had to touch this loop at all.
+    // `el.scrollLeft` ROUNDS TO AN INTEGER on write (measured: setting 0.5 reads
+    // back 1), so re-reading it every frame quantised the whole glide: a step
+    // under half a pixel rounded to nothing and the strip froze, and any step
+    // over it rounded up to a flat 1px/frame — 60px/s on every tier, which is
+    // why slow, medium and fast all glided at the same wrong speed. Keeping our
+    // own position makes the tier arithmetic mean something again.
+    let pos = el.scrollLeft;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
         const oneCopy = el.scrollWidth / 2;
-        const pxPerSec = (el.clientWidth * 0.72 * 1000) / speedMs;
-        let next = el.scrollLeft + pxPerSec * dt;
-        if (next >= oneCopy) next -= oneCopy;
-        el.scrollLeft = next;
+        const pxPerSec = (el.clientWidth * 0.72 * FILMSTRIP_GLIDE_SCALE * 1000) / speedMs;
+        pos += pxPerSec * dt;
+        if (oneCopy > 0 && pos >= oneCopy) pos -= oneCopy;
+        el.scrollLeft = pos;
+      } else {
+        // Paused (a touch parks the glide for 8s): the visitor is driving, so
+        // take their position rather than snapping back to ours when time is up.
+        pos = el.scrollLeft;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -541,15 +595,80 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   }, [loop, speedMs]);
 
   // Lightbox: tap a photo → fullscreen swipe viewer. Auto-scroll pauses while open.
+  //
+  // TL.GAL.3b.2 — the viewer navigates the whole gallery without closing:
+  // chevrons, keyboard arrows, and the swipe the snap-mandatory strip already
+  // gave us for free. TL.GAL.3b.3 made that navigation circular — see
+  // stepLightbox. Two rules hold it together:
+  //
+  //   1. the STRIP's scroll position is the truth, not `lightboxIndex`. The
+  //      effect below positions the strip ONCE, on open, at the photo that was
+  //      tapped; from then on `onScroll` reports and the index follows. Feeding
+  //      the index back into a scrollTo would yank the strip out from under a
+  //      swipe still in flight.
+  //   2. the lightbox shows the UNCROPPED original. `style_json.crop` frames
+  //      the square tile (see GalleryPhoto); full-size is where the rest of the
+  //      photo is, so nothing here resolves a crop — object-contain, always.
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const lightboxRef = useRef<HTMLDivElement>(null);
+  const lightboxOpen = lightboxIndex !== null;
+  // Guards rule 1: false until the strip has been parked on the tapped photo.
+  const lightboxPositioned = useRef(false);
   const openLightbox = (i: number) => { pausedUntil.current = Date.now() + 1e9; setLightboxIndex(i); };
   const closeLightbox = () => { pausedUntil.current = Date.now() + 5000; setLightboxIndex(null); };
   useEffect(() => {
-    if (lightboxIndex === null) return;
+    if (lightboxIndex === null) { lightboxPositioned.current = false; return; }
+    if (lightboxPositioned.current) return;
+    lightboxPositioned.current = true;
     const el = lightboxRef.current;
     if (el) el.scrollTo({ left: lightboxIndex * el.clientWidth });
   }, [lightboxIndex]);
+
+  // One step, CIRCULAR (TL.GAL.3b.3): past the last photo is the first, before
+  // the first is the last. So the viewer has no ends, and its chevrons never
+  // disable — there is nothing to disable them at. The inline carousel below
+  // deliberately still clamps: it is a strip you can see the edges of, while
+  // this is one photo at a time with no sense of position.
+  //
+  // Read the slide off the STRIP, not off `lightboxIndex`: the keyboard handler
+  // subscribes once per open, so a captured index would be frozen at whatever
+  // photo was tapped and every arrow press would step from there.
+  //
+  // And jump — TL.GAL.1's lesson, on the same kind of snap-mandatory strip. A
+  // smooth scroll leaves the position mid-flight between two snap points, so
+  // the NEXT step reads a fraction, targets a half-slide, and the snap engine
+  // pulls it straight back where it came from. Verified: two chevron clicks in
+  // a row moved exactly one photo. An instant scroll always lands dead on a
+  // snap point, so every step starts from a whole number — and it is what makes
+  // the wrap possible at all, since last→first is a jump across the whole strip
+  // that no amount of smooth scrolling could sell as a step.
+  const stepLightbox = (dir: -1 | 1) => {
+    const el = lightboxRef.current;
+    if (!el || !el.clientWidth) return;
+    // Clamp what we READ (iOS rubber-banding scrolls past both ends) before
+    // wrapping it, or an over-scrolled position would wrap from the wrong slide.
+    const at = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
+    const next = (at + dir + count) % count;
+    el.scrollTo({ left: next * el.clientWidth, behavior: 'instant' });
+  };
+
+  // Keyboard, only while the viewer is up. Escape closes: the backdrop does
+  // not, so without it an overlay that answers the arrow keys still traps the
+  // one key everyone reaches for.
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') stepLightbox(1);
+      else if (e.key === 'ArrowLeft') stepLightbox(-1);
+      else if (e.key === 'Escape') closeLightbox();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // stepLightbox reads the strip and closeLightbox only touches refs/state,
+    // so listing them would re-subscribe on every render for nothing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxOpen]);
+
   const lightbox = lightboxIndex === null ? null : createPortal(
     <div className="fixed inset-0 z-[130] bg-black/95 flex flex-col" onClick={(e) => e.stopPropagation()}>
       <button
@@ -561,12 +680,22 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
       </button>
       <div
         ref={lightboxRef}
+        onScroll={(e) => {
+          // Which photo the strip has landed on. Rounded, because a snap strip
+          // reports fractional offsets mid-gesture, and clamped because iOS
+          // rubber-banding scrolls past both ends.
+          const el = e.currentTarget;
+          if (!el.clientWidth) return;
+          const i = Math.max(0, Math.min(count - 1, Math.round(el.scrollLeft / el.clientWidth)));
+          setLightboxIndex((cur) => (cur === null || cur === i ? cur : i));
+        }}
         className="flex-1 flex overflow-x-auto snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {block.items.map((item) => (
           <div key={item.id} className="relative flex-shrink-0 w-full h-full snap-center snap-always flex items-center justify-center p-4">
             {item.image_url && (
+              // Rule 2: no crop, no object-cover — the original, whole.
               <img src={item.image_url} alt={item.label || 'Photo'} className="max-w-full max-h-full object-contain rounded-lg" />
             )}
             {item.label && item.label !== 'Photo' && (
@@ -575,6 +704,31 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
           </div>
         ))}
       </div>
+
+      {/* The carousel's chevrons, at this overlay's scale: same lucide glyphs
+          in the same round button, sized and tinted to the × above them —
+          bg-black/60 would vanish into a bg-black/95 backdrop. Never disabled:
+          navigation is circular, so neither one is ever at an end. */}
+      {count > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => stepLightbox(-1)}
+            aria-label={t('gallery.prevPhoto')}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center transition-colors hover:bg-white/20"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => stepLightbox(1)}
+            aria-label={t('gallery.nextPhoto')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center transition-colors hover:bg-white/20"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
     </div>,
     document.body
   );
@@ -629,12 +783,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.label || 'Gallery photo'}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="lazy"
-                />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
@@ -675,12 +824,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.label || 'Gallery photo'}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="lazy"
-                />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
@@ -738,12 +882,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 // GalleryEditor panel's tiles. The old object-contain + black
                 // matte letterboxed every non-square photo. This is also the
                 // default framing that TL.GAL.3's per-photo zoom/pan sits on.
-                <img
-                  src={item.image_url}
-                  alt={item.label || 'Gallery photo'}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="lazy"
-                />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />

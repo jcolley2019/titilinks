@@ -17,6 +17,8 @@ import { Loader2, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 import { removePublicObject } from '@/lib/storage-cleanup';
+import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from '@/lib/gallery-framing';
+import { PhotoCropSheet } from './PhotoCropSheet';
 
 const MAX_ITEMS = ITEM_CAPS.gallery;
 
@@ -27,6 +29,10 @@ interface GalleryPhoto {
   image_url: string;
   imageFile?: File;
   imagePreview?: string;
+  /** TL.GAL.3b — the item's WHOLE style_json, carried through the editor so the
+   *  crop write stays additive: the sheet merges `crop` into this object and the
+   *  save writes it back entire, so keys owned by other features survive. */
+  style_json?: Record<string, any> | null;
 }
 
 interface GalleryEditorProps {
@@ -47,6 +53,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
   const [layout, setLayout] = useState<'full' | 'filmstrip' | 'grid'>('full');
   const [autoScroll, setAutoScroll] = useState(true);
   const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('slow');
+  // TL.GAL.3b door B — which photo the framing sheet is open on (null = closed).
+  const [cropTargetId, setCropTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -83,6 +91,10 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         (data || []).map((item) => ({
           id: item.id,
           image_url: item.image_url || '',
+          // TL.GAL.3b: carrying style_json here is what makes the GAL.1b
+          // post-save re-sync round-trip a crop losslessly — this mapper runs
+          // again right after every Save, and anything it drops is lost.
+          style_json: (item.style_json as Record<string, any> | null) ?? null,
         }))
       );
     } catch (error) {
@@ -134,6 +146,20 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
 
   const deletePhoto = (id: string) => {
     setPhotos((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // TL.GAL.3b — stage a framing change. ADDITIVE, per the LinksEditor precedent:
+  // merge onto whatever style_json the row already carries, and write null for
+  // the key (not for the object) when the photo goes back to suggested framing.
+  // Staged only — nothing reaches the DB until the panel's own Save.
+  const setPhotoCrop = (id: string, crop: GalleryCrop | null) => {
+    setPhotos((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const next: Record<string, any> = { ...(p.style_json || {}) };
+      if (crop === null) delete next.crop;
+      else next.crop = crop;
+      return { ...p, style_json: Object.keys(next).length ? next : null };
+    }));
   };
 
   const uploadImage = async (file: File): Promise<string> => {
@@ -192,6 +218,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
             url: '',
             image_url: photo.image_url,
             order_index: i,
+            // A staged photo can be framed before it has ever been saved.
+            style_json: photo.style_json ?? null,
           });
           if (error) throw error;
         } else {
@@ -200,6 +228,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
             .update({
               image_url: photo.image_url,
               order_index: i,
+              // Written whole, having been merged onto the object this editor
+              // read at fetch time — see the GalleryPhoto.style_json note.
+              style_json: photo.style_json ?? null,
             })
             .eq('id', photo.id);
           if (error) throw error;
@@ -228,6 +259,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
       setSaving(false);
     }
   };
+
+  const cropTarget = photos.find((p) => p.id === cropTargetId) || null;
 
   const innerContent = (
     <>
@@ -313,24 +346,32 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
                     <span className="text-xs font-medium text-muted-foreground/70">{t('galleryEditor.addPhotos')}</span>
                   </button>
                 )}
-                {photos.map((photo) => (
+                {photos.map((photo) => {
+                  // The tile paints through the SAME resolver as the live page,
+                  // so a staged crop is visible here before it is ever saved —
+                  // which is what makes "Cancel discards" observable.
+                  const cropStyle = resolveGalleryMediaStyle(photo.style_json);
+                  return (
                   <div
                     key={photo.id}
-                    className="relative aspect-square rounded-xl overflow-hidden bg-secondary group"
+                    onClick={() => setCropTargetId(photo.id)}
+                    className="relative aspect-square rounded-xl overflow-hidden bg-secondary group cursor-pointer"
                   >
                     <img
                       src={photo.imagePreview || photo.image_url}
                       alt={t('galleryEditor.photoAlt')}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className={cropStyle ? 'absolute object-cover' : 'absolute inset-0 w-full h-full object-cover'}
+                      style={cropStyle ?? undefined}
                     />
                     <button
-                      onClick={() => deletePhoto(photo.id)}
+                      onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }}
                       className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
             </div>
           </ScrollArea>
 
@@ -359,6 +400,18 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
               )}
             </Button>
           </div>
+
+          {/* Door B. Portals to body above the panel (z-140 > the panel's 120),
+              so it works identically from the slide-in panel and the dialog. */}
+          {cropTarget && (
+            <PhotoCropSheet
+              key={cropTarget.id}
+              src={cropTarget.imagePreview || cropTarget.image_url}
+              crop={resolveGalleryCrop(cropTarget.style_json)}
+              onCancel={() => setCropTargetId(null)}
+              onApply={(next) => { setPhotoCrop(cropTarget.id, next); setCropTargetId(null); }}
+            />
+          )}
         </div>
       )}
     </>
