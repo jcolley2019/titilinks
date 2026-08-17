@@ -564,6 +564,9 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
 
   // Filmstrip auto-advance: one photo every 4s; any touch pauses it for 8s.
   const stripRef = useRef<HTMLDivElement>(null);
+  // TL.GAL.6b — the grid's tile container, so a newly added tile below the fold
+  // can be scrolled into view the same way the other two layouts answer an add.
+  const gridRef = useRef<HTMLDivElement>(null);
   const pausedUntil = useRef(0);
   const pauseAutoScroll = () => { pausedUntil.current = Date.now() + 8000; };
   useEffect(() => {
@@ -749,11 +752,18 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     });
   };
 
-  // TL.GAL.1 — newly saved photos land on the LAST slide of the 'full' carousel
-  // while the strip sits wherever the user left it, so a save looks like a
-  // no-op. Jump to the newest slide when the item count grows — count-increase
-  // only, so layout/auto-scroll/speed tweaks and manual scrolling are never
-  // fought (the filmstrip glide above is a separate mechanism, untouched).
+  // TL.GAL.1 — a new photo lands on the LAST slide while the strip sits wherever
+  // the user left it, so an add looks like a no-op. Bring the newest one into
+  // view when the item count grows — count-increase only, so layout/auto-scroll/
+  // speed tweaks and manual scrolling are never fought.
+  //
+  // TL.GAL.6b widened this past 'full'. It was written when the count could only
+  // grow on SAVE, and 'full' was the only layout that needed it; TL.GAL.6 made
+  // the count grow on a STAGED add too, and on a filmstrip the new tile lands
+  // ~5.7 tiles right of the window (measured) — mirrored correctly, invisible in
+  // practice, which reads as "the draft channel is broken". Every layout now
+  // answers an add, because the preview is the truth of what Save will produce.
+  //
   // Instant, not behavior:'smooth': Chrome cancels programmatic smooth scrolls
   // on a snap-mandatory container (verified — the strip parks between slides
   // or never moves). Target = the slide's offsetLeft, not count*clientWidth:
@@ -762,12 +772,45 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
   useEffect(() => {
     const grew = count > prevCount.current;
     prevCount.current = count;
-    if (!grew || layout !== 'full') return;
-    const el = scrollRef.current;
-    // children = photo slides then the "+" tile; the newest photo is count-1.
-    const lastPhoto = el?.children[count - 1] as HTMLElement | undefined;
-    if (!el || !lastPhoto) return;
-    el.scrollLeft = lastPhoto.offsetLeft;
+    if (!grew) return;
+
+    if (layout === 'full') {
+      const el = scrollRef.current;
+      // children = photo slides then the "+" tile; the newest photo is count-1.
+      const lastPhoto = el?.children[count - 1] as HTMLElement | undefined;
+      if (el && lastPhoto) el.scrollLeft = lastPhoto.offsetLeft;
+      return;
+    }
+
+    if (layout === 'filmstrip') {
+      // The glide OWNS scrollLeft — it writes it every frame — so a bare write
+      // here is overwritten within one frame. Park it first with the same 8s
+      // pause a touch uses: while paused the loop re-reads scrollLeft into its
+      // own accumulator every frame, which is what makes this jump stick AND
+      // lets the glide resume from the new photo instead of snapping back.
+      // In loop mode children are two copies; the newest is count-1 either way.
+      const el = stripRef.current;
+      const lastTile = el?.children[count - 1] as HTMLElement | undefined;
+      if (el && lastTile) {
+        pauseAutoScroll();
+        // A rect DELTA, not offsetLeft. Unlike the 'full' carousel — whose strip
+        // sits at the left edge of a `relative` wrapper, making offsetLeft come
+        // out right by luck of the markup — the filmstrip has no positioned
+        // ancestor of its own, so its tiles measure from further up the tree and
+        // offsetLeft overshoots by the strip's inset (measured: 29px, which left
+        // the new photo clipped at the window's left edge).
+        el.scrollLeft += lastTile.getBoundingClientRect().left - el.getBoundingClientRect().left;
+      }
+      return;
+    }
+
+    // 'grid' — nothing scrolls horizontally, but the newest tile is appended at
+    // the bottom of a two-column grid and can sit below the fold. `nearest`
+    // moves whichever ancestor actually owns the scroll (the editor's
+    // device-frame-scroll, the window on the public page) and only when the
+    // tile is genuinely out of view, so an already-visible add never jumps.
+    const tile = gridRef.current?.children[count - 1] as HTMLElement | undefined;
+    tile?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [count, layout]);
 
   if (layout === 'filmstrip' && count > 0) {
@@ -823,7 +866,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
         <p className="text-sm font-semibold" style={galleryLabelStyle}>
           {t('gallery.label')} ({count} {count === 1 ? t('gallery.photo') : t('gallery.photos')})
         </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div ref={gridRef} className="grid grid-cols-2 gap-2">
           {block.items.map((item, i) => (
             <div
               key={item.id}

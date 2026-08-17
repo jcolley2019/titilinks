@@ -88,9 +88,16 @@ export default function Editor() {
   // replace on every mutation, unlike L4's per-field patches.
   const [themeDraft, setThemeDraft] = useState<FullThemeJson | null>(null);
   // Live-mirror (L6): the gallery panel's whole staged state — config chips,
-  // staged adds (data URLs, no DB row yet), removes, crops and order. Block-scoped
-  // like L2/L3. Null means "no panel is drafting", and the preview reads DB truth.
-  const [galleryDraft, setGalleryDraft] = useState<{ blockId: string; draft: GalleryDraft } | null>(null);
+  // staged adds (data URLs, no DB row yet), removes, crops and order. Null means
+  // "no panel is drafting", and the preview reads DB truth.
+  //
+  // TL.GAL.6b: the draft carries its OWN blockId (unlike L2/L3, which scope
+  // themselves by `editingBlock`). That inference only holds for the doors
+  // routing through onBlockEdit; ProfileDashboard's section list and guided
+  // checklist open editors by setting activeBlockId directly, leaving
+  // editingBlock null — and every draft published through those doors was
+  // being thrown away. See GalleryDraft.
+  const [galleryDraft, setGalleryDraft] = useState<GalleryDraft | null>(null);
 
   // ── DP.1: device-truthful preview frame ──
   // The desktop preview renders at a real device's LOGICAL CSS viewport
@@ -448,11 +455,12 @@ export default function Editor() {
     setThemeDraft(draft as FullThemeJson | null);
   }, []);
 
-  // Live-mirror (L6): pin the gallery panel's draft to the block it is editing,
-  // exactly as L2/L3 do. Null (panel unmounted) clears it.
+  // Live-mirror (L6): store the panel's draft as published. It names its own
+  // block, so this works from every door into the editor. Null (panel
+  // unmounted) clears it.
   const handleGalleryDraftChange = useCallback((draft: GalleryDraft | null) => {
-    setGalleryDraft(draft && editingBlock ? { blockId: editingBlock.id, draft } : null);
-  }, [editingBlock]);
+    setGalleryDraft(draft);
+  }, []);
 
   // TL.GAL.6 — the preview keeps its own per-photo trash, so while a gallery
   // panel is drafting that block the two surfaces are editing the same list.
@@ -463,8 +471,8 @@ export default function Editor() {
   // Photos outside the draft — another gallery block, or no panel open — fall
   // through to EditableProfileView's immediate delete, unchanged.
   const handleGalleryStagedDelete = useCallback((itemId: string): boolean => {
-    if (!galleryDraft?.draft.photos.some((p) => p.id === itemId)) return false;
-    galleryDraft.draft.remove(itemId);
+    if (!galleryDraft?.photos.some((p) => p.id === itemId)) return false;
+    galleryDraft.remove(itemId);
     return true;
   }, [galleryDraft]);
 
@@ -496,8 +504,8 @@ export default function Editor() {
         const byId = new Map((b.items ?? []).map(it => [it.id, it]));
         nb = {
           ...nb,
-          title: JSON.stringify(galleryDraft.draft.config),
-          items: galleryDraft.draft.photos.map((p, i) => ({
+          title: JSON.stringify(galleryDraft.config),
+          items: galleryDraft.photos.map((p, i) => ({
             ...(byId.get(p.id) ?? { id: p.id, block_id: b.id, label: 'Photo', url: '' }),
             image_url: p.image_url,
             style_json: p.style_json,

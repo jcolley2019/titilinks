@@ -63,8 +63,17 @@ interface GalleryPhoto {
  * `remove` is the one channel that runs downward: the preview keeps its own
  * per-photo trash, and while this panel is open that trash has to reach THIS
  * component's state — see the note on the preview-delete conflict in Editor.
+ *
+ * TL.GAL.6b — the draft NAMES its own block. It used to be scoped by Editor's
+ * `editingBlock`, which is only set by the doors that route through onBlockEdit
+ * (the preview's "+" tile and the block card's chevron). ProfileDashboard also
+ * opens editors from its own section list and from the guided checklist, and
+ * those set activeBlockId internally — so editingBlock stayed null, the whole
+ * draft was discarded, and nothing mirrored at all. This panel already knows
+ * which block it is editing; nobody has to infer it.
  */
 export interface GalleryDraft {
+  blockId: string;
   config: { layout: 'full' | 'filmstrip' | 'grid'; autoScroll: boolean; speed: 'slow' | 'medium' | 'fast' };
   photos: Array<{ id: string; image_url: string; style_json: Record<string, any> | null }>;
   remove: (id: string) => void;
@@ -276,6 +285,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
   useEffect(() => {
     if (!open || loading) return;
     onDraftChange?.({
+      blockId,
       config: { layout, autoScroll, speed },
       photos: photos.map((p) => ({
         id: p.id,
@@ -284,7 +294,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
       })),
       remove: deletePhoto,
     });
-  }, [open, loading, layout, autoScroll, speed, photos, onDraftChange, deletePhoto]);
+  }, [open, loading, blockId, layout, autoScroll, speed, photos, onDraftChange, deletePhoto]);
 
   // Cancel / X unmounts this panel, and clearing the mirror here is what makes
   // the preview revert to DB truth.

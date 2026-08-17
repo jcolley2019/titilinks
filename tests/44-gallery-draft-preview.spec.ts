@@ -89,6 +89,54 @@ const previewState = (page: Page) => page.evaluate((word) => {
   };
 }, T['gallery.label']);
 
+/** The preview gallery block, anchored on its own count label. */
+const previewRoot = (page: Page) => page
+  .locator('p:visible', { hasText: new RegExp(`^${T['gallery.label']} \\(\\d+ `) })
+  .first().locator('xpath=..');
+
+/**
+ * TL.GAL.6b — the NEWEST tile, and whether it is actually on screen.
+ *
+ * "In the DOM" is not "visible": the whole 6b defect was a staged photo that
+ * mirrored perfectly and then sat ~5.7 tiles right of the filmstrip's window.
+ * So this measures the tile against its nearest SCROLLING ancestor — the strip
+ * in filmstrip/full, the editor's device-frame-scroll (or the window) in grid —
+ * which is the fold that actually decides whether a creator sees the photo.
+ *
+ * Indexed at count-1, exactly as GalleryBlock's own scroll-to-newest targets it,
+ * so the test and the code agree on which tile "newest" means (in filmstrip loop
+ * mode the strip renders two copies, and count-1 is the first copy's last tile).
+ */
+const newestTile = (page: Page) => page.evaluate((word) => {
+  const panel = document.querySelector('[class*="z-[120]"]');
+  const label = [...document.querySelectorAll('p')].find(
+    (p) => new RegExp(`^${word} \\(\\d+ `).test((p.textContent || '').trim())
+      && p.getBoundingClientRect().width > 0 && !panel?.contains(p),
+  );
+  const count = Number(label?.textContent?.match(/\((\d+) /)?.[1] ?? 0);
+  const root = label?.parentElement ?? null;
+  const imgs = root ? [...root.querySelectorAll('img')].filter((i) => !panel?.contains(i)) : [];
+  const el = imgs[count - 1] as HTMLImageElement | undefined;
+  if (!el) return null;
+
+  let sc = el.parentElement;
+  while (sc) {
+    const cs = getComputedStyle(sc);
+    if (/(auto|scroll)/.test(cs.overflowX + cs.overflowY)) break;
+    sc = sc.parentElement;
+  }
+  const r = el.getBoundingClientRect();
+  const cr = sc ? sc.getBoundingClientRect() : new DOMRect(0, 0, innerWidth, innerHeight);
+  return {
+    isStaged: (el.getAttribute('src') || '').startsWith('data:'),
+    decoded: el.naturalWidth > 0,
+    visible: r.right > cr.left + 1 && r.left < cr.right - 1
+      && r.bottom > cr.top + 1 && r.top < cr.bottom - 1,
+    tile: { l: Math.round(r.left), r: Math.round(r.right) },
+    clip: { l: Math.round(cr.left), r: Math.round(cr.right) },
+  };
+}, T['gallery.label']);
+
 /**
  * Pixels per second, measured off the live preview glide.
  *
@@ -495,6 +543,145 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
         message: 'Cancel brings the staged-for-removal photo back',
       }).toBe(true);
       expect(await galleryItems(page)).toHaveLength(baseline.length);
+    } finally {
+      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+    }
+  });
+
+  // ── TL.GAL.6b ────────────────────────────────────────────────────────────
+  // The design law: the preview is the truth of what Save will produce, so a
+  // staged photo has to be visible and reachable — in every layout, through
+  // every door. Both halves of that were broken and neither was caught above,
+  // because the tests pinned the one layout and drove the one door that worked.
+
+  test('a staged add lands ON SCREEN in every layout, and opens in the lightbox', async ({ page, browser }, testInfo) => {
+    test.slow();
+    const tag = testInfo.project.name;
+    const { restore } = await pinFullLayout(page);
+    await openPanel(page);
+    const baseline = await galleryItems(page);
+    const baselineIds = baseline.map((i) => i.id);
+
+    try {
+      const layouts = [
+        { key: 'full', chip: T['galleryEditor.layoutFull'], colour: '#C9A55C' },
+        { key: 'filmstrip', chip: T['galleryEditor.layoutFilmstrip'], colour: '#2E6F9E' },
+        { key: 'grid', chip: T['galleryEditor.layoutGrid'], colour: '#3E8E5A' },
+      ] as const;
+
+      for (const { key, chip, colour } of layouts) {
+        await panelOf(page).getByRole('button', { name: chip, exact: true }).click();
+        await page.waitForTimeout(700);
+        await stageUpload(page, colour, `tl-gal-6b-${key}.png`);
+        await page.waitForTimeout(1000);
+
+        const t0 = await newestTile(page);
+        console.log(`[${tag}] ${key}: ${JSON.stringify(t0)}`);
+        expect(t0, `${key}: the staged add reached the preview`).not.toBeNull();
+        expect(t0!.isStaged, `${key}: the newest tile IS the staged photo`).toBe(true);
+        expect(t0!.decoded, `${key}: the staged photo decoded`).toBe(true);
+        // The 6b defect in one assertion: mirrored is not the same as seen.
+        expect(t0!.visible, `${key}: the staged add is on screen, not parked off it`).toBe(true);
+
+        if (key === 'filmstrip') {
+          // The tile lands flush against the window's left edge — proving the
+          // jump targeted the right pixel, not merely somewhere overlapping.
+          expect(Math.abs(t0!.tile.l - t0!.clip.l),
+            'filmstrip: the new photo is parked AT the window edge').toBeLessThan(6);
+          // And it STAYS. The glide owns scrollLeft and rewrites it every frame,
+          // so this only holds because the fix parks the glide first; without
+          // the pause the strip carries the new photo straight back off-screen.
+          await page.waitForTimeout(2500);
+          const t1 = await newestTile(page);
+          expect(t1!.visible, 'the glide stays parked on the photo just added').toBe(true);
+          expect(Math.abs(t1!.tile.l - t0!.tile.l),
+            'the glide is paused, not merely slow — the tile has not drifted').toBeLessThan(6);
+        }
+      }
+
+      await page.screenshot({ path: `tests/screenshots/${tag}-gal6b-grid-staged-visible.png` });
+
+      // ── the lightbox is not a saved-photos-only surface either.
+      //
+      // Desktop only, and not for convenience: on a phone the panel is `w-full`
+      // and covers the preview outright (pinned by the trash test above), so
+      // there is no preview tile to tap while a draft is live — the gesture has
+      // no phone-side existence. The geometry above is what mobile can prove,
+      // and it is the half the layout fix actually changes.
+      if (tag !== 'desktop') {
+        expect(await galleryItems(page), 'three staged adds, zero rows').toHaveLength(baseline.length);
+        return;
+      }
+
+      const count = (await previewState(page)).labelCount;
+      await previewRoot(page).locator('img').nth(count - 1).click();
+      const lb = page.locator('[class*="z-[130]"]');
+      await expect(lb).toBeVisible();
+      const shown = await lb.evaluate((el) => {
+        const imgs = [...el.querySelectorAll('img')] as HTMLImageElement[];
+        const strip = el.querySelector('[class*="overflow-x-auto"]') as HTMLElement;
+        const i = Math.round(strip.scrollLeft / strip.clientWidth);
+        const img = imgs[i];
+        return {
+          slides: imgs.length,
+          index: i,
+          staged: (img?.getAttribute('src') || '').startsWith('data:'),
+          fit: img ? getComputedStyle(img).objectFit : null,
+          decoded: !!img && img.naturalWidth > 0,
+        };
+      });
+      console.log(`[${tag}] lightbox: ${JSON.stringify(shown)}`);
+      expect(shown.slides, 'the viewer carries the staged photos too').toBe(count);
+      expect(shown.staged, 'tapping a staged tile opens the viewer ON that photo').toBe(true);
+      expect(shown.decoded, 'and it renders there').toBe(true);
+      expect(shown.fit, 'contained, like any other photo — a crop frames the tile, not this').toBe('contain');
+      await page.screenshot({ path: `tests/screenshots/${tag}-gal6b-lightbox-staged.png` });
+      await page.keyboard.press('Escape');
+      await expect(lb).toHaveCount(0);
+
+      // Nothing above touched the database.
+      expect(await galleryItems(page), 'three staged adds, zero rows').toHaveLength(baseline.length);
+    } finally {
+      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+    }
+  });
+
+  test('the section-list door mirrors too, not only the doors that route through onBlockEdit', async ({ page, browser }, testInfo) => {
+    test.slow();
+    const tag = testInfo.project.name;
+    const { restore } = await pinFullLayout(page);
+    await page.goto('/dashboard/editor');
+    await page.waitForLoadState('networkidle');
+    const baseline = await galleryItems(page);
+    const baselineIds = baseline.map((i) => i.id);
+
+    try {
+      // "Edit Profile" → the Add Content section list → the Gallery row. This
+      // door sets ProfileDashboard's activeBlockId directly and never calls
+      // onBlockEdit, so Editor's editingBlock stays null. Before TL.GAL.6b the
+      // draft was scoped by that null and discarded outright: the panel staged
+      // the photo and the preview never moved. Measured — see TL.GAL.6.DIAG.
+      //
+      // NOT the preview's "+ Add Content" buttons: those are per-block
+      // empty-state CTAs (Bio, Video Feeds, Email Capture all render one) and
+      // each opens its OWN editor. Only the header button opens the list.
+      await page.getByRole('button', { name: T['dashLayout.editProfile'], exact: true }).first().click();
+      await page.waitForTimeout(1200);
+      // Row text is title+description run together ("GalleryPhoto gallery").
+      await panelOf(page).locator('button:visible')
+        .filter({ hasText: new RegExp(`^${T['blocks.gallery.title']}`) }).first().click();
+      await expect(panelTiles(page).first()).toBeVisible({ timeout: 15_000 });
+
+      const before = await previewState(page);
+      await stageUpload(page, '#7A2E8E', 'tl-gal-6b-doorC.png');
+
+      await expect.poll(async () => (await previewState(page)).labelCount, {
+        message: 'the section-list door mirrors its draft like every other door',
+      }).toBe(before.labelCount + 1);
+      const pv = await previewState(page);
+      expect(pv.srcs.some((s) => s.startsWith('data:')), 'the staged photo is rendering').toBe(true);
+      expect(await galleryItems(page), 'and still nothing is saved').toHaveLength(baseline.length);
+      await page.screenshot({ path: `tests/screenshots/${tag}-gal6b-door-c-mirrors.png` });
     } finally {
       await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
     }
