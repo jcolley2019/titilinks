@@ -212,6 +212,12 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode }
         .eq('id', blockId);
       if (layoutError) throw layoutError;
 
+      // The panel swallows the close below and stays mounted, so `open` never
+      // flips and the fetch effect won't rerun. Re-sync from the DB here —
+      // otherwise staged files (new- ids + imageFile) re-upload and re-insert
+      // on the next Save, and the delete-diff runs against pre-save rows.
+      await fetchPhotos();
+
       toast.success(t('galleryEditor.saved'));
       onSave?.();
       onOpenChange(false);

@@ -56,6 +56,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getThemeWithDefaults, applyAutoContrast, type ThemeJson, type BlockStyleConfig, type PageId, DEFAULT_BLOCK_STYLE } from '@/lib/theme-defaults';
 import { getChromeTokens, relativeLuminance, type ChromeTokens } from '@/lib/contrast';
 import { fullBleedText, GLASS_AFFORDANCE, GLASS_TILE, ACTION_ACCENT, withEffectivePageStyle, isFullBleedTheme, resolveHeroConfig } from '@/lib/surface';
@@ -65,7 +66,6 @@ import { SmoothImage } from '@/components/SmoothImage';
 import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
-import { validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -415,10 +415,80 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
   );
 }
 
+// TL.STOR.5 — a gallery delete is permanent (the row AND the storage object, see
+// handleGalleryDelete), so the trash asks first. A tooltip-sized popover anchored
+// to the trash handle, never a panel over the photo: two rows, "Delete?" then
+// Yes / No. It PORTALS (the ui/popover primitive does this for us) because every
+// gallery tile is `rounded-xl overflow-hidden` and would otherwise clip it.
+// `modal` so the dismissing outside-click is swallowed rather than falling
+// through to the tile and opening the lightbox behind the popover.
+function PhotoDeleteConfirm({
+  open,
+  onOpen,
+  onClose,
+  onConfirm,
+  buttonClassName,
+  iconClassName,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  buttonClassName: string;
+  iconClassName: string;
+}) {
+  const { t } = useLanguage();
+  return (
+    <Popover modal open={open} onOpenChange={(next) => (next ? onOpen() : onClose())}>
+      <PopoverTrigger asChild>
+        {/* stopPropagation: the tile itself opens the lightbox on click. */}
+        <button type="button" onClick={(e) => e.stopPropagation()} className={buttonClassName}>
+          <Trash2 className={iconClassName} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        sideOffset={6}
+        collisionPadding={8}
+        // Radix would autofocus "Yes" on open and paint the UA's blue focus
+        // ring over a gold-and-black surface. Keyboard focus still works (the
+        // buttons carry their own gold ring); it just isn't grabbed on open.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+        className="w-auto rounded-xl border border-white/10 bg-[#0e0c09] p-2.5 shadow-xl shadow-black/60"
+      >
+        <p className="text-center font-display text-[13px] font-semibold leading-none text-[#F5F3EE]">
+          {t('editor.photo.confirmShort')}
+        </p>
+        <div className="mt-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-full bg-[#8A2A31] px-3 py-1 text-xs font-semibold text-[#F5F3EE] hover:bg-[#A03139] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A55C] transition-colors"
+          >
+            {t('editor.photo.confirmYes')}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/70 hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#C9A55C] transition-colors"
+          >
+            {t('editor.photo.confirmNo')}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void; onDelete?: (itemId: string) => void }) {
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const count = block.items.length;
+  // Which photo is awaiting confirmation (null = none). One id for all three
+  // layouts: only one tile can be confirming at a time.
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // FS.SURFACE.1c→1d: full-bleed-safe label (shared helper in lib/surface).
   const galleryLabelStyle = fullBleedText(theme, theme.typography.text_color);
@@ -517,6 +587,27 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
     });
   };
 
+  // TL.GAL.1 — newly saved photos land on the LAST slide of the 'full' carousel
+  // while the strip sits wherever the user left it, so a save looks like a
+  // no-op. Jump to the newest slide when the item count grows — count-increase
+  // only, so layout/auto-scroll/speed tweaks and manual scrolling are never
+  // fought (the filmstrip glide above is a separate mechanism, untouched).
+  // Instant, not behavior:'smooth': Chrome cancels programmatic smooth scrolls
+  // on a snap-mandatory container (verified — the strip parks between slides
+  // or never moves). Target = the slide's offsetLeft, not count*clientWidth:
+  // slide widths are fractional and the arithmetic drifts off-snap.
+  const prevCount = useRef(count);
+  useEffect(() => {
+    const grew = count > prevCount.current;
+    prevCount.current = count;
+    if (!grew || layout !== 'full') return;
+    const el = scrollRef.current;
+    // children = photo slides then the "+" tile; the newest photo is count-1.
+    const lastPhoto = el?.children[count - 1] as HTMLElement | undefined;
+    if (!el || !lastPhoto) return;
+    el.scrollLeft = lastPhoto.offsetLeft;
+  }, [count, layout]);
+
   if (layout === 'filmstrip' && count > 0) {
     return (
       <div className="space-y-2">
@@ -549,13 +640,17 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
                 </div>
               )}
+              {/* i < count: in loop mode every item renders twice — the delete
+                  handle lives on the first copy only. */}
               {onDelete && i < count && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <PhotoDeleteConfirm
+                  open={confirmingId === item.id}
+                  onOpen={() => setConfirmingId(item.id)}
+                  onClose={() => setConfirmingId(null)}
+                  onConfirm={() => { setConfirmingId(null); onDelete(item.id); }}
+                  buttonClassName="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                  iconClassName="h-3 w-3"
+                />
               )}
             </div>
           ))}
@@ -592,12 +687,14 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 </div>
               )}
               {onDelete && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <PhotoDeleteConfirm
+                  open={confirmingId === item.id}
+                  onOpen={() => setConfirmingId(item.id)}
+                  onClose={() => setConfirmingId(null)}
+                  onConfirm={() => { setConfirmingId(null); onDelete(item.id); }}
+                  buttonClassName="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                  iconClassName="h-3 w-3"
+                />
               )}
             </div>
           ))}
@@ -636,11 +733,15 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               style={{ minWidth: '100%', aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
+                // TL.GAL.2 — photos FILL the square tile (crop the overflow,
+                // centered), matching the filmstrip/grid layouts and the
+                // GalleryEditor panel's tiles. The old object-contain + black
+                // matte letterboxed every non-square photo. This is also the
+                // default framing that TL.GAL.3's per-photo zoom/pan sits on.
                 <img
                   src={item.image_url}
                   alt={item.label || 'Gallery photo'}
-                  className="w-full h-full object-contain"
-                  style={{ backgroundColor: '#000000' }}
+                  className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
@@ -649,12 +750,14 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 </div>
               )}
               {onDelete && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                  className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-red-400 hover:bg-black/80 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <PhotoDeleteConfirm
+                  open={confirmingId === item.id}
+                  onOpen={() => setConfirmingId(item.id)}
+                  onClose={() => setConfirmingId(null)}
+                  onConfirm={() => { setConfirmingId(null); onDelete(item.id); }}
+                  buttonClassName="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white/80 hover:text-red-400 hover:bg-black/80 transition-colors"
+                  iconClassName="h-4 w-4"
+                />
               )}
             </div>
           ))}
@@ -889,7 +992,6 @@ function SortablePreviewCard({
   block,
   onEdit,
   onToggle,
-  onGalleryAdd,
   onGalleryDelete,
   onItemEdit,
   onItemDelete,
@@ -901,7 +1003,6 @@ function SortablePreviewCard({
   block: BlockWithItems;
   onEdit: () => void;
   onToggle: (enabled: boolean) => void;
-  onGalleryAdd: (blockId: string) => void;
   onGalleryDelete: (itemId: string) => void;
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
@@ -983,7 +1084,7 @@ function SortablePreviewCard({
       >
         <div className="p-3">
           {block.type === 'gallery' ? (
-            <GalleryBlock block={block} theme={theme} onEdit={() => onGalleryAdd(block.id)} onDelete={onGalleryDelete} />
+            <GalleryBlock block={block} theme={theme} onEdit={onEdit} onDelete={onGalleryDelete} />
           ) : block.items.length === 0 && block.type !== 'video_feed' && block.type !== 'text' ? (
             <div className="py-6 text-center">
               <p className="text-xs text-white/75">{t(`blocks.${block.type}.subtitle`)}</p>
@@ -1246,8 +1347,6 @@ export function EditableProfileView({
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const galleryFileInputRef = useRef<HTMLInputElement>(null);
-  const [activeGalleryBlockId, setActiveGalleryBlockId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoOriginalFile, setPhotoOriginalFile] = useState<File | null>(null);
@@ -1464,56 +1563,6 @@ export function EditableProfileView({
   useEffect(() => {
     setLocalNameHandleGap(headerConfig.nameHandleGap ?? 2);
   }, [headerConfig.nameHandleGap]);
-
-  const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !activeGalleryBlockId || !user) return;
-
-    const filesToAdd = Array.from(files).slice(0, 20);
-
-    for (const file of filesToAdd) {
-      try {
-        const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
-        if (!validation.valid) {
-          toast.error(`${file.name}: ${validation.error}`);
-          continue;
-        }
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, file, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('products')
-          .getPublicUrl(fileName);
-
-        await supabase.from('block_items').insert({
-          block_id: activeGalleryBlockId,
-          label: 'Photo',
-          url: '',
-          image_url: urlData.publicUrl,
-          order_index: 999,
-        });
-      } catch (err) {
-        console.error('Upload error:', err);
-        toast.error(t('gallery.uploadFailed'));
-      }
-    }
-
-    onRefresh();
-    if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
-    setActiveGalleryBlockId(null);
-  };
-
-  const openGalleryPicker = (blockId: string) => {
-    setActiveGalleryBlockId(blockId);
-    setTimeout(() => galleryFileInputRef.current?.click(), 50);
-  };
 
   const handleGalleryDelete = async (itemId: string) => {
     // Read the URL BEFORE the delete: the row is the only pointer to the file.
@@ -3142,7 +3191,6 @@ export function EditableProfileView({
                       block={block}
                       onEdit={() => onBlockEdit(block.id)}
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
-                      onGalleryAdd={openGalleryPicker}
                       onGalleryDelete={handleGalleryDelete}
                       onItemEdit={onItemEdit}
                       onItemDelete={onItemDelete}
@@ -3195,16 +3243,6 @@ export function EditableProfileView({
           </footer>
         )}
       </div>
-
-      {/* Hidden file input for gallery instant upload */}
-      <input
-        ref={galleryFileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        multiple
-        className="hidden"
-        onChange={handleGalleryFileSelect}
-      />
 
       {/* Hidden file input for profile photo upload */}
       <input
