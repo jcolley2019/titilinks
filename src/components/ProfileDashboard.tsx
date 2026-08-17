@@ -50,7 +50,7 @@ import type { LinkItem } from '@/components/editors/LinksEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
-import { GalleryEditor } from '@/components/editors/GalleryEditor';
+import { GalleryEditor, type GalleryDraft } from '@/components/editors/GalleryEditor';
 import { CarouselEditor } from '@/components/editors/CarouselEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
@@ -119,6 +119,9 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L4): the Name & Handle hub's in-progress header edits,
    *  merged as a patch so each tab publishes only the fields it owns. Null clears. */
   onHeaderDraftChange?: (patch: HeaderDraft | null) => void;
+  /** Live-mirror channel (L6): forwarded to GalleryEditor so its whole staged
+   *  state — config, adds, removes, crops, order — reaches the preview before Save. */
+  onGalleryDraftChange?: (draft: GalleryDraft | null) => void;
   // LIVE.THEME.1 (L5): pass-through for the theme editor's draft stream.
   // Typed unknown to match this component's themeJson convention.
   onThemeDraftChange?: (draft: unknown) => void;
@@ -380,6 +383,7 @@ export function ProfileDashboard({
   onTitleDraftChange,
   onHeaderDraftChange,
   onThemeDraftChange,
+  onGalleryDraftChange,
   themeJson,
   displayName,
   bio,
@@ -1242,7 +1246,7 @@ export function ProfileDashboard({
       case 'email_subscribe':
         return <EmailSubscribeEditor {...editorProps} />;
       case 'gallery':
-        return <GalleryEditor {...editorProps} />;
+        return <GalleryEditor {...editorProps} onDraftChange={onGalleryDraftChange} />;
       case 'carousel':
         return <CarouselEditor {...editorProps} />;
       case 'bio':

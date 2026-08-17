@@ -148,6 +148,12 @@ interface EditableProfileViewProps {
   // Live-mirror (L5): the Customize Profile panel's in-progress theme. When
   // present it replaces the saved theme for the whole preview render.
   themeDraft?: ThemeJson | null;
+  // Live-mirror (L6) escape hatch: while a gallery panel is open and drafting,
+  // that panel owns its photo list — so the preview's own trash has to stage the
+  // removal there instead of deleting the row underneath it. Return true to say
+  // "the draft claimed this photo"; false/absent falls through to the DB delete
+  // below, which is what every photo outside an open draft still gets.
+  onGalleryStagedDelete?: (itemId: string) => boolean;
   stickyTop?: number | string;
 }
 
@@ -509,9 +515,11 @@ function GalleryPhoto({ src, label, styleJson }: { src: string; label: string | 
 }
 
 /**
- * TL.GAL.4 / 4b / 4c — every filmstrip tier glides 45% slower than it used to.
- * 0.75 at the first gate, 0.65 at the second, 0.55 once the speed chips were
- * actually saving and Joey could judge a tier he had really selected.
+ * TL.GAL.4 / 4b / 4c / 6 — every filmstrip tier glides 65% slower than it used
+ * to. 0.75 at the first gate, 0.65 at the second, 0.55 once the speed chips
+ * were actually saving and Joey could judge a tier he had really selected, and
+ * 0.35 hand-tuned against the live strip. Spec 43 pins this number from the
+ * other side, with a band narrow enough to reject every earlier value.
  *
  * The rate is one TILE (72% of the strip, matching the `w-[72%]` tiles) per
  * `speedMs`, so the obvious way to slow it down would be to raise the three
@@ -521,7 +529,7 @@ function GalleryPhoto({ src, label, styleJson }: { src: string; label: string | 
  * reading as arithmetic. One factor across the whole formula scales all three
  * tiers by the same amount, so fast > medium > slow comes through untouched.
  */
-const FILMSTRIP_GLIDE_SCALE = 0.55;
+const FILMSTRIP_GLIDE_SCALE = 0.35;
 
 function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void; onDelete?: (itemId: string) => void }) {
   const { t } = useLanguage();
@@ -1482,6 +1490,7 @@ export function EditableProfileView({
   onItemsReorder,
   headerDraft,
   themeDraft,
+  onGalleryStagedDelete,
   stickyTop = 0,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
@@ -1704,6 +1713,13 @@ export function EditableProfileView({
   }, [headerConfig.nameHandleGap]);
 
   const handleGalleryDelete = async (itemId: string) => {
+    // TL.GAL.6 — an open gallery panel is drafting this photo list, so the
+    // removal is staged there and committed by its Save (and undone by its
+    // Cancel). Deleting the row here instead would leave that panel saving
+    // against a row that no longer exists, and its Cancel unable to undo a
+    // file this already removed from storage.
+    if (onGalleryStagedDelete?.(itemId)) return;
+
     // Read the URL BEFORE the delete: the row is the only pointer to the file.
     const { data: doomed } = await supabase
       .from('block_items')

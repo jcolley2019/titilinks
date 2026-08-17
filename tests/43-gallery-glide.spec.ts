@@ -5,7 +5,7 @@
 // browser. This spec measures it, the way TL.GAL.1 measured it by hand:
 //
 //   1. each tier runs at one TILE (72% of the strip) per its speedMs, scaled by
-//      FILMSTRIP_GLIDE_SCALE — 45% slower than the pre-TL.GAL.4 rate;
+//      FILMSTRIP_GLIDE_SCALE — 65% slower than the pre-TL.GAL.4 rate;
 //   2. the three tiers keep their order and their spacing: fast > medium > slow;
 //   3. auto-scroll off really freezes it, rather than gliding invisibly slowly.
 //
@@ -19,7 +19,7 @@ const HANDLE = '/joeyc';
 /** The rate formula, mirrored from GalleryBlock. Kept as separate factors so a
  *  drift in any one of them fails here with a readable number. */
 const TILE_FRAC = 0.72;          // the `w-[72%]` filmstrip tile
-const GLIDE_SCALE = 0.55;        // TL.GAL.4 (0.75) → 4b (0.65) → 4c — the 45% slowdown
+const GLIDE_SCALE = 0.35;        // TL.GAL.4 (0.75) → 4b (0.65) → 4c (0.55) → 6 — the 65% slowdown
 const TIER_MS = { slow: 7000, medium: 5000, fast: 3000 } as const;
 const rateNow = (clientWidth: number, ms: number) => (clientWidth * TILE_FRAC * GLIDE_SCALE * 1000) / ms;
 const rateBefore = (clientWidth: number, ms: number) => (clientWidth * TILE_FRAC * 1000) / ms;
@@ -93,7 +93,7 @@ const measure = async (strip: Locator, ms = 2500) => strip.evaluate(async (el, w
 }, ms);
 
 test.describe('TL.GAL.4 — filmstrip glide rates', () => {
-  test('every tier runs 45% slower, keeps its order, and stops dead when auto-scroll is off', async ({ page, browser }, testInfo) => {
+  test('every tier runs 65% slower, keeps its order, and stops dead when auto-scroll is off', async ({ page, browser }, testInfo) => {
     test.slow();
     const tag = testInfo.project.name;
     await page.goto(HANDLE);
@@ -125,14 +125,15 @@ test.describe('TL.GAL.4 — filmstrip glide rates', () => {
         expect(m.moved, `${tier}: the strip is actually gliding`).toBeGreaterThan(20);
         // …at the new rate. Tolerance is for rAF sampling, not for drift: a
         // whole notch of miss would mean the scale never reached the formula.
-        expect(m.pxPerSec, `${tier}: measured rate matches the TL.GAL.4c formula`)
+        expect(m.pxPerSec, `${tier}: measured rate matches the TL.GAL.6 formula`)
           .toBeGreaterThan(want * 0.88);
         expect(m.pxPerSec).toBeLessThan(want * 1.12);
-        // …and that rate is ~0.55x what this tier used to run at. The band is
-        // deliberately narrow enough to exclude BOTH earlier gates — 0.65 and
-        // 0.75 — so a revert to either fails here instead of passing quietly.
-        expect(m.pxPerSec / was, `${tier}: ~45% slower than before TL.GAL.4`).toBeGreaterThan(0.48);
-        expect(m.pxPerSec / was).toBeLessThan(0.60);
+        // …and that rate is ~0.35x what this tier used to run at. The band is
+        // deliberately narrow enough to exclude ALL THREE earlier gates — 0.55,
+        // 0.65 and 0.75 — so a revert to any of them fails here instead of
+        // passing quietly. Its top (0.42) sits well clear of the nearest (0.55).
+        expect(m.pxPerSec / was, `${tier}: ~65% slower than before TL.GAL.4`).toBeGreaterThan(0.29);
+        expect(m.pxPerSec / was).toBeLessThan(0.42);
 
         if (tier === 'medium') {
           await strip.locator('xpath=..').screenshot({ path: `tests/screenshots/${tag}-gal4-filmstrip-medium.png` });

@@ -14,6 +14,7 @@ import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileD
 import { useApplyLayout } from '@/components/editors/gallery-shared';
 import { TPL_PRESETS, PENDING_TEMPLATE_KEY } from '@/lib/tpl-presets';
 import type { LinkItem } from '@/components/editors/LinksEditor';
+import type { GalleryDraft } from '@/components/editors/GalleryEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
@@ -86,6 +87,10 @@ export default function Editor() {
   // Live-mirror (L5): the Customize Profile panel's in-progress theme. Whole-object
   // replace on every mutation, unlike L4's per-field patches.
   const [themeDraft, setThemeDraft] = useState<FullThemeJson | null>(null);
+  // Live-mirror (L6): the gallery panel's whole staged state — config chips,
+  // staged adds (data URLs, no DB row yet), removes, crops and order. Block-scoped
+  // like L2/L3. Null means "no panel is drafting", and the preview reads DB truth.
+  const [galleryDraft, setGalleryDraft] = useState<{ blockId: string; draft: GalleryDraft } | null>(null);
 
   // ── DP.1: device-truthful preview frame ──
   // The desktop preview renders at a real device's LOGICAL CSS viewport
@@ -443,12 +448,32 @@ export default function Editor() {
     setThemeDraft(draft as FullThemeJson | null);
   }, []);
 
+  // Live-mirror (L6): pin the gallery panel's draft to the block it is editing,
+  // exactly as L2/L3 do. Null (panel unmounted) clears it.
+  const handleGalleryDraftChange = useCallback((draft: GalleryDraft | null) => {
+    setGalleryDraft(draft && editingBlock ? { blockId: editingBlock.id, draft } : null);
+  }, [editingBlock]);
+
+  // TL.GAL.6 — the preview keeps its own per-photo trash, so while a gallery
+  // panel is drafting that block the two surfaces are editing the same list.
+  // The panel wins: its state is the draft of record, and the DB write is its
+  // Save. A preview delete of a drafted photo therefore STAGES (revertible by
+  // the panel's Cancel, committed by its Save) rather than deleting the row and
+  // its storage object out from under an editor that would then save against it.
+  // Photos outside the draft — another gallery block, or no panel open — fall
+  // through to EditableProfileView's immediate delete, unchanged.
+  const handleGalleryStagedDelete = useCallback((itemId: string): boolean => {
+    if (!galleryDraft?.draft.photos.some((p) => p.id === itemId)) return false;
+    galleryDraft.draft.remove(itemId);
+    return true;
+  }, [galleryDraft]);
+
   // Merge the draft into the preview's blocks: replace the matching item by id,
   // or append it when it's a not-yet-persisted new- item. Cast bridges the
   // editor's LinkItem onto the preview's BlockItem row — preview reads only the
   // shared fields, so the missing DB columns are inert here.
   const previewBlocks = useMemo(() => {
-    if (!draftItem && !draftTitle) return allBlocks;
+    if (!draftItem && !draftTitle && !galleryDraft) return allBlocks;
     return allBlocks.map(b => {
       let nb = b;
       if (draftItem && b.id === draftItem.blockId) {
@@ -461,9 +486,28 @@ export default function Editor() {
       if (draftTitle && b.id === draftTitle.blockId) {
         nb = { ...nb, title: draftTitle.title };
       }
+      // L6: the gallery draft REPLACES the block's list rather than patching it,
+      // because it is the whole list — removes are the absence of a row, and
+      // order is the array's own order. Existing rows keep their DB columns and
+      // take the draft's image/crop; a staged add has no row yet, so it gets a
+      // synthetic one (the preview reads id/image_url/label/style_json only).
+      // block.title carries the layout/autoScroll/speed config the preview parses.
+      if (galleryDraft && b.id === galleryDraft.blockId) {
+        const byId = new Map((b.items ?? []).map(it => [it.id, it]));
+        nb = {
+          ...nb,
+          title: JSON.stringify(galleryDraft.draft.config),
+          items: galleryDraft.draft.photos.map((p, i) => ({
+            ...(byId.get(p.id) ?? { id: p.id, block_id: b.id, label: 'Photo', url: '' }),
+            image_url: p.image_url,
+            style_json: p.style_json,
+            order_index: i,
+          }) as BlockItem),
+        };
+      }
       return nb;
     });
-  }, [allBlocks, draftItem, draftTitle]);
+  }, [allBlocks, draftItem, draftTitle, galleryDraft]);
 
   // DP.2: in visitor mode the preview mirrors the public gating contract — a
   // gated tap raises the 18+ modal instead of navigating, and confirmation opens
@@ -759,6 +803,7 @@ export default function Editor() {
                 onEditVideo={handleEditVideo}
                 openPhotoRequest={photoRequestDesktop}
                 videoPosDraft={videoPosDraft}
+                onGalleryStagedDelete={handleGalleryStagedDelete}
                 onItemEdit={handleItemEdit}
                 onItemDelete={handleItemDelete}
                 onItemAdd={handleItemAdd}
@@ -789,6 +834,7 @@ export default function Editor() {
           onEditVideo={handleEditVideo}
           openPhotoRequest={photoRequestMobile}
           videoPosDraft={videoPosDraft}
+          onGalleryStagedDelete={handleGalleryStagedDelete}
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
@@ -814,6 +860,7 @@ export default function Editor() {
         onTitleDraftChange={handleTitleDraftChange}
         onHeaderDraftChange={handleHeaderDraftChange}
         onThemeDraftChange={handleThemeDraftChange}
+        onGalleryDraftChange={handleGalleryDraftChange}
         themeJson={page.theme_json}
         displayName={page.display_name ?? undefined}
         bio={page.bio ?? undefined}
