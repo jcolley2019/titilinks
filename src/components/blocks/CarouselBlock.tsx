@@ -17,6 +17,7 @@ import { platformFromUrl } from '@/lib/platform-from-url';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { ThemedBlockProps, BlockItem } from './types';
 import { gatedHref, isGated } from '@/lib/adult-gate';
+import { glidePxPerSec } from '@/lib/glide';
 
 /** The icon "from the link": platform brand glyph, or a generic link chain. */
 function DerivedIcon({ url, size, color }: { url: string | null | undefined; size: number; color?: string }) {
@@ -52,8 +53,12 @@ export function CarouselBlock({ block, onOutboundClick, theme, editMode }: Theme
   const cardFrac = cardSize === 'small' ? 0.44 : 0.78;
 
   // Seamless infinite loop when auto-scrolling 2+ cards: render the strip twice
-  // and glide continuously, wrapping by exactly one copy width. (Mirrors the
-  // GalleryBlock filmstrip so motion feels identical across the app.)
+  // and glide continuously, wrapping by exactly one copy width. Motion is
+  // identical to the GalleryBlock filmstrip — a claim TL.MOTION.1 had to make
+  // true again: this loop carried the same quantisation bug the gallery shed in
+  // TL.GAL.4, so every tier here ran at the same wrong speed while the gallery's
+  // ran at three right ones. Same float accumulator, same shared scale, one card
+  // per `speedMs` here where the gallery moves one photo.
   const loop = autoScroll && count >= 2;
   const stripItems = loop ? [...block.items, ...block.items] : block.items;
 
@@ -65,15 +70,23 @@ export function CarouselBlock({ block, onOutboundClick, theme, editMode }: Theme
     if (!el) return;
     let raf = 0;
     let last = performance.now();
+    // TL.MOTION.1 — accumulate the position in a float. Re-reading `scrollLeft`
+    // every frame (what this loop used to do) quantises the glide, because that
+    // property rounds to an integer on write: every tier collapsed to a flat
+    // 1px/frame and the speed chips did nothing. See lib/glide.
+    let pos = el.scrollLeft;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
         const oneCopy = el.scrollWidth / 2;
-        const pxPerSec = (el.clientWidth * cardFrac * 1000) / speedMs;
-        let next = el.scrollLeft + pxPerSec * dt;
-        if (next >= oneCopy) next -= oneCopy;
-        el.scrollLeft = next;
+        pos += glidePxPerSec(el.clientWidth, cardFrac, speedMs) * dt;
+        if (oneCopy > 0 && pos >= oneCopy) pos -= oneCopy;
+        el.scrollLeft = pos;
+      } else {
+        // Paused (a touch parks the glide for 8s): the visitor is driving, so
+        // take their position rather than snapping back to ours when time is up.
+        pos = el.scrollLeft;
       }
       raf = requestAnimationFrame(tick);
     };

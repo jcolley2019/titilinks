@@ -13,6 +13,7 @@ import type { BlockItem, ThemedBlockProps } from './types';
 import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { animationClass, resolveAnimation } from '@/lib/animations';
 import { gatedHref, isGated } from '@/lib/adult-gate';
+import { glidePxPerSec } from '@/lib/glide';
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -47,7 +48,8 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
   const pausedUntil = useRef(0);
   const pause = () => { pausedUntil.current = Date.now() + 8000; };
 
-  // Filmstrip seamless auto-scroll (mirrors GalleryBlock/CarouselBlock).
+  // Filmstrip seamless auto-scroll — the same glide as GalleryBlock and
+  // CarouselBlock, at the same shared scale (TL.MOTION.1; see lib/glide).
   const loop = cfg.layout === 'filmstrip' && cfg.autoScroll && count >= 2;
   const stripItems = loop ? [...block.items, ...block.items] : block.items;
   useEffect(() => {
@@ -57,15 +59,24 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
     if (!el) return;
     let raf = 0;
     let last = performance.now();
+    // TL.MOTION.1 — accumulate the position in a float. Re-reading `scrollLeft`
+    // every frame (what this loop used to do) quantises the glide, because that
+    // property rounds to an integer on write: every tier collapsed to a flat
+    // 1px/frame and the speed chips did nothing. See lib/glide.
+    let pos = el.scrollLeft;
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
       if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
         const oneCopy = el.scrollWidth / 2;
-        const pxPerSec = (el.clientWidth * 0.72 * 1000) / cfg.speedMs;
-        let next = el.scrollLeft + pxPerSec * dt;
-        if (next >= oneCopy) next -= oneCopy;
-        el.scrollLeft = next;
+        // 0.72 = the `w-[72%]` tile below.
+        pos += glidePxPerSec(el.clientWidth, 0.72, cfg.speedMs) * dt;
+        if (oneCopy > 0 && pos >= oneCopy) pos -= oneCopy;
+        el.scrollLeft = pos;
+      } else {
+        // Paused (a touch parks the glide for 8s): the visitor is driving, so
+        // take their position rather than snapping back to ours when time is up.
+        pos = el.scrollLeft;
       }
       raf = requestAnimationFrame(tick);
     };

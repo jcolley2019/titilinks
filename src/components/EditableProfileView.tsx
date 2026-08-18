@@ -90,6 +90,7 @@ import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { resolveFontFamily } from '@/lib/fonts';
 import { removePublicObject } from '@/lib/storage-cleanup';
 import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
+import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
 
@@ -514,23 +515,6 @@ function GalleryPhoto({ src, label, styleJson }: { src: string; label: string | 
   );
 }
 
-/**
- * TL.GAL.4 / 4b / 4c / 6 — every filmstrip tier glides 65% slower than it used
- * to. 0.75 at the first gate, 0.65 at the second, 0.55 once the speed chips
- * were actually saving and Joey could judge a tier he had really selected, and
- * 0.35 hand-tuned against the live strip. Spec 43 pins this number from the
- * other side, with a band narrow enough to reject every earlier value.
- *
- * The rate is one TILE (72% of the strip, matching the `w-[72%]` tiles) per
- * `speedMs`, so the obvious way to slow it down would be to raise the three
- * speedMs tiers. This factor does it instead, for two reasons: those three
- * numbers are the stored contract with GalleryEditor's slow/medium/fast chips,
- * and 0.72 has to keep meaning "one tile" or the wrap arithmetic below stops
- * reading as arithmetic. One factor across the whole formula scales all three
- * tiers by the same amount, so fast > medium > slow comes through untouched.
- */
-const FILMSTRIP_GLIDE_SCALE = 0.35;
-
 function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps, 'onOutboundClick'> & { onEdit?: () => void; onDelete?: (itemId: string) => void }) {
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -590,8 +574,8 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
       last = now;
       if (el.scrollWidth > 0 && Date.now() >= pausedUntil.current) {
         const oneCopy = el.scrollWidth / 2;
-        const pxPerSec = (el.clientWidth * 0.72 * FILMSTRIP_GLIDE_SCALE * 1000) / speedMs;
-        pos += pxPerSec * dt;
+        // 0.72 = the `w-[72%]` tile. Scale and formula: lib/glide.
+        pos += glidePxPerSec(el.clientWidth, 0.72, speedMs) * dt;
         if (oneCopy > 0 && pos >= oneCopy) pos -= oneCopy;
         el.scrollLeft = pos;
       } else {
