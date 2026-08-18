@@ -61,6 +61,7 @@ export const PLATFORM_CATALOG = [
     platforms: [
       { label: 'Twitch', placeholder: 'Twitch username' },
       { label: 'Kick', placeholder: 'Kick username' },
+      { label: 'Bigo Live', placeholder: 'Bigo Live username' },
       { label: 'Netflix', placeholder: 'Netflix link' },
       { label: 'Steam', placeholder: 'Steam profile URL' },
       { label: 'Roblox', placeholder: 'Roblox profile URL' },

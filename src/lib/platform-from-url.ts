@@ -26,6 +26,7 @@ const HOST_MAP: Array<[RegExp, string]> = [
   [/(^|\.)cash\.app$/, 'Cash App'],
   [/(^|\.)twitch\.tv$/, 'Twitch'],
   [/(^|\.)kick\.com$/, 'Kick'],
+  [/(^|\.)bigo\.tv$/, 'Bigo Live'],
   [/(^|\.)netflix\.com$/, 'Netflix'],
   [/(^|\.)(steampowered\.com|steamcommunity\.com)$/, 'Steam'],
   [/(^|\.)etsy\.com$/, 'Etsy'],

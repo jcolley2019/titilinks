@@ -73,6 +73,7 @@ const SOCIAL_URL_BUILDERS: Record<string, (h: string) => string> = {
   'Cash App': (h) => `https://cash.app/$${h.replace(/^\$/, '')}`,
   'Twitch': (h) => `https://twitch.tv/${h}`,
   'Kick': (h) => `https://kick.com/${h}`,
+  'Bigo Live': (h) => `https://www.bigo.tv/user/${h}`,
   'Substack': (h) => `https://substack.com/@${h}`,
   'Depop': (h) => `https://depop.com/${h}`,
   'Etsy': (h) => `https://etsy.com/shop/${h}`,

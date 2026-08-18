@@ -60,6 +60,7 @@ const SOCIAL_PRESETS = [
   { label: 'Snapchat' },
   { label: 'Kick' },
   { label: 'Twitch' },
+  { label: 'Bigo Live' },
   { label: 'Discord' },
   { label: 'X' },
   { label: 'Spotify' },
