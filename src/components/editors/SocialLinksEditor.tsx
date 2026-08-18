@@ -41,12 +41,15 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  Check,
+  X,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { PLATFORM_CATALOG as PLATFORM_CATEGORIES } from '@/lib/platform-catalog';
 import { isAdultPlatformLabel } from '@/lib/adult-gate';
+import { planSocialSave } from '@/lib/social-save';
 
 const MAX_ITEMS = ITEM_CAPS.social_links;
 
@@ -174,6 +177,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
+      data-testid="social-row"
       className={[
         'border rounded-lg bg-card',
         'transition-all duration-150 ease-out',
@@ -218,6 +222,7 @@ function SortableItem({ item, onUpdate, onDelete, errors }: SortableItemProps) {
           variant="ghost"
           size="icon"
           onClick={() => onDelete(item.id)}
+          data-testid="social-row-delete"
           className="h-8 w-8 text-destructive hover:text-destructive"
         >
           <Trash2 className="h-4 w-4" />
@@ -282,6 +287,50 @@ const CATEGORY_LABEL_KEY: Record<string, string> = {
   'LIFESTYLE': 'platformCategory.lifestyle',
   'ADULT (18+)': 'platformCategory.adult',
 };
+
+// TL.SOC.1 — one selectable row of the platform picker. The picker now stays
+// open across selections, so a platform already on the list has to read as
+// added: it renders checked, muted and inert rather than adding a duplicate
+// row. Shared by the search results and the expanded-category list so the two
+// can never drift apart.
+function PlatformPickerRow({
+  platform,
+  added,
+  addedLabel,
+  onAdd,
+  className,
+  hintPrefix = '',
+}: {
+  platform: { label: string; placeholder?: string };
+  added: boolean;
+  addedLabel: string;
+  onAdd: () => void;
+  className: string;
+  hintPrefix?: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={added}
+      aria-label={platform.label}
+      onClick={onAdd}
+      className={`w-full flex items-center gap-3 transition-colors text-left ${className} ${
+        added ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted/50'
+      }`}
+    >
+      <span className="w-8 flex items-center justify-center flex-shrink-0">
+        <PlatformIcon label={platform.label} size={22} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{platform.label}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {added ? addedLabel : `${hintPrefix}${platform.placeholder ?? ''}`}
+        </p>
+      </div>
+      {added && <Check className="h-4 w-4 text-[#C9A55C] flex-shrink-0" />}
+    </button>
+  );
+}
 
 export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange, iconBgStyle, onIconBgStyleChange }: SocialLinksEditorProps) {
   const { t } = useLanguage();
@@ -439,12 +488,15 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     const normalized = items.map((it) => ({ ...it, url: buildSocialUrl(it.label, it.url) }));
     if (normalized.some((it, i) => it.url !== items[i].url)) setItems(normalized);
 
-    // A platform row with no URL is an unfilled placeholder from the preset
-    // picker, not a link. Drop those from the save set instead of validating
-    // them: an untouched seeded row must never block saving the rows that are
-    // real. Rows that carry a URL are still validated as strictly as before.
-    const filled = normalized.filter((it) => it.url.trim().length > 0);
-    const skipped = normalized.length - filled.length;
+    // TL.SOC.1 — planSocialSave owns the write/delete/skip split. A platform
+    // row with no URL is an unfilled placeholder, not a link: it is neither
+    // validated (an untouched seeded row must never block saving the rows that
+    // are real) nor deleted (it renders as a plain icon — a legitimate state).
+    // The delete set comes from the FULL list, so only rows the user removed
+    // are destroyed. Rows that carry a URL are validated as strictly as before.
+    const plan = planSocialSave(normalized, existingItems.map((ei) => ei.id));
+    const filled = plan.writeIndexes.map((i) => normalized[i]);
+    const skipped = plan.skipped;
 
     if (!validate(filled)) {
       toast.error(t('socialLinksEditor.fixErrors'));
@@ -453,18 +505,17 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
     setSaving(true);
     try {
-      // Delete removed items
-      const currentIds = filled.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
-      const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
-
-      for (const item of toDelete) {
-        const { error } = await supabase.from('block_items').delete().eq('id', item.id);
+      // Delete ONLY the rows the user removed from the list (plan.deleteIds).
+      for (const id of plan.deleteIds) {
+        const { error } = await supabase.from('block_items').delete().eq('id', id);
         if (error) throw error;
       }
 
-      // Update or create items
-      for (let i = 0; i < filled.length; i++) {
-        const item = filled[i];
+      // Update or create the rows that carry a URL. order_index is the row's
+      // slot in the full on-screen list, so written rows keep their position
+      // relative to the URL-less rows left untouched above them.
+      for (const i of plan.writeIndexes) {
+        const item = normalized[i];
         const isNew = item.id.startsWith('new-');
 
         if (isNew) {
@@ -513,6 +564,11 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       setSaving(false);
     }
   };
+
+  // TL.SOC.1 — a platform already on the list is not selectable again, so
+  // repeated taps in one picker session can't mint duplicate rows. Custom
+  // Link is deliberately exempt: several distinct custom links are valid.
+  const addedLabels = new Set(items.map((it) => it.label));
 
   const innerContent = (
     <>
@@ -643,8 +699,28 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
           {showPlatformPicker && (
             <div className="mb-4 border border-border rounded-xl overflow-hidden bg-card">
+              {/* TL.SOC.1 — the picker no longer self-closes on a selection, so
+                  it carries an explicit dismiss. (The Add Platform button above
+                  still toggles it shut too.) There is no outside-click here on
+                  purpose: this is an inline accordion inside a scrolling panel,
+                  not a portaled overlay — the app has no manual outside-click
+                  handler anywhere, and one would fire on the panel's own rows. */}
+              <div className="flex items-center justify-between gap-2 px-3 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#C9A55C] truncate">
+                  {t('socialLinksEditor.addPlatform')}
+                </p>
+                <button
+                  type="button"
+                  aria-label={t('socialLinksEditor.closePicker')}
+                  onClick={() => setShowPlatformPicker(false)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 flex-shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
               {/* Search */}
-              <div className="p-3 border-b border-border">
+              <div className="px-3 pt-2 pb-3 border-b border-border">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -671,22 +747,16 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                     {PLATFORM_CATEGORIES.flatMap(c => c.platforms)
                       .filter(p => p.label.toLowerCase().includes(search.toLowerCase()))
                       .map((platform) => (
-                        <button
+                        // TL.SOC.1 — the query and the picker both survive a
+                        // selection, so several results can be added in a row.
+                        <PlatformPickerRow
                           key={platform.label}
-                          type="button"
-                          onClick={() => {
-                            addPreset(platform);
-                            setSearch('');
-                            setShowPlatformPicker(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border last:border-0 text-left"
-                        >
-                          <span className="w-8 flex items-center justify-center"><PlatformIcon label={platform.label} size={22} /></span>
-                          <div>
-                            <p className="text-sm font-medium">{platform.label}</p>
-                            <p className="text-xs text-muted-foreground">{platform.placeholder}</p>
-                          </div>
-                        </button>
+                          platform={platform}
+                          added={addedLabels.has(platform.label)}
+                          addedLabel={t('socialLinksEditor.added')}
+                          onAdd={() => addPreset(platform)}
+                          className="px-4 py-3 border-b border-border last:border-0"
+                        />
                       ))}
                     {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
                       p.label.toLowerCase().includes(search.toLowerCase())
@@ -732,24 +802,18 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                       {expandedCategory === category.label && (
                         <div className="bg-muted/20">
                           {category.platforms.map((platform) => (
-                            <button
+                            // TL.SOC.1 — neither the picker nor the expanded
+                            // category collapses on a selection, so a whole
+                            // category can be worked through in one pass.
+                            <PlatformPickerRow
                               key={platform.label}
-                              type="button"
-                              onClick={() => {
-                                addPreset(platform);
-                                setShowPlatformPicker(false);
-                                setExpandedCategory(null);
-                              }}
-                              className="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/50 transition-colors border-t border-border text-left"
-                            >
-                              <span className="w-8 flex items-center justify-center"><PlatformIcon label={platform.label} size={22} /></span>
-                              <div>
-                                <p className="text-sm font-medium">{platform.label}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  + {platform.placeholder}
-                                </p>
-                              </div>
-                            </button>
+                              platform={platform}
+                              added={addedLabels.has(platform.label)}
+                              addedLabel={t('socialLinksEditor.added')}
+                              onAdd={() => addPreset(platform)}
+                              className="px-6 py-3 border-t border-border"
+                              hintPrefix="+ "
+                            />
                           ))}
                         </div>
                       )}
@@ -762,10 +826,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
               <div className="border-t border-border">
                 <button
                   type="button"
-                  onClick={() => {
-                    addCustom();
-                    setShowPlatformPicker(false);
-                  }}
+                  onClick={addCustom}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
                 >
                   <span className="text-xl w-8 text-center">🔗</span>
