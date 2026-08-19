@@ -42,8 +42,11 @@ if (platforms.length === 0) {
 }
 
 // --- icon map (mimic PlatformIcon normalize: lowercase, strip parenthetical) ---
+// A registry entry declares either `Icon:` (monochrome path — the rule) or
+// `image:` (TL.POLISH.1d's full-color bitmap exception). Both are real marks;
+// only a platform with neither falls through to the neutral glyph.
 const norm = (s) => s.toLowerCase().replace(/\s*\(.*\)\s*/g, '').trim();
-const iconKeys = new Set([...icons.matchAll(/^\s*'([^']+)':\s*\{\s*Icon:/gm)].map(m => norm(m[1])));
+const iconKeys = new Set([...icons.matchAll(/^\s*'([^']+)':\s*\{\s*(?:Icon|image):/gm)].map(m => norm(m[1])));
 
 // --- URL detection labels (source order preserved — HOST_MAP is first-match-wins) ---
 const detectOrder = [...fromUrl.matchAll(/,\s*'([^']+)'\]/g)].map(m => m[1]);

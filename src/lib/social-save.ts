@@ -9,12 +9,19 @@
 // The rule, made explicit and pure so it can be pinned by a spec:
 //   • DELETE  ← only pre-existing rows the user removed from the editor list.
 //               Derived from the FULL row list, never from the filled subset.
-//   • WRITE   ← only rows that carry a URL (insert if new, update otherwise).
-//   • SKIP    ← rows with no URL: not written, not deleted, not touched.
+//   • WRITE   ← every row on screen (insert if new, update otherwise).
 //
-// order_index comes from each row's position in the FULL list, so a written
-// row keeps the slot the user sees it in rather than collapsing past the
-// skipped rows sitting above it.
+// TL.SOC.4 corrected the WRITE rule. It used to cover only rows carrying a
+// URL, so a freshly picked platform with no link yet was never inserted at
+// all: no row existed, nothing could render, and the toast called it
+// "skipped". That broke the promise onboarding makes — pick your platforms
+// now, add the links later — because only rows onboarding itself had written
+// survived. A URL-less row is a real saved state (TL.SOC.3 renders it as a
+// "needs a link" placeholder in the editor and hides it from visitors), so
+// the save has to be able to create one.
+//
+// order_index comes from each row's position in the FULL list, so every row
+// keeps the slot the user sees it in.
 
 /** Rows carry client-side ids; unsaved ones are prefixed by the editor. */
 const NEW_ROW_PREFIX = 'new-';
@@ -30,12 +37,16 @@ export interface SocialSaveRow {
 }
 
 export interface SocialSavePlan {
-  /** Indexes into the full row list that must be inserted/updated. */
+  /** Indexes into the full row list that must be inserted/updated — all of them. */
   writeIndexes: number[];
   /** Ids of pre-existing rows the user explicitly removed. Nothing else. */
   deleteIds: string[];
-  /** Rows with no URL — preserved untouched, and counted for the toast. */
-  skipped: number;
+  /**
+   * Rows written with no URL yet. They ARE saved; this is how many of them
+   * still need a link, which is what the save toast reports. It is not a
+   * count of anything skipped — nothing is skipped any more.
+   */
+  needsLink: number;
 }
 
 export function planSocialSave(
@@ -47,14 +58,9 @@ export function planSocialSave(
   // list is gone from `rows`, and that absence is the only delete signal.
   const kept = new Set(rows.filter((r) => !isNewRowId(r.id)).map((r) => r.id));
 
-  const writeIndexes: number[] = [];
-  rows.forEach((row, i) => {
-    if ((row.url ?? '').trim().length > 0) writeIndexes.push(i);
-  });
-
   return {
-    writeIndexes,
+    writeIndexes: rows.map((_, i) => i),
     deleteIds: existingIds.filter((id) => !kept.has(id)),
-    skipped: rows.length - writeIndexes.length,
+    needsLink: rows.filter((r) => (r.url ?? '').trim().length === 0).length,
   };
 }

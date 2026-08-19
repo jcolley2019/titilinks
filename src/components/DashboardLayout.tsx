@@ -34,6 +34,9 @@ import { supabase } from '@/integrations/supabase/client';
 interface DashboardLayoutProps {
   children: ReactNode;
   onAddContent?: () => void;
+  /** TL.SOC.4: the editor owns the View Live gesture so it can warn about
+   *  URL-less social rows first. Absent (any non-editor page) = plain open. */
+  onViewLive?: () => void;
 }
 
 interface ProfileCompletion {
@@ -105,7 +108,7 @@ const BOTTOM_NAV_PATHS = new Set([
   '/dashboard/settings',
 ]);
 
-export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps) {
+export function DashboardLayout({ children, onAddContent, onViewLive }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -418,7 +421,7 @@ export function DashboardLayout({ children, onAddContent }: DashboardLayoutProps
           )}
           {isEditorPage && pageHandle && (
             <button
-              onClick={() => window.open(`/${pageHandle}`, '_blank')}
+              onClick={onViewLive ?? (() => window.open(`/${pageHandle}`, '_blank'))}
               className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground active:scale-95 transition-transform"
             >
               {t('dashLayout.live')} ↗

@@ -1129,19 +1129,54 @@ function SocialIconsCard({
         style={{ paddingTop: 0, paddingBottom: 0 }}
       >
         <div className={cn('flex flex-wrap justify-center px-4', ICON_ROW_GAP)}>
-          {socialItems.map((item) => (
-            <a
-              key={item.id}
-              href={safeHref(item.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[localIconSize], iconBg.className)}
-              style={{ background: iconBg.background }}
-              title={item.label}
-            >
+          {socialItems.map((item) => {
+            const href = safeHref(item.url);
+            const glyph = (
               <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[localIconSize]} color={resolveGlyphColor(item.label, resolvedIconColor, iconBg.background)} />
-            </a>
-          ))}
+            );
+            // TL.SOC.3: a row with no URL yet is a legitimate saved state —
+            // onboarding writes exactly that so the creator can pick platforms
+            // before they have links. Here on the edit canvas it must stay
+            // VISIBLE (the page has to reflect the picks) but read as
+            // unfinished: dimmed behind a dashed gold ring, the house's
+            // "action needed" accent, which also survives a white icon chip
+            // where a white/30 ring would vanish. Tapping it opens Manage
+            // Platforms, where the URL field lives. The public page renders
+            // through the non-edit path, which drops these rows entirely.
+            if (!href) {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={onEditSocial}
+                  title={`${item.label} — ${t('editor.socialNeedsLink')}`}
+                  aria-label={`${item.label} — ${t('editor.socialNeedsLink')}`}
+                  data-needs-link="true"
+                  className={cn(
+                    'flex items-center justify-center rounded-full border border-dashed border-[#C9A55C]/70 opacity-60 hover:opacity-100 transition-opacity',
+                    ICON_CIRCLE_CLASS[localIconSize],
+                    iconBg.className,
+                  )}
+                  style={{ background: iconBg.background }}
+                >
+                  {glyph}
+                </button>
+              );
+            }
+            return (
+              <a
+                key={item.id}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn('flex items-center justify-center rounded-full', ICON_CIRCLE_CLASS[localIconSize], iconBg.className)}
+                style={{ background: iconBg.background }}
+                title={item.label}
+              >
+                {glyph}
+              </a>
+            );
+          })}
           {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
           <button
             type="button"
@@ -2809,8 +2844,25 @@ export function EditableProfileView({
             if (id === '__social_icons__') {
               // Each icon keeps its parent block so a click can be attributed.
               const allSocialItems = socialBlocks.flatMap(b => b.items.map(item => ({ item, block: b })));
+              // TL.SOC.3: this is the NON-edit path — the public page and the
+              // editor's Visitor toggle, which exists to tell the truth about
+              // what a visitor sees. A row with no URL yet (onboarding writes
+              // url '') used to render here as a decorative icon that goes
+              // nowhere; the edit canvas keeps showing it as a "needs a link"
+              // placeholder, but a visitor must never meet a dead icon.
+              //
+              // Presence, not validity, is the test: a malformed or unsafe URL
+              // still means the creator BELIEVES the row is linked, and hiding
+              // it would read as data loss. safeHref already renders those
+              // inert further down — that is the layer that owns bad schemes.
+              //
+              // Filtering BEFORE the label dedupe also settles a latent bug of
+              // its own: dedupe keeps the FIRST row of a label, so a leftover
+              // URL-less "Instagram" used to shadow the real linked one saved
+              // beneath it, and the page showed neither a link nor an error.
+              const linkedItems = allSocialItems.filter(({ item }) => !!(item.url ?? '').trim());
               const seenLabels = new Set<string>();
-              const dedupedItems = allSocialItems.filter(({ item }) => {
+              const dedupedItems = linkedItems.filter(({ item }) => {
                 const key = item.label.toLowerCase();
                 if (seenLabels.has(key)) return false;
                 seenLabels.add(key);

@@ -357,8 +357,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     }
   }, [open, blockId]);
 
-  const fetchItems = async () => {
-    setLoading(true);
+  /** `silent` re-reads without the loading state — a post-save re-sync must not
+   *  blank the open panel behind a spinner just to refresh ids. */
+  const fetchItems = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('block_items')
@@ -388,7 +390,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       console.error('Error fetching items:', error);
       toast.error(t('socialLinksEditor.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -470,7 +472,13 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       } else if (item.label.length > 50) {
         newErrors[item.id] = t('socialLinksEditor.labelTooLong');
         valid = false;
-      } else {
+      } else if ((item.url ?? '').trim().length > 0) {
+        // TL.SOC.4: a row with no URL yet is a legitimate saved state, so it is
+        // not a URL error — there is no URL to be wrong. It still gets label
+        // and cap checks above; only the URL rule is skipped. This is why the
+        // caller can now hand validate() the FULL list: the cap counts every
+        // row (URL-less rows persist and occupy a slot), while URL validation
+        // still applies only where the creator actually typed a destination.
         const urlError = validateUrl(item.url);
         if (urlError) {
           newErrors[item.id] = urlError;
@@ -488,17 +496,17 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
     const normalized = items.map((it) => ({ ...it, url: buildSocialUrl(it.label, it.url) }));
     if (normalized.some((it, i) => it.url !== items[i].url)) setItems(normalized);
 
-    // TL.SOC.1 — planSocialSave owns the write/delete/skip split. A platform
-    // row with no URL is an unfilled placeholder, not a link: it is neither
-    // validated (an untouched seeded row must never block saving the rows that
-    // are real) nor deleted (it renders as a plain icon — a legitimate state).
-    // The delete set comes from the FULL list, so only rows the user removed
-    // are destroyed. Rows that carry a URL are validated as strictly as before.
+    // TL.SOC.1 — planSocialSave owns the write/delete split. The delete set
+    // comes from the FULL list, so only rows the user removed are destroyed.
+    // TL.SOC.4 — EVERY row on screen is now written, including one with no URL
+    // yet: that row is the whole point of picking platforms before you have
+    // links, and it cannot render as a TL.SOC.3 placeholder if it was never
+    // inserted. validate() sees the full list too (see the URL-presence guard
+    // inside it), so the item cap counts the URL-less rows that now persist.
     const plan = planSocialSave(normalized, existingItems.map((ei) => ei.id));
-    const filled = plan.writeIndexes.map((i) => normalized[i]);
-    const skipped = plan.skipped;
+    const needsLink = plan.needsLink;
 
-    if (!validate(filled)) {
+    if (!validate(normalized)) {
       toast.error(t('socialLinksEditor.fixErrors'));
       return;
     }
@@ -511,9 +519,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         if (error) throw error;
       }
 
-      // Update or create the rows that carry a URL. order_index is the row's
-      // slot in the full on-screen list, so written rows keep their position
-      // relative to the URL-less rows left untouched above them.
+      // Update or create every row. order_index is the row's slot in the full
+      // on-screen list, so each row keeps exactly the position the creator sees
+      // it in — including the URL-less ones, which now hold their own slots
+      // instead of being collapsed past.
       for (const i of plan.writeIndexes) {
         const item = normalized[i];
         const isNew = item.id.startsWith('new-');
@@ -522,7 +531,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
           const { error } = await supabase.from('block_items').insert({
             block_id: blockId,
             label: item.label,
-            url: item.url,
+            // TL.SOC.4: '' (never null) for a row with no link yet — the shape
+            // onboarding already writes, and the one both TL.SOC.3's public
+            // filter and the editor placeholder read.
+            url: (item.url ?? '').trim(),
             subtitle: item.subtitle || null,
             badge: item.badge || null,
             image_url: item.image_url || null,
@@ -535,7 +547,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             .from('block_items')
             .update({
               label: item.label,
-              url: item.url,
+              url: (item.url ?? '').trim(),
               subtitle: item.subtitle || null,
               badge: item.badge || null,
               image_url: item.image_url || null,
@@ -548,13 +560,20 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       }
 
       toast.success(
-        skipped > 0
-          ? (skipped === 1
-              ? t('socialLinksEditor.savedSkippedOne')
-              : t('socialLinksEditor.savedSkippedMany')
-            ).replace('{count}', String(skipped))
+        needsLink > 0
+          ? (needsLink === 1
+              ? t('socialLinksEditor.savedNeedsLinkOne')
+              : t('socialLinksEditor.savedNeedsLinkMany')
+            ).replace('{count}', String(needsLink))
           : t('socialLinksEditor.saved')
       );
+      // TL.SOC.4: re-sync before handing control back. The panel STAYS open
+      // after a save (ProfileDashboard swallows the editor's close once), so
+      // without this the just-inserted rows keep their client-side 'new-' ids
+      // and a second tap on Save would insert every one of them again as a
+      // duplicate. Harmless while URL-less rows were never written; now that
+      // they are, it is the difference between one row and two.
+      await fetchItems(true);
       onSave?.();
       onOpenChange(false);
     } catch (error: any) {
@@ -578,6 +597,13 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0">
+          {/* TL.SOC.1b — ONE scroll region for the whole form. Previously only
+              the items list scrolled, so the chips + an expanded picker above
+              it could push content past the bottom of the panel with no way to
+              reach it. Everything up to the pinned Save bar now scrolls
+              together, which is what makes the lower half of a long category
+              (Bigo Live and below in ENTERTAINMENT) reachable at phone height. */}
+          <div className="flex-1 overflow-y-auto min-h-0 min-w-0">
           {/* Icon Size — global, saved to page headerConfig.iconSize */}
           <div className="mb-4">
             <label className="text-xs text-white/50 block mb-1.5">{t('socialLinksEditor.iconSize')}</label>
@@ -839,8 +865,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             </div>
           )}
 
-          {/* Items List */}
-          <div className={panelMode ? 'flex-1 overflow-y-auto px-4 min-w-0' : 'flex-1 overflow-y-auto -mx-6 px-6 min-w-0'}>
+          {/* Items List — scrolls with the rest of the form, not on its own. */}
+          <div className={panelMode ? 'px-4 min-w-0' : '-mx-6 px-6 min-w-0'}>
             {items.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -870,8 +896,10 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             )}
           </div>
 
+          </div>
+
           {/* Actions — pinned to the bottom of the panel while content scrolls. */}
-          <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
+          <div className="z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
             <Button
               type="button"
               onClick={() => onOpenChange(false)}

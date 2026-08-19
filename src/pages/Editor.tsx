@@ -627,6 +627,46 @@ export default function Editor() {
     applyPendingLayout(preset);
   }, [loading, page, currentMode, applyPendingLayout]);
 
+  // TL.SOC.4 item 5 — the "your live page hides these" notice.
+  //
+  // SURFACE: a toast on the View Live click, not a persistent banner. That is
+  // the exact moment the mismatch bites (the creator is about to go look at
+  // the public page and wonder where their icons went), it is structurally
+  // creator-only because it hangs off the editor chrome's own handler with no
+  // path that could reach a visitor, and sonner is already the house's notice
+  // channel — non-blocking and dismissible without inventing dismiss-state to
+  // persist. Anything permanent belongs in the sidebar's Profile Completion
+  // card, which is already the house's home for unfinished work.
+  //
+  // The count is what a VISITOR actually loses, not the raw number of blank
+  // rows: a platform that also has a linked row still shows publicly, so it
+  // is not hidden. Labels, because that is what the icon row dedupes on.
+  const hiddenSocialCount = useMemo(() => {
+    const socialItems = allBlocks
+      .filter((b) => b.type === 'social_links' || b.type === 'social_icon_row')
+      .flatMap((b) => b.items ?? []);
+    const linked = new Set(
+      socialItems.filter((i) => (i.url ?? '').trim()).map((i) => i.label.toLowerCase()),
+    );
+    return new Set(
+      socialItems
+        .filter((i) => !(i.url ?? '').trim())
+        .map((i) => i.label.toLowerCase())
+        .filter((label) => !linked.has(label)),
+    ).size;
+  }, [allBlocks]);
+
+  const openLive = useCallback(() => {
+    if (!page?.handle) return;
+    if (hiddenSocialCount > 0) {
+      toast(
+        t(hiddenSocialCount === 1 ? 'editor.hiddenIconsOne' : 'editor.hiddenIconsMany')
+          .replace('{count}', String(hiddenSocialCount)),
+      );
+    }
+    window.open(`/${page.handle}`, '_blank');
+  }, [hiddenSocialCount, page?.handle, t]);
+
   // ── Render ──
 
   if (loading) {
@@ -646,7 +686,10 @@ export default function Editor() {
   }
 
   return (
-    <DashboardLayout onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}>
+    <DashboardLayout
+      onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}
+      onViewLive={openLive}
+    >
       {/* ═══ DESKTOP: Blurred hero bg + phone frame ═══ */}
       <div
         className={cn(
@@ -732,7 +775,7 @@ export default function Editor() {
               {t('dashLayout.editProfile')}
             </button>
             <button
-              onClick={() => window.open(`/${page.handle}`, '_blank')}
+              onClick={openLive}
               className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
             >
               {t('editor.viewLive')} ↗

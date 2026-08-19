@@ -43,9 +43,12 @@ test.describe('social save plan (TL.SOC.1 — defect B core)', () => {
     const plan = planSocialSave(rows, ['ig', 'tt', 'yt']);
 
     expect(plan.deleteIds).toEqual([]); // ← the bug: this used to be all three
-    expect(plan.skipped).toBe(3);
-    // Only the row that carries a URL is written, at its slot in the full list.
-    expect(plan.writeIndexes).toEqual([3]);
+    // TL.SOC.4 corrected the WRITE rule: every row on screen is written, so a
+    // picked-but-unlinked platform becomes a real row instead of vanishing.
+    // `needsLink` counts the saved rows still waiting on a URL — it is what
+    // the toast reports, not a count of anything dropped.
+    expect(plan.needsLink).toBe(3);
+    expect(plan.writeIndexes).toEqual([0, 1, 2, 3]);
   });
 
   // The other half of the contract: removal still removes.
@@ -59,16 +62,17 @@ test.describe('social save plan (TL.SOC.1 — defect B core)', () => {
     );
     // 'tt' is gone from the on-screen list — that absence is the delete signal.
     expect(plan.deleteIds).toEqual(['tt']);
-    // 'yt' has no URL but is still on screen: preserved, not written.
-    expect(plan.writeIndexes).toEqual([0]);
-    expect(plan.skipped).toBe(1);
+    // 'yt' has no URL but is still on screen: saved, and counted as needing one.
+    expect(plan.writeIndexes).toEqual([0, 1]);
+    expect(plan.needsLink).toBe(1);
   });
 
   test('a URL-less row survives even when every other row is removed', () => {
     const plan = planSocialSave([{ id: 'ig', url: '  ' }], ['ig', 'tt']);
     expect(plan.deleteIds).toEqual(['tt']);
-    expect(plan.writeIndexes).toEqual([]); // whitespace is not a URL
-    expect(plan.skipped).toBe(1);
+    expect(plan.writeIndexes).toEqual([0]); // written, but…
+    expect(plan.needsLink).toBe(1);         // …whitespace is still not a URL
+
   });
 
   test('unsaved rows are never mistaken for existing ones', () => {
@@ -79,22 +83,33 @@ test.describe('social save plan (TL.SOC.1 — defect B core)', () => {
       ['ig'],
     );
     expect(plan.deleteIds).toEqual(['ig']); // 'ig' really was removed
-    expect(plan.writeIndexes).toEqual([1]);
+    expect(plan.writeIndexes).toEqual([0, 1]);
   });
 
-  test('order_index slots follow the full list, not the filled subset', () => {
-    // Two skipped rows sit above the filled one: it must write index 2, not 0,
-    // so it keeps the position the user sees it in.
+  test('order_index slots follow the on-screen order', () => {
+    // The linked row sits third: it must write index 2, not 0, so it keeps the
+    // position the user sees it in rather than collapsing above the two blanks.
     const plan = planSocialSave(
       [{ id: 'a', url: '' }, { id: 'b', url: '' }, { id: 'c', url: 'https://c.example' }],
       ['a', 'b', 'c'],
     );
-    expect(plan.writeIndexes).toEqual([2]);
+    expect(plan.writeIndexes).toEqual([0, 1, 2]);
+    expect(plan.deleteIds).toEqual([]);
+  });
+
+  // TL.SOC.4's headline. Picking a platform and saving without a link used to
+  // write NOTHING — no row existed, so nothing could ever render and the
+  // onboarding promise ("pick now, link later") only held for rows onboarding
+  // itself had written. A brand-new blank row must now be inserted.
+  test('a brand-new platform with no URL is still written', () => {
+    const plan = planSocialSave([{ id: 'new-1', url: '' }], []);
+    expect(plan.writeIndexes).toEqual([0]);
+    expect(plan.needsLink).toBe(1);
     expect(plan.deleteIds).toEqual([]);
   });
 
   test('an empty editor with nothing seeded deletes nothing', () => {
-    expect(planSocialSave([], [])).toEqual({ writeIndexes: [], deleteIds: [], skipped: 0 });
+    expect(planSocialSave([], [])).toEqual({ writeIndexes: [], deleteIds: [], needsLink: 0 });
   });
 });
 
@@ -275,7 +290,11 @@ test.describe('social save (TL.SOC.1 — defect B, live editor)', () => {
     { id: 'soc-tt', label: 'TikTok', url: 'https://www.tiktok.com/@titi' },
   ];
 
-  test('saving issues NO delete for a pre-existing row with no link', async ({ page }) => {
+  // TL.SOC.4 rewrote the WRITE half of this test, never the DELETE half. The
+  // invariant that matters — a row the user did not remove is never destroyed —
+  // is unchanged and still asserted. What changed is that the URL-less row is
+  // now WRITTEN rather than passed over, and the toast says so honestly.
+  test('a pre-existing row with no link is written, never deleted', async ({ page }) => {
     const writes = await seedEditor(page, SEEDS);
     await openPlatformsPanel(page);
 
@@ -285,17 +304,18 @@ test.describe('social save (TL.SOC.1 — defect B, live editor)', () => {
       .toContainText('No URL set');
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    // The toast says skipped...
-    await expect(page.getByText(/skipped/i).first()).toBeVisible();
-    // ...and skipped means skipped: nothing was destroyed.
+    // The toast counts what still needs a link — it never says "skipped" again.
+    await expect(page.getByText(/needs a link/i).first()).toBeVisible();
+    await expect(page.getByText(/skipped/i)).toHaveCount(0);
+    // THE INVARIANT, untouched by TL.SOC.4: nothing was destroyed.
     expect(deletes(writes)).toEqual([]);
     await page.screenshot({
       path: `tests/screenshots/${test.info().project.name}-tlsoc1-urlless-row-kept.png`,
     });
-    // The filled row was still written, so a real save really happened.
+    // The filled row was written, so a real save really happened...
     expect(writes.some((w) => w.method === 'PATCH' && w.url.includes('soc-tt'))).toBe(true);
-    // And the untouched row was not rewritten either.
-    expect(writes.some((w) => w.url.includes('soc-ig'))).toBe(false);
+    // ...and TL.SOC.4: so was the URL-less one, which used to be passed over.
+    expect(writes.some((w) => w.method === 'PATCH' && w.url.includes('soc-ig'))).toBe(true);
   });
 
   test('explicitly removing a row still deletes exactly that row', async ({ page }) => {
