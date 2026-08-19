@@ -31,19 +31,33 @@ export type SnapshotKind = 'manual' | 'auto';
 
 /** The block_item columns a snapshot carries — every column EXCEPT the identity
  *  / FK / audit fields (id, block_id, created_at, updated_at), which are
- *  re-minted on restore. Keep in sync with ITEM_SELECT below. */
+ *  re-minted on restore. Keep in sync with ITEM_SELECT below.
+ *
+ *  TL.EVNT Stage 0 — THIS INTERFACE AND `ITEM_SELECT` ARE A HAND-MAINTAINED
+ *  PAIR, AND NOTHING ENFORCES IT. No type error, no test, no guard invariant
+ *  fires when they diverge: `buildPayload` selects exactly the ITEM_SELECT
+ *  columns, spreads whatever came back into the payload, and `restoreSnapshot`
+ *  spreads the payload straight into a block_items insert. So a column missing
+ *  from ITEM_SELECT is silently dropped at CAPTURE time and silently written
+ *  back as NULL at RESTORE time — a restore is what destroys the data, long
+ *  after the snapshot that looked fine. Adding a block_items column means
+ *  adding it in BOTH places below, or the next restore quietly erases it. */
 export interface SnapshotItem {
   badge: string | null;
   bg_color: string | null;
   compare_at_price: number | null;
   cta_label: string | null;
   currency: string | null;
+  /** TL.EVNT — event end (wall-clock; see the migration's ruling note). */
+  ends_at: string | null;
   image_url: string | null;
   is_adult: boolean | null;
   label: string;
   order_index: number;
   price: number | null;
   size: string | null;
+  /** TL.EVNT — event start (wall-clock; see the migration's ruling note). */
+  starts_at: string | null;
   style_json: StyleJson;
   subtitle: string | null;
   title_color: string | null;
@@ -73,9 +87,12 @@ export interface SnapshotPayloadV1 {
 
 /** Literal select for the snapshotted block_item columns (order = SnapshotItem
  *  fields, plus block_id which is stripped when assembling the payload). A
- *  literal string keeps supabase-js type inference exact. */
+ *  literal string keeps supabase-js type inference exact.
+ *
+ *  Adding a column here without adding it to SnapshotItem above (or the other
+ *  way round) is the silent-data-loss failure documented on that interface. */
 const ITEM_SELECT =
-  'block_id, badge, bg_color, compare_at_price, cta_label, currency, image_url, is_adult, label, order_index, price, size, style_json, subtitle, title_color, url';
+  'block_id, badge, bg_color, compare_at_price, cta_label, currency, ends_at, image_url, is_adult, label, order_index, price, size, starts_at, style_json, subtitle, title_color, url';
 
 /** Ring-buffer depth for kind='auto' per page. */
 const AUTO_KEEP = 3;

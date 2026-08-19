@@ -1049,6 +1049,14 @@ export const translations: Record<Language, Record<string, string>> = {
     'blocks.gallery.subtitle': 'Photo gallery',
     'blocks.carousel.title': 'Carousel',
     'blocks.carousel.subtitle': 'Swipeable row of link cards',
+    'blocks.events.title': 'Events',
+    'blocks.events.subtitle': 'Shows, launches and appearances',
+    // TL.EVNT — card strings. Month and day names are NOT keys: they come from
+    // Intl via toLocaleDateString(language), so Spanish is correct for free.
+    'events.tickets': 'Get tickets',
+    'events.soldOut': 'Sold out',
+    'events.allDay': 'All day',
+    'events.ended': 'Ended',
     'blocks.bio.title': 'Bio',
     'blocks.bio.subtitle': 'Tell visitors about yourself',
 
@@ -2898,6 +2906,12 @@ export const translations: Record<Language, Record<string, string>> = {
     'blocks.gallery.subtitle': 'Galería de fotos',
     'blocks.carousel.title': 'Carrusel',
     'blocks.carousel.subtitle': 'Fila deslizable de tarjetas de enlace',
+    'blocks.events.title': 'Eventos',
+    'blocks.events.subtitle': 'Shows, lanzamientos y apariciones',
+    'events.tickets': 'Comprar entradas',
+    'events.soldOut': 'Agotado',
+    'events.allDay': 'Todo el día',
+    'events.ended': 'Finalizado',
     'blocks.bio.title': 'Biografía',
     'blocks.bio.subtitle': 'Cuéntales sobre ti',
 

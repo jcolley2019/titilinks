@@ -87,6 +87,7 @@ import { EmailSubscribeBlock } from '@/components/blocks/EmailSubscribeBlock';
 import { ContentSectionBlock } from '@/components/blocks/ContentSectionBlock';
 import { TextBlock } from '@/components/blocks/TextBlock';
 import { CarouselBlock } from '@/components/blocks/CarouselBlock';
+import { EventsBlock } from '@/components/blocks/EventsBlock';
 import { resolveFontFamily } from '@/lib/fonts';
 import { removePublicObject } from '@/lib/storage-cleanup';
 import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
@@ -380,6 +381,8 @@ function BlockRenderer({
       return <GalleryBlock block={block} theme={theme} onEdit={() => {}} />;
     case 'carousel':
       return <CarouselBlock {...blockProps} />;
+    case 'events':
+      return <EventsBlock {...blockProps} />;
     case 'bio':
       return <BioBlock block={block} theme={theme} />;
     default:

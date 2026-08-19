@@ -1,0 +1,33 @@
+-- TL.EVNT Stage 0 (2 of 2) — event start/end timestamps on block_items.
+--
+-- Follows 20260503201357_add_block_item_styling.sql: nullable, no defaults,
+-- readers fall back. Every other event field rides a column block_items already
+-- has (title→label, venue→subtitle, ticket link→url, ticket button→cta_label,
+-- poster→image_url), and the boolean/flag fields (all_day, sold_out, pinned)
+-- live in the existing style_json jsonb catch-all. Only the two instants
+-- genuinely needed a column, because they are what the block SORTS and FILTERS
+-- on and jsonb is the wrong home for that.
+--
+-- WALL-CLOCK RULING (Joey, Aug 2026) — READ BEFORE CHANGING THE TYPE.
+-- These are `timestamptz`, but v1 deliberately does NOT convert between zones:
+-- the time the creator types renders identically for every visitor. A 7pm book
+-- launch reads "7pm" whether the visitor is in Miami or Los Angeles. The app
+-- writes and reads the same wall-clock, so the stored offset is incidental.
+--
+-- The upgrade path (render in the EVENT's timezone, showing the abbreviation)
+-- is a DATA MIGRATION, NOT A TOGGLE. Turning it on means: adding an IANA zone
+-- per event (style_json.tz), then rewriting every existing row's instant from
+-- "the wall-clock we stored" to "that wall-clock IN that zone" — a value change,
+-- not a display change. Every row written before the zone field exists has no
+-- recoverable zone, so it can only be assumed. Do not flip the render layer and
+-- assume the data follows.
+--
+-- Columns:
+--   starts_at  timestamptz — event start. All-day events store midnight and set
+--                            style_json.all_day; readers suppress the time.
+--   ends_at    timestamptz — event end. NULL is common (most one-off events have
+--                            no stated end); the public auto-hide rule then
+--                            falls back to starts_at + 24h.
+ALTER TABLE public.block_items
+  ADD COLUMN IF NOT EXISTS starts_at timestamptz,
+  ADD COLUMN IF NOT EXISTS ends_at   timestamptz;

@@ -62,6 +62,10 @@ export const ITEM_CAPS = {
   product_catalog: 24,
   gallery: 20,
   video_feed: 12,
+  // TL.EVNT — matches the gallery cap. An events list is read top-to-bottom on
+  // a phone, and past events auto-hide on the public page, so the live count is
+  // always well under this; the cap exists to bound the block, not to ration it.
+  events: 20,
   text: 1,
 } as const;
 

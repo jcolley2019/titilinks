@@ -250,8 +250,10 @@ const sections: DashboardSection[] = [
         icon: <Calendar className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.createEvent',
         subtitleKey: 'dashboard.createEventDesc',
-        blockType: null,
-        toastKey: 'dashboard.comingSoon',
+        // TL.EVNT Stage 1 — the coming-soon toast is retired: this row now
+        // resolves/creates the real events block. The editor PANEL is Stage 2,
+        // so the slide-in it opens is still empty by design.
+        blockType: 'events',
       },
       {
         icon: <FileText className="h-6 w-6 text-white" />,

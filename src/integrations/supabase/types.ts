@@ -69,6 +69,7 @@ export type Database = {
           created_at: string
           cta_label: string | null
           currency: string | null
+          ends_at: string | null
           id: string
           image_url: string | null
           is_adult: boolean | null
@@ -76,6 +77,7 @@ export type Database = {
           order_index: number
           price: number | null
           size: string | null
+          starts_at: string | null
           style_json: Json | null
           subtitle: string | null
           title_color: string | null
@@ -90,6 +92,7 @@ export type Database = {
           created_at?: string
           cta_label?: string | null
           currency?: string | null
+          ends_at?: string | null
           id?: string
           image_url?: string | null
           is_adult?: boolean | null
@@ -97,6 +100,7 @@ export type Database = {
           order_index?: number
           price?: number | null
           size?: string | null
+          starts_at?: string | null
           style_json?: Json | null
           subtitle?: string | null
           title_color?: string | null
@@ -111,6 +115,7 @@ export type Database = {
           created_at?: string
           cta_label?: string | null
           currency?: string | null
+          ends_at?: string | null
           id?: string
           image_url?: string | null
           is_adult?: boolean | null
@@ -118,6 +123,7 @@ export type Database = {
           order_index?: number
           price?: number | null
           size?: string | null
+          starts_at?: string | null
           style_json?: Json | null
           subtitle?: string | null
           title_color?: string | null
@@ -655,6 +661,7 @@ export type Database = {
         | "video_feed"
         | "text"
         | "carousel"
+        | "events"
       event_type: "page_view" | "outbound_click" | "mode_routed"
       mode_type: "page1" | "page2"
     }
@@ -802,6 +809,7 @@ export const Constants = {
         "video_feed",
         "text",
         "carousel",
+        "events",
       ],
       event_type: ["page_view", "outbound_click", "mode_routed"],
       mode_type: ["page1", "page2"],
