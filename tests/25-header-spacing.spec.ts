@@ -14,8 +14,13 @@
 // computed px changes and the assertions go red.
 //
 // The editor spec drives the real hub sliders and asserts the LIVE draft moves
-// the edit canvas before Save, then saves, reloads, and restores the defaults
-// (leaving the shared test account as it found it).
+// the edit canvas before Save, then saves and reloads. It reads the account's
+// stored value first and puts that same value back afterwards — never a
+// hardcoded one. TL.SPEC.25.FIX: this test used to assert a -2px baseline
+// against the shared account, so the first time a human actually moved the
+// slider (to -3) the spec went red over correct data. The slider's whole point
+// is that any value in range is legitimate; what the spec owns is the
+// RELATIONSHIP between the stored number and the rendered px.
 
 import { test, expect } from '@playwright/test';
 import { translations } from '../src/hooks/useLanguage';
@@ -146,36 +151,76 @@ const saveHub = async (page: import('@playwright/test').Page) => {
   await page.waitForTimeout(600); // let the PATCH + refetch settle
 };
 
+// Drive the slider to an exact value by keyboard — the same onChange a drag
+// fires. It reads where the slider currently sits instead of assuming, which is
+// what makes every caller independent of the account: step is 1, so the
+// distance IS the press count.
+const setNameHandle = async (page: import('@playwright/test').Page, target: number) => {
+  const slider = nameHandleSlider(page);
+  const from = Number(await slider.inputValue());
+  await slider.focus();
+  const key = target > from ? 'ArrowRight' : 'ArrowLeft';
+  for (let i = 0; i < Math.abs(target - from); i++) await page.keyboard.press(key);
+  await expect(slider).toHaveValue(String(target));
+};
+
 test.describe('header spacing — hub sliders', () => {
   test('dragging live-updates the edit canvas, Save persists, reload renders', async ({ page }) => {
     await openHub(page);
 
-    // Baseline: the canvas handle gap is the default.
-    await expect(canvasHandle(page)).toHaveCSS('margin-top', '-2px');
+    // Whatever this account happens to hold is the baseline — it is the
+    // creator's own choice, not a constant. Everything below is expressed
+    // against it, and it goes back untouched at the end.
+    const original = Number(await nameHandleSlider(page).inputValue());
+    expect(
+      Number.isInteger(original),
+      'the slider must report an integer; a fractional stored value would break the arrow-key arithmetic below',
+    ).toBe(true);
 
-    // Drive the slider from -2 to 2 by keyboard (fires the same onChange a drag
-    // does). The canvas must follow BEFORE any save — that is the L4 draft.
-    const slider = nameHandleSlider(page);
-    await slider.focus();
-    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
-    await expect(slider).toHaveValue('2');
-    await expect(canvasHandle(page)).toHaveCSS('margin-top', '2px');
+    // A probe inside the slider's own -6..12 range that is never the value
+    // already stored — otherwise "the canvas followed the slider" could pass
+    // with nothing having moved.
+    const probe = original === 2 ? -4 : 2;
 
-    // Save, then reload cold: the persisted value must render with no draft.
-    await saveHub(page);
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-    await expect(canvasHandle(page)).toHaveCSS('margin-top', '2px');
+    // Only a save dirties the account, so only a save obliges a restore. The
+    // flag is set BEFORE the click: a save that half-lands must still restore.
+    let dirtied = false;
+    let bodyFailed = false;
+    try {
+      // The canvas renders the STORED gap, whatever it is.
+      await expect(canvasHandle(page)).toHaveCSS('margin-top', `${original}px`);
 
-    // Restore the default so the shared account leaves this spec as it entered.
-    await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
-    await page.getByText('Name & Handle', { exact: false }).filter({ visible: true }).first().click();
-    const restore = nameHandleSlider(page);
-    await restore.focus();
-    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
-    await expect(restore).toHaveValue('-2');
-    await saveHub(page);
-    await expect(canvasHandle(page)).toHaveCSS('margin-top', '-2px');
+      // Drive the slider to the probe. The canvas must follow BEFORE any save —
+      // that is the L4 draft.
+      await setNameHandle(page, probe);
+      await expect(canvasHandle(page)).toHaveCSS('margin-top', `${probe}px`);
+
+      // Save, then reload cold: the persisted value must render with no draft.
+      dirtied = true;
+      await saveHub(page);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await expect(canvasHandle(page)).toHaveCSS('margin-top', `${probe}px`);
+    } catch (err) {
+      bodyFailed = true;
+      throw err;
+    } finally {
+      // Leave the shared account exactly as found. Save is disabled unless the
+      // hub is dirty, so a restore is attempted only when something was written.
+      if (dirtied) {
+        try {
+          await openHub(page);
+          await setNameHandle(page, original);
+          await saveHub(page);
+          await expect(canvasHandle(page)).toHaveCSS('margin-top', `${original}px`);
+        } catch (restoreErr) {
+          // A failed restore must never mask the real failure — but if the body
+          // passed, an account left on the probe value IS the failure to report.
+          if (!bodyFailed) throw restoreErr;
+          console.error(`[25-header-spacing] could not restore nameHandle=${original}:`, restoreErr);
+        }
+      }
+    }
   });
 });
 
