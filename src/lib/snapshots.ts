@@ -18,6 +18,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { getEntitlements } from '@/lib/entitlements';
+import { dedupeSingletonBlocks } from '@/lib/default-blocks';
 import { getThemeWithDefaults } from '@/lib/theme-defaults';
 
 type ModeType = Database['public']['Enums']['mode_type'];
@@ -363,7 +364,12 @@ export async function restoreSnapshot(snapshotId: string, autoName = 'Before res
       if (umErr) throw umErr;
     }
 
-    for (const block of mode.blocks) {
+    // TL.BLOCK.1: a snapshot captured before the singleton index existed can
+    // carry duplicate blocks. Every block on the page has ALREADY been deleted
+    // above, so a 23505 here would abort the restore with the page emptied —
+    // and the safety-net snapshot carries the same duplicates. Filter, don't
+    // trust. See dedupeSingletonBlocks.
+    for (const block of dedupeSingletonBlocks(mode.blocks)) {
       const { data: newBlock, error: nbErr } = await supabase
         .from('blocks')
         .insert({

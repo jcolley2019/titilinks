@@ -164,6 +164,26 @@ const TYPO_TABS: { key: TypoTab; labelKey: string }[] = [
 // beside it keeps the full value.
 const swatchHex = (v: string) => (/^#[0-9a-f]{6}/i.test(v) ? v.slice(0, 7) : '#ffffff');
 
+/**
+ * TL.BLOCK.1 — pick which of several same-type blocks the editor should open.
+ * `ids` arrives OLDEST FIRST, and the reduce below only moves the winner on a
+ * strictly greater item count, so ties resolve to the oldest row — the one the
+ * page has been rendering all along. A failed item read degrades to that same
+ * oldest row rather than to an error, because the caller's whole job here is to
+ * get a panel open.
+ */
+async function pickPopulatedBlock(ids: string[]): Promise<string> {
+  const { data, error } = await supabase
+    .from('block_items')
+    .select('block_id')
+    .in('block_id', ids);
+  if (error || !data) return ids[0];
+
+  const counts = new Map<string, number>();
+  for (const row of data) counts.set(row.block_id, (counts.get(row.block_id) ?? 0) + 1);
+  return ids.reduce((best, id) => ((counts.get(id) ?? 0) > (counts.get(best) ?? 0) ? id : best), ids[0]);
+}
+
 interface DashboardRow {
   icon: React.ReactNode;
   titleKey: string;
@@ -975,6 +995,16 @@ export function ProfileDashboard({
    * Find the mode's block of a given type, creating it if this page has never
    * had one. Shared by the section rows and by the AIS.0b checklist routes so
    * both entries resolve a block the exact same way.
+   *
+   * TL.BLOCK.1: this used to be `.maybeSingle()`, which THROWS PGRST116 the
+   * moment a mode holds two blocks of a type — turning a duplicate row into a
+   * panel that will not open at all ("Failed to open"). Two ways to get there:
+   * the duplicate-seeding race this task fixes, and `text`, which is legitimately
+   * many-per-mode (TextBlocksPanel's Add) and so hit this on any page with a
+   * second text box. Never throw on multiplicity again — read them all and pick
+   * a deterministic winner: the copy that has content, else the oldest. The DB
+   * index keeps new duplicates from appearing; this keeps the ones already out
+   * there from wedging the editor.
    */
   const resolveBlockId = async (
     blockType: NonNullable<DashboardRow['blockType']>,
@@ -982,15 +1012,17 @@ export function ProfileDashboard({
   ): Promise<string | null> => {
     if (!modeId) return null;
 
-    const { data: block, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('blocks')
       .select('id')
       .eq('mode_id', modeId)
       .eq('type', blockType)
-      .maybeSingle();
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
-    if (block) return block.id;
+    const blocks = rows ?? [];
+    if (blocks.length === 1) return blocks[0].id;
+    if (blocks.length > 1) return pickPopulatedBlock(blocks.map((b) => b.id));
 
     const { data: newBlock, error: insertError } = await supabase
       .from('blocks')
@@ -1004,7 +1036,25 @@ export function ProfileDashboard({
       .select('id')
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      // TL.BLOCK.1: once the singleton index is live, a concurrent create for
+      // this same (mode, type) — a double-tap, or a section row racing the
+      // AIS.0b checklist — loses with 23505. The block now exists, so re-read
+      // and open it rather than throwing the panel shut (the exact failure this
+      // task exists to remove). Any other error still surfaces.
+      if ((insertError as { code?: string }).code === '23505') {
+        const { data: raced } = await supabase
+          .from('blocks')
+          .select('id')
+          .eq('mode_id', modeId)
+          .eq('type', blockType)
+          .order('created_at', { ascending: true });
+        const racedRows = raced ?? [];
+        if (racedRows.length === 1) return racedRows[0].id;
+        if (racedRows.length > 1) return pickPopulatedBlock(racedRows.map((b) => b.id));
+      }
+      throw insertError;
+    }
     onRefresh();
     return newBlock.id;
   };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
+import { ensureDefaultBlocks } from '@/lib/default-blocks';
 import type { HeroFraming } from '@/lib/hero-framing';
 import { Loader2, Eye, Pencil } from 'lucide-react';
 import { AdultGateModal } from '@/components/AdultGateModal';
@@ -158,11 +159,18 @@ export default function Editor() {
 
     const targetBlockType = theme.linkLayout === 'gallery' ? 'product_cards' : 'links';
 
+    // TL.BLOCK.1: `.limit(1)` before `.maybeSingle()`. This is the same
+    // one-row-per-(mode,type) assumption that broke resolveBlockId — bare
+    // maybeSingle throws PGRST116 on a duplicate. Here the error was swallowed
+    // (only `data` is destructured), so the prefill silently did nothing on a
+    // page carrying duplicates. Take the first row instead.
     const { data: targetBlock } = await supabase
       .from('blocks')
       .select('id')
       .eq('mode_id', shopMode.id)
       .eq('type', targetBlockType)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!targetBlock) return;
@@ -219,31 +227,11 @@ export default function Editor() {
     }
   };
 
-  // Default block types every mode should have
-  const DEFAULT_BLOCK_TYPES = [
-    { type: 'primary_cta', title: 'Primary CTA' },
-    { type: 'product_cards', title: 'Products' },
-    { type: 'social_links', title: 'Social Links' },
-    { type: 'links', title: 'Links' },
-    { type: 'gallery', title: 'Gallery' },
-  ] as const;
-
-  const ensureDefaultBlocks = async (modeId: string, existingTypes: string[]) => {
-    const missing = DEFAULT_BLOCK_TYPES.filter((d) => !existingTypes.includes(d.type));
-    if (missing.length === 0) return false;
-
-    const maxOrder = existingTypes.length;
-    const inserts = missing.map((d, i) => ({
-      mode_id: modeId,
-      type: d.type as any,
-      title: d.title,
-      is_enabled: true,
-      order_index: maxOrder + i,
-    }));
-
-    await supabase.from('blocks').insert(inserts);
-    return true;
-  };
+  // TL.BLOCK.1: the default-block seed moved to src/lib/default-blocks.ts. It
+  // used to live here as a read-then-blind-INSERT with no lock, and this
+  // component calls it from `fetchBlocks` on every refresh — two overlapping
+  // fetches for one mode both seeded, minting duplicate blocks. The engine is
+  // now idempotent, serialized per mode, and refuses to seed off an empty read.
 
   // Re-fetch the page row only (no modes / placeholder side-effects).
   // Used after photo saves so `page.avatar_original_url` stays in sync.
@@ -299,9 +287,10 @@ export default function Editor() {
 
       let blocks = blocksData || [];
 
-      // Auto-create missing default blocks for existing users
-      const existingTypes = blocks.map((b) => b.type);
-      const created = await ensureDefaultBlocks(mode.id, existingTypes);
+      // Auto-create missing default blocks for existing users. The engine
+      // re-reads authoritatively behind its own per-mode lock, so `blocks`
+      // above is only the render payload — it is not what the seed decides on.
+      const created = await ensureDefaultBlocks(mode.id);
       if (created) {
         const { data: refreshed } = await supabase
           .from('blocks')

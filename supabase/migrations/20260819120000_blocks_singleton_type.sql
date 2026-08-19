@@ -1,0 +1,41 @@
+-- TL.BLOCK.1 — the DB floor under the default-block seeder.
+--
+-- APPLY BY HAND in the Supabase web SQL editor against the PROD project
+-- (ref ohmvlypcbrfkuudcuqub). This repo file is a MIRROR — do NOT
+-- `supabase db push` (config.toml points at an orphan project).
+--
+-- WHAT WENT WRONG
+-- `ensureDefaultBlocks` (formerly inline in src/pages/Editor.tsx) read a mode's
+-- blocks, diffed them against the five defaults, and INSERTED the difference —
+-- with no lock and, crucially, nothing at the DB level to say "one of each per
+-- mode". It is called unconditionally from `fetchBlocks`, which fires on every
+-- refresh. Two overlapping fetches both saw the same four missing defaults and
+-- both inserted them. One live page ended up with 32 duplicate empty blocks, in
+-- 8 batches of 4 with twin creation timestamps 5–15ms apart. The duplicates then
+-- broke the editor outright: `resolveBlockId` used `.maybeSingle()`, which
+-- throws PGRST116 on two rows, so tapping a section row failed to open a panel.
+--
+-- The app-side fix (per-mode serialization, an authoritative read inside the
+-- lock, no seeding off an empty read) removes the trigger this app knows about.
+-- This index removes the possibility. It is the layer that still holds when the
+-- race comes from two TABS, two devices, or a path nobody has written yet.
+--
+-- THE PREDICATE
+-- Every block-creating path was audited (onboarding preset seed, ensureSecondPage,
+-- applyPreset, applyTplPreset, restoreSnapshot, SuggestLinksDialog,
+-- resolveBlockId): all of them create at most ONE block per type per mode, and
+-- no preset composition repeats a type. `text` is the sole legitimate
+-- many-per-mode type — TextBlocksPanel's "Add" mints an unbounded number, each
+-- its own text box on the page. Hence the partial index.
+--
+-- KEEP IN SYNC with MANY_PER_MODE_TYPES in src/lib/default-blocks.ts. If another
+-- type ever becomes many-per-mode, both the set and this predicate must change,
+-- or the second row will be rejected at runtime with 23505.
+--
+-- RUN THE PREFLIGHT FIRST (see docs/TL.BLOCK.1-sql.md). CREATE UNIQUE INDEX
+-- fails outright if ANY mode in the database already holds two blocks of one
+-- non-text type, and the failure names only the first conflict it hits.
+
+create unique index if not exists blocks_mode_type_singleton_uidx
+  on public.blocks (mode_id, type)
+  where type <> 'text';

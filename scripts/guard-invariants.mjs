@@ -31,6 +31,15 @@ const checks = [
   { name:'HERO-ONE-RESOLVER', file:'components/EditableProfileView.tsx',
     needs:[/resolveHeroMediaStyle\(/, /data-hero-framing=/],
     absent:[/objectFit:\s*'cover'/] },
+  // TL.BLOCK.1: the default-block seed has exactly ONE home. It lived inline in
+  // Editor.tsx as a read-then-blind-INSERT called from fetchBlocks, and two
+  // overlapping fetches minted duplicate blocks (32 on one live page), which
+  // then wedged every panel shut. The engine in lib/default-blocks.ts is
+  // serialized per mode and refuses to seed off an empty read; an inline
+  // `blocks` INSERT reappearing here is that whole defect growing back.
+  { name:'BLOCK-SEED-ONE-HOME', file:'pages/Editor.tsx',
+    needs:[/ensureDefaultBlocks\(mode\.id\)/, /from '@\/lib\/default-blocks'/],
+    absent:[/from\('blocks'\)\s*\n?\s*\.insert/] },
   // ES-SWEEP.1 Task 3: en/es dictionary parity — the 9th invariant. A Spanish
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.
