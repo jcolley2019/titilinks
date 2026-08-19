@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { screenshotPage } from './helpers/auth';
 
 // The editor is a WYSIWYG live-preview shell (EditableProfileView) with a
 // slide-in ProfileDashboard opened via the gold "Edit Profile" pill. The former
@@ -12,6 +11,15 @@ import { screenshotPage } from './helpers/auth';
 // are scoped to the chrome visible at each width — the "Edit Profile" pill lives
 // in the desktop top bar AND the mobile header (both in the DOM), so we filter to
 // the single one that is visible at the current viewport.
+//
+// TL.SPEC.01.FIX: these tests used to open with a fullPage screenshotPage()
+// capture. Nobody ever read those files, and on the mobile project they FAILED
+// the tests outright: the editor page is ~11,238 CSS px tall and iPhone DPR 3
+// puts it at ~33,714 device px, past Chrome's 32,767 screenshot cap (the cap is
+// in DEVICE pixels, so the real mobile ceiling is ~10,922 CSS px). The
+// assertions below are unchanged — only the unread captures are gone.
+// Screenshots a task deliberately takes for a visual gate are a different
+// thing and stay.
 
 test.describe('Editor', () => {
   test.beforeEach(async ({ page }) => {
@@ -20,7 +28,6 @@ test.describe('Editor', () => {
   });
 
   test('authenticated editor shell loads with Edit Profile pill', async ({ page }) => {
-    await screenshotPage(page, 'editor-shell');
     // A valid session keeps us on the editor rather than bouncing to /login.
     await expect(page).toHaveURL(/\/dashboard\/editor$/);
     await expect(
@@ -39,7 +46,6 @@ test.describe('Editor', () => {
     await expect(
       page.getByRole('heading', { name: /add content/i }).filter({ visible: true }).first()
     ).toBeVisible();
-    await screenshotPage(page, 'editor-add-content');
   });
 
   test('Edit Profile exposes the Name & Handle profile section', async ({ page }) => {
@@ -53,6 +59,5 @@ test.describe('Editor', () => {
     await expect(
       page.getByText('Name & Handle', { exact: false }).filter({ visible: true }).first()
     ).toBeVisible();
-    await screenshotPage(page, 'editor-profile-section');
   });
 });
