@@ -15,8 +15,10 @@
 // position on Save, but the card sorts by date itself, so it is inert for now
 // (reorder is Stage 4).
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { randomUUID } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
   DialogContent,
@@ -27,15 +29,20 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, Calendar, Plus, Trash2, Pin, MapPin } from 'lucide-react';
+import { Loader2, Calendar, Plus, Trash2, Pin, MapPin, ImagePlus } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
-import { ITEM_CAPS } from '@/lib/validation';
+import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
+import { removePublicObject } from '@/lib/storage-cleanup';
+import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from '@/lib/gallery-framing';
+import { PhotoCropSheet } from './PhotoCropSheet';
 import {
+  EVENT_POSTER_ASPECT,
   composeEventSubtitle,
   composeStartsAt,
   decomposeEventLocation,
   decomposeStartsAt,
+  eventHasContent,
   eventStyleOf,
   hasEnded,
   nowWallClockKey,
@@ -59,6 +66,14 @@ interface EventDraft {
   ctaLabel: string;
   soldOut: boolean;
   pinned: boolean;
+  /** TL.EVNT Stage 3a — the poster, staged the GalleryEditor way: `posterUrl`
+   *  is the SAVED public URL ('' = none), a freshly picked file rides in
+   *  `posterFile` + `posterPreview` (data URL) and only reaches storage on
+   *  Save. Cancel drops the staged pair; the old-file cleanup diff runs against
+   *  `existingItems` at save time, so clearing this draft deletes nothing. */
+  posterUrl: string;
+  posterFile?: File;
+  posterPreview?: string;
   /** Carried through untouched — no end-time field until the Stage 3 archive
    *  lifecycle; hasEnded still needs the stored value for the greyed tag. */
   ends_at: string | null;
@@ -109,11 +124,17 @@ function draftEnded(ev: EventDraft, nowKey: number): boolean {
 
 export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }: EventsEditorProps) {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [events, setEvents] = useState<EventDraft[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // One ref is enough: the file input renders only inside the SELECTED row's
+  // form, and exactly one row is open at a time.
+  const posterInputRef = useRef<HTMLInputElement>(null);
+  // TL.EVNT Stage 3a.3 — which event's poster the framing sheet is open on.
+  const [cropTargetId, setCropTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) fetchEvents();
@@ -156,6 +177,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
             ctaLabel: item.cta_label || '',
             soldOut: !!flags.sold_out,
             pinned: !!flags.pinned,
+            posterUrl: item.image_url || '',
             ends_at: item.ends_at,
             style_json: (item.style_json as Record<string, any> | null) ?? null,
           };
@@ -177,7 +199,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
     const id = `new-${Date.now()}-${Math.random()}`;
     // New events go to the top, right under the Add button, form open.
     setEvents((prev) => [
-      { id, title: '', date: '', time: '', allDay: false, venue: '', city: '', url: '', ctaLabel: '', soldOut: false, pinned: false, ends_at: null, style_json: null },
+      { id, title: '', date: '', time: '', allDay: false, venue: '', city: '', url: '', ctaLabel: '', soldOut: false, pinned: false, posterUrl: '', ends_at: null, style_json: null },
       ...prev,
     ]);
     setSelectedId(id);
@@ -195,14 +217,62 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
     if (selectedId === id) setSelectedId(null);
   };
 
+  /** style_json minus the poster framing. A crop belongs to the IMAGE it was
+   *  chosen on (the PhotoCropSheet isSuggested note): applied to a different
+   *  poster it would mis-frame it, so any pick/remove strips it. */
+  const stripCrop = (style: Record<string, any> | null): Record<string, any> | null => {
+    if (!style || !('crop' in style)) return style;
+    const { crop: _crop, ...rest } = style;
+    return Object.keys(rest).length ? rest : null;
+  };
+
+  /** Stage a picked poster file — validation now, storage only on Save. */
+  const handlePosterPick = (id: string, file: File | null | undefined) => {
+    if (!file) return;
+    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEvents((prev) => prev.map((ev) => ev.id === id
+        ? { ...ev, posterFile: file, posterPreview: reader.result as string, style_json: stripCrop(ev.style_json) }
+        : ev));
+    };
+    reader.readAsDataURL(file);
+    if (posterInputRef.current) posterInputRef.current.value = '';
+  };
+
+  /** TL.EVNT Stage 3a.3 — stage the framing sheet's result. Additive merge on
+   *  the row's WHOLE style_json (the Gallery precedent): null deletes the key,
+   *  everything another feature owns survives. Staged only — Save commits. */
+  const stagePosterCrop = (id: string, crop: GalleryCrop | null) => {
+    setEvents((prev) => prev.map((ev) => {
+      if (ev.id !== id) return ev;
+      if (crop === null) return { ...ev, style_json: stripCrop(ev.style_json) };
+      return { ...ev, style_json: { ...(ev.style_json || {}), crop } };
+    }));
+  };
+
+  /** Upload to the products bucket under the events/ prefix. The first path
+   *  segment must stay the user id — that folder IS the bucket's RLS check. */
+  const uploadPoster = async (file: File): Promise<string> => {
+    if (!user) throw new Error('Not authenticated');
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/events/${randomUUID()}.${fileExt}`;
+    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from('products').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   const handleSave = async () => {
     // Prune only rows that are COMPLETELY empty (an abandoned "Add event") —
-    // anything the creator typed persists verbatim, even title-less. Silently
-    // dropping part-filled rows on Save is the exact SocialLinksEditor trap
-    // TL.SOC.4 had to fix; never reintroduce it.
-    const kept = events.filter(
-      (ev) => ev.title.trim() || ev.date || ev.venue.trim() || ev.city.trim() || ev.url.trim() || ev.ctaLabel.trim(),
-    );
+    // anything the creator typed persists verbatim, even title-less. The
+    // predicate lives in event-fields.ts (unit-tested); a poster alone is
+    // content too.
+    const kept = events.filter((ev) => eventHasContent(ev, !!(ev.posterUrl || ev.posterFile)));
     setSaving(true);
     try {
       // Delete removed items.
@@ -211,11 +281,19 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
       for (const item of toDelete) {
         const { error } = await supabase.from('block_items').delete().eq('id', item.id);
         if (error) throw error;
+        // STOR.4: row gone on the creator's explicit Save, so drop its poster
+        // file too — user-intent only, best-effort, never blocks the save.
+        // Snapshots may still hold the URL (the gallery precedent): a restore
+        // shows a broken poster rather than resurrecting a deleted file.
+        removePublicObject('products', item.image_url);
       }
 
       // Upsert kept items in display order.
       for (let i = 0; i < kept.length; i++) {
         const ev = kept[i];
+
+        // Staged poster reaches storage only here — the GalleryEditor pattern.
+        const posterUrl = ev.posterFile ? await uploadPoster(ev.posterFile) : ev.posterUrl;
 
         // A dated event with no typed time IS all-day on the card (the only
         // honest render of "no time given"), so the flag converges to match.
@@ -241,6 +319,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
           subtitle: composeEventSubtitle(ev.venue, ev.city),
           cta_label: ev.ctaLabel.trim() || null,
           starts_at: composeStartsAt(ev.date, ev.time, allDay),
+          image_url: posterUrl || null,
           order_index: i,
           style_json: Object.keys(style).length ? style : null,
           // ends_at deliberately absent: this editor has no end field yet
@@ -253,6 +332,13 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
         } else {
           const { error } = await supabase.from('block_items').update(fields).eq('id', ev.id);
           if (error) throw error;
+          // Poster replaced or removed and the row write committed: drop the
+          // superseded file (STOR.4 — user intent, best-effort). Diffed against
+          // the FETCHED row, not the draft, so Cancel paths never get here.
+          const prev = existingItems.find((ei) => ei.id === ev.id);
+          if (prev?.image_url && prev.image_url !== (posterUrl || null)) {
+            removePublicObject('products', prev.image_url);
+          }
         }
       }
 
@@ -286,6 +372,12 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
   };
 
   const nowKey = nowWallClockKey();
+
+  // TL.EVNT Stage 3a.3 — the framing sheet's target draft. Seeded from the
+  // STAGED style_json through the same resolveGalleryCrop the render uses, so
+  // reopening the sheet lands on exactly the window the thumb is painting.
+  const cropTarget = cropTargetId ? events.find((ev) => ev.id === cropTargetId) : undefined;
+  const cropSrc = cropTarget ? cropTarget.posterPreview || cropTarget.posterUrl : '';
 
   const innerContent = (
     <>
@@ -378,6 +470,86 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
                             placeholder={t('eventsEditor.eventTitlePlaceholder')}
                             className={inputCls}
                           />
+                        </div>
+                        {/* TL.EVNT Stage 3a — poster. Staged like a gallery
+                            add: preview from the data URL, storage on Save.
+                            UNCROPPED preview (max-h clamp, width fits) — the
+                            same treatment the card gives it, so what the
+                            creator sees here is what the page shows. */}
+                        <div className="space-y-1">
+                          <p className="text-xs text-white/60">{t('eventsEditor.poster')}</p>
+                          <input
+                            ref={posterInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            className="hidden"
+                            onChange={(e) => handlePosterPick(ev.id, e.target.files?.[0])}
+                          />
+                          {ev.posterPreview || ev.posterUrl ? (
+                            <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                              {/* The thumb paints through the SAME resolver as
+                                  the card (the gallery-tile precedent), so a
+                                  staged framing is visible here before it is
+                                  ever saved — what makes "Cancel discards"
+                                  observable. Unframed → whole file, contain. */}
+                              {(() => {
+                                const thumbCrop = resolveGalleryMediaStyle(ev.style_json);
+                                return thumbCrop ? (
+                                  <div
+                                    className="relative mx-auto w-32 overflow-hidden rounded"
+                                    style={{ aspectRatio: `${EVENT_POSTER_ASPECT}` }}
+                                  >
+                                    <img
+                                      src={ev.posterPreview || ev.posterUrl}
+                                      alt={ev.title.trim() || t('eventsEditor.untitled')}
+                                      className="object-cover"
+                                      style={thumbCrop}
+                                    />
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={ev.posterPreview || ev.posterUrl}
+                                    alt={ev.title.trim() || t('eventsEditor.untitled')}
+                                    className="mx-auto max-h-40 w-auto max-w-full rounded"
+                                  />
+                                );
+                              })()}
+                              <button
+                                type="button"
+                                onClick={() => setCropTargetId(ev.id)}
+                                className="mt-2 w-full py-2 rounded-lg text-xs font-semibold bg-[#C9A55C]/10 text-[#C9A55C] border border-[#C9A55C]/30 hover:bg-[#C9A55C]/20 transition-colors"
+                              >
+                                {t('eventsEditor.adjustFraming')}
+                              </button>
+                              <div className="mt-2 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => posterInputRef.current?.click()}
+                                  className="flex-1 py-2 rounded-lg text-xs font-medium bg-white/5 text-white/80 border border-white/10 hover:bg-white/10 transition-colors"
+                                >
+                                  {t('eventsEditor.replacePoster')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEvents((prev) => prev.map((e2) => e2.id === ev.id
+                                    ? { ...e2, posterUrl: '', posterFile: undefined, posterPreview: undefined, style_json: stripCrop(e2.style_json) }
+                                    : e2))}
+                                  className="flex-1 py-2 rounded-lg text-xs font-medium bg-white/5 text-white/60 border border-white/10 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                                >
+                                  {t('eventsEditor.removePoster')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => posterInputRef.current?.click()}
+                              className="w-full py-3 rounded-lg border border-dashed border-white/20 flex items-center justify-center gap-2 text-white/50 hover:border-[#C9A55C]/50 hover:text-[#C9A55C]/80 transition-colors"
+                            >
+                              <ImagePlus className="h-4 w-4" />
+                              <span className="text-xs font-medium">{t('eventsEditor.addPoster')}</span>
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-1">
                           <p className="text-xs text-white/60">{t('eventsEditor.date')}</p>
@@ -517,6 +689,21 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Framing sheet — portals to body, staged via stagePosterCrop; only
+          the panel's own Save writes anything. */}
+      {cropTarget && cropSrc && (
+        <PhotoCropSheet
+          src={cropSrc}
+          crop={resolveGalleryCrop(cropTarget.style_json)}
+          aspect={EVENT_POSTER_ASPECT}
+          onCancel={() => setCropTargetId(null)}
+          onApply={(c) => {
+            stagePosterCrop(cropTarget.id, c);
+            setCropTargetId(null);
+          }}
+        />
       )}
     </>
   );

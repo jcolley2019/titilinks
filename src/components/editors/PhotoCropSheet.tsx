@@ -57,12 +57,18 @@ interface PhotoCropSheetProps {
   src: string;
   /** The photo's saved crop, or null for a photo that has never been framed. */
   crop: GalleryCrop | null;
+  /** The crop window's aspect (width / height). Defaults to the gallery's
+   *  square tile; the events poster passes EVENT_POSTER_ASPECT (TL.EVNT
+   *  Stage 3a.3). MUST equal the aspect of the box the consumer paints the
+   *  resolved crop into — the stored percentages assume the window and the
+   *  render box are the same shape, and a mismatch skews the image. */
+  aspect?: number;
   onCancel: () => void;
   /** null means "no crop" — the suggested framing, stored as absence. */
   onApply: (crop: GalleryCrop | null) => void;
 }
 
-export function PhotoCropSheet({ src, crop, onCancel, onApply }: PhotoCropSheetProps) {
+export function PhotoCropSheet({ src, crop, aspect = 1, onCancel, onApply }: PhotoCropSheetProps) {
   const { t } = useLanguage();
   const [point, setPoint] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -142,7 +148,7 @@ export function PhotoCropSheet({ src, crop, onCancel, onApply }: PhotoCropSheetP
             image={src}
             crop={point}
             zoom={zoom}
-            aspect={1}
+            aspect={aspect}
             minZoom={GALLERY_MIN_ZOOM}
             maxZoom={GALLERY_MAX_ZOOM}
             // The window may not leave the photo — see rule 2 in the header.

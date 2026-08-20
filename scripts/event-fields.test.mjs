@@ -11,11 +11,13 @@
 
 import assert from 'node:assert/strict';
 import {
+  EVENT_POSTER_ASPECT,
   composeEventSubtitle,
   composeStartsAt,
   decomposeEventLocation,
   decomposeStartsAt,
   eventCtaState,
+  eventHasContent,
   eventStyleOf,
   hasEnded,
   parseWallClock,
@@ -147,6 +149,32 @@ const ok = (m) => { passed++; console.log(`ok ${m}`); };
   // Sold-out wins over ended — the shipped card's label precedence.
   assert.equal(eventCtaState(true, true, true), 'sold_out');
   ok('eventCtaState: full truth table, no link → none');
+}
+
+// ── 9b. EVENT_POSTER_ASPECT: one constant, two consumers (Stage 3a.3) ────────
+{
+  // Joey's ruling: the framed poster window is 4:5. The PhotoCropSheet's crop
+  // window and the card's render box BOTH read this constant — a drift between
+  // them would skew every framed poster, so the value itself is pinned here.
+  assert.equal(EVENT_POSTER_ASPECT, 4 / 5);
+  ok('EVENT_POSTER_ASPECT is 4:5');
+}
+
+// ── 9. eventHasContent: the Save-time prune predicate (TL.EVNT Stage 3a) ─────
+{
+  const empty = { title: '', date: '', venue: '', city: '', url: '', ctaLabel: '' };
+  // A completely empty draft (abandoned "Add event") is the ONLY thing pruned.
+  assert.equal(eventHasContent(empty, false), false);
+  // Whitespace is not content.
+  assert.equal(eventHasContent({ ...empty, title: '   ', venue: '  ' }, false), false);
+  // Any single typed field keeps the row — the TL.SOC.4 no-silent-drop rule.
+  for (const key of ['title', 'date', 'venue', 'city', 'url', 'ctaLabel']) {
+    assert.equal(eventHasContent({ ...empty, [key]: 'x' }, false), true, `${key} alone keeps the row`);
+  }
+  // A poster alone is content: Titi's invites carry their own dates, so an
+  // image-only event must survive Save (both saved and freshly staged).
+  assert.equal(eventHasContent(empty, true), true);
+  ok('eventHasContent: only truly empty drafts prune; a poster alone survives');
 }
 
 console.log(`\nevent-fields: ${passed} checks passed`);

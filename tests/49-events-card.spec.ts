@@ -37,6 +37,18 @@ const routeFetchWithRetry = async (route: Route, attempts = 4) => {
   throw lastErr instanceof Error ? lastErr : new Error('route.fetch failed after retries');
 };
 
+/** TL.EVNT Stage 3a — a self-contained poster so the fixture never fetches:
+ *  a tall 3:4 composition (the clamp case) as an SVG data URI. */
+const POSTER_DATA_URI =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800">' +
+      '<rect width="600" height="800" fill="#C9A55C"/>' +
+      '<rect x="40" y="40" width="520" height="720" fill="none" stroke="#0e0c09" stroke-width="4"/>' +
+      '<text x="300" y="420" font-size="48" text-anchor="middle" fill="#0e0c09">POSTER</text>' +
+      '</svg>',
+  );
+
 /** Titi's book launch, plus the three states the card has to prove.
  *  Dates are wall-clock strings — exactly what the editor will write. */
 const EVENTS = [
@@ -50,9 +62,11 @@ const EVENTS = [
     starts_at: '2026-09-12T19:00:00+00:00',
     ends_at: null,
     // Pinned: sorts above everything, gold pin next to the title.
+    // Stage 3a: this card also carries the poster — above the text row,
+    // uncropped, tap → lightbox.
     style_json: { pinned: true },
     order_index: 0,
-    badge: null, image_url: null, is_adult: false, size: null,
+    badge: null, image_url: POSTER_DATA_URI, is_adult: false, size: null,
     bg_color: null, title_color: null, price: null, compare_at_price: null, currency: null,
   },
   {
@@ -201,6 +215,31 @@ for (const style of ['hero', 'full_bleed'] as const) {
     await expect(noLink).toBeVisible();
     await expect(noLink.getByText('Get tickets')).toHaveCount(0);
 
+    // TL.EVNT Stage 3a: the poster renders ABOVE the text row on its card, and
+    // ONLY there — the other fixtures have no image_url and get no <img>.
+    const launch = block.locator('> div', { hasText: 'Corazón Abierto' });
+    const posterBtn = launch.getByRole('button', { name: 'View poster' });
+    await expect(posterBtn.locator('img')).toBeVisible();
+    await expect(noLink.locator('img')).toHaveCount(0);
+
+    // 3a.2 — THE no-crop guard: the fixture poster is 600×800 (aspect 0.75),
+    // and the ruling says the FULL composition displays, aspect-preserved,
+    // letterboxed if needed. The rendered box must therefore keep the source
+    // aspect; any object-cover / fixed-both-dimensions regression breaks this.
+    const posterBox = await posterBtn.locator('img').boundingBox();
+    expect(posterBox).not.toBeNull();
+    expect(Math.abs(posterBox!.width / posterBox!.height - 600 / 800)).toBeLessThan(0.02);
+
+    // Tap → lightbox (full composition), tap again → closed. Plain open/close:
+    // a single poster has no strip and no chevrons.
+    await posterBtn.click();
+    const lightbox = page.getByTestId('event-poster-lightbox');
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.locator('img')).toBeVisible();
+    await lightbox.screenshot({ path: `tests/screenshots/evnt3a-lightbox-${style}-${proj}.png` });
+    await lightbox.click();
+    await expect(lightbox).toHaveCount(0);
+
     await block.screenshot({ path: `tests/screenshots/evnt1-public-${style}-${proj}-card.png` });
     await page.screenshot({ path: `tests/screenshots/evnt1-public-${style}-${proj}-page.png` });
   });
@@ -230,6 +269,19 @@ for (const style of ['hero', 'full_bleed'] as const) {
     // matches the public page, ended events filtered out — asserted so a future
     // editMode forward doesn't land unnoticed.
     await expect(block.getByText('Summer Reading Night')).toHaveCount(0);
+
+    // TL.EVNT.STAGE3a.2 — the ticket pill really OPENS from the edit canvas
+    // (the header-icon precedent; the blanket () => false suppressor left it a
+    // dead-looking anchor). target=_blank means a popup page appears and the
+    // editor itself never navigates away.
+    const pill = block.locator('a', { hasText: 'Get tickets' }).first();
+    await expect(pill).toBeVisible();
+    const [popup] = await Promise.all([
+      page.context().waitForEvent('page', { timeout: 10_000 }),
+      pill.click(),
+    ]);
+    await popup.close();
+    await expect(block).toBeVisible(); // the editor stayed put
 
     await block.screenshot({ path: `tests/screenshots/evnt1-editor-${style}-${proj}-card.png` });
 

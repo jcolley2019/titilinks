@@ -13,8 +13,11 @@
 //   label      → event title            url        → ticket link
 //   subtitle   → venue / location       cta_label  → ticket button label
 //   starts_at  → start (wall-clock)     ends_at    → end (wall-clock, optional)
+//   image_url  → poster (Stage 3a — products bucket, events/ prefix)
 //   style_json → { all_day, sold_out, pinned } + the editor-canonical
-//                { venue, city } split (see src/lib/event-fields.ts)
+//                { venue, city } split (see src/lib/event-fields.ts) + the
+//                optional poster framing `crop` (Stage 3a.3 — the gallery
+//                contract, owned by src/lib/gallery-framing.ts)
 //
 // WALL-CLOCK RULING (Joey, Aug 2026): times NEVER convert between zones. A 7pm
 // launch reads "7pm" to every visitor, in any zone. See parseWallClock in
@@ -23,6 +26,8 @@
 // migration for why moving to real per-event timezones is a data migration
 // rather than a toggle.
 
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Clock, MapPin, Pin, Ticket } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
@@ -32,7 +37,9 @@ import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { coerceLegibleText } from '@/lib/contrast';
 import { animationClass, resolveAnimation } from '@/lib/animations';
 import { safeHref } from '@/lib/safe-url';
+import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
 import {
+  EVENT_POSTER_ASPECT,
   eventCtaState,
   eventStyleOf,
   hasEnded,
@@ -101,9 +108,49 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
   // can still reach it to delete or archive it. Everything else renders identically.
   const visible = sortEvents(block.items).filter((item) => editMode || !hasEnded(item, nowKey));
 
+  // TL.EVNT Stage 3a — poster lightbox. Single image, plain open/close (Joey's
+  // ruling: no wrap-around nav — one poster per event, unlike the gallery
+  // strip). The gallery lightbox in EditableProfileView is closure-bound to its
+  // scroll strip, so this is the same LOOK (portal, black/95, object-contain
+  // original) without touching that protected machinery.
+  const [poster, setPoster] = useState<{ url: string; alt: string } | null>(null);
+  useEffect(() => {
+    if (!poster) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPoster(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [poster]);
+
   if (visible.length === 0) return null;
 
   const currentYear = new Date().getFullYear();
+
+  // Tap anywhere closes — backdrop, poster, or the ×. Rendered into body so the
+  // editor's device-frame transform (a containing block) can't trap it.
+  const lightbox =
+    poster === null
+      ? null
+      : createPortal(
+          <div
+            className="fixed inset-0 z-[130] bg-black/95 flex items-center justify-center p-4"
+            data-testid="event-poster-lightbox"
+            onClick={() => setPoster(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setPoster(null)}
+              aria-label={t('events.closePoster')}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center text-2xl leading-none"
+            >
+              ×
+            </button>
+            {/* The full composition, uncropped — the card clamps, this never does. */}
+            <img src={poster.url} alt={poster.alt} className="max-w-full max-h-full object-contain rounded-lg" />
+          </div>,
+          document.body,
+        );
 
   return (
     <div className="space-y-3" data-testid="events-block">
@@ -119,6 +166,13 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
         // ticket page. Same for an ended event still shown to the creator.
         const cta = eventCtaState(!!href, soldOut, ended);
         const interactive = cta === 'active';
+
+        // TL.EVNT Stage 3a.3 — poster framing (Joey's ruling): a creator-chosen
+        // pan/zoom stored as style_json.crop (the gallery contract, resolved by
+        // the same lib). Framed → a 4:5 window at full card width; unframed →
+        // null here, and the whole-file render below stays byte-identical.
+        // The lightbox NEVER sees this: it always shows the full original.
+        const posterCropStyle = resolveGalleryMediaStyle(item.style_json);
 
         const label = (
           <span
@@ -141,7 +195,7 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
         return (
           <div
             key={item.id}
-            className="flex overflow-hidden rounded-2xl transition-opacity"
+            className="overflow-hidden rounded-2xl transition-opacity"
             style={{
               backgroundColor: surface.background,
               border: `1px solid ${surface.borderColor}`,
@@ -151,6 +205,55 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
               ...(fullBleed ? { backdropFilter: 'blur(12px)' } : {}),
             }}
           >
+            {/* TL.EVNT Stage 3a — poster ABOVE the text row, never overlaid
+                (Joey's ruling: Titi's invites carry their own dates, so text
+                over the artwork would collide with text IN the artwork).
+                UNCROPPED, always: max-height clamp + auto width preserves the
+                file's aspect exactly, letterboxed on the card surface — spec 49
+                asserts the rendered box matches the source aspect. 480px
+                (3a.2): the old 320 clamp left a 9:16 poster ~half the card
+                width, which read as clipped; 480 is ~55% of the 874px preset
+                viewport, so a story-format poster has real presence and a 3:4
+                poster runs near full card width. Fixed px on purpose — vh here
+                would diverge between the editor's device frame and a real
+                phone (the FIX.MEDIA.1c lesson). */}
+            {item.image_url && (
+              <button
+                type="button"
+                onClick={() => setPoster({ url: item.image_url!, alt: tc(item.label) })}
+                onTouchStart={() => triggerHaptic('light')}
+                aria-label={t('events.viewPoster')}
+                className="block w-full cursor-zoom-in"
+              >
+                {posterCropStyle ? (
+                  // Framed: the box IS the crop window, so its aspect must be
+                  // the sheet's EVENT_POSTER_ASPECT — see the constant's note.
+                  // relative + overflow-hidden is the resolver's stated
+                  // contract; object-cover is its stated inert fallback.
+                  <div
+                    className="relative w-full overflow-hidden"
+                    style={{ aspectRatio: `${EVENT_POSTER_ASPECT}` }}
+                  >
+                    <img
+                      src={item.image_url}
+                      alt={tc(item.label)}
+                      loading="lazy"
+                      className="object-cover"
+                      style={posterCropStyle}
+                    />
+                  </div>
+                ) : (
+                  <img
+                    src={item.image_url}
+                    alt={tc(item.label)}
+                    loading="lazy"
+                    className="mx-auto max-h-[480px] w-auto max-w-full"
+                  />
+                )}
+              </button>
+            )}
+
+            <div className="flex">
             {/* Date tile. A gold HAIRLINE rather than a filled block — a filled
                 tile reads as utility chrome; a hairline reads as the house. */}
             <div
@@ -223,9 +326,11 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
                 </div>
               )}
             </div>
+            </div>
           </div>
         );
       })}
+      {lightbox}
     </div>
   );
 }

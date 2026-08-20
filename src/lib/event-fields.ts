@@ -21,7 +21,19 @@
 // that is enforced, and the 20260818120100 migration for why moving to real
 // per-event timezones is a data migration rather than a toggle.
 
-/** The style_json keys an event carries. All optional; absent = false / empty. */
+/**
+ * TL.EVNT Stage 3a.3 — the framed poster window's aspect (width / height),
+ * ruled 4:5 by Joey. ONE constant feeds BOTH the PhotoCropSheet's crop window
+ * and the card's render box: the stored crop percentages assume the two are
+ * the same shape, so if they ever disagreed the card would skew the image.
+ * Only a FRAMED poster uses this — an unframed one renders whole at its own
+ * aspect, and the lightbox always shows the full original.
+ */
+export const EVENT_POSTER_ASPECT = 4 / 5;
+
+/** The style_json keys an event carries. All optional; absent = false / empty.
+ *  (`crop` — the poster framing window — also lives in style_json, but it is
+ *  owned and validated by src/lib/gallery-framing.ts, not read through here.) */
 export interface EventStyle {
   all_day?: boolean;
   sold_out?: boolean;
@@ -177,6 +189,29 @@ export function decomposeStartsAt(iso: string | null | undefined): { date: strin
   if (!wc) return { date: '', time: '' };
   const p = (n: number) => String(n).padStart(2, '0');
   return { date: `${wc.y}-${p(wc.mo)}-${p(wc.d)}`, time: `${p(wc.h)}:${p(wc.mi)}` };
+}
+
+/**
+ * The Save-time prune predicate (TL.EVNT Stage 3a — re-homed here so it can be
+ * unit-tested): keep any draft the creator put SOMETHING into. Only rows that
+ * are COMPLETELY empty (an abandoned "Add event") are dropped — silently
+ * discarding part-filled rows on Save is the exact SocialLinksEditor trap
+ * TL.SOC.4 had to fix; never reintroduce it. A poster counts as content: an
+ * image-only event (Titi's invites carry their own dates) must survive Save.
+ */
+export function eventHasContent(
+  f: { title: string; date: string; venue: string; city: string; url: string; ctaLabel: string },
+  hasPoster: boolean,
+): boolean {
+  return !!(
+    f.title.trim() ||
+    f.date ||
+    f.venue.trim() ||
+    f.city.trim() ||
+    f.url.trim() ||
+    f.ctaLabel.trim() ||
+    hasPoster
+  );
 }
 
 /** The card's one location line, derived from the canonical venue/city split. */

@@ -1322,6 +1322,16 @@ function SortablePreviewCard({
               onItemAdd={() => onItemAdd?.(block.id)}
               onItemsReorder={onItemsReorder}
             />
+          ) : block.type === 'events' ? (
+            /* TL.EVNT.STAGE3a.2 — the blanket edit-canvas suppressor below
+               left the ticket pill a DEAD-LOOKING anchor (hover showed the
+               URL, click did nothing). Events carry no adult gate and no
+               item-editor click route, so the pill follows the header-icon
+               precedent instead: it really opens (the anchor is already
+               target=_blank rel=noopener, so the editor stays put). Visitor
+               mode and the public page open it the same way — one behavior
+               on every surface. */
+            <BlockRenderer block={block} onOutboundClick={() => true} theme={theme} />
           ) : (
             <BlockRenderer block={block} onOutboundClick={() => false} theme={theme} />
           )}

@@ -281,4 +281,30 @@ const geo = (crop) => resolveGalleryGeometry({ crop });
   ok('crop validation rejects nonsense and clamps the rest');
 }
 
+// ── 10. the 4:5 events-poster window (TL.EVNT Stage 3a.3) ────────────────────
+// The resolver is deliberately box-aspect-agnostic — pure percentages of
+// whatever box the caller paints. The events card paints a 4:5 box
+// (EVENT_POSTER_ASPECT), so these are the exact windows PhotoCropSheet stores
+// from a 4:5 cropper for the common poster shapes.
+{
+  // A 9:16 story export in the 4:5 window at the cover floor: full width,
+  // 70.3125% of the height, vertical pan only. y=0 is "keep the top" — the
+  // very framing that rescues a poster whose bottom is dead space.
+  const topAnchored = geo({ x: 0, y: 0, w: 100, h: 70.3125 });
+  near(topAnchored.widthPct, 100, '9:16 in 4:5: image is exactly window-wide');
+  near(topAnchored.heightPct, 100 / 0.703125, 'and overflows vertically (142.22%)');
+  near(topAnchored.topPct, -0, 'y=0 keeps the top edge');
+  near(topAnchored.leftPct, -0, 'no horizontal pan at full width');
+  // Panned all the way down, the far edge lands exactly on the window's far
+  // edge — the fill floor holds at the extreme.
+  const bottomAnchored = geo({ x: 0, y: 29.6875, w: 100, h: 70.3125 });
+  near(bottomAnchored.topPct + bottomAnchored.heightPct, 100, 'bottom-anchored: far edges coincide');
+  // A square image in the 4:5 window height-fills and pans horizontally.
+  const square = geo({ x: 10, y: 0, w: 80, h: 100 });
+  near(square.heightPct, 100, 'square in 4:5: image is exactly window-tall');
+  near(square.widthPct, 125, 'and overflows horizontally');
+  near(square.leftPct, -12.5, 'panned by the stored x');
+  ok('4:5 poster windows resolve exactly (box-aspect-agnostic percentages)');
+}
+
 console.log(`\n${passed} gallery-framing checks passed`);
