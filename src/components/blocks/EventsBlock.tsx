@@ -13,85 +13,34 @@
 //   label      → event title            url        → ticket link
 //   subtitle   → venue / location       cta_label  → ticket button label
 //   starts_at  → start (wall-clock)     ends_at    → end (wall-clock, optional)
-//   style_json → { all_day, sold_out, pinned }
+//   style_json → { all_day, sold_out, pinned } + the editor-canonical
+//                { venue, city } split (see src/lib/event-fields.ts)
 //
 // WALL-CLOCK RULING (Joey, Aug 2026): times NEVER convert between zones. A 7pm
-// launch reads "7pm" to every visitor, in any zone. See parseWallClock below for
-// how that is enforced, and the 20260818120100 migration for why moving to real
-// per-event timezones is a data migration rather than a toggle.
+// launch reads "7pm" to every visitor, in any zone. See parseWallClock in
+// src/lib/event-fields.ts (the shared pure home this card and the EventsEditor
+// both resolve through) for how that is enforced, and the 20260818120100
+// migration for why moving to real per-event timezones is a data migration
+// rather than a toggle.
 
 import { Clock, MapPin, Pin, Ticket } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
-import type { BlockItem, ThemedBlockProps } from './types';
+import type { ThemedBlockProps } from './types';
 import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { coerceLegibleText } from '@/lib/contrast';
 import { animationClass, resolveAnimation } from '@/lib/animations';
 import { safeHref } from '@/lib/safe-url';
-
-/** The style_json flags an event carries. All optional; absent = false. */
-interface EventFlags {
-  all_day?: boolean;
-  sold_out?: boolean;
-  pinned?: boolean;
-}
-
-function flagsOf(item: BlockItem): EventFlags {
-  const sj = item.style_json;
-  if (!sj || typeof sj !== 'object' || Array.isArray(sj)) return {};
-  return sj as EventFlags;
-}
-
-/** A date/time as the creator TYPED it — no zone attached, by design. */
-interface WallClock {
-  y: number;
-  mo: number; // 1-12
-  d: number;
-  h: number;
-  mi: number;
-  hasTime: boolean;
-}
-
-/**
- * Pull the literal calendar fields out of a stored timestamp WITHOUT letting the
- * visitor's timezone touch them.
- *
- * `new Date(iso)` would defeat the whole wall-clock ruling: it resolves the
- * string to an instant and every getter then answers in the VISITOR's zone, so
- * a 7pm Miami launch would render "4pm" to a reader in Los Angeles and they
- * would show up at the wrong time. Reading the components textually is what
- * makes the card say the same thing everywhere on earth.
- */
-export function parseWallClock(iso: string | null | undefined): WallClock | null {
-  if (!iso || typeof iso !== 'string') return null;
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
-  if (!m) return null;
-  const [, y, mo, d, h, mi] = m;
-  return {
-    y: Number(y),
-    mo: Number(mo),
-    d: Number(d),
-    h: h === undefined ? 0 : Number(h),
-    mi: mi === undefined ? 0 : Number(mi),
-    hasTime: h !== undefined,
-  };
-}
-
-/**
- * Put a wall-clock on a single comparable scale. Both the event and "now" are
- * projected through Date.UTC, so the comparison is DST-proof and reads exactly
- * as "has the visitor's own clock passed this time yet?" — the only sane
- * question under the wall-clock ruling. Never used for display.
- */
-function wallClockKey(wc: WallClock): number {
-  return Date.UTC(wc.y, wc.mo - 1, wc.d, wc.h, wc.mi);
-}
-
-function nowWallClockKey(): number {
-  const n = new Date();
-  return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate(), n.getHours(), n.getMinutes());
-}
+import {
+  eventCtaState,
+  eventStyleOf,
+  hasEnded,
+  nowWallClockKey,
+  parseWallClock,
+  sortEvents,
+  type WallClock,
+} from '@/lib/event-fields';
 
 /**
  * A Date carrying the wall-clock fields as UTC, for FORMATTING only. Every
@@ -110,38 +59,6 @@ function formatTime(wc: WallClock, lang: string): string {
     hour: 'numeric',
     minute: '2-digit',
     timeZone: 'UTC',
-  });
-}
-
-/**
- * Has this event finished? Uses `ends_at` when present, otherwise start + 24h
- * (Joey's ruling: most one-off events state no end, and a same-day event should
- * not vanish while it is still happening).
- */
-export function hasEnded(item: BlockItem, nowKey: number = nowWallClockKey()): boolean {
-  const end = parseWallClock(item.ends_at);
-  if (end) return wallClockKey(end) < nowKey;
-  const start = parseWallClock(item.starts_at);
-  if (!start) return false; // no date at all — never auto-hide it
-  return wallClockKey(start) + 24 * 60 * 60 * 1000 < nowKey;
-}
-
-/**
- * Display order: pinned first, then soonest first. Undated events sink to the
- * bottom rather than pretending to be imminent. Pure — the DB's `order_index`
- * is not the sort here, because a date list that ignores dates is just a list.
- */
-export function sortEvents(items: BlockItem[]): BlockItem[] {
-  return [...items].sort((a, b) => {
-    const pa = flagsOf(a).pinned ? 0 : 1;
-    const pb = flagsOf(b).pinned ? 0 : 1;
-    if (pa !== pb) return pa - pb;
-    const wa = parseWallClock(a.starts_at);
-    const wb = parseWallClock(b.starts_at);
-    if (!wa && !wb) return a.order_index - b.order_index;
-    if (!wa) return 1;
-    if (!wb) return -1;
-    return wallClockKey(wa) - wallClockKey(wb);
   });
 }
 
@@ -191,15 +108,17 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
   return (
     <div className="space-y-3" data-testid="events-block">
       {visible.map((item) => {
-        const flags = flagsOf(item);
+        const flags = eventStyleOf(item.style_json);
         const start = parseWallClock(item.starts_at);
         const ended = hasEnded(item, nowKey);
         const soldOut = !!flags.sold_out;
         const href = safeHref(item.url);
-        // A sold-out event must not be a link: an inert card can't fire
+        // TL.EVNT.STAGE2b ruling: no ticket link → no pill at all. With a link,
+        // a sold-out event must not BE a link: an inert card can't fire
         // trackOutboundClick, so analytics never records taps toward a dead
         // ticket page. Same for an ended event still shown to the creator.
-        const interactive = !!href && !soldOut && !ended;
+        const cta = eventCtaState(!!href, soldOut, ended);
+        const interactive = cta === 'active';
 
         const label = (
           <span
@@ -283,24 +202,26 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
                 </p>
               )}
 
-              <div className="mt-2">
-                {interactive ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      if (!onOutboundClick(block.type, block.id, item.id, item.url)) e.preventDefault();
-                    }}
-                    onTouchStart={() => triggerHaptic('light')}
-                    className={`inline-block ${ctaAnimClass}`.trim()}
-                  >
-                    {label}
-                  </a>
-                ) : (
-                  label
-                )}
-              </div>
+              {cta !== 'none' && (
+                <div className="mt-2">
+                  {interactive ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        if (!onOutboundClick(block.type, block.id, item.id, item.url)) e.preventDefault();
+                      }}
+                      onTouchStart={() => triggerHaptic('light')}
+                      className={`inline-block ${ctaAnimClass}`.trim()}
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    label
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );

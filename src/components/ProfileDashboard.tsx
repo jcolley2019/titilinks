@@ -52,6 +52,7 @@ import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor, type GalleryDraft } from '@/components/editors/GalleryEditor';
 import { CarouselEditor } from '@/components/editors/CarouselEditor';
+import { EventsEditor } from '@/components/editors/EventsEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
 import { VideoFeedEditor } from '@/components/editors/VideoFeedEditor';
@@ -270,9 +271,8 @@ const sections: DashboardSection[] = [
         icon: <Calendar className="h-6 w-6 text-white" />,
         titleKey: 'dashboard.createEvent',
         subtitleKey: 'dashboard.createEventDesc',
-        // TL.EVNT Stage 1 — the coming-soon toast is retired: this row now
-        // resolves/creates the real events block. The editor PANEL is Stage 2,
-        // so the slide-in it opens is still empty by design.
+        // TL.EVNT — resolves/creates the events block and opens EventsEditor
+        // (Stage 2), which owns the full list including ended events.
         blockType: 'events',
       },
       {
@@ -1301,6 +1301,8 @@ export function ProfileDashboard({
         return <GalleryEditor {...editorProps} onDraftChange={onGalleryDraftChange} />;
       case 'carousel':
         return <CarouselEditor {...editorProps} />;
+      case 'events':
+        return <EventsEditor {...editorProps} />;
       case 'bio':
         return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} onDraftChange={onDraftChange} />;
       case 'featured_media':

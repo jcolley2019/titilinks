@@ -86,6 +86,22 @@ const EVENTS = [
     bg_color: null, title_color: null, price: null, compare_at_price: null, currency: null,
   },
   {
+    id: 'evnt-nolink',
+    block_id: BLOCK_ID,
+    label: 'Cumpleaños de Titi — Private Celebration',
+    subtitle: 'Secret Garden · Wynwood',
+    // TL.EVNT.STAGE2b ruling: no ticket link → the card renders NO pill at all,
+    // not an inert one.
+    url: '',
+    cta_label: null,
+    starts_at: '2026-12-05T20:00:00+00:00',
+    ends_at: null,
+    style_json: null,
+    order_index: 4,
+    badge: null, image_url: null, is_adult: false, size: null,
+    bg_color: null, title_color: null, price: null, compare_at_price: null, currency: null,
+  },
+  {
     id: 'evnt-past',
     block_id: BLOCK_ID,
     label: 'Summer Reading Night',
@@ -179,6 +195,12 @@ for (const style of ['hero', 'full_bleed'] as const) {
     await expect(block.locator('> div').first()).toContainText('Corazón Abierto');
     await expect(block.locator('a', { hasText: 'Sold out' })).toHaveCount(0);
 
+    // TL.EVNT.STAGE2b: an event without a ticket link shows its card but NO
+    // pill — not the default label, not an inert chip.
+    const noLink = block.locator('> div', { hasText: 'Cumpleaños de Titi' });
+    await expect(noLink).toBeVisible();
+    await expect(noLink.getByText('Get tickets')).toHaveCount(0);
+
     await block.screenshot({ path: `tests/screenshots/evnt1-public-${style}-${proj}-card.png` });
     await page.screenshot({ path: `tests/screenshots/evnt1-public-${style}-${proj}-page.png` });
   });
@@ -199,17 +221,14 @@ for (const style of ['hero', 'full_bleed'] as const) {
 
     await expect(block.getByText('Corazón Abierto — Book Launch')).toBeVisible();
 
-    // ⚠️ STAGE 1 GAP, asserted so it cannot be forgotten. The past-event ruling
-    // says the creator keeps seeing ended events, greyed. They do NOT here: the
-    // editor's block-card preview calls BlockRenderer WITHOUT `editMode`
-    // (EditableProfileView.tsx:1326 — only the `links` branch forwards it), so
-    // EventsBlock's editMode branch never lights up on this surface and the
-    // ended event is filtered out exactly like on the public page.
-    // EventsBlock is already correct; the missing piece is upstream. Resolving
-    // it is a Stage 2 call: either forward editMode here (one line in a
-    // protected file, and it changes adult-gate href behavior for every other
-    // card block too), or let the events EDITOR PANEL own the full list — which
-    // is where deleting and archiving will live anyway.
+    // RESOLVED the Stage 2 way (was the ⚠️ STAGE 1 GAP): the editor's
+    // block-card preview still calls BlockRenderer WITHOUT `editMode` — now
+    // DELIBERATELY, because forwarding it would change adult-gate href behavior
+    // for every other card block. The creator sees ended events greyed in the
+    // EventsEditor PANEL instead, which owns the full list (and is where delete
+    // and the Stage 3 archive live). This preview therefore intentionally
+    // matches the public page, ended events filtered out — asserted so a future
+    // editMode forward doesn't land unnoticed.
     await expect(block.getByText('Summer Reading Night')).toHaveCount(0);
 
     await block.screenshot({ path: `tests/screenshots/evnt1-editor-${style}-${proj}-card.png` });
