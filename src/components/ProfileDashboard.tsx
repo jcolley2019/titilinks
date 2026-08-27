@@ -52,7 +52,7 @@ import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor, type GalleryDraft } from '@/components/editors/GalleryEditor';
 import { CarouselEditor } from '@/components/editors/CarouselEditor';
-import { EventsEditor } from '@/components/editors/EventsEditor';
+import { EventsEditor, type EventsDraft } from '@/components/editors/EventsEditor';
 import { BioEditor } from '@/components/editors/BioEditor';
 import { FeaturedMediaEditor } from '@/components/editors/FeaturedMediaEditor';
 import { VideoFeedEditor } from '@/components/editors/VideoFeedEditor';
@@ -123,6 +123,10 @@ interface ProfileDashboardProps {
   /** Live-mirror channel (L6): forwarded to GalleryEditor so its whole staged
    *  state — config, adds, removes, crops, order — reaches the preview before Save. */
   onGalleryDraftChange?: (draft: GalleryDraft | null) => void;
+  /** Live-mirror channel (TL.EVNT.3b): forwarded to EventsEditor so its whole
+   *  staged event list — text, dates, flags, staged posters and framing —
+   *  reaches the preview before Save. */
+  onEventsDraftChange?: (draft: EventsDraft | null) => void;
   // LIVE.THEME.1 (L5): pass-through for the theme editor's draft stream.
   // Typed unknown to match this component's themeJson convention.
   onThemeDraftChange?: (draft: unknown) => void;
@@ -406,6 +410,7 @@ export function ProfileDashboard({
   onHeaderDraftChange,
   onThemeDraftChange,
   onGalleryDraftChange,
+  onEventsDraftChange,
   themeJson,
   displayName,
   bio,
@@ -1302,7 +1307,7 @@ export function ProfileDashboard({
       case 'carousel':
         return <CarouselEditor {...editorProps} />;
       case 'events':
-        return <EventsEditor {...editorProps} />;
+        return <EventsEditor {...editorProps} onDraftChange={onEventsDraftChange} />;
       case 'bio':
         return <BioEditor {...editorProps} onTitleDraftChange={onTitleDraftChange} onDraftChange={onDraftChange} />;
       case 'featured_media':

@@ -83,12 +83,95 @@ interface EventDraft {
   style_json: Record<string, any> | null;
 }
 
+/**
+ * TL.EVNT.3b — the block_items shape an EventDraft becomes. Only the columns
+ * EventsBlock actually reads; the preview's substitution merges these onto the
+ * real DB row (or a synthetic one for a not-yet-inserted event), so the rest of
+ * the table's columns are inert here.
+ */
+export interface EventRow {
+  id: string;
+  label: string;
+  subtitle: string | null;
+  url: string;
+  cta_label: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  image_url: string | null;
+  order_index: number;
+  style_json: Record<string, any> | null;
+}
+
+/**
+ * TL.EVNT.3b — the live-mirror payload, following GalleryDraft (L6) exactly:
+ * the panel's whole staged list in the shape the preview needs, republished on
+ * every change and cleared when the panel goes away.
+ *
+ * The draft NAMES its own block (the TL.GAL.6b lesson): scoping it by Editor's
+ * `editingBlock` only works for the doors routing through onBlockEdit, and the
+ * dashboard's section list and guided checklist set activeBlockId directly.
+ *
+ * Unlike GalleryDraft there is no downward `remove` channel — the events card
+ * has no per-item trash in the preview, so the panel is the only editor of
+ * this list and nothing has to reach back into it.
+ */
+export interface EventsDraft {
+  blockId: string;
+  items: EventRow[];
+}
+
+/**
+ * The ONE draft→row mapping. Save commits it (swapping in the uploaded poster
+ * URL, and dropping ends_at because this editor has no end field yet); the
+ * live mirror publishes it as-is with the staged data URL. Pure, and shared on
+ * purpose: a second copy of this mapping is how a preview starts lying about
+ * what Save will write.
+ */
+function composeEventRow(ev: EventDraft, orderIndex: number): EventRow {
+  // A dated event with no typed time IS all-day on the card (the only honest
+  // render of "no time given"), so the flag converges to match.
+  const allDay = ev.allDay || (!!ev.date && !ev.time);
+
+  // Additive style_json merge: event keys set when meaningful, deleted when not
+  // (absent = false is the card's contract), everything another feature put
+  // there — the poster `crop` included — left alone.
+  const style: Record<string, any> = { ...(ev.style_json || {}) };
+  const setOrDelete = (key: string, value: unknown) => {
+    if (value) style[key] = value;
+    else delete style[key];
+  };
+  setOrDelete('all_day', allDay);
+  setOrDelete('sold_out', ev.soldOut);
+  setOrDelete('pinned', ev.pinned);
+  setOrDelete('venue', ev.venue.trim());
+  setOrDelete('city', ev.city.trim());
+
+  return {
+    id: ev.id,
+    label: ev.title.trim(),
+    subtitle: composeEventSubtitle(ev.venue, ev.city),
+    url: ev.url.trim(),
+    cta_label: ev.ctaLabel.trim() || null,
+    starts_at: composeStartsAt(ev.date, ev.time, allDay),
+    ends_at: ev.ends_at,
+    // A staged file has no DB URL yet, and an <img> takes the preview data URL
+    // just as happily (the GalleryDraft precedent). Save overwrites this with
+    // the uploaded public URL.
+    image_url: ev.posterPreview || ev.posterUrl || null,
+    order_index: orderIndex,
+    style_json: Object.keys(style).length ? style : null,
+  };
+}
+
 interface EventsEditorProps {
   blockId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: () => void;
   panelMode?: boolean;
+  /** Live-mirror channel (TL.EVNT.3b) — see EventsDraft. Null clears the
+   *  mirror, which is how Cancel / X snap the preview back to DB truth. */
+  onDraftChange?: (draft: EventsDraft | null) => void;
 }
 
 const inputCls =
@@ -122,7 +205,7 @@ function draftEnded(ev: EventDraft, nowKey: number): boolean {
   );
 }
 
-export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }: EventsEditorProps) {
+export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, onDraftChange }: EventsEditorProps) {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -217,6 +300,31 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
     if (selectedId === id) setSelectedId(null);
   };
 
+  // TL.EVNT.3b — publish the draft, following the GalleryEditor precedent (L6).
+  // Nothing here writes to the DB: Save still owns that.
+  //
+  // Held back until the fetch lands, or the empty pre-fetch state would blank
+  // the preview's events for a beat every time the panel opens. Filtered
+  // through the SAME eventHasContent predicate Save prunes with, so a fresh
+  // "Add event" row stays out of the preview until the creator types something
+  // into it — and the array position published here is the order_index Save
+  // will write, so the preview and the saved page order identically.
+  useEffect(() => {
+    if (!open) { onDraftChange?.(null); return; }
+    if (loading) return;
+    onDraftChange?.({
+      blockId,
+      items: events
+        .filter((ev) => eventHasContent(ev, !!(ev.posterUrl || ev.posterFile)))
+        .map((ev, i) => composeEventRow(ev, i)),
+    });
+  }, [open, loading, blockId, events, onDraftChange]);
+
+  // Cancel / X unmounts this panel, and clearing the mirror here is what makes
+  // the preview revert to DB truth.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { onDraftChange?.(null); }, []);
+
   /** style_json minus the poster framing. A crop belongs to the IMAGE it was
    *  chosen on (the PhotoCropSheet isSuggested note): applied to a different
    *  poster it would mis-frame it, so any pick/remove strips it. */
@@ -295,36 +403,15 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode }:
         // Staged poster reaches storage only here — the GalleryEditor pattern.
         const posterUrl = ev.posterFile ? await uploadPoster(ev.posterFile) : ev.posterUrl;
 
-        // A dated event with no typed time IS all-day on the card (the only
-        // honest render of "no time given"), so the flag converges to match.
-        const allDay = ev.allDay || (!!ev.date && !ev.time);
-
-        // Additive style_json merge: event keys set when meaningful, deleted
-        // when not (absent = false is the card's contract), everything another
-        // feature put there left alone.
-        const style: Record<string, any> = { ...(ev.style_json || {}) };
-        const setOrDelete = (key: string, value: unknown) => {
-          if (value) style[key] = value;
-          else delete style[key];
-        };
-        setOrDelete('all_day', allDay);
-        setOrDelete('sold_out', ev.soldOut);
-        setOrDelete('pinned', ev.pinned);
-        setOrDelete('venue', ev.venue.trim());
-        setOrDelete('city', ev.city.trim());
-
-        const fields = {
-          label: ev.title.trim(),
-          url: ev.url.trim(),
-          subtitle: composeEventSubtitle(ev.venue, ev.city),
-          cta_label: ev.ctaLabel.trim() || null,
-          starts_at: composeStartsAt(ev.date, ev.time, allDay),
-          image_url: posterUrl || null,
-          order_index: i,
-          style_json: Object.keys(style).length ? style : null,
-          // ends_at deliberately absent: this editor has no end field yet
-          // (Stage 3), and an update must not null out a stored value.
-        };
+        // TL.EVNT.3b — the row comes from the same composeEventRow the live
+        // mirror publishes, so what the preview showed IS what gets written.
+        // Two deliberate differences, both of them save-only:
+        //   • image_url takes the UPLOADED url (the mirror carries the staged
+        //     data URL, which has no business in the database);
+        //   • ends_at is dropped — this editor has no end field yet (Stage 3),
+        //     and an update must not null out a stored value.
+        const { id: _id, ends_at: _endsAt, ...row } = composeEventRow(ev, i);
+        const fields = { ...row, image_url: posterUrl || null };
 
         if (ev.id.startsWith('new-')) {
           const { error } = await supabase.from('block_items').insert({ block_id: blockId, ...fields });

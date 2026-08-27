@@ -16,6 +16,7 @@ import { useApplyLayout } from '@/components/editors/gallery-shared';
 import { TPL_PRESETS, PENDING_TEMPLATE_KEY } from '@/lib/tpl-presets';
 import type { LinkItem } from '@/components/editors/LinksEditor';
 import type { GalleryDraft } from '@/components/editors/GalleryEditor';
+import type { EventsDraft } from '@/components/editors/EventsEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
@@ -99,6 +100,11 @@ export default function Editor() {
   // editingBlock null — and every draft published through those doors was
   // being thrown away. See GalleryDraft.
   const [galleryDraft, setGalleryDraft] = useState<GalleryDraft | null>(null);
+  // Live-mirror (TL.EVNT.3b): the events panel's whole staged list — titles,
+  // wall-clock dates, venue/city, flags, staged posters (data URLs) and the
+  // staged framing. Same contract as L6: it names its own block, null means
+  // "no panel is drafting", and the rows are exactly what Save would write.
+  const [eventsDraft, setEventsDraft] = useState<EventsDraft | null>(null);
 
   // ── DP.1: device-truthful preview frame ──
   // The desktop preview renders at a real device's LOGICAL CSS viewport
@@ -451,6 +457,11 @@ export default function Editor() {
     setGalleryDraft(draft);
   }, []);
 
+  // TL.EVNT.3b: same store-as-published contract as the gallery draft above.
+  const handleEventsDraftChange = useCallback((draft: EventsDraft | null) => {
+    setEventsDraft(draft);
+  }, []);
+
   // TL.GAL.6 — the preview keeps its own per-photo trash, so while a gallery
   // panel is drafting that block the two surfaces are editing the same list.
   // The panel wins: its state is the draft of record, and the DB write is its
@@ -470,7 +481,7 @@ export default function Editor() {
   // editor's LinkItem onto the preview's BlockItem row — preview reads only the
   // shared fields, so the missing DB columns are inert here.
   const previewBlocks = useMemo(() => {
-    if (!draftItem && !draftTitle && !galleryDraft) return allBlocks;
+    if (!draftItem && !draftTitle && !galleryDraft && !eventsDraft) return allBlocks;
     return allBlocks.map(b => {
       let nb = b;
       if (draftItem && b.id === draftItem.blockId) {
@@ -502,9 +513,25 @@ export default function Editor() {
           }) as BlockItem),
         };
       }
+      // TL.EVNT.3b: the events draft REPLACES the block's list for the same
+      // reason the gallery one does — it IS the whole list, deletes are the
+      // absence of a row and order is the array's own order. An existing row
+      // keeps its DB columns and takes the draft's fields on top; a staged add
+      // has no row yet, so it gets a synthetic base (EventsBlock reads only the
+      // columns the draft carries).
+      if (eventsDraft && b.id === eventsDraft.blockId) {
+        const byId = new Map((b.items ?? []).map(it => [it.id, it]));
+        nb = {
+          ...nb,
+          items: eventsDraft.items.map(row => ({
+            ...(byId.get(row.id) ?? { id: row.id, block_id: b.id }),
+            ...row,
+          }) as BlockItem),
+        };
+      }
       return nb;
     });
-  }, [allBlocks, draftItem, draftTitle, galleryDraft]);
+  }, [allBlocks, draftItem, draftTitle, galleryDraft, eventsDraft]);
 
   // DP.2: in visitor mode the preview mirrors the public gating contract — a
   // gated tap raises the 18+ modal instead of navigating, and confirmation opens
@@ -901,6 +928,7 @@ export default function Editor() {
         onHeaderDraftChange={handleHeaderDraftChange}
         onThemeDraftChange={handleThemeDraftChange}
         onGalleryDraftChange={handleGalleryDraftChange}
+        onEventsDraftChange={handleEventsDraftChange}
         themeJson={page.theme_json}
         displayName={page.display_name ?? undefined}
         bio={page.bio ?? undefined}
