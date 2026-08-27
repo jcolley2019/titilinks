@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import {
   DEVICE_PRESETS,
   DEFAULT_DEVICE_ID,
@@ -35,7 +36,7 @@ import type { PageStyle } from '../src/lib/theme-defaults';
 const HERO_PHOTO =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='1200'%3E%3Crect width='800' height='1200' fill='%23c9a55c'/%3E%3C/svg%3E";
 
-const HANDLE = '/joeyc';
+const HANDLE = `/${TEST_HANDLE}`;
 const PRESET = resolveDevicePreset(DEFAULT_DEVICE_ID);
 const PHONE = { width: PRESET.width, height: PRESET.height };
 

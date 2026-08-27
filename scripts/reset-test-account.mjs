@@ -1,10 +1,15 @@
 // HOUSE.1 — test-account reset SQL emitter.
 //
-// PRINTS the SQL that restores the dedicated Playwright test account
-// (joey2019pwtest, public handle "joeyc") to its CANONICAL state after a
-// battery mutates it. It does NOT connect to any database and holds no
-// secrets — Joey pastes the output into the Supabase web SQL editor (prod ref
-// ohmvlypcbrfkuudcuqub), the only sanctioned place SQL is ever run here.
+// PRINTS the SQL that restores the dedicated Playwright battery account
+// (joey2019pwtest+battery@gmail.com, public handle "joey2019pwtestbattery",
+// user id d3f1cfce-d15a-4f4a-ba5c-908e3e959e58 — TL.ISO.1) to its CANONICAL
+// state after a battery mutates it. It does NOT connect to any database and
+// holds no secrets — Joey pastes the output into the Supabase web SQL editor
+// (prod ref ohmvlypcbrfkuudcuqub), the only sanctioned place SQL is ever run
+// here.
+//
+// The FORMER battery account (joey2019pwtest, handle "joeyc") is Joey's
+// PERSONAL page since TL.ISO.1 — this script refuses to emit SQL for it.
 //
 // ── CANONICAL STATE (public.profiles for the test account) ───────────────────
 //   plan       = 'pro'    → PRO entitlements (max snapshots, animations, etc.)
@@ -17,11 +22,18 @@
 // stable, non-secret selector already committed across the test suite).
 //
 // Usage:
-//   node scripts/reset-test-account.mjs            → SQL for handle "joeyc"
+//   node scripts/reset-test-account.mjs            → SQL for "joey2019pwtestbattery"
 //   node scripts/reset-test-account.mjs somehandle → SQL for a different handle
 
 const handleArg = process.argv[2] && process.argv[2].trim();
-const handle = handleArg || 'joeyc';
+const handle = handleArg || 'joey2019pwtestbattery';
+
+if (handle === 'joeyc') {
+  console.error(
+    'REFUSED: "joeyc" is Joey\'s PERSONAL page (TL.ISO.1). The battery account is "joey2019pwtestbattery".'
+  );
+  process.exit(1);
+}
 
 // Escape single quotes for a safe SQL string literal.
 const h = handle.replace(/'/g, "''");

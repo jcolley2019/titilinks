@@ -16,8 +16,9 @@
 // gating.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 const SPOTIFY_URL = 'https://open.spotify.com/artist/ir-control';
 const BLOCK_ID = 'ir-social-block';
 

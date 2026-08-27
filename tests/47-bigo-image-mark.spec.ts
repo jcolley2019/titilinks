@@ -18,8 +18,9 @@
 // and every write is swallowed so the shared test account is never mutated.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 const SOCIAL_BLOCK = 'bigo-social-block';
 const LINKS_BLOCK = 'bigo-links-block';
 const BIGO_URL = 'https://www.bigo.tv/user/titi';

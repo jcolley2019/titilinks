@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 import { resolveHeroGeometry } from '../src/lib/hero-framing';
 import type { PageStyle } from '../src/lib/theme-defaults';
@@ -334,7 +335,7 @@ test.describe('FIX.MEDIA.1 — hero framing', () => {
       }).not.toContain('pending');
       const panel = await paintedProbe(page, PANEL_VIDEO);
 
-      await page.goto('/joeyc');
+      await page.goto(`/${TEST_HANDLE}`);
       await page.waitForLoadState('networkidle');
       await fireVideoMetadata(page);
       await expect.poll(async () => {

@@ -19,6 +19,7 @@
 // live passthrough — HOUSE.1 flake lesson).
 
 import { test, expect, type Page } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
 type Lang = 'en' | 'es';
 
@@ -280,7 +281,7 @@ test.describe('settings referral section', () => {
 // Mutation-verified: reverting the EPV href ternary to the literal
 // "/?ref=badge" fails the first test here.
 test.describe('public badge attribution', () => {
-  const PROFILE = '/joeyc';
+  const PROFILE = `/${TEST_HANDLE}`;
 
   /** Stub the public branding RPC. Returns a table → array of rows. */
   const routeBranding = (page: Page, row: Record<string, unknown>) =>

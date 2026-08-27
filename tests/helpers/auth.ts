@@ -9,6 +9,29 @@ export const TEST_EMAIL = process.env.TEST_USER_EMAIL ?? '';
 export const TEST_PASSWORD = process.env.TEST_USER_PASSWORD ?? '';
 
 /**
+ * TL.ISO.1 — identity pin. The ONLY account the battery may run as.
+ * Committed deliberately: UUIDs and handles are identifiers, not secrets.
+ * The pin makes credential drift in .env.test hard-fail at auth setup
+ * instead of silently running every spec against the wrong account.
+ */
+export const PINNED_TEST_USER_ID = 'd3f1cfce-d15a-4f4a-ba5c-908e3e959e58';
+
+/**
+ * Joey's PERSONAL account — formerly the shared
+ * battery account. The Aug 18-19, 2026 incident minted 32 duplicate blocks
+ * on this live page while specs and real usage shared it. Specs must never
+ * auth as it again; auth.setup.ts refuses this id by name.
+ */
+export const OLD_JOEYC_USER_ID = '3eb457d7-8a07-4b2b-88e6-22222debfdc1';
+
+/**
+ * Public handle of the dedicated battery account
+ * (joey2019pwtest+battery@gmail.com). Every spec URL derives from this —
+ * no spec may hardcode a handle string.
+ */
+export const TEST_HANDLE = 'joey2019pwtestbattery';
+
+/**
  * Perform ONE real Supabase login through the /login form.
  * Called only by tests/auth.setup.ts to mint the shared storageState;
  * individual specs consume that saved session instead of logging in per-test.

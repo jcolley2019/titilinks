@@ -13,8 +13,9 @@
 // preview: both render the same GalleryBlock, and this is what proves it rather
 // than assuming it.
 import { test, expect, type Page, type Locator } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const HANDLE = '/joeyc';
+const HANDLE = `/${TEST_HANDLE}`;
 
 /** The rate formula, mirrored from GalleryBlock. Kept as separate factors so a
  *  drift in any one of them fails here with a readable number. */

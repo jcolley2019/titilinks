@@ -18,10 +18,11 @@
 //
 // Every test restores whatever it changed — this runs against a real account.
 import { test, expect, type Page } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
 
 const T = translations.en;
-const HANDLE = '/joeyc';
+const HANDLE = `/${TEST_HANDLE}`;
 
 /** Run a supabase query with the app's own client (RLS as the signed-in user).
  *  Re-imported per call: every navigation wipes anything cached on window. */

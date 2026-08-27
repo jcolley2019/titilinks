@@ -17,8 +17,9 @@
 // of these two public invariants, which are covered here.)
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 // Distinct, collision-proof markers so a match is unambiguously our fixture.
 const ALPHA_HEADING = 'TEXTBLOCK_ALPHA_HEADING';

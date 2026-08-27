@@ -23,10 +23,11 @@
 // end-to-end walk stays a manual check.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import { isEffectivelyGated, gatedHref, isAdultUrl, hopPath, configHopId } from '../src/lib/adult-gate';
 
 const ADULT_HOSTS = ['onlyfans.com', 'fansly.com', 'privacy.com.br', 'fatalfans.com'];
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 const HOP_ID = 'test-hop-item-id';
 const DEST = 'https://example.com/destination-page';

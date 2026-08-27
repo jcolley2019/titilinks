@@ -14,8 +14,9 @@
 // implementation.
 
 import { test, expect, type Page } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 // BADGE.CTA.1 — the footer badge is now a two-line signup invitation, so
 // target the gated footer link by its href rather than by exact text.

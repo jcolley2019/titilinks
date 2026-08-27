@@ -15,9 +15,10 @@
 // stripped from the DOM the instant the creator previews as a visitor.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
 const DESKTOP = { width: 1440, height: 1000 };
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 // Fixture identifiers (fixture-injection precedent: tests/04-adult-gate.spec.ts).
 const LINKS_BLOCK_ID = 'dp2-links-block';

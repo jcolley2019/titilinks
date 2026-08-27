@@ -21,9 +21,10 @@
 // both are mocked here so the suite touches no real pixel data.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
 const DESKTOP = { width: 1440, height: 1000 };
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 // Obviously-fake pixel IDs — shaped to pass the injector's safe charset, but
 // unmistakably not real ad accounts.

@@ -14,10 +14,11 @@
 //     formula, proven by an in-page probe carrying the retired expression.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import { DEVICE_PRESETS } from '../src/lib/device-presets';
 
 const DESKTOP = { width: 1440, height: 1000 };
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 // Mirror of the hero-container height math (EditableProfileView + device-presets):
 // height = min(50% of the frame's logical height + HERO_EXTRA, cap + HERO_EXTRA).

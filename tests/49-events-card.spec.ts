@@ -20,8 +20,9 @@
 // inertness) lands with the lifecycle work.
 
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 const BLOCK_ID = 'evnt-stage1-block';
 
 // Retry the live passthrough — see TEST.FLAKE.26.

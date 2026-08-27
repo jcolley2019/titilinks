@@ -35,6 +35,7 @@ import fs from 'node:fs';
 import jsQR from 'jsqr';
 import { PNG } from 'pngjs';
 import { test, expect, type Page } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
 type Lang = 'en' | 'es';
 
@@ -67,7 +68,7 @@ test.describe('QR.1 — branded page QR tool', () => {
   for (const c of CASES) {
     test(`renders the QR, handle, and enabled downloads in ${c.lang.toUpperCase()}`, async ({ page }) => {
       await bootLang(page, c.lang);
-      await routePagesHandle(page, 'joeyc');
+      await routePagesHandle(page, TEST_HANDLE);
       await page.goto('/dashboard/qr');
       await page.waitForLoadState('networkidle');
 
@@ -76,7 +77,7 @@ test.describe('QR.1 — branded page QR tool', () => {
 
       // QR present (a real <canvas>) with the handle beneath it (WYSIWYG card).
       await expect(preview(page).locator('canvas')).toBeVisible();
-      await expect(preview(page)).toContainText('joeyc');
+      await expect(preview(page)).toContainText(TEST_HANDLE);
 
       // Both downloads render and are enabled.
       const png = page.getByRole('button', { name: c.png });
@@ -90,7 +91,7 @@ test.describe('QR.1 — branded page QR tool', () => {
 
   test('style toggle and gold-accent switch are interactive', async ({ page }) => {
     await bootLang(page, 'en');
-    await routePagesHandle(page, 'joeyc');
+    await routePagesHandle(page, TEST_HANDLE);
     await page.goto('/dashboard/qr');
     await page.waitForLoadState('networkidle');
 
@@ -115,7 +116,7 @@ test.describe('QR.1 — branded page QR tool', () => {
   /** Boot the tool with a deterministic handle and wait for the QR to mount. */
   async function openTool(page: Page) {
     await bootLang(page, 'en');
-    await routePagesHandle(page, 'joeyc');
+    await routePagesHandle(page, TEST_HANDLE);
     await page.goto('/dashboard/qr');
     await page.waitForLoadState('networkidle');
     await expect(preview(page).locator('canvas')).toBeVisible();
@@ -155,7 +156,7 @@ test.describe('QR.1 — branded page QR tool', () => {
     // Decoding at all proves the three finder patterns survived the export.
     const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
     expect(decoded, 'exported PNG must contain a decodable QR').not.toBeNull();
-    expect(decoded!.data).toBe(new URL('/joeyc', page.url()).toString());
+    expect(decoded!.data).toBe(new URL(`/${TEST_HANDLE}`, page.url()).toString());
 
     // Finder geometry square => the exported code is not stretched either.
     const { topLeftCorner: tl, topRightCorner: tr, bottomLeftCorner: bl } = decoded!.location;
@@ -187,7 +188,7 @@ test.describe('QR.1 — branded page QR tool', () => {
   });
 
   test('sidebar links to the QR tool', async ({ page }) => {
-    await routePagesHandle(page, 'joeyc');
+    await routePagesHandle(page, TEST_HANDLE);
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
     // Desktop sidebar renders the link in the DOM on both projects.

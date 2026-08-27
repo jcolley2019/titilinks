@@ -23,8 +23,9 @@
 // and every write is swallowed so the shared test account is never mutated.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 const BLOCK = 'soc3-block';
 const LINKED = 'https://www.instagram.com/titi';
 

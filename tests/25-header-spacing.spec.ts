@@ -23,9 +23,10 @@
 // RELATIONSHIP between the stored number and the rendered px.
 
 import { test, expect } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 const BLOCK_ID = 'hs-social-block';
 
 // Patch page.theme_json.headerConfig.spacing (null = strip the key entirely so

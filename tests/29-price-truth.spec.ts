@@ -13,8 +13,9 @@
 //  5. ES smoke — founding-price copy renders in Spanish.
 
 import { test, expect, type Page } from '@playwright/test';
+import { TEST_HANDLE } from './helpers/auth';
 
-const PROFILE = '/joeyc';
+const PROFILE = `/${TEST_HANDLE}`;
 
 async function routeProfilePlan(page: Page, plan: 'free' | 'pro' | 'business') {
   await page.route('**/rest/v1/profiles*', async (route) => {
