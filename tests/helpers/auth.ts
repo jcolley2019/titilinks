@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import type { Page } from '../fixtures';
 
 /**
  * Dedicated Playwright test-account credentials.

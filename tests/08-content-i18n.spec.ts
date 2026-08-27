@@ -16,7 +16,7 @@
 // EmailSubscribeBlock render (no seeded page); that wiring is covered by tsc,
 // the tc() call sites, and the I18N-PARITY guard.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { translateContent, CONTENT_MAP } from '../src/lib/content-i18n';
 import { translations } from '../src/hooks/useLanguage';
 

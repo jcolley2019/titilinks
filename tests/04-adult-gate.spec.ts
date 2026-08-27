@@ -22,7 +22,7 @@
 // reveal/re-gate behaviour is covered at the predicate level only, and the
 // end-to-end walk stays a manual check.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { isEffectivelyGated, gatedHref, isAdultUrl, hopPath, configHopId } from '../src/lib/adult-gate';
 
@@ -82,7 +82,7 @@ test.describe('18+ gate — the rule every surface consults', () => {
 test.describe('/go interstitial', () => {
   // Hanging the item lookup pins the hop in its pre-resolve state, so the
   // neutral frame can be asserted without racing the forward.
-  const hangResolution = async (page: import('@playwright/test').Page) => {
+  const hangResolution = async (page: Page) => {
     await page.route('**/rest/v1/block_items*', () => {
       /* never fulfilled — the hop stays on its neutral frame */
     });
@@ -153,7 +153,7 @@ const GATED_CARD_ID = 'test-card-gated';
 // a page at rest — this is the ruling expressed as an assertion.
 const RETIRED_DISCLAIMER_TEXT = ['Mature Content Disclaimer', '18+ only', 'Aviso de contenido para adultos'];
 
-const seedSocialIcons = async (page: import('@playwright/test').Page) => {
+const seedSocialIcons = async (page: Page) => {
   let modeId = '';
 
   // Pass the real modes through, but capture an id to hang the fixture off.
@@ -189,7 +189,7 @@ const seedSocialIcons = async (page: import('@playwright/test').Page) => {
   });
 };
 
-const gotoSeededProfile = async (page: import('@playwright/test').Page) => {
+const gotoSeededProfile = async (page: Page) => {
   await seedSocialIcons(page);
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');

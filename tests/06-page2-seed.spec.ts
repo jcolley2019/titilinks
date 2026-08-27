@@ -9,7 +9,7 @@
 // This file is also STEP 5(b)'s standing proof: it fails the moment the seed
 // regresses to the old two-block composition or a seeded title loses its i18n.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '../src/lib/block-presets';
 import { translateContent } from '../src/lib/content-i18n';
 

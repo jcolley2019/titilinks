@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // The editor is a WYSIWYG live-preview shell (EditableProfileView) with a
 // slide-in ProfileDashboard opened via the gold "Edit Profile" pill. The former

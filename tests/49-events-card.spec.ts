@@ -19,7 +19,7 @@
 // behavioral spec. The real spec 49 (sort order, past-event hiding, sold-out
 // inertness) lands with the lifecycle work.
 
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;

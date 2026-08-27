@@ -15,7 +15,7 @@
 // the proof this polish never touched the gating branch, so nothing here asserts
 // gating.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;
@@ -25,7 +25,7 @@ const BLOCK_ID = 'ir-social-block';
 // Patch page.theme_json.headerConfig, pass the real modes through (capturing the
 // page1 mode id), then answer blocks/block_items with the fixture.
 const seedIconRow = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   headerConfig: Record<string, unknown>,
   items: (blockId: string) => unknown[],
 ) => {
@@ -66,7 +66,7 @@ const item = (id: string, label: string, url: string, order: number) => ({
   subtitle: null, badge: null, image_url: null,
 });
 
-const gotoSeeded = async (page: import('@playwright/test').Page) => {
+const gotoSeeded = async (page: Page) => {
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
@@ -112,7 +112,7 @@ const manyIcons = (blockId: string) =>
     item(`ir-many-${i}`, `Ico${String(i).padStart(2, '0')}`, `https://example.com/i${i}`, i)
   );
 
-const readScrollLeft = (page: import('@playwright/test').Page) =>
+const readScrollLeft = (page: Page) =>
   page.locator('[data-icon-row]').first().evaluate((el) => (el as HTMLElement).scrollLeft);
 
 test.describe('icon row — overflow drift', () => {

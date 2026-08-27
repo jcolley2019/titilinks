@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 const F = (p) => `src/${p}`;
 const checks = [
   { name:'STICKY-HERO', file:'components/EditableProfileView.tsx',
@@ -44,7 +44,32 @@ const checks = [
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.
   { name:'I18N-PARITY', parity:true },
+  // TL.ISO.2: every spec runs behind the default-deny write fixture. The ONLY
+  // door to @playwright/test is tests/fixtures.ts (which builds the guarded
+  // test) and tests/auth.setup.ts (the one real login, minted before any spec
+  // context exists). A spec reaching the raw runner — even for a type — skips
+  // the deny layer entirely; that is the Aug 18-19 incident class growing back.
+  { name:'PW-ONE-DOOR', pwOneDoor:true },
+  // TL.ISO.2: route.continue()/route.fetch() skip every remaining handler and
+  // go straight to the network. Behind a non-GET gate that is a spec
+  // hand-carrying a WRITE around the deny layer. Grep-level by design — the
+  // TL.ISO.0 recon ruled this bypass not fully closable in-process; this
+  // catches the same-line idiom (both orderings). route.fallback() is the
+  // correct verb: it lets the fixture rule on the request.
+  { name:'PW-WRITE-BYPASS', pwWriteBypass:true },
 ];
+
+// Every .ts under tests/ (specs, helpers, fixtures) — output dirs skipped.
+const walkTests = (dir = 'tests') => {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    if (name === 'results' || name === 'screenshots' || name === '.auth') continue;
+    const p = `${dir}/${name}`;
+    if (statSync(p).isDirectory()) out.push(...walkTests(p));
+    else if (p.endsWith('.ts')) out.push(p);
+  }
+  return out;
+};
 let failed = 0;
 for (const c of checks) {
   if (c.parity) {
@@ -63,6 +88,46 @@ for (const c of checks) {
       if (onlyEs.length) console.error(`      missing in EN: ${onlyEs.join(', ')}`);
     } else {
       console.log(`ok ${c.name} (${en.size} keys, en/es identical)`);
+    }
+    continue;
+  }
+  if (c.pwOneDoor) {
+    const DOORS = new Set(['tests/fixtures.ts', 'tests/auth.setup.ts']);
+    const bad = [];
+    for (const f of walkTests()) {
+      if (DOORS.has(f)) continue;
+      readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (line.includes('@playwright/test')) bad.push(`${f}:${i + 1}  ${line.trim()}`);
+      });
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - direct '@playwright/test' import outside the fixture door`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      specs must import { test, expect } (and types) from tests/fixtures.ts -`);
+      console.error(`      the TL.ISO.2 default-deny write guard only exists behind that door.`);
+    } else {
+      console.log(`ok ${c.name} (${walkTests().length} files, one door)`);
+    }
+    continue;
+  }
+  if (c.pwWriteBypass) {
+    const idiom = /(!==\s*['"]GET['"].*route\.(continue|fetch)\()|(route\.(continue|fetch)\(.*!==\s*['"]GET['"])/;
+    const bad = [];
+    for (const f of walkTests()) {
+      if (f === 'tests/fixtures.ts') continue;
+      readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (idiom.test(line)) bad.push(`${f}:${i + 1}  ${line.trim()}`);
+      });
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - a non-GET gate hands writes to route.continue()/route.fetch()`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      continue()/fetch() bypass the TL.ISO.2 deny layer straight to the network -`);
+      console.error(`      use route.fallback() so the fixture rules on the mutation instead.`);
+    } else {
+      console.log(`ok ${c.name}`);
     }
     continue;
   }

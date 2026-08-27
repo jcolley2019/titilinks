@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator } from './fixtures';
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '../src/lib/device-presets';
 
 // DP.1 — the editor preview frame renders at a real device's LOGICAL CSS

@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 import { resolveHeroGeometry } from '../src/lib/hero-framing';

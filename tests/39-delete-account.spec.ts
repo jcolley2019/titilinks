@@ -16,7 +16,7 @@
 // reached: every test installs a mock BEFORE navigating, and the one test that
 // asserts "no call was issued" checks a counter rather than an outcome.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 type Lang = 'en' | 'es';
 

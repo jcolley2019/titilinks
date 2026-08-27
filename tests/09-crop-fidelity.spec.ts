@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 // CROP.3a — crop-engine fidelity net. getCroppedImage is the single output path
 // for every crop surface (editor camera flow, onboarding, page 2). This proves

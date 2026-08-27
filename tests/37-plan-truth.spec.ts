@@ -17,7 +17,7 @@
 // Mutation-verified: adding `plan: 'pro'` to any client profiles update, or
 // deriving a gate from anything other than the DB row, fails these tests.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 const BILLING_COLUMNS = [
   'plan',

@@ -20,7 +20,7 @@
 // Suite-05 route-interception pattern: theme_json.pageStyle is pinned to
 // 'full_bleed' on GET reads and writes are swallowed — ZERO real mutation.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 const DESKTOP = { width: 1440, height: 1000 };
 

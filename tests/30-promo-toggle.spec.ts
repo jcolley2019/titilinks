@@ -13,7 +13,7 @@
 // hid it) and Settings had no badge section, so cases 2 and 4 fail without the
 // implementation.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;

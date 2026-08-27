@@ -22,7 +22,7 @@
 // is that any value in range is legitimate; what the spec owns is the
 // RELATIONSHIP between the stored number and the rendered px.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, allowWrites, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
 
@@ -33,7 +33,7 @@ const BLOCK_ID = 'hs-social-block';
 // the constants' fallbacks are what renders), pass the real modes through, then
 // answer blocks/block_items with one social block so the icon row exists.
 const seedSpacing = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   spacing: Record<string, number> | null,
 ) => {
   await page.route('**/rest/v1/pages*', async (route) => {
@@ -77,7 +77,7 @@ const seedSpacing = async (
   });
 };
 
-const gotoSeeded = async (page: import('@playwright/test').Page) => {
+const gotoSeeded = async (page: Page) => {
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
@@ -85,7 +85,7 @@ const gotoSeeded = async (page: import('@playwright/test').Page) => {
 
 // The header stack is the <h1>'s grandparent (header stack > card wrapper > h1)
 // — the div HDR.SPACE.2 gave the tunable paddingBottom.
-const headerStackPaddingBottom = (page: import('@playwright/test').Page) =>
+const headerStackPaddingBottom = (page: Page) =>
   page.locator('h1').first().evaluate(
     (el) => getComputedStyle(el.parentElement!.parentElement!).paddingBottom,
   );
@@ -130,10 +130,10 @@ test.describe('header spacing — saved values render', () => {
 // The edit-canvas handle <p> inside NameHandleCard (input + p). Two EPV
 // instances are mounted (desktop + mobile branches, CSS-hidden) — scope to the
 // visible one.
-const canvasHandle = (page: import('@playwright/test').Page) =>
+const canvasHandle = (page: Page) =>
   page.locator('input + p').filter({ hasText: '@' }).filter({ visible: true }).first();
 
-const openHub = async (page: import('@playwright/test').Page) => {
+const openHub = async (page: Page) => {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
@@ -143,10 +143,10 @@ const openHub = async (page: import('@playwright/test').Page) => {
   ).toBeVisible();
 };
 
-const nameHandleSlider = (page: import('@playwright/test').Page) =>
+const nameHandleSlider = (page: Page) =>
   page.getByRole('slider', { name: 'Name to handle' }).filter({ visible: true }).first();
 
-const saveHub = async (page: import('@playwright/test').Page) => {
+const saveHub = async (page: Page) => {
   await page.getByRole('button', { name: /^(Save|Guardar)$/ }).filter({ visible: true }).first().click();
   await expect(page.getByText(/^(Saved|Guardado)$/).first()).toBeVisible();
   await page.waitForTimeout(600); // let the PATCH + refetch settle
@@ -156,7 +156,7 @@ const saveHub = async (page: import('@playwright/test').Page) => {
 // fires. It reads where the slider currently sits instead of assuming, which is
 // what makes every caller independent of the account: step is 1, so the
 // distance IS the press count.
-const setNameHandle = async (page: import('@playwright/test').Page, target: number) => {
+const setNameHandle = async (page: Page, target: number) => {
   const slider = nameHandleSlider(page);
   const from = Number(await slider.inputValue());
   await slider.focus();
@@ -166,6 +166,13 @@ const setNameHandle = async (page: import('@playwright/test').Page, target: numb
 };
 
 test.describe('header spacing — hub sliders', () => {
+  // TL.ISO.2 write opt-in — the hub Save PATCHes the REAL pages.theme_json
+  // (this spec reads the account's stored value and puts it back afterwards).
+  // The public-probe describes above stay fully denied.
+  test.beforeEach(async ({ page }) => {
+    await allowWrites(page, ['rest/v1/pages']);
+  });
+
   test('dragging live-updates the edit canvas, Save persists, reload renders', async ({ page }) => {
     await openHub(page);
 

@@ -24,8 +24,15 @@
 //
 // Every photo this spec uploads is swept in a finally — the shared test
 // account's own photos are never mutated.
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, allowWrites, type Page } from './fixtures';
 import { translations } from '../src/hooks/useLanguage';
+
+// TL.ISO.2 write opt-in — this spec REALLY writes: uploads POST to the
+// products bucket, Save commits the staged draft (block_items insert/
+// update/delete + blocks.title), and sweep() deletes rows + storage objects.
+test.beforeEach(async ({ page }) => {
+  await allowWrites(page, ['rest/v1/blocks', 'rest/v1/block_items', 'storage/v1/object/products']);
+});
 
 const T = translations.en;
 

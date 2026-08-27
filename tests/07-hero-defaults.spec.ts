@@ -14,7 +14,7 @@
 // That is "hero pages heal at read time" stated at the only layer a spec can
 // reach without seeded data.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { resolveHeroConfig, HERO_DEFAULTS } from '../src/lib/surface';
 
 // The PRE-resolver reader, mirrored verbatim from the old hero render path:

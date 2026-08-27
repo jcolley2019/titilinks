@@ -12,7 +12,7 @@
 //     Business, annual is the default, no "Custom domain" text anywhere.
 //  5. ES smoke — founding-price copy renders in Spanish.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, allowWrites, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;
@@ -60,6 +60,15 @@ test.describe('PRICE.TRUTH.1 — branding badge', () => {
 });
 
 test.describe('PRICE.TRUTH.1 — email capture gate', () => {
+  // TL.ISO.2 write opt-in — opening the editor rides ProfileDashboard
+  // .resolveBlockId's find-or-create: on an account that owns no
+  // email_subscribe block yet it INSERTs one (rest/v1/blocks). Allowed per
+  // the ISO.0 ruling; the ISO.4 reseed fixture should pre-create the block
+  // so this opt-in can be retired.
+  test.beforeEach(async ({ page }) => {
+    await allowWrites(page, ['rest/v1/blocks']);
+  });
+
   test('Free creator sees the lock badge + upsell; the editor never opens', async ({ page }) => {
     await routeProfilePlan(page, 'free');
     await page.goto('/dashboard/editor');

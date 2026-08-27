@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 
 /**
  * TPL.3 — Template Gallery: Layouts + Styles tabs, live preset applies.

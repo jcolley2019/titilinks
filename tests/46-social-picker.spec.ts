@@ -23,7 +23,7 @@
 // blocks/block_items answered with a fixture, writes stubbed so the shared test
 // account is never mutated) follows 11-icon-row / 26-icon-contrast.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 import { planSocialSave } from '../src/lib/social-save';
 import { translations } from '../src/hooks/useLanguage';
 
@@ -120,7 +120,7 @@ const BLOCK_ID = 'soc-block';
 type Seed = { id: string; label: string; url: string };
 
 const routeFetchWithRetry = async (
-  route: import('@playwright/test').Route,
+  route: Route,
   attempts = 4,
 ) => {
   let lastErr: unknown;
@@ -137,7 +137,7 @@ const routeFetchWithRetry = async (
 /** Every non-GET call the editor made to block_items, in order. */
 type Write = { method: string; url: string; body: string | null };
 
-const seedEditor = async (page: import('@playwright/test').Page, seeds: Seed[]) => {
+const seedEditor = async (page: Page, seeds: Seed[]) => {
   const writes: Write[] = [];
 
   // The shared test account must never be mutated: replay the page row and
@@ -202,7 +202,7 @@ const seedEditor = async (page: import('@playwright/test').Page, seeds: Seed[]) 
   return writes;
 };
 
-const openPlatformsPanel = async (page: import('@playwright/test').Page) => {
+const openPlatformsPanel = async (page: Page) => {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
@@ -212,7 +212,7 @@ const openPlatformsPanel = async (page: import('@playwright/test').Page) => {
   await expect(page.getByRole('button', { name: 'Add Platform' })).toBeVisible();
 };
 
-const pickerRow = (page: import('@playwright/test').Page, label: string) =>
+const pickerRow = (page: Page, label: string) =>
   page.getByRole('button', { name: label, exact: true });
 
 const deletes = (writes: Write[]) => writes.filter((w) => w.method === 'DELETE');

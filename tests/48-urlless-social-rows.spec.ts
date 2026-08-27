@@ -22,14 +22,14 @@
 // and modes rows pass through, blocks/block_items are answered with a fixture,
 // and every write is swallowed so the shared test account is never mutated.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route, type TestInfo } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;
 const BLOCK = 'soc3-block';
 const LINKED = 'https://www.instagram.com/titi';
 
-const routeFetchWithRetry = async (route: import('@playwright/test').Route, attempts = 4) => {
+const routeFetchWithRetry = async (route: Route, attempts = 4) => {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try { return await route.fetch({ timeout: 20_000 }); } catch (e) { lastErr = e; }
@@ -46,7 +46,7 @@ const ROWS: Row[] = [
   { id: 'soc3-bigo', label: 'Bigo Live', url: null },
 ];
 
-const seed = async (page: import('@playwright/test').Page, rows: Row[] = ROWS) => {
+const seed = async (page: Page, rows: Row[] = ROWS) => {
   await page.route('**/rest/v1/pages*', async (route) => {
     if (route.request().method() !== 'GET') { await route.fulfill({ status: 204, body: '' }); return; }
     const res = await routeFetchWithRetry(route);
@@ -81,22 +81,22 @@ const seed = async (page: import('@playwright/test').Page, rows: Row[] = ROWS) =
 };
 
 const shot = (name: string) => `tests/screenshots/${name}.png`;
-const suffix = (info: import('@playwright/test').TestInfo) => info.project.name;
+const suffix = (info: TestInfo) => info.project.name;
 
-const gotoProfile = async (page: import('@playwright/test').Page) => {
+const gotoProfile = async (page: Page) => {
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);
 };
 
-const gotoEditor = async (page: import('@playwright/test').Page) => {
+const gotoEditor = async (page: Page) => {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(900);
 };
 
 /** The canvas placeholder for a URL-less row. */
-const placeholder = (page: import('@playwright/test').Page, label: string) =>
+const placeholder = (page: Page, label: string) =>
   page.locator(`[data-needs-link][title^="${label}"]`);
 
 test.afterEach(async ({ page }) => {
@@ -229,7 +229,7 @@ test('visitor preview hides the placeholders it shows in edit mode', async ({ pa
 
 type Stored = { id: string; block_id: string; label: string; url: string; order_index: number };
 
-const seedStateful = async (page: import('@playwright/test').Page, initial: Stored[] = []) => {
+const seedStateful = async (page: Page, initial: Stored[] = []) => {
   const table: Stored[] = [...initial];
   let seq = 100;
 
@@ -296,7 +296,7 @@ const seedStateful = async (page: import('@playwright/test').Page, initial: Stor
   return { table };
 };
 
-const openPlatformsPanel = async (page: import('@playwright/test').Page) => {
+const openPlatformsPanel = async (page: Page) => {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
@@ -306,7 +306,7 @@ const openPlatformsPanel = async (page: import('@playwright/test').Page) => {
   await expect(page.getByRole('button', { name: 'Add Platform' })).toBeVisible({ timeout: 15_000 });
 };
 
-const pick = async (page: import('@playwright/test').Page, label: string) => {
+const pick = async (page: Page, label: string) => {
   await page.getByPlaceholder('Search platforms...').fill(label);
   await page.getByRole('button', { name: label, exact: true }).first().click();
 };

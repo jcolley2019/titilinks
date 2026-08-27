@@ -17,9 +17,16 @@
 //      square tile only, and the lightbox is where the rest of the photo lives.
 //
 // Every test restores whatever it changed — this runs against a real account.
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, allowWrites, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
+
+// TL.ISO.2 write opt-in — setLayout() rewrites the live gallery's
+// blocks.title, and the style probes PATCH block_items.style_json (each is
+// restored in the test's finally).
+test.beforeEach(async ({ page }) => {
+  await allowWrites(page, ['rest/v1/blocks', 'rest/v1/block_items']);
+});
 
 const T = translations.en;
 const HANDLE = `/${TEST_HANDLE}`;

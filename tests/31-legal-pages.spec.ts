@@ -15,7 +15,7 @@
 // h1), the footer had no Terms/Privacy links, and the md still held
 // [LAUNCH DATE] — so every assertion below fails without the implementation.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 type Lang = 'en' | 'es';
 

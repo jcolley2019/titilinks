@@ -34,7 +34,7 @@
 import fs from 'node:fs';
 import jsQR from 'jsqr';
 import { PNG } from 'pngjs';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 type Lang = 'en' | 'es';

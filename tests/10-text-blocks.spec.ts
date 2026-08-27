@@ -16,7 +16,7 @@
 // a DB write the harness can't reach — but every path it drives resolves to one
 // of these two public invariants, which are covered here.)
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;
@@ -33,7 +33,7 @@ const textConfig = (heading: string, body: string) => JSON.stringify({ heading, 
 // then answer blocks with the given rows and block_items with nothing (text
 // blocks carry no items — their content is JSON in blocks.title).
 const seedTextBlocks = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   rows: (modeId: string) => unknown[],
 ) => {
   let modeId = '';
@@ -52,7 +52,7 @@ const seedTextBlocks = async (
 };
 
 const gotoWith = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   rows: (modeId: string) => unknown[],
 ) => {
   await seedTextBlocks(page, rows);

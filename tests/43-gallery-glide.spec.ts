@@ -12,8 +12,14 @@
 // Rates are measured on the PUBLIC page and confirmed once inside the editor
 // preview: both render the same GalleryBlock, and this is what proves it rather
 // than assuming it.
-import { test, expect, type Page, type Locator } from '@playwright/test';
+import { test, expect, allowWrites, type Page, type Locator } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
+
+// TL.ISO.2 write opt-in — setConfig() rewrites the live gallery's
+// blocks.title (restored in each test's finally).
+test.beforeEach(async ({ page }) => {
+  await allowWrites(page, ['rest/v1/blocks']);
+});
 
 const HANDLE = `/${TEST_HANDLE}`;
 

@@ -17,9 +17,17 @@
 //
 // The journey works on a photo this spec uploads itself and deletes in a
 // finally — the shared test account's own photos are never mutated.
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, allowWrites, type Page } from './fixtures';
 import { translations } from '../src/hooks/useLanguage';
 import { GALLERY_MIN_ZOOM, resolveGalleryGeometry } from '../src/lib/gallery-framing';
+
+// TL.ISO.2 write opt-in — this spec REALLY writes: the panel upload POSTs the
+// photo to the products bucket, GalleryEditor's Save inserts/updates
+// block_items and rewrites blocks.title (the layout config), and the
+// finally-sweep deletes the row + storage object again.
+test.beforeEach(async ({ page }) => {
+  await allowWrites(page, ['rest/v1/blocks', 'rest/v1/block_items', 'storage/v1/object/products']);
+});
 
 const T = translations.en;
 const BASELINE_CLASS = 'absolute inset-0 w-full h-full object-cover';

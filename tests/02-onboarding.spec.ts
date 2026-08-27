@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { screenshotPage } from './helpers/auth';
 
 // HARNESS.AUTH.2 — onboarding-from-zero coverage is deferred.

@@ -13,7 +13,7 @@
 // row → tab route, which works on BOTH projects; the DesignEditor Font tab
 // embeds the same shared UserFontsSection component).
 
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 
 type Plan = 'free' | 'pro' | 'business';
 

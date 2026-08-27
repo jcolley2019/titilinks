@@ -18,7 +18,7 @@
 // Every Supabase call is stubbed at the REST/RPC layer (route-level fulfill, no
 // live passthrough — HOUSE.1 flake lesson).
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 type Lang = 'en' | 'es';

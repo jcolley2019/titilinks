@@ -14,7 +14,7 @@
 // All Supabase calls are stubbed at the REST layer (route-level fulfill, no live
 // passthrough — HOUSE.1 flake lesson) so the flows are deterministic.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 type Lang = 'en' | 'es';
 

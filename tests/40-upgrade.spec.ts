@@ -16,7 +16,7 @@
 // NO live Stripe: create-checkout-session / create-portal-session are
 // route-mocked at the functions/v1 layer and return URLs back into this app.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { PRO_PRICES } from '../supabase/functions/_shared/billing.ts';
 
 type Lang = 'en' | 'es';
@@ -330,7 +330,7 @@ test.describe('upsell destinations', () => {
     await routeProfilePlan(page, 'free');
     // Free is capped at 3 short links — seed the cap so the notice renders.
     await page.route('**/rest/v1/custom_short_links*', (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
+      if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({
         json: [1, 2, 3].map((i) => ({
           id: `seed-${i}`,

@@ -17,7 +17,7 @@
 // layer and return a URL back into this app, so the post-checkout navigation is
 // deterministic and nothing reaches api.stripe.com.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { PRO_PRICES } from '../supabase/functions/_shared/billing.ts';
 
 type Lang = 'en' | 'es';

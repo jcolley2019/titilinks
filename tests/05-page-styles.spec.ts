@@ -19,7 +19,7 @@
 // which page is active. That is "each page renders its own style" stated at the
 // only layer a spec can reach without seeded data.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { getThemeWithDefaults } from '../src/lib/theme-defaults';
 import {
   resolveEffectivePageStyle,

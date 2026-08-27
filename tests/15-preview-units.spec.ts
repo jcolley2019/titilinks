@@ -13,7 +13,7 @@
 //  2. HARD FENCE: the public hero's computed height is byte-identical to the old
 //     formula, proven by an in-page probe carrying the retired expression.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { DEVICE_PRESETS } from '../src/lib/device-presets';
 

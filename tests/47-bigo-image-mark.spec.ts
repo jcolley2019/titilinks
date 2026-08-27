@@ -17,7 +17,7 @@
 // and modes rows pass through, blocks/block_items are answered with a fixture,
 // and every write is swallowed so the shared test account is never mutated.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route, type TestInfo } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const PROFILE = `/${TEST_HANDLE}`;
@@ -32,7 +32,7 @@ const THUMB =
 
 // TEST.FLAKE.26 — the passthrough re-fetch stalls intermittently under a full
 // battery; retry it so a transient stall never fails the feature.
-const routeFetchWithRetry = async (route: import('@playwright/test').Route, attempts = 4) => {
+const routeFetchWithRetry = async (route: Route, attempts = 4) => {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -47,7 +47,7 @@ const routeFetchWithRetry = async (route: import('@playwright/test').Route, atte
 const SOCIALS = ['Bigo Live', 'Instagram', 'TikTok', 'Spotify'];
 
 const seed = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   headerConfig: Record<string, unknown>,
   socials: string[] = SOCIALS,
 ) => {
@@ -131,17 +131,17 @@ const seed = async (
   });
 };
 
-const gotoProfile = async (page: import('@playwright/test').Page) => {
+const gotoProfile = async (page: Page) => {
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);
 };
 
 const shot = (name: string) => `tests/screenshots/${name}.png`;
-const suffix = (info: import('@playwright/test').TestInfo) => info.project.name;
+const suffix = (info: TestInfo) => info.project.name;
 
 /** The header icon-row glyph for a platform (an <a title="..."> wrapper). */
-const rowGlyph = (page: import('@playwright/test').Page, label: string) =>
+const rowGlyph = (page: Page, label: string) =>
   page.locator(`a[title="${label}"] svg`).first();
 
 test.afterEach(async ({ page }) => {

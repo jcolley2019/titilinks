@@ -32,7 +32,7 @@
 // creator-a/creator-b/creator-big with no demo-shoot — both new tests fail
 // against that revision.
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 type Lang = 'en' | 'es';
 

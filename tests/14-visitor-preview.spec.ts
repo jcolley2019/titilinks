@@ -14,7 +14,7 @@
 // takes over, so a gated destination that the editor is exempted to show is
 // stripped from the DOM the instant the creator previews as a visitor.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const DESKTOP = { width: 1440, height: 1000 };
@@ -30,7 +30,7 @@ const ONLYFANS_URL = 'https://onlyfans.com/dp2-creator';
 // blocks/block_items reads are answered with a fixture, so the whole editor
 // render path stays exactly as it ships. Non-GET writes (the editor's
 // ensure-default-blocks inserts) are no-oped so they cannot mutate real data.
-const seedGatedLinksBlock = async (page: import('@playwright/test').Page) => {
+const seedGatedLinksBlock = async (page: Page) => {
   let modeId = '';
 
   await page.route('**/rest/v1/modes*', async (route) => {

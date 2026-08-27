@@ -20,7 +20,7 @@
 // the public route reads pixels through the get_public_tracking_pixels RPC —
 // both are mocked here so the suite touches no real pixel data.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 const DESKTOP = { width: 1440, height: 1000 };
@@ -42,7 +42,7 @@ const PIXEL_HOSTS = /connect\.facebook\.net|facebook\.com\/tr|analytics\.tiktok\
  * onboarding status) pass through to the real DB so the editor still boots.
  */
 async function routeProfiles(
-  page: import('@playwright/test').Page,
+  page: Page,
   opts: { plan: 'free' | 'pro' | 'business'; onPatch?: (body: Record<string, unknown>) => void },
 ) {
   await page.route('**/rest/v1/profiles*', async (route) => {
@@ -67,7 +67,7 @@ async function routeProfiles(
   });
 }
 
-const openEditProfile = async (page: import('@playwright/test').Page) => {
+const openEditProfile = async (page: Page) => {
   await page.getByRole('button', { name: 'Edit Profile' }).filter({ visible: true }).first().click();
 };
 

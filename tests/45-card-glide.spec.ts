@@ -30,8 +30,14 @@
 // page's own mode, measures them, and deletes them again. Every fixture title
 // carries a `tlm1` marker so a run killed mid-flight can be swept clean by the
 // next one rather than leaving junk blocks on a real page.
-import { test, expect, type Page, type Locator } from '@playwright/test';
+import { test, expect, allowWrites, type Page, type Locator, type Browser } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
+
+// TL.ISO.2 write opt-in — withFixtures() inserts its own carousel +
+// product_cards blocks and items, reconfigures them, and sweeps them again.
+test.beforeEach(async ({ page }) => {
+  await allowWrites(page, ['rest/v1/blocks', 'rest/v1/block_items']);
+});
 
 const HANDLE = `/${TEST_HANDLE}`;
 
@@ -161,7 +167,7 @@ const reload = async (page: Page, label: string) => {
 /** The account's page must be left exactly as it was found. */
 const withFixtures = async (
   page: Page,
-  browser: import('@playwright/test').Browser,
+  browser: Browser,
   body: (ids: { carousel: string; products: string }) => Promise<void>,
 ) => {
   await page.goto(HANDLE);

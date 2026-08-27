@@ -10,7 +10,7 @@
 // the behavior: the builder appears exactly for WhatsApp items, composes the
 // exact bytes a visitor's WhatsApp receives, and round-trips the seeded presets.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import {
   isWhatsAppUrl,
   composeWhatsAppUrl,

@@ -14,7 +14,7 @@
 // frame is desktop-only chrome, so a desktop viewport lets this run under BOTH
 // projects without a skip.
 
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 
 type Plan = 'free' | 'pro' | 'business';
 

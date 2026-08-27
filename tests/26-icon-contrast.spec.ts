@@ -13,7 +13,7 @@
 // asserts the same-on-same combos are disabled with the "no contrast" hint.
 // pages PATCHes are stubbed so the shared test account is never mutated.
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
 
@@ -26,7 +26,7 @@ const BLOCK_ID = 'ic-social-block';
 // Retry the re-fetch a few times with a generous per-attempt timeout so a
 // transient stall no longer flakes the spec.
 const routeFetchWithRetry = async (
-  route: import('@playwright/test').Route,
+  route: Route,
   attempts = 4,
 ) => {
   let lastErr: unknown;
@@ -43,7 +43,7 @@ const routeFetchWithRetry = async (
 // Patch page.theme_json.headerConfig, pass the real modes through, then answer
 // blocks/block_items with the fixture (same shape as 11-icon-row).
 const seedIcons = async (
-  page: import('@playwright/test').Page,
+  page: Page,
   headerConfig: Record<string, unknown>,
   labels: string[],
 ) => {
@@ -85,13 +85,13 @@ const seedIcons = async (
   });
 };
 
-const gotoSeeded = async (page: import('@playwright/test').Page) => {
+const gotoSeeded = async (page: Page) => {
   await page.goto(PROFILE);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
 };
 
-const glyph = (page: import('@playwright/test').Page, label: string) =>
+const glyph = (page: Page, label: string) =>
   page.locator(`a[title="${label}"] svg`).first();
 
 // ─── 1. Color mode + white circle: clashing glyphs flip, brands survive ──────
@@ -144,7 +144,7 @@ test.describe('icon contrast — saved same-on-same combos', () => {
 // ─── 3. The picker guard: invalid combos disabled with the hint ──────────────
 
 // A chip group is <label> + sibling <div> of buttons (SocialLinksEditor).
-const chip = (page: import('@playwright/test').Page, groupLabel: string, name: string) =>
+const chip = (page: Page, groupLabel: string, name: string) =>
   page.getByText(groupLabel, { exact: true }).filter({ visible: true }).first()
     .locator('xpath=following-sibling::div[1]')
     .getByRole('button', { name, exact: true });

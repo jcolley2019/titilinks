@@ -8,7 +8,7 @@
 //   3. A partial kit's apply leaves unmapped theme fields untouched.
 //   4. ES smoke: row + panel strings render in Spanish.
 
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './fixtures';
 
 type Plan = 'free' | 'pro' | 'business';
 
