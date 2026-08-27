@@ -13,6 +13,8 @@
 //   label      → event title            url        → ticket link
 //   subtitle   → venue / location       cta_label  → ticket button label
 //   starts_at  → start (wall-clock)     ends_at    → end (wall-clock, optional)
+//   archived_at→ archive stamp (3c — non-null = archived; filtered out below
+//                in EVERY mode, the panel's archive view is its only surface)
 //   image_url  → poster (Stage 3a — products bucket, events/ prefix)
 //   style_json → { all_day, sold_out, pinned } + the editor-canonical
 //                { venue, city } split (see src/lib/event-fields.ts) + the
@@ -43,6 +45,7 @@ import {
   eventCtaState,
   eventStyleOf,
   hasEnded,
+  isArchived,
   nowWallClockKey,
   parseWallClock,
   sortEvents,
@@ -106,7 +109,14 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
   // The one editor-vs-public divergence in this block: the public page hides an
   // event once it has ended, but the CREATOR keeps seeing it (greyed) so they
   // can still reach it to delete or archive it. Everything else renders identically.
-  const visible = sortEvents(block.items).filter((item) => editMode || !hasEnded(item, nowKey));
+  //
+  // TL.EVNT.3c: an ARCHIVED event (archived_at set) is different — it never
+  // renders here in ANY mode, editMode included. The panel's archive view is
+  // its only surface, so preview and public stay byte-identical (the DP.2
+  // contract) while the archive stays reachable for restore/delete.
+  const visible = sortEvents(block.items).filter(
+    (item) => !isArchived(item.archived_at) && (editMode || !hasEnded(item, nowKey)),
+  );
 
   // TL.EVNT Stage 3a — poster lightbox. Single image, plain open/close (Joey's
   // ruling: no wrap-around nav — one poster per event, unlike the gallery

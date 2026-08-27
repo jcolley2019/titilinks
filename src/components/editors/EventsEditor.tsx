@@ -14,6 +14,15 @@
 // while the creator is typing a date. Order_index is written from array
 // position on Save, but the card sorts by date itself, so it is inert for now
 // (reorder is Stage 4).
+//
+// TL.EVNT.3c — the archive lifecycle lives here too: ended rows gain an
+// explicit Archive gesture beside Delete, archived rows sit in a collapsed
+// shelf below the list (restore / delete; its own 20-cap, SEPARATE from the 20
+// active), and the opt-in auto-cleanup (30/60/90 days, OFF by default) runs
+// lazily on panel open through the same delete path Save uses (STOR.4).
+// Archived events never render on any card surface — this panel is their only
+// home. The cleanup window persists on the block's JSON-in-title config (the
+// gallery precedent; `blocks` has no style_json column).
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +38,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, Calendar, Plus, Trash2, Pin, MapPin, ImagePlus } from 'lucide-react';
+import { Loader2, Calendar, Plus, Trash2, Pin, MapPin, ImagePlus, Archive, ArchiveRestore, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
@@ -37,17 +46,28 @@ import { removePublicObject } from '@/lib/storage-cleanup';
 import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from '@/lib/gallery-framing';
 import { PhotoCropSheet } from './PhotoCropSheet';
 import {
+  ARCHIVE_CLEANUP_CHOICES,
+  EVENT_ARCHIVE_CAP,
   EVENT_POSTER_ASPECT,
+  archiveCleanupDaysOf,
+  archiveCleanupDue,
+  composeArchivedAt,
   composeEventSubtitle,
   composeStartsAt,
   decomposeEventLocation,
   decomposeStartsAt,
+  eventCapViolation,
   eventHasContent,
   eventStyleOf,
   hasEnded,
+  isArchived,
+  nowWallClock,
   nowWallClockKey,
+  parseEventsBlockConfig,
   parseWallClock,
   sortEvents,
+  wallClockKey,
+  type ArchiveCleanupDays,
 } from '@/lib/event-fields';
 
 const MAX_ITEMS = ITEM_CAPS.events;
@@ -74,9 +94,14 @@ interface EventDraft {
   posterUrl: string;
   posterFile?: File;
   posterPreview?: string;
-  /** Carried through untouched — no end-time field until the Stage 3 archive
-   *  lifecycle; hasEnded still needs the stored value for the greyed tag. */
+  /** Carried through untouched — this editor still has no end-time field
+   *  (deferred with reorder); hasEnded still needs the stored value for the
+   *  greyed tag. */
   ends_at: string | null;
+  /** TL.EVNT.3c — the archive stamp (null = active). Staged like every other
+   *  field: Archive/Restore only flip this locally, Save delivers it and
+   *  Cancel reverts it. */
+  archivedAt: string | null;
   /** The row's WHOLE style_json, so the save stays additive (the Gallery/Links
    *  precedent): event keys merge onto it and it is written back entire, so
    *  keys owned by other features survive. */
@@ -97,6 +122,9 @@ export interface EventRow {
   cta_label: string | null;
   starts_at: string | null;
   ends_at: string | null;
+  /** TL.EVNT.3c — non-null = archived. EventsBlock filters these from every
+   *  render, so a mirrored archived row is truthful AND invisible. */
+  archived_at: string | null;
   image_url: string | null;
   order_index: number;
   style_json: Record<string, any> | null;
@@ -154,6 +182,7 @@ function composeEventRow(ev: EventDraft, orderIndex: number): EventRow {
     cta_label: ev.ctaLabel.trim() || null,
     starts_at: composeStartsAt(ev.date, ev.time, allDay),
     ends_at: ev.ends_at,
+    archived_at: ev.archivedAt,
     // A staged file has no DB URL yet, and an <img> takes the preview data URL
     // just as happily (the GalleryDraft precedent). Save overwrites this with
     // the uploaded public URL.
@@ -218,29 +247,100 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
   const posterInputRef = useRef<HTMLInputElement>(null);
   // TL.EVNT Stage 3a.3 — which event's poster the framing sheet is open on.
   const [cropTargetId, setCropTargetId] = useState<string | null>(null);
+  // TL.EVNT.3c — archive lifecycle state. `blockCfg` is the events block's raw
+  // JSON-in-title config, kept WHOLE so the Save write stays additive; the
+  // cleanup window is staged like every field (`cleanupDays` is what the chips
+  // edit, `savedCleanup` is DB truth for the changed-check on Save).
+  const [blockCfg, setBlockCfg] = useState<Record<string, unknown>>({});
+  const [savedCleanup, setSavedCleanup] = useState<ArchiveCleanupDays | null>(null);
+  const [cleanupDays, setCleanupDays] = useState<ArchiveCleanupDays | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   useEffect(() => {
-    if (open) fetchEvents();
+    // Panel OPEN is the one moment lazy auto-cleanup may run (the 3c ruling —
+    // no cron, no edge function); the post-save re-sync below never cleans.
+    if (open) fetchEvents(true);
   }, [open, blockId]);
 
-  const fetchEvents = async () => {
+  /** TL.EVNT.3c — the ONE delete path, both halves: the row, then its poster
+   *  file (STOR.4 — user intent, best-effort, never blocks the caller's flow;
+   *  snapshots may still hold the URL, so a restore shows a broken poster
+   *  rather than resurrecting a deleted file). Save's delete-diff and the lazy
+   *  auto-cleanup both delete through HERE so they can never drift. */
+  const deleteEventRow = async (item: { id: string; image_url: string | null }) => {
+    const { error } = await supabase.from('block_items').delete().eq('id', item.id);
+    if (error) throw error;
+    removePublicObject('products', item.image_url);
+  };
+
+  const fetchEvents = async (runCleanup = false) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('block_items')
-        .select('*')
-        .eq('block_id', blockId)
-        .order('order_index', { ascending: true });
-      if (error) throw error;
+      const [itemsRes, blockRes] = await Promise.all([
+        supabase
+          .from('block_items')
+          .select('*')
+          .eq('block_id', blockId)
+          .order('order_index', { ascending: true }),
+        // TL.EVNT.3c — the block's own config rides JSON-in-title (the gallery
+        // precedent); it carries the archive auto-cleanup window.
+        supabase.from('blocks').select('title').eq('id', blockId).single(),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (blockRes.error) throw blockRes.error;
 
-      const items = data || [];
+      const cfg = parseEventsBlockConfig(blockRes.data?.title);
+      const cleanup = archiveCleanupDaysOf(cfg);
+      setBlockCfg(cfg);
+      setSavedCleanup(cleanup);
+      setCleanupDays(cleanup);
+
+      let items = itemsRes.data || [];
+      const nowKey = nowWallClockKey();
+
+      // TL.EVNT.3c — lazy auto-cleanup, panel-open only: with the toggle ON,
+      // archived events older than the window are deleted PERMANENTLY through
+      // the same path Save deletes through, so STOR.4 poster cleanup fires.
+      // Best-effort per row — a failed delete keeps its row and never blocks
+      // the panel from loading.
+      if (runCleanup && cleanup !== null) {
+        const due = items.filter(
+          (i) => isArchived(i.archived_at) && archiveCleanupDue(i.archived_at, cleanup, nowKey),
+        );
+        const deletedIds: string[] = [];
+        for (const item of due) {
+          try {
+            await deleteEventRow(item);
+            deletedIds.push(item.id);
+          } catch (cleanupError) {
+            console.error('Archive auto-cleanup failed for event', item.id, cleanupError);
+          }
+        }
+        if (deletedIds.length > 0) {
+          items = items.filter((i) => !deletedIds.includes(i.id));
+          toast.info(t('eventsEditor.cleanupRan').replace('{n}', String(deletedIds.length)));
+        }
+      }
+
       setExistingItems(items);
 
-      // Upcoming first in the card's own order, ended at the bottom —
+      // Upcoming first in the card's own order, ended at the bottom, archived
+      // last (most recently archived first — the shelf's own order) —
       // partitioned here, once, so the list is stable while editing.
-      const nowKey = nowWallClockKey();
-      const sorted = sortEvents(items);
-      const ordered = [...sorted.filter((i) => !hasEnded(i, nowKey)), ...sorted.filter((i) => hasEnded(i, nowKey))];
+      const archKey = (i: BlockItem): number => {
+        const wc = parseWallClock(i.archived_at);
+        return wc ? wallClockKey(wc) : 0;
+      };
+      const live = items.filter((i) => !isArchived(i.archived_at));
+      const archived = [...items.filter((i) => isArchived(i.archived_at))].sort(
+        (a, b) => archKey(b) - archKey(a),
+      );
+      const sorted = sortEvents(live);
+      const ordered = [
+        ...sorted.filter((i) => !hasEnded(i, nowKey)),
+        ...sorted.filter((i) => hasEnded(i, nowKey)),
+        ...archived,
+      ];
 
       setEvents(
         ordered.map((item) => {
@@ -262,6 +362,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
             pinned: !!flags.pinned,
             posterUrl: item.image_url || '',
             ends_at: item.ends_at,
+            archivedAt: item.archived_at ?? null,
             style_json: (item.style_json as Record<string, any> | null) ?? null,
           };
         }),
@@ -275,14 +376,16 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
   };
 
   const addEvent = () => {
-    if (events.length >= MAX_ITEMS) {
+    // TL.EVNT.3c — the active cap counts ACTIVE rows only; the archive has its
+    // own separate 20 and must never eat into what the creator can add.
+    if (events.filter((ev) => !ev.archivedAt).length >= MAX_ITEMS) {
       toast.error(t('eventsEditor.maxEvents').replace('{max}', String(MAX_ITEMS)));
       return;
     }
     const id = `new-${Date.now()}-${Math.random()}`;
     // New events go to the top, right under the Add button, form open.
     setEvents((prev) => [
-      { id, title: '', date: '', time: '', allDay: false, venue: '', city: '', url: '', ctaLabel: '', soldOut: false, pinned: false, posterUrl: '', ends_at: null, style_json: null },
+      { id, title: '', date: '', time: '', allDay: false, venue: '', city: '', url: '', ctaLabel: '', soldOut: false, pinned: false, posterUrl: '', ends_at: null, archivedAt: null, style_json: null },
       ...prev,
     ]);
     setSelectedId(id);
@@ -298,6 +401,27 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
     // the Gallery confirm guards an uploaded FILE, which events don't have).
     setEvents((prev) => prev.filter((ev) => ev.id !== id));
     if (selectedId === id) setSelectedId(null);
+  };
+
+  // TL.EVNT.3c — archive/restore, staged exactly like delete: Save delivers,
+  // Cancel reverts. Each gesture guards its destination cap LOUDLY up front
+  // (the architect's ruling: explicit errors, never silent truncation);
+  // handleSave re-checks both caps as the backstop.
+  const archiveEvent = (id: string) => {
+    if (events.filter((ev) => ev.archivedAt).length >= EVENT_ARCHIVE_CAP) {
+      toast.error(t('eventsEditor.archiveFull').replace('{max}', String(EVENT_ARCHIVE_CAP)));
+      return;
+    }
+    updateEvent(id, { archivedAt: composeArchivedAt(nowWallClock()) });
+    if (selectedId === id) setSelectedId(null);
+  };
+
+  const restoreEvent = (id: string) => {
+    if (events.filter((ev) => !ev.archivedAt).length >= MAX_ITEMS) {
+      toast.error(t('eventsEditor.activeFull').replace('{max}', String(MAX_ITEMS)));
+      return;
+    }
+    updateEvent(id, { archivedAt: null });
   };
 
   // TL.EVNT.3b — publish the draft, following the GalleryEditor precedent (L6).
@@ -381,19 +505,34 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
     // predicate lives in event-fields.ts (unit-tested); a poster alone is
     // content too.
     const kept = events.filter((ev) => eventHasContent(ev, !!(ev.posterUrl || ev.posterFile)));
+
+    // TL.EVNT.3c — both caps checked loudly BEFORE any write (the architect's
+    // ruling: explicit errors, never silent truncation). The add/archive/
+    // restore gestures already refuse to go past a cap; this is the backstop.
+    const violation = eventCapViolation(
+      kept.filter((ev) => !ev.archivedAt).length,
+      kept.filter((ev) => ev.archivedAt).length,
+      MAX_ITEMS,
+      EVENT_ARCHIVE_CAP,
+    );
+    if (violation !== null) {
+      toast.error(
+        violation === 'active'
+          ? t('eventsEditor.maxEvents').replace('{max}', String(MAX_ITEMS))
+          : t('eventsEditor.archiveFull').replace('{max}', String(EVENT_ARCHIVE_CAP)),
+      );
+      return;
+    }
+
     setSaving(true);
     try {
-      // Delete removed items.
+      // Delete removed items — archive-shelf deletes included — through the
+      // shared delete path (STOR.4: row gone on the creator's explicit Save,
+      // so its poster file goes too).
       const keptIds = kept.filter((ev) => !ev.id.startsWith('new-')).map((ev) => ev.id);
       const toDelete = existingItems.filter((ei) => !keptIds.includes(ei.id));
       for (const item of toDelete) {
-        const { error } = await supabase.from('block_items').delete().eq('id', item.id);
-        if (error) throw error;
-        // STOR.4: row gone on the creator's explicit Save, so drop its poster
-        // file too — user-intent only, best-effort, never blocks the save.
-        // Snapshots may still hold the URL (the gallery precedent): a restore
-        // shows a broken poster rather than resurrecting a deleted file.
-        removePublicObject('products', item.image_url);
+        await deleteEventRow(item);
       }
 
       // Upsert kept items in display order.
@@ -429,6 +568,22 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
         }
       }
 
+      // TL.EVNT.3c — persist the cleanup window on the block's JSON-in-title
+      // config (the gallery precedent — `blocks` has no style_json column).
+      // Additive: the whole parsed config rides along, only our key changes.
+      // Written ONLY when the creator actually changed it, so an events block
+      // whose setting was never touched keeps its born display title.
+      if (cleanupDays !== savedCleanup) {
+        const cfg: Record<string, unknown> = { ...blockCfg };
+        if (cleanupDays === null) delete cfg.archiveCleanupDays;
+        else cfg.archiveCleanupDays = cleanupDays;
+        const { error } = await supabase
+          .from('blocks')
+          .update({ title: JSON.stringify(cfg) })
+          .eq('id', blockId);
+        if (error) throw error;
+      }
+
       // The dashboard swallows the close below and this panel stays mounted, so
       // `open` never flips and the fetch effect won't rerun. Re-sync from the DB
       // here (the GAL.1b lesson) — otherwise staged `new-` rows re-insert on the
@@ -460,6 +615,18 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
 
   const nowKey = nowWallClockKey();
 
+  // TL.EVNT.3c — the render split. Active rows keep their fetch-time order
+  // (stable while typing); the archive shelf sorts most-recently-archived
+  // first live, which is safe because archived rows are never typed into.
+  const activeDrafts = events.filter((ev) => !ev.archivedAt);
+  const archivedDrafts = [...events.filter((ev) => ev.archivedAt)].sort((a, b) => {
+    const k = (ev: EventDraft) => {
+      const wc = parseWallClock(ev.archivedAt);
+      return wc ? wallClockKey(wc) : 0;
+    };
+    return k(b) - k(a);
+  });
+
   // TL.EVNT Stage 3a.3 — the framing sheet's target draft. Seeded from the
   // STAGED style_json through the same resolveGalleryCrop the render uses, so
   // reopening the sheet lands on exactly the window the thumb is painting.
@@ -476,7 +643,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
         <div className="flex flex-col flex-1 min-h-0">
           <ScrollArea className={panelMode ? 'flex-1 min-h-0 px-4 -mx-4' : 'flex-1 min-h-0 -mx-6 px-6'}>
             <div className="space-y-3 pb-3">
-              {events.length < MAX_ITEMS && (
+              {activeDrafts.length < MAX_ITEMS && (
                 <button
                   type="button"
                   onClick={addEvent}
@@ -487,11 +654,11 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
                 </button>
               )}
 
-              {events.length === 0 && (
+              {activeDrafts.length === 0 && (
                 <p className="mt-1 text-center text-xs text-white/40">{t('eventsEditor.emptyState')}</p>
               )}
 
-              {events.map((ev) => {
+              {activeDrafts.map((ev) => {
                 const isSel = ev.id === selectedId;
                 const ended = draftEnded(ev, nowKey);
                 return (
@@ -536,6 +703,20 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
                           )}
                         </p>
                       </div>
+                      {/* TL.EVNT.3c — a PAST event gains the explicit Archive
+                          gesture beside Delete (Joey's ruling: the creator
+                          decides, nothing auto-archives). Staged like every
+                          edit — Save delivers, Cancel reverts. */}
+                      {ended && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); archiveEvent(ev.id); }}
+                          aria-label={t('eventsEditor.archive')}
+                          className="shrink-0 h-7 w-7 rounded-full bg-black/40 text-white/60 flex items-center justify-center hover:bg-[#C9A55C] hover:text-black transition-colors"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); deleteEvent(ev.id); }}
@@ -747,6 +928,97 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
                   </div>
                 );
               })}
+
+              {/* TL.EVNT.3c — the archive shelf: collapsed by default, its own
+                  count against its own cap. Rows here are read-only summaries
+                  with the two ruled gestures (Restore, Delete) — archived
+                  events render NOWHERE else. */}
+              {archivedDrafts.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setArchiveOpen((o) => !o)}
+                    aria-expanded={archiveOpen}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+                  >
+                    <Archive className="h-4 w-4 shrink-0 text-white/50" />
+                    <span className="flex-1 truncate text-sm font-semibold text-white/80">{t('eventsEditor.archived')}</span>
+                    <span className="shrink-0 text-[11px] text-white/50 tabular-nums">
+                      {archivedDrafts.length} / {EVENT_ARCHIVE_CAP}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-white/50 transition-transform ${archiveOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {archiveOpen && (
+                    <div className="border-t border-white/10">
+                      {archivedDrafts.map((ev) => (
+                        <div key={ev.id} className="flex items-center gap-3 px-3 py-2.5">
+                          <div className="min-w-0 flex-1 opacity-60">
+                            <p className={`truncate text-sm font-semibold ${ev.title.trim() ? 'text-white' : 'text-white/40'}`}>
+                              {ev.title.trim() || t('eventsEditor.untitled')}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-white/50">{rowDate(ev)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => restoreEvent(ev.id)}
+                            aria-label={t('eventsEditor.restore')}
+                            className="shrink-0 h-7 w-7 rounded-full bg-black/40 text-white/60 flex items-center justify-center hover:bg-[#C9A55C] hover:text-black transition-colors"
+                          >
+                            <ArchiveRestore className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteEvent(ev.id)}
+                            aria-label={t('eventsEditor.removeEvent')}
+                            className="shrink-0 h-7 w-7 rounded-full bg-black/40 text-white/60 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TL.EVNT.3c — opt-in auto-cleanup (Joey's ruling: 30/60/90
+                  days, OFF by default, copy explicit that it deletes
+                  PERMANENTLY). Runs lazily on panel open, never in the
+                  background. Staged like every field — Save persists it onto
+                  the block's JSON-in-title config. */}
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+                <p className="text-xs text-white/60">{t('eventsEditor.cleanupTitle')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCleanupDays(null)}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                      cleanupDays === null
+                        ? 'bg-[#C9A55C] text-[#0e0c09]'
+                        : 'bg-white/5 text-foreground border border-white/10'
+                    }`}
+                  >
+                    {t('eventsEditor.cleanupOff')}
+                  </button>
+                  {ARCHIVE_CLEANUP_CHOICES.map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setCleanupDays(days)}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        cleanupDays === days
+                          ? 'bg-[#C9A55C] text-[#0e0c09]'
+                          : 'bg-white/5 text-foreground border border-white/10'
+                      }`}
+                    >
+                      {t('eventsEditor.cleanupDays').replace('{n}', String(days))}
+                    </button>
+                  ))}
+                </div>
+                <p className={`text-[11px] leading-snug ${cleanupDays !== null ? 'text-amber-400/80' : 'text-white/40'}`}>
+                  {t('eventsEditor.cleanupCopy')}
+                </p>
+              </div>
             </div>
           </ScrollArea>
 
@@ -812,7 +1084,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
             {t('eventsEditor.dialogTitle')}
           </DialogTitle>
           <DialogDescription>
-            {t('eventsEditor.dialogDescription')} ({events.length}/{MAX_ITEMS})
+            {t('eventsEditor.dialogDescription')} ({activeDrafts.length}/{MAX_ITEMS})
           </DialogDescription>
         </DialogHeader>
         {innerContent}

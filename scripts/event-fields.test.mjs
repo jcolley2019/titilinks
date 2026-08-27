@@ -11,15 +11,23 @@
 
 import assert from 'node:assert/strict';
 import {
+  ARCHIVE_CLEANUP_CHOICES,
+  EVENT_ARCHIVE_CAP,
   EVENT_POSTER_ASPECT,
+  archiveCleanupDaysOf,
+  archiveCleanupDue,
+  composeArchivedAt,
   composeEventSubtitle,
   composeStartsAt,
   decomposeEventLocation,
   decomposeStartsAt,
+  eventCapViolation,
   eventCtaState,
   eventHasContent,
   eventStyleOf,
   hasEnded,
+  isArchived,
+  parseEventsBlockConfig,
   parseWallClock,
   sortEvents,
   wallClockKey,
@@ -175,6 +183,103 @@ const ok = (m) => { passed++; console.log(`ok ${m}`); };
   // image-only event must survive Save (both saved and freshly staged).
   assert.equal(eventHasContent(empty, true), true);
   ok('eventHasContent: only truly empty drafts prune; a poster alone survives');
+}
+
+// ── 10. Archive stamp: compose ↔ parse identity (TL.EVNT.3c) ─────────────────
+{
+  // Same pinned-+00:00 discipline as starts_at: the stamp written when the
+  // creator taps Archive reads back as the SAME components on any client.
+  const wc = { y: 2026, mo: 8, d: 27, h: 1, mi: 45, hasTime: true };
+  assert.equal(composeArchivedAt(wc), '2026-08-27T01:45:00+00:00');
+  assert.deepEqual(parseWallClock(composeArchivedAt(wc)), wc);
+  // Single-digit components pad out.
+  assert.equal(
+    composeArchivedAt({ y: 2026, mo: 1, d: 5, h: 7, mi: 5, hasTime: true }),
+    '2026-01-05T07:05:00+00:00',
+  );
+  ok('composeArchivedAt: parse(compose(wc)) === wc, pinned +00:00');
+}
+
+// ── 11. isArchived: only a real stamp archives (TL.EVNT.3c) ──────────────────
+{
+  assert.equal(isArchived('2026-08-27T01:45:00+00:00'), true);
+  assert.equal(isArchived('2026-08-27 01:45:00+00'), true, 'Postgres text form');
+  // Garbage can never conjure an archived state — a broken value must fail
+  // OPEN (event stays visible/active), never silently hide someone's event.
+  assert.equal(isArchived(null), false);
+  assert.equal(isArchived(undefined), false);
+  assert.equal(isArchived(''), false);
+  assert.equal(isArchived('yes'), false);
+  ok('isArchived: parseable stamp only, garbage fails open');
+}
+
+// ── 12. Cap logic: two separate 20s, loud and exact (TL.EVNT.3c) ─────────────
+{
+  assert.equal(EVENT_ARCHIVE_CAP, 20, 'the ruled archive cap');
+  // Sitting exactly AT a cap is legal — Save must not reject a full page.
+  assert.equal(eventCapViolation(20, 20, 20, 20), null);
+  assert.equal(eventCapViolation(0, 0, 20, 20), null);
+  // Exceeding either cap names WHICH one, so the editor can raise the right
+  // error instead of silently truncating.
+  assert.equal(eventCapViolation(21, 0, 20, 20), 'active');
+  assert.equal(eventCapViolation(0, 21, 20, 20), 'archive');
+  // Both blown: active first (it is the list the creator is looking at).
+  assert.equal(eventCapViolation(21, 21, 20, 20), 'active');
+  ok('eventCapViolation: at-cap legal, over-cap names the cap');
+}
+
+// ── 13. Cleanup window selection: off unless exactly ruled (TL.EVNT.3c) ──────
+{
+  assert.deepEqual([...ARCHIVE_CLEANUP_CHOICES], [30, 60, 90], 'the ruled windows');
+  for (const days of ARCHIVE_CLEANUP_CHOICES) {
+    assert.equal(archiveCleanupDaysOf({ archiveCleanupDays: days }), days);
+  }
+  // Cleanup PERMANENTLY deletes and is opt-in, so anything not exactly a ruled
+  // value — absent, off-menu numbers, strings, wrong shapes — reads as OFF.
+  assert.equal(archiveCleanupDaysOf({}), null);
+  assert.equal(archiveCleanupDaysOf({ archiveCleanupDays: 0 }), null);
+  assert.equal(archiveCleanupDaysOf({ archiveCleanupDays: 45 }), null);
+  assert.equal(archiveCleanupDaysOf({ archiveCleanupDays: '30' }), null, 'a string is not a window');
+  assert.equal(archiveCleanupDaysOf(null), null);
+  assert.equal(archiveCleanupDaysOf(undefined), null);
+  assert.equal(archiveCleanupDaysOf([30]), null, 'an array is not a config');
+  ok('archiveCleanupDaysOf: exactly 30/60/90 or off');
+}
+
+// ── 14. parseEventsBlockConfig: JSON-in-title tolerance (TL.EVNT.3c) ─────────
+{
+  // A real config object passes through WHOLE, so writers can merge additively
+  // and keys another feature owns survive.
+  assert.deepEqual(
+    parseEventsBlockConfig('{"archiveCleanupDays":60,"futureKey":true}'),
+    { archiveCleanupDays: 60, futureKey: true },
+  );
+  // The block's born display title (the dashboard door's t() label) is not
+  // JSON — it reads as "no config yet", never a crash.
+  assert.deepEqual(parseEventsBlockConfig('Events'), {});
+  assert.deepEqual(parseEventsBlockConfig(null), {});
+  assert.deepEqual(parseEventsBlockConfig(undefined), {});
+  assert.deepEqual(parseEventsBlockConfig(''), {});
+  assert.deepEqual(parseEventsBlockConfig('[30]'), {}, 'a JSON array is not a config');
+  assert.deepEqual(parseEventsBlockConfig('"30"'), {}, 'a JSON string is not a config');
+  ok('parseEventsBlockConfig: object passes whole, display title reads as empty');
+}
+
+// ── 15. archiveCleanupDue: strictly older than the window (TL.EVNT.3c) ───────
+{
+  const now = wallClockKey({ y: 2026, mo: 8, d: 27, h: 12, mi: 0, hasTime: true });
+  // 31 days ago → due on a 30-day window; 29 days ago → not due.
+  assert.equal(archiveCleanupDue('2026-07-27T11:00:00+00:00', 30, now), true);
+  assert.equal(archiveCleanupDue('2026-07-29T13:00:00+00:00', 30, now), false);
+  // Exactly at the boundary is NOT due (strict <) — deletion rounds down, never up.
+  assert.equal(archiveCleanupDue('2026-07-28T12:00:00+00:00', 30, now), false);
+  // The same stamp against a longer window survives.
+  assert.equal(archiveCleanupDue('2026-07-27T11:00:00+00:00', 60, now), false);
+  // Unparseable stamps are never due — cleanup deletes permanently, so
+  // anything ambiguous stays.
+  assert.equal(archiveCleanupDue(null, 30, now), false);
+  assert.equal(archiveCleanupDue('garbage', 30, now), false);
+  ok('archiveCleanupDue: strict window, ambiguity never deletes');
 }
 
 console.log(`\nevent-fields: ${passed} checks passed`);

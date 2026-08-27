@@ -9,6 +9,7 @@
 //   label      → event title            url        → ticket link
 //   subtitle   → venue / city (display) cta_label  → ticket button label
 //   starts_at  → start (wall-clock)     ends_at    → end (wall-clock, optional)
+//   archived_at→ archive stamp (3c — non-null = archived, never renders publicly)
 //   style_json → { all_day, sold_out, pinned, venue, city }
 //
 // `venue` and `city` are the editor-canonical SPLIT of the card's one subtitle
@@ -234,4 +235,116 @@ export function decomposeEventLocation(
     return { venue: typeof s.venue === 'string' ? s.venue : '', city: typeof s.city === 'string' ? s.city : '' };
   }
   return { venue: subtitle ?? '', city: '' };
+}
+
+// ── Archive lifecycle (TL.EVNT.3c) ───────────────────────────────────────────
+// Archived = `archived_at IS NOT NULL` on the row (Joey's ruling, Aug 18 2026):
+// past events grey + hide publicly, then the creator explicitly deletes or
+// archives them. The archive holds its own 20 — SEPARATE from the 20-active
+// ITEM_CAPS.events — and an archived event never renders publicly; its only
+// surface is the panel's archive view.
+
+/** The archive's own cap. Deliberately NOT in ITEM_CAPS: that table rations
+ *  what a block may RENDER, this bounds a lifecycle shelf that never renders. */
+export const EVENT_ARCHIVE_CAP = 20;
+
+/** Non-null AND parseable = archived. Run through parseWallClock rather than a
+ *  bare null-check so a garbage value can never conjure an archived state. */
+export function isArchived(archivedAt: string | null | undefined): boolean {
+  return parseWallClock(archivedAt) !== null;
+}
+
+/** The creator's local now as a WallClock — the moment "Archive" was tapped,
+ *  under the same never-converts discipline as every other event time. */
+export function nowWallClock(): WallClock {
+  const n = new Date();
+  return {
+    y: n.getFullYear(),
+    mo: n.getMonth() + 1,
+    d: n.getDate(),
+    h: n.getHours(),
+    mi: n.getMinutes(),
+    hasTime: true,
+  };
+}
+
+/**
+ * The archive stamp's write value — the same pinned +00:00 shape as
+ * composeStartsAt, so parseWallClock(composeArchivedAt(wc)) is exactly the
+ * identity and the cleanup-window comparison is a pure component read on any
+ * client, in any timezone.
+ */
+export function composeArchivedAt(wc: WallClock): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${wc.y}-${p(wc.mo)}-${p(wc.d)}T${p(wc.h)}:${p(wc.mi)}:00+00:00`;
+}
+
+/** The auto-cleanup windows Joey ruled (days). Off is the absence of a value. */
+export const ARCHIVE_CLEANUP_CHOICES = [30, 60, 90] as const;
+export type ArchiveCleanupDays = (typeof ARCHIVE_CLEANUP_CHOICES)[number];
+
+/**
+ * The events block's per-block config, stored as JSON in `blocks.title` — the
+ * app's ONE per-block config surface (the gallery/bio/text precedent; `blocks`
+ * has no style_json column). Tolerates the block's born display title ("Events"
+ * from the dashboard door) and anything else non-object by reading as "no
+ * config yet". Returned raw so writers can merge ADDITIVELY: spread this,
+ * set/delete your key, stringify — keys another feature owns survive.
+ */
+export function parseEventsBlockConfig(raw: string | null | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Not JSON — the door's display title. No config yet.
+  }
+  return {};
+}
+
+/** The validated cleanup window from a parsed config: exactly 30, 60 or 90,
+ *  anything else — absent, 0, 45, a string — is OFF (null). Off is the default
+ *  and the ruling says the creator opts IN, so unknowns must never round up. */
+export function archiveCleanupDaysOf(config: unknown): ArchiveCleanupDays | null {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
+  const v = (config as Record<string, unknown>).archiveCleanupDays;
+  return (ARCHIVE_CLEANUP_CHOICES as readonly unknown[]).includes(v)
+    ? (v as ArchiveCleanupDays)
+    : null;
+}
+
+/**
+ * Is this archived event past its cleanup window? Strictly older than `days`
+ * whole days (86 400 000 ms each, DST-proof through the same Date.UTC scale as
+ * every lifecycle comparison here). An unparseable stamp is never due: cleanup
+ * DELETES PERMANENTLY, so anything ambiguous stays.
+ */
+export function archiveCleanupDue(
+  archivedAt: string | null | undefined,
+  days: number,
+  nowKey: number,
+): boolean {
+  const wc = parseWallClock(archivedAt);
+  if (!wc) return false;
+  return wallClockKey(wc) + days * 24 * 60 * 60 * 1000 < nowKey;
+}
+
+/**
+ * The save-path cap check (both caps, active first). Counts EXCEEDING a cap
+ * violate it — sitting exactly at a cap is legal, the editor's add/archive
+ * gestures are what refuse to go past it. Returned as a discriminant so the
+ * editor can raise the RIGHT user-facing error instead of silently truncating
+ * (the architect's ruling: caps fail loudly, never trim).
+ */
+export function eventCapViolation(
+  activeCount: number,
+  archivedCount: number,
+  activeCap: number,
+  archiveCap: number,
+): 'active' | 'archive' | null {
+  if (activeCount > activeCap) return 'active';
+  if (archivedCount > archiveCap) return 'archive';
+  return null;
 }

@@ -44,6 +44,9 @@ export type SnapshotKind = 'manual' | 'auto';
  *  after the snapshot that looked fine. Adding a block_items column means
  *  adding it in BOTH places below, or the next restore quietly erases it. */
 export interface SnapshotItem {
+  /** TL.EVNT.3c — archive stamp. Missing from a pre-3c snapshot, so a restore
+   *  of one un-archives (rows come back active); post-3c captures carry it. */
+  archived_at: string | null;
   badge: string | null;
   bg_color: string | null;
   compare_at_price: number | null;
@@ -93,7 +96,7 @@ export interface SnapshotPayloadV1 {
  *  Adding a column here without adding it to SnapshotItem above (or the other
  *  way round) is the silent-data-loss failure documented on that interface. */
 const ITEM_SELECT =
-  'block_id, badge, bg_color, compare_at_price, cta_label, currency, ends_at, image_url, is_adult, label, order_index, price, size, starts_at, style_json, subtitle, title_color, url';
+  'block_id, archived_at, badge, bg_color, compare_at_price, cta_label, currency, ends_at, image_url, is_adult, label, order_index, price, size, starts_at, style_json, subtitle, title_color, url';
 
 /** Ring-buffer depth for kind='auto' per page. */
 const AUTO_KEEP = 3;

@@ -62,6 +62,7 @@ export type Database = {
       }
       block_items: {
         Row: {
+          archived_at: string | null
           badge: string | null
           bg_color: string | null
           block_id: string
@@ -85,6 +86,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          archived_at?: string | null
           badge?: string | null
           bg_color?: string | null
           block_id: string
@@ -108,6 +110,7 @@ export type Database = {
           url: string
         }
         Update: {
+          archived_at?: string | null
           badge?: string | null
           bg_color?: string | null
           block_id?: string

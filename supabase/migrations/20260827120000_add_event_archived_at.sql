@@ -1,0 +1,26 @@
+-- TL.EVNT.3c — archive lifecycle: archived_at on block_items.
+--
+-- Follows 20260818120100_add_event_timestamps.sql: nullable, no default,
+-- readers fall back (a row without the column reads as not archived).
+--
+-- Archived = archived_at IS NOT NULL. No enum change, no new table (the
+-- architect's ruling): the events block already lives entirely in block_items,
+-- and archive is a lifecycle state of a row, not a different kind of row.
+--
+-- Semantics (Joey's archive ruling, Aug 18 2026):
+--   • Past events grey + hide publicly (shipped); the creator then explicitly
+--     DELETEs or ARCHIVEs them from the Events panel.
+--   • Archive holds up to 20, SEPARATE from the 20-active cap. Both caps are
+--     enforced in the editor's save path with explicit errors — no DB check
+--     constraint, matching how ITEM_CAPS has always been enforced.
+--   • Archived events NEVER render publicly. EventsBlock filters them in every
+--     mode; they surface only in the panel's archive view.
+--   • Opt-in auto-cleanup (30/60/90 days, OFF by default) runs lazily when the
+--     creator opens the Events panel and deletes through the editor's existing
+--     delete path so STOR.4 poster cleanup fires. No cron, no edge function.
+--
+-- The value is written wall-clock-pinned (+00:00) by composeArchivedAt in
+-- src/lib/event-fields.ts, same discipline as starts_at/ends_at, so the
+-- cleanup-window comparison is a pure component read on any client.
+ALTER TABLE public.block_items
+  ADD COLUMN IF NOT EXISTS archived_at timestamptz;
