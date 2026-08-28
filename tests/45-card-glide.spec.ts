@@ -115,6 +115,7 @@ const shownLabel = (label: string): string => {
  */
 const liveModeId = async (page: Page): Promise<string> => {
   const all = await sb<Array<{ mode_id: string; srcs: string[] }>>(page, `
+    // PW-SCOPED-READS ok: discovery - the DOM discriminator below picks the mode.
     const { data: blocks } = await sb.from('blocks').select('id,mode_id,type');
     const out = [];
     for (const b of (blocks || []).filter(x => x.type === 'gallery')) {

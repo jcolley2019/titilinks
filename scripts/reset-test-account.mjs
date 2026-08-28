@@ -411,7 +411,7 @@ checks(seq, check_name, expected, actual) as (
         -- as a bind placeholder and mangle the statement before it is sent.
         (select count(*)::text from public.block_items bi, gal
           where bi.block_id = gal.id and jsonb_exists(bi.style_json, 'crop'))),
-    (6, 'email_subscribe blocks on page1 (0 = spec 29 will INSERT one)',
+    (6, 'email_subscribe blocks on page1 (1 = spec 29 finds, never inserts)',
         '1',
         (select count(*)::text from public.blocks, m1
           where blocks.mode_id = m1.id and blocks.type = 'email_subscribe')),

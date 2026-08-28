@@ -12,8 +12,29 @@
 //
 // The objects are uploaded ONCE and never change. They live at stable,
 // hand-written paths (not the app's `{uid}/{uuid}.{ext}`), so the SQL in step ②
-// can hardcode their URLs and stay a pure paste. Re-running --upload is an
-// upsert onto the same paths: same bytes, same URLs, no new objects.
+// can hardcode their URLs and stay a pure paste.
+//
+// RE-RUNNING --upload (TL.ISO.5). It used to call upload({ upsert: true }) and
+// claim an idempotency it did not have: the second run died on
+//   "new row violates row-level security policy"
+// because the products bucket carries INSERT / SELECT / DELETE policies but no
+// UPDATE policy, and upsert's overwrite path needs UPDATE. Two ways out, and
+// this script takes the second:
+//   (a) add a scoped UPDATE policy to the bucket - a change to PRODUCTION RLS,
+//       widening what every real creator's session may do to their own objects,
+//       bought solely to make a test script re-runnable;
+//   (b) DELETE the object, then INSERT it - uses only policies that already
+//       exist (STOR.4 shipped the owner-folder DELETE policy behind the
+//       gallery's own delete button) and changes nothing outside this file.
+// (b) it is: a test-harness convenience does not get to widen a production
+// policy. --upload is therefore delete-then-upload, and genuinely re-runnable.
+//
+// One caveat that comes with (b): Supabase serves these public URLs through a
+// CDN that keeps a deleted object's bytes cached for up to an hour. Identical
+// bytes at an identical path make that invisible - which is the normal case,
+// the PNGs being deterministic output of the manifest below. If the manifest
+// ever CHANGES, expect the public URL to keep serving the old image for a while
+// after a successful re-upload.
 //
 // WHAT IT CONNECTS TO. Unlike the SQL emitter (which connects to nothing), this
 // script really does talk to the production Supabase project — that is the whole
@@ -29,7 +50,7 @@
 // MODES
 //   --generate       (re)write tests/fixtures-assets/*.png from the manifest.
 //                    Offline. The PNGs are tracked, so Joey never needs this.
-//   --upload         sign in as the battery account and upsert every fixture.
+//   --upload         sign in as the battery account and (re)place every fixture.
 //   --list-orphans   read-only: list objects under the account's products folder
 //                    that are NOT canonical fixtures (litter from a killed run).
 //   --dry-run        with --upload / --list-orphans: print the plan, connect to
@@ -232,10 +253,13 @@ async function upload({ dryRun }) {
     }
   }
   requireEnv();
-  console.log(`\nTarget: ${GALLERY_BUCKET}/${FIXTURE_PREFIX}/  (${GALLERY_FIXTURES.length} objects, upsert)\n`);
+  console.log(
+    `\nTarget: ${GALLERY_BUCKET}/${FIXTURE_PREFIX}/  ` +
+    `(${GALLERY_FIXTURES.length} objects, delete-then-upload)\n`,
+  );
   if (dryRun) {
     for (const f of GALLERY_FIXTURES) {
-      console.log(`  would upload ${path.relative(ROOT, f.localPath)}`);
+      console.log(`  would delete (if present) then upload ${path.relative(ROOT, f.localPath)}`);
       console.log(`    -> ${f.publicUrl}`);
     }
     console.log('\n--dry-run: nothing was uploaded and no connection was made.');
@@ -243,11 +267,46 @@ async function upload({ dryRun }) {
   }
 
   const sb = await signIn();
+  const store = sb.storage.from(GALLERY_BUCKET);
+
+  /** Which canonical fixtures are objects in the bucket right now. */
+  const present = async () => {
+    const { data, error } = await store.list(FIXTURE_PREFIX, { limit: 1000 });
+    if (error) { console.error(`  x  list ${FIXTURE_PREFIX}: ${error.message}`); process.exit(1); }
+    const names = new Set((data ?? []).filter((e) => e.id !== null).map((e) => e.name));
+    return GALLERY_FIXTURES.filter((f) => names.has(f.file));
+  };
+
+  // 1. Clear the way. See the RE-RUNNING note in the header: overwriting in
+  //    place would need an UPDATE policy this bucket does not have.
+  const stale = await present();
+  if (stale.length) {
+    const { error } = await store.remove(stale.map((f) => f.storagePath));
+    if (error) { console.error(`  x  delete: ${error.message}`); process.exit(1); }
+    // A remove() that RLS refuses comes back data: [], error: null - a SILENT
+    // no-op (the STOR.4 trap). The only honest confirmation is to look again.
+    const left = await present();
+    if (left.length) {
+      console.error(
+        `  x  delete was a no-op - ${left.length} object(s) survived: ` +
+        `${left.map((f) => f.file).join(', ')}.\n` +
+        '     The products bucket owner-folder DELETE policy (STOR.4) is missing or has ' +
+        'drifted; storage.remove() reports success either way. Nothing was uploaded.',
+      );
+      process.exit(1);
+    }
+    console.log(`  ok deleted ${stale.length} existing object(s)`);
+  }
+
+  // 2. Fresh INSERTs. upsert stays FALSE on purpose: after step 1 the path is
+  //    empty, so a duplicate error here is a real surprise worth failing on,
+  //    not the routine overwrite the old upsert:true was quietly hiding.
   for (const f of GALLERY_FIXTURES) {
     const body = readFileSync(f.localPath);
-    const { error } = await sb.storage
-      .from(GALLERY_BUCKET)
-      .upload(f.storagePath, body, { upsert: true, contentType: 'image/png' });
+    const { error } = await store.upload(f.storagePath, body, {
+      upsert: false,
+      contentType: 'image/png',
+    });
     if (error) { console.error(`  x  ${f.file}: ${error.message}`); process.exit(1); }
     console.log(`  ok ${f.file} -> ${f.publicUrl}`);
   }
@@ -299,9 +358,11 @@ function usage() {
 TL.ISO.4 - canonical asset seam for the battery account (${BATTERY_HANDLE}).
 
   node scripts/seed-test-account-assets.mjs --upload
-      Sign in as the battery account and upsert the ${GALLERY_FIXTURES.length} gallery fixtures into
+      Sign in as the battery account and (re)place the ${GALLERY_FIXTURES.length} gallery fixtures in
       ${GALLERY_BUCKET}/${FIXTURE_PREFIX}/. This is STEP 1 of the restore runbook.
-      Idempotent: same paths, same bytes, same public URLs, every time.
+      Re-runnable: any existing copy is DELETED first (the bucket has no UPDATE
+      policy, so an in-place overwrite fails RLS), then re-uploaded to the same
+      path. Same paths, same bytes, same public URLs, every time.
 
   node scripts/seed-test-account-assets.mjs --generate
       Re-render tests/fixtures-assets/*.png from the manifest in this file.

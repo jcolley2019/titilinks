@@ -57,6 +57,24 @@ const checks = [
   // catches the same-line idiom (both orderings). route.fallback() is the
   // correct verb: it lets the fixture rule on the request.
   { name:'PW-WRITE-BYPASS', pwWriteBypass:true },
+  // TL.ISO.5: the TL.ISO.4b lesson, promoted to an invariant now that it is a
+  // proven hazard class rather than one spec's bad day. `blocks` and
+  // `block_items` both carry `FOR SELECT USING (true)` — public pages have to
+  // render for anonymous visitors — so a spec-side `.select()` with NO filter
+  // returns every public page's rows IN THE WHOLE DATABASE, not the battery
+  // account's. It stays invisible until the numbers move: TL.ISO.1 gave the
+  // battery its own account and specs 41/44 started counting a stranger's
+  // photos (13 rows against a 5-photo gallery), and spec 45's sweep was
+  // issuing writes at every account's blocks trusting RLS to refuse them
+  // quietly. A read of those two tables must carry an `.eq(` scope in the same
+  // chain. Nothing is file-exempt — a shared helper is the worst place for an
+  // unscoped read, not the safest — so the escape hatch is per-read and has to
+  // be written down, on the read's own line or the one directly above it:
+  //     // PW-SCOPED-READS ok: <why this unscoped read is safe>
+  // The discovery reads in specs 41-45 carry one: they self-correct off a DOM
+  // discriminator (the block whose first photo is actually on screen), which
+  // is a real answer to the hazard rather than a silencer.
+  { name:'PW-SCOPED-READS', pwScopedReads:true },
 ];
 
 // Every .ts under tests/ (specs, helpers, fixtures) — output dirs skipped.
@@ -128,6 +146,45 @@ for (const c of checks) {
       console.error(`      use route.fallback() so the fixture rules on the mutation instead.`);
     } else {
       console.log(`ok ${c.name}`);
+    }
+    continue;
+  }
+  if (c.pwScopedReads) {
+    const TABLE = /\.from\(\s*['"](blocks|block_items)['"]\s*\)/g;
+    // A mutation is the write guard's business, not this one's.
+    const WRITE = /\.(insert|update|upsert|delete)\(/;
+    const WAIVER = /PW-SCOPED-READS ok/;
+    const bad = [];
+    let reads = 0;
+    for (const f of walkTests()) {
+      const src = readFileSync(f, 'utf8');
+      const lines = src.split(/\r?\n/);
+      for (const m of src.matchAll(TABLE)) {
+        // The statement this read belongs to: from `.from(` to the `;` that
+        // ends the chain, capped so an unterminated one cannot swallow the
+        // file. Multi-line chains are the common shape, hence not line-wise.
+        const semi = src.indexOf(';', m.index);
+        const stop = semi === -1 ? m.index + 600 : Math.min(semi, m.index + 600);
+        const stmt = src.slice(m.index, stop);
+        if (WRITE.test(stmt) || !/\.select\(/.test(stmt)) continue;
+        reads++;
+        if (/\.eq\(/.test(stmt)) continue;
+        const n = src.slice(0, m.index).split('\n').length;   // 1-indexed
+        if (WAIVER.test(lines[n - 1]) || (n > 1 && WAIVER.test(lines[n - 2]))) continue;
+        bad.push(`${f}:${n}  ${lines[n - 1].trim()}`);
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - unscoped read of blocks/block_items in the battery`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      both tables are world-readable (FOR SELECT USING (true)), so a select`);
+      console.error(`      with no filter returns EVERY public page's rows, not this account's -`);
+      console.error(`      the TL.ISO.4b defect. Add an .eq( scope to the chain, or, if the read`);
+      console.error(`      genuinely cannot be scoped, waive it in writing on that line or the`);
+      console.error(`      one above: // PW-SCOPED-READS ok: <why this is safe>`);
+    } else {
+      console.log(`ok ${c.name} (${reads} reads of blocks/block_items)`);
     }
     continue;
   }

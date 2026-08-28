@@ -90,6 +90,7 @@ const pinFullLayout = async (page: Page) => {
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
   const blocks = await sb<Array<{ id: string; title: string | null; srcs: string[] }>>(page, `
+    // PW-SCOPED-READS ok: discovery - the DOM discriminator below picks the block.
     const { data: rows } = await sb.from('blocks').select('id,title,type');
     const out = [];
     for (const b of (rows || []).filter(x => x.type === 'gallery')) {

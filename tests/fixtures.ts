@@ -7,8 +7,16 @@
  * every mutating request (POST/PATCH/PUT/DELETE) to *.supabase.co — REST,
  * storage, edge functions, auth signup — unless the spec opted in through
  * allowWrites(). After TL.ISO.2 a badly written spec cannot write ANYWHERE,
- * not even to the battery account, without declaring it. The sole standing
- * exception is POST auth/v1/token: the setup login and session refreshes.
+ * not even to the battery account, without declaring it. Two standing
+ * exceptions, both scoped to the battery's OWN session and both incapable of
+ * touching account data:
+ *   - POST auth/v1/token   the setup login and session refreshes.
+ *   - POST auth/v1/logout  TL.ISO.5. Spec 39 mocks the delete-account edge
+ *     function, and the app then signs the (still-alive) session out for real.
+ *     Revoking the battery's own session is harmless — auth.setup.ts mints a
+ *     fresh one per run — and denying it logged a [write-guard] DENIED line on
+ *     a passing test. Keeping real denials high-signal is worth more than
+ *     denying a logout that costs nothing.
  *
  * ROUTE PRECEDENCE — how this layer composes with spec-level routes:
  *   - page.route handlers run BEFORE context.route handlers; within each
@@ -83,8 +91,15 @@ export const test = base.extend({
 
       const path = new URL(req.url()).pathname.replace(/^\/+/, '');
 
-      // Sole standing exception: the setup login and session refresh.
-      if (method === 'POST' && path.startsWith('auth/v1/token')) return route.fallback();
+      // Standing exceptions: the setup login/refresh, and the app's own logout
+      // (spec 39's mocked account delete signs the session out). Both act on
+      // the battery's session only — see the header note.
+      if (
+        method === 'POST' &&
+        (path.startsWith('auth/v1/token') || path.startsWith('auth/v1/logout'))
+      ) {
+        return route.fallback();
+      }
 
       // PostgREST invokes EVERY rpc via POST — read-only readbacks included.
       // The app's read RPCs (the get_public_* readbacks and the slug
@@ -93,6 +108,10 @@ export const test = base.extend({
       // subscribe_to_page, claim_referral, and anything new that doesn't
       // match the read-naming convention — stay denied unless opted in
       // (track_event never gets here: the stub below answers it first).
+      // RESIDUAL (TL.ISO.5, on the record): this exception is a NAMING
+      // convention, not a proof. A future write-capable RPC named
+      // `get_public_*` would be waved through by this regex — if one is ever
+      // added, it must be excluded here by name, not trusted to its prefix.
       if (
         method === 'POST' &&
         /^rest\/v1\/rpc\/(get_public_[a-z0-9_]+|resolve_short_link_by_slug)$/.test(path)

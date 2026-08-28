@@ -54,6 +54,7 @@ interface GalleryBlock { id: string; title: string | null; items: GalleryItem[] 
  */
 const liveGallery = async (page: Page): Promise<GalleryBlock> => {
   const all = await sb<GalleryBlock[]>(page, `
+    // PW-SCOPED-READS ok: discovery - the DOM discriminator below picks the gallery.
     const { data: blocks } = await sb.from('blocks').select('id,title,type');
     const gal = (blocks || []).filter(b => b.type === 'gallery');
     const out = [];

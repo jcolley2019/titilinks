@@ -49,6 +49,7 @@ interface Gal { id: string; title: string | null; firstSrc: string }
  *  more than one page, and the wrong one would be measured happily and wrongly. */
 const liveGallery = async (page: Page): Promise<Gal> => {
   const all = await sb<Array<{ id: string; title: string | null; srcs: string[] }>>(page, `
+    // PW-SCOPED-READS ok: discovery - the DOM discriminator below picks the gallery.
     const { data: blocks } = await sb.from('blocks').select('id,title,type');
     const out = [];
     for (const b of (blocks || []).filter(x => x.type === 'gallery')) {
