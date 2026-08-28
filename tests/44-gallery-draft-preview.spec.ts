@@ -61,11 +61,24 @@ const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evalu
 
 interface Row { id: string; image_url: string; style_json: Record<string, unknown> | null; order_index: number }
 
-const galleryItems = (page: Page) => sb<Row[]>(page, `
-  const { data: blocks } = await sb.from('blocks').select('*');
-  const gal = (blocks || []).filter(b => b.type === 'gallery').map(b => b.id);
-  const { data } = await sb.from('block_items').select('id,image_url,style_json,order_index').in('block_id', gal);
-  return (data || []).sort((a, b) => a.order_index - b.order_index);`);
+/**
+ * The rows of ONE gallery block — the one this editor is showing.
+ *
+ * TL.ISO.4b: this used to read every gallery block it could see and treat the
+ * total as "the account's photos". `blocks` and `block_items` both carry a
+ * `FOR SELECT USING (true)` policy — public pages have to render for anonymous
+ * visitors — so `.select('*')` with no filter returns every public page's rows
+ * IN THE WHOLE DATABASE. Harmless while the battery ran as the account that
+ * owned the only seeded gallery; after TL.ISO.1 moved it to its own account the
+ * read returned 13 rows for a 5-photo gallery, and `baseline.length + 2` became
+ * a count the preview could never reach. Scoped to the block under test it is
+ * right by construction, whatever the canonical tree holds — and `baselineSrcs`
+ * is once again this gallery's photos, in this gallery's order.
+ */
+const galleryItems = (page: Page, blockId: string) => sb<Row[]>(page, `
+  const { data } = await sb.from('block_items')
+    .select('id,image_url,style_json,order_index').eq('block_id', arg);
+  return (data || []).sort((a, b) => a.order_index - b.order_index);`, blockId);
 
 /**
  * What the PREVIEW is rendering, read off the DOM.
@@ -191,8 +204,12 @@ const pinFullLayout = async (page: Page) => {
       out.push({ id: b.id, title: b.title, srcs: (data || []).sort((x, y) => x.order_index - y.order_index).map(r => r.image_url) });
     }
     return out;`);
-  // The account owns gallery blocks on more than one page; the one this editor
-  // is showing is the one whose photos are in the DOM.
+  // This read is deliberately unscoped — `blocks` is world-readable, so it can
+  // see gallery blocks belonging to other accounts' public pages as well as
+  // this one's several modes. It self-corrects: the block this editor is
+  // showing is the one whose FIRST photo is actually in the DOM, and only that
+  // block's id is carried forward. (TL.ISO.4b: the reads that did NOT have that
+  // discriminator are the ones that broke when the battery moved accounts.)
   let target: { id: string; title: string | null } | null = null;
   for (const b of blocks) {
     if (b.srcs.length && await page.locator(`img[src="${b.srcs[0]}"]`).count()) { target = b; break; }
@@ -254,11 +271,15 @@ const stageUpload = async (page: Page, colour: string, name: string) => {
   await expect(panelTiles(page)).toHaveCount(before + 1);
 };
 
-/** Sweep every gallery row this spec created, row AND storage object. */
-const sweep = (page: Page, keep: string[]) => sb<number>(page, `
-  const { data: blocks } = await sb.from('blocks').select('*');
-  const gal = (blocks || []).filter(b => b.type === 'gallery').map(b => b.id);
-  const { data } = await sb.from('block_items').select('id,image_url').in('block_id', gal);
+/**
+ * Sweep every gallery row this spec created, row AND storage object.
+ *
+ * Scoped to the block under test for the same reason galleryItems() is: an
+ * unfiltered read here would have the sweep iterating over OTHER accounts'
+ * public gallery rows and calling delete() on them.
+ */
+const sweep = (page: Page, blockId: string, keep: string[]) => sb<number>(page, `
+  const { data } = await sb.from('block_items').select('id,image_url').eq('block_id', arg.blockId);
   const extra = (data || []).filter(r => !arg.keep.includes(r.id));
   for (const row of extra) {
     await sb.from('block_items').delete().eq('id', row.id);
@@ -267,7 +288,7 @@ const sweep = (page: Page, keep: string[]) => sb<number>(page, `
     // count is the only honest signal that the object really went.
     if (path) await sb.storage.from('products').remove([decodeURIComponent(path)]);
   }
-  return extra.length;`, { keep });
+  return extra.length;`, { blockId, keep });
 
 /** Put the account back even when a timeout has closed the page. */
 const cleanup = async (
@@ -364,9 +385,9 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
   test('staged adds (with crops), removes and order all mirror; Cancel reverts; Save commits once', async ({ page, browser }, testInfo) => {
     test.slow();
     const tag = testInfo.project.name;
-    const { restore } = await pinFullLayout(page);
+    const { blockId, restore } = await pinFullLayout(page);
     await openPanel(page);
-    const baseline = await galleryItems(page);
+    const baseline = await galleryItems(page, blockId);
     const baselineIds = baseline.map((i) => i.id);
     const baselineSrcs = baseline.map((i) => i.image_url);
 
@@ -381,7 +402,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       let pv = await previewState(page);
       expect(pv.srcs.filter((s) => s.startsWith('data:')), 'they render from the panel\'s own preview data')
         .toHaveLength(2);
-      expect(await galleryItems(page), 'and nothing was inserted').toHaveLength(baseline.length);
+      expect(await galleryItems(page, blockId), 'and nothing was inserted').toHaveLength(baseline.length);
 
       // ── a crop applied to a STAGED photo — one with no DB row to hang it on —
       // must reach the preview too.
@@ -408,7 +429,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await expect.poll(async () => (await previewState(page)).srcs.includes(doomed), {
         message: 'the removed photo leaves the preview',
       }).toBe(false);
-      expect((await galleryItems(page)).map((i) => i.image_url), 'but its row is untouched').toContain(doomed);
+      expect((await galleryItems(page, blockId)).map((i) => i.image_url), 'but its row is untouched').toContain(doomed);
 
       // ── (d) ORDER. Desktop drives the real pointer drag; the mobile project is
       // a genuine touch device where page.mouse leaves dnd-kit's PointerSensor
@@ -447,7 +468,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await expect.poll(async () => (await previewState(page)).srcs, {
         message: 'the preview snaps back to DB truth',
       }).toEqual(baselineSrcs);
-      expect(await galleryItems(page), 'and the database never moved').toHaveLength(baseline.length);
+      expect(await galleryItems(page, blockId), 'and the database never moved').toHaveLength(baseline.length);
       await page.screenshot({ path: `tests/screenshots/${tag}-gal6-after-cancel.png` });
 
       // ── re-do and Save: the draft commits, and commits ONCE.
@@ -455,7 +476,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await stageUpload(page, '#7A2E8E', 'tl-gal-6-violet.png');
       await doSave(page);
 
-      const afterFirst = await galleryItems(page);
+      const afterFirst = await galleryItems(page, blockId);
       expect(afterFirst, 'Save inserted exactly the staged photo').toHaveLength(baseline.length + 1);
       const created = afterFirst.filter((r) => !baselineIds.includes(r.id));
       expect(created).toHaveLength(1);
@@ -466,7 +487,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       // TL.GAL.1b: the panel stays mounted after Save, so a second Save runs
       // against the re-synced list. A re-upload would mint a NEW uuid filename.
       await doSave(page);
-      const afterSecond = await galleryItems(page);
+      const afterSecond = await galleryItems(page, blockId);
       expect(afterSecond, 'the second Save inserted nothing').toHaveLength(baseline.length + 1);
       expect(afterSecond.filter((r) => !baselineIds.includes(r.id))[0].image_url,
         'and re-uploaded nothing — the URL is byte-identical').toBe(created[0].image_url);
@@ -478,16 +499,16 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
         message: 'the committed photo is there after a reload',
       }).toBe(baseline.length + 1);
     } finally {
-      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+      await cleanup(page, browser, async (p) => { await sweep(p, blockId, baselineIds); await restore(p); });
     }
   });
 
   test('a drafting panel owns its list: the preview trash stages, and on a phone there is no preview to reach', async ({ page, browser }, testInfo) => {
     test.slow();
     const tag = testInfo.project.name;
-    const { restore } = await pinFullLayout(page);
+    const { blockId, restore } = await pinFullLayout(page);
     await openPanel(page);
-    const baseline = await galleryItems(page);
+    const baseline = await galleryItems(page, blockId);
     const baselineIds = baseline.map((i) => i.id);
     const victim = baseline[0].image_url;
 
@@ -538,7 +559,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await expect(panelOf(page).locator(`img[src="${victim}"]`)).toHaveCount(0);
       // …and the row and its file are still there, because the panel's Save
       // owns that decision and its Cancel has to be able to undo it.
-      expect((await galleryItems(page)).map((r) => r.image_url),
+      expect((await galleryItems(page, blockId)).map((r) => r.image_url),
         'a drafted photo is STAGED for removal, not deleted').toContain(victim);
       await page.screenshot({ path: `tests/screenshots/${tag}-gal6-preview-trash-staged.png` });
 
@@ -549,9 +570,9 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await expect.poll(async () => (await previewState(page)).srcs.includes(victim), {
         message: 'Cancel brings the staged-for-removal photo back',
       }).toBe(true);
-      expect(await galleryItems(page)).toHaveLength(baseline.length);
+      expect(await galleryItems(page, blockId)).toHaveLength(baseline.length);
     } finally {
-      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+      await cleanup(page, browser, async (p) => { await sweep(p, blockId, baselineIds); await restore(p); });
     }
   });
 
@@ -564,9 +585,9 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
   test('a staged add lands ON SCREEN in every layout, and opens in the lightbox', async ({ page, browser }, testInfo) => {
     test.slow();
     const tag = testInfo.project.name;
-    const { restore } = await pinFullLayout(page);
+    const { blockId, restore } = await pinFullLayout(page);
     await openPanel(page);
-    const baseline = await galleryItems(page);
+    const baseline = await galleryItems(page, blockId);
     const baselineIds = baseline.map((i) => i.id);
 
     try {
@@ -616,7 +637,7 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       // no phone-side existence. The geometry above is what mobile can prove,
       // and it is the half the layout fix actually changes.
       if (tag !== 'desktop') {
-        expect(await galleryItems(page), 'three staged adds, zero rows').toHaveLength(baseline.length);
+        expect(await galleryItems(page, blockId), 'three staged adds, zero rows').toHaveLength(baseline.length);
         return;
       }
 
@@ -647,19 +668,19 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       await expect(lb).toHaveCount(0);
 
       // Nothing above touched the database.
-      expect(await galleryItems(page), 'three staged adds, zero rows').toHaveLength(baseline.length);
+      expect(await galleryItems(page, blockId), 'three staged adds, zero rows').toHaveLength(baseline.length);
     } finally {
-      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+      await cleanup(page, browser, async (p) => { await sweep(p, blockId, baselineIds); await restore(p); });
     }
   });
 
   test('the section-list door mirrors too, not only the doors that route through onBlockEdit', async ({ page, browser }, testInfo) => {
     test.slow();
     const tag = testInfo.project.name;
-    const { restore } = await pinFullLayout(page);
+    const { blockId, restore } = await pinFullLayout(page);
     await page.goto('/dashboard/editor');
     await page.waitForLoadState('networkidle');
-    const baseline = await galleryItems(page);
+    const baseline = await galleryItems(page, blockId);
     const baselineIds = baseline.map((i) => i.id);
 
     try {
@@ -687,10 +708,10 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
       }).toBe(before.labelCount + 1);
       const pv = await previewState(page);
       expect(pv.srcs.some((s) => s.startsWith('data:')), 'the staged photo is rendering').toBe(true);
-      expect(await galleryItems(page), 'and still nothing is saved').toHaveLength(baseline.length);
+      expect(await galleryItems(page, blockId), 'and still nothing is saved').toHaveLength(baseline.length);
       await page.screenshot({ path: `tests/screenshots/${tag}-gal6b-door-c-mirrors.png` });
     } finally {
-      await cleanup(page, browser, async (p) => { await sweep(p, baselineIds); await restore(p); });
+      await cleanup(page, browser, async (p) => { await sweep(p, blockId, baselineIds); await restore(p); });
     }
   });
 });

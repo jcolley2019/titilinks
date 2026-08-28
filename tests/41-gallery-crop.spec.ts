@@ -51,13 +51,28 @@ const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evalu
   { body: fn, a: arg ?? null },
 );
 
-const galleryItems = (page: Page) => sb<Array<{ id: string; image_url: string; style_json: any; order_index: number }>>(
-  page,
-  `const { data: blocks } = await sb.from('blocks').select('*');
-   const gal = (blocks || []).filter(b => b.type === 'gallery').map(b => b.id);
-   const { data } = await sb.from('block_items').select('id,image_url,style_json,order_index').in('block_id', gal);
-   return (data || []).sort((a, b) => a.order_index - b.order_index);`,
-);
+/**
+ * The rows of ONE gallery block — the one this editor is showing.
+ *
+ * TL.ISO.4b: this used to read every gallery block it could see and treat the
+ * total as "the account's photos". `blocks` and `block_items` both carry a
+ * `FOR SELECT USING (true)` policy — public pages have to render for anonymous
+ * visitors — so `.select('*')` with no filter returns every public page's rows
+ * IN THE WHOLE DATABASE, not the signed-in account's. That was invisible while
+ * the battery ran as the account that happened to own the only seeded gallery;
+ * TL.ISO.1 moved the battery to its own account and the read started counting
+ * somebody else's photos too (13 rows against a 5-photo gallery). Scoped to the
+ * block under test it is right by construction, and stays right whatever the
+ * canonical tree holds.
+ */
+const galleryItems = (page: Page, blockId: string) =>
+  sb<Array<{ id: string; image_url: string; style_json: any; order_index: number }>>(
+    page,
+    `const { data } = await sb.from('block_items')
+       .select('id,image_url,style_json,order_index').eq('block_id', arg);
+     return (data || []).sort((a, b) => a.order_index - b.order_index);`,
+    blockId,
+  );
 
 /**
  * Pin the gallery to the 'full' layout, and hand back an undo.
@@ -82,8 +97,12 @@ const pinFullLayout = async (page: Page) => {
       out.push({ id: b.id, title: b.title, srcs: (data || []).sort((x, y) => x.order_index - y.order_index).map(r => r.image_url) });
     }
     return out;`);
-  // The account owns gallery blocks on more than one page; the one this editor
-  // is showing is the one whose photos are in the DOM.
+  // This read is deliberately unscoped — `blocks` is world-readable, so it can
+  // see gallery blocks belonging to other accounts' public pages as well as
+  // this one's several modes. It self-corrects: the block this editor is
+  // showing is the one whose FIRST photo is actually in the DOM, and only that
+  // block's id is carried forward. (TL.ISO.4b: the reads that did NOT have that
+  // discriminator are the ones that broke when the battery moved accounts.)
   let target: { id: string; title: string | null } | null = null;
   for (const b of blocks) {
     if (b.srcs.length && await page.locator(`img[src="${b.srcs[0]}"]`).count()) { target = b; break; }
@@ -92,8 +111,12 @@ const pinFullLayout = async (page: Page) => {
   const { id, title } = target;
   await sb(page, `await sb.from('blocks').update({ title: arg.t }).eq('id', arg.id);`,
     { id, t: JSON.stringify({ layout: 'full', autoScroll: true, speed: 'slow' }) });
-  return async (p: Page) => {
-    await sb(p, `await sb.from('blocks').update({ title: arg.t }).eq('id', arg.id);`, { id, t: title });
+  return {
+    /** Every DB read and the sweep scope to this block — never "all galleries". */
+    blockId: id,
+    restore: async (p: Page) => {
+      await sb(p, `await sb.from('blocks').update({ title: arg.t }).eq('id', arg.id);`, { id, t: title });
+    },
   };
 };
 
@@ -224,10 +247,10 @@ const setZoom = async (page: Page, value: number) => {
 
 test.describe('TL.GAL.3b — gallery photo framing', () => {
   test('the sheet offers one zoom range, a 1:1 frame, and mutates nothing on Cancel', async ({ page }) => {
-    const restoreLayout = await pinFullLayout(page);
+    const { blockId, restore: restoreLayout } = await pinFullLayout(page);
     try {
     await openPanel(page);
-    const before = await galleryItems(page);
+    const before = await galleryItems(page, blockId);
 
     await panelTiles(page).first().click();
     const sheet = sheetOf(page);
@@ -256,7 +279,7 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
 
     await sheet.getByRole('button', { name: T['blockEditor.cancel'], exact: true }).click();
     await expect(sheet).toHaveCount(0);
-    expect(await galleryItems(page), 'opening and cancelling writes nothing').toEqual(before);
+    expect(await galleryItems(page, blockId), 'opening and cancelling writes nothing').toEqual(before);
     } finally {
       await restoreLayout(page);
     }
@@ -267,9 +290,9 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
     // WebKit plus a stepped drag runs past the 30s default on its own.
     test.slow();
     const tag = testInfo.project.name;
-    const restoreLayout = await pinFullLayout(page);
+    const { blockId, restore: restoreLayout } = await pinFullLayout(page);
     await openPanel(page);
-    const baseline = await galleryItems(page);
+    const baseline = await galleryItems(page, blockId);
     const baselineIds = new Set(baseline.map((i) => i.id));
     let createdId: string | null = null;
 
@@ -339,11 +362,11 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
       expect(await staged.getAttribute('class')).toBe('absolute object-cover');
       const stagedGeo = await tileGeometry(staged);
       expect(stagedGeo).not.toBeNull();
-      expect(await galleryItems(page), 'Apply stages only — nothing is written yet').toEqual(baseline);
+      expect(await galleryItems(page, blockId), 'Apply stages only — nothing is written yet').toEqual(baseline);
 
       // ── save #1
       await doSave(page);
-      let items = await galleryItems(page);
+      let items = await galleryItems(page, blockId);
       const created = items.filter((i) => !baselineIds.has(i.id));
       expect(created, 'exactly one row was inserted').toHaveLength(1);
       createdId = created[0].id;
@@ -376,7 +399,7 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
       // from the DB after save #1; if that mapper drops style_json, this save
       // writes the crop straight back to null.
       await doSave(page);
-      items = await galleryItems(page);
+      items = await galleryItems(page, blockId);
       expect(items.filter((i) => !baselineIds.has(i.id)), 'no duplicate insert').toHaveLength(1);
       expect(items.find((i) => i.id === createdId)!.style_json?.crop, 'the crop survives a second save').toEqual(crop);
 
@@ -392,8 +415,17 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
       await openPanel(page);
       await panelTiles(page).last().click();
       await expect(sheetOf(page)).toBeVisible();
-      expect(Number(await sheetOf(page).locator('input[type=range]').inputValue()))
-        .toBeCloseTo(2, 1);
+      // Web-first, not a bare inputValue(): the sheet mounts with the slider at
+      // the floor and only seeds the SAVED zoom once react-easy-crop has the
+      // image's natural size (onMediaLoaded → getInitialCropFromCropped-
+      // AreaPercentages). Everywhere else in this journey the photo is a staged
+      // data URL that is decoded before the sheet opens; here it is a remote
+      // storage object on a cold cache, and a single read lands on the 1 that
+      // is about to become a 2.
+      await expect.poll(
+        async () => Number(await sheetOf(page).locator('input[type=range]').inputValue()),
+        { message: 'the saved zoom seeds the reopened cropper' },
+      ).toBeCloseTo(2, 1);
       expectNoBackground(await frameFit(page), 'on reopen');
       await sheetOf(page).screenshot({ path: `tests/screenshots/${tag}-gal3b-2-reopened.png` });
 
@@ -407,7 +439,7 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
         'back on the plain object-cover path, byte for byte').toBe(BASELINE_CLASS);
 
       await doSave(page);
-      const cleared = (await galleryItems(page)).find((i) => i.id === createdId)!;
+      const cleared = (await galleryItems(page, blockId)).find((i) => i.id === createdId)!;
       expect(cleared.style_json?.crop, 'the suggested framing is stored as no crop at all').toBeUndefined();
       await shotPanel(page, `tests/screenshots/${tag}-gal3b-3-reset.png`);
     } finally {
@@ -415,10 +447,11 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
       // shared account is left exactly as it was found. A test TIMEOUT closes
       // the page out from under this block, so fall back to a fresh context:
       // otherwise a slow run silently leaves a stray photo on a real account.
+      // Scoped to the block under test, for the same reason galleryItems() is:
+      // an unfiltered read here would have this sweep iterating over OTHER
+      // accounts' public gallery rows and calling delete() on them.
       const sweep = async (p: Page) => sb<number>(p, `
-        const { data: blocks } = await sb.from('blocks').select('*');
-        const gal = (blocks || []).filter(b => b.type === 'gallery').map(b => b.id);
-        const { data } = await sb.from('block_items').select('id,image_url').in('block_id', gal);
+        const { data } = await sb.from('block_items').select('id,image_url').eq('block_id', arg.blockId);
         const extra = (data || []).filter(r => !arg.keep.includes(r.id));
         for (const row of extra) {
           await sb.from('block_items').delete().eq('id', row.id);
@@ -428,7 +461,7 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
           if (path) await sb.storage.from('products').remove([decodeURIComponent(path)]);
         }
         return extra.length;
-      `, { keep: [...baselineIds] });
+      `, { keep: [...baselineIds], blockId });
 
       try {
         await sweep(page);

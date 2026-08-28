@@ -25,16 +25,38 @@
 // subject is a different block. 43 stays the gallery's contract; this is the
 // card blocks'.
 //
-// These blocks are FIXTURES: unlike the gallery, the test account owns no
-// carousel or product filmstrip to borrow, so this spec creates both on the
-// page's own mode, measures them, and deletes them again. Every fixture title
-// carries a `tlm1` marker so a run killed mid-flight can be swept clean by the
-// next one rather than leaving junk blocks on a real page.
+// TWO FIXTURE STRATEGIES, because the two blocks are not in the same position
+// on the canonical account (TL.ISO.4b):
+//
+//   • CAROUSEL — CREATED. `carousel` is not one of BLOCK_PRESETS' default
+//     types, so the canonical tree seeds none and there is nothing to borrow.
+//     The spec inserts one on the page's own mode and deletes it again. That
+//     insert is SAFE under blocks_mode_type_singleton_uidx (TL.BLOCK.1)
+//     precisely because no carousel row exists on that mode to collide with.
+//
+//   • PRODUCT CARDS — BORROWED. `product_cards` IS canonical, one row per mode,
+//     so a second insert is exactly what the singleton index exists to refuse
+//     (it did: `duplicate key value violates unique constraint
+//     "blocks_mode_type_singleton_uidx"` took all four of this spec's tests
+//     down on the first canonical battery). So the spec borrows the account's
+//     own product block the way the gallery specs borrow the gallery: it
+//     reconfigures `blocks.title` — the only column this measurement needs —
+//     and puts the original string back verbatim in a finally. The block's
+//     ITEMS are never touched at all, so the borrow's blast radius is one
+//     column of one row.
+//
+// Every title this spec writes carries a `tlm1` marker so a run killed
+// mid-flight is recoverable by the next one: a marked CAROUSEL is junk and gets
+// deleted, a marked PRODUCT block is a borrow left un-returned and gets its
+// original title (stashed alongside the marker) put back.
 import { test, expect, allowWrites, type Page, type Locator, type Browser } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
+import { translations } from '../src/hooks/useLanguage';
+import { CONTENT_MAP } from '../src/lib/content-i18n';
 
-// TL.ISO.2 write opt-in — withFixtures() inserts its own carousel +
-// product_cards blocks and items, reconfigures them, and sweeps them again.
+// TL.ISO.2 write opt-in — withFixtures() inserts its own carousel block and
+// items, reconfigures that block and the borrowed product block, then sweeps
+// the carousel away and hands the product block's title back.
 test.beforeEach(async ({ page }) => {
   await allowWrites(page, ['rest/v1/blocks', 'rest/v1/block_items']);
 });
@@ -63,13 +85,33 @@ const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evalu
 );
 
 const CAR_LABEL = 'TLM1-CAR';
-const PRD_LABEL = 'TLM1-PRD';
 
 /**
- * The mode the public page is really rendering. The account owns blocks on more
- * than one page, and a fixture inserted on the wrong mode would be measured
- * happily and never appear — so the mode is taken from a block whose content is
- * on the screen, the same way spec 43 picks its gallery.
+ * What a stored label actually READS AS on screen.
+ *
+ * The borrowed product block's cards carry the canonical seed labels, and every
+ * block renders item text through translateContent() — a default string like
+ * 'Product One' is looked up in CONTENT_MAP and re-rendered from the dictionary.
+ * In English that round trip is the identity, but resolving it here rather than
+ * assuming it means the strip anchor keeps working if the EN wording is ever
+ * edited, and fails with a readable locator instead of a mystery timeout if the
+ * seed labels change shape.
+ */
+const shownLabel = (label: string): string => {
+  const key = CONTENT_MAP[label];
+  const en = translations.en as Record<string, string>;
+  return (key && en[key]) || label;
+};
+
+/**
+ * The mode the public page is really rendering.
+ *
+ * The read is deliberately unscoped — `blocks` is world-readable, so it returns
+ * gallery blocks from other accounts' public pages as well as this account's
+ * modes — and it self-corrects: the mode is taken from the gallery whose first
+ * photo is actually IN THE DOM, the same way spec 43 picks its gallery. A
+ * fixture inserted on any other mode would be measured happily and never
+ * appear.
  */
 const liveModeId = async (page: Page): Promise<string> => {
   const all = await sb<Array<{ mode_id: string; srcs: string[] }>>(page, `
@@ -86,51 +128,128 @@ const liveModeId = async (page: Page): Promise<string> => {
   throw new Error('could not identify the mode this page renders');
 };
 
-/** Delete every fixture block this spec has ever created on this account. */
-const sweep = (page: Page) => sb(page, `
-  const { data: blocks } = await sb.from('blocks').select('id,title,type');
+/**
+ * Put the account back, from any state this spec can leave it in.
+ *
+ * Two kinds of residue, and they need opposite treatment — deleting a borrowed
+ * canonical block would be worse than the mess it was cleaning up:
+ *   • a marked CAROUSEL was created here → delete it, items first;
+ *   • a marked PRODUCT block was BORROWED here → restore the original title
+ *     stashed next to the marker as `tlm1Prev` (null is a legitimate stash
+ *     value, so read the key's presence, never its truthiness).
+ * Runs both as the finally and as the pre-flight, so a run killed mid-flight is
+ * healed by the next one rather than borrowing an already-borrowed block and
+ * writing this spec's own config in as if it were the account's.
+ *
+ * Scoped to the mode under test. `blocks` is world-readable (`FOR SELECT USING
+ * (true)`, so public pages render for anonymous visitors), and an unscoped read
+ * here would have the sweep issuing writes against every account's blocks and
+ * relying on RLS to refuse them — quietly, since a 0-row UPDATE is not an error.
+ */
+const sweep = (page: Page, modeId: string) => sb<number>(page, `
+  const { data: blocks } = await sb.from('blocks')
+    .select('id,title,type').eq('mode_id', arg.modeId);
   const mine = (blocks || []).filter(b =>
     (b.type === 'carousel' || b.type === 'product_cards') && (b.title || '').includes('"tlm1":true'));
   for (const b of mine) {
-    await sb.from('block_items').delete().eq('block_id', b.id);
-    await sb.from('blocks').delete().eq('id', b.id);
+    if (b.type === 'carousel') {
+      await sb.from('block_items').delete().eq('block_id', b.id);
+      const { error } = await sb.from('blocks').delete().eq('id', b.id);
+      if (error) throw new Error('sweep: carousel delete: ' + error.message);
+    } else {
+      let prev = null;
+      try { const p = JSON.parse(b.title); if ('tlm1Prev' in p) prev = p.tlm1Prev; } catch {}
+      const { error } = await sb.from('blocks').update({ title: prev }).eq('id', b.id);
+      if (error) throw new Error('sweep: product title restore: ' + error.message);
+    }
   }
-  return mine.length;`);
+  return mine.length;`, { modeId });
 
 /**
- * One fixture block, four cards, no images.
+ * The CAROUSEL fixture: one block, four cards, no images.
  *
  * Deliberately photo-less: the tiles are sized by width class + aspectRatio, so
  * the strip's geometry is final at first paint. A decoding photo would keep
  * changing `scrollWidth` under the loop and make the rate flaky for no gain —
  * and the labels, not images, are what this spec anchors on.
+ *
+ * Only ever called for 'carousel'. product_cards is borrowed, not created —
+ * see borrowProducts() and the singleton note in the file header.
  */
-const makeBlock = (page: Page, modeId: string, type: 'carousel' | 'product_cards', label: string, order: number) =>
+const makeCarousel = (page: Page, modeId: string, label: string, order: number) =>
   sb<string>(page, `
     const { data, error } = await sb.from('blocks')
-      .insert({ mode_id: arg.modeId, type: arg.type, order_index: arg.order, is_enabled: true,
+      .insert({ mode_id: arg.modeId, type: 'carousel', order_index: arg.order, is_enabled: true,
                 title: JSON.stringify({ tlm1: true }) })
       .select('id').single();
-    if (error) throw new Error(arg.type + ' insert: ' + error.message);
+    if (error) throw new Error('carousel insert: ' + error.message);
     const items = [0, 1, 2, 3].map(i => ({
       block_id: data.id, label: arg.label + '-' + i, url: 'https://example.com/tlm1/' + i, order_index: i,
     }));
     const { error: e2 } = await sb.from('block_items').insert(items);
-    if (e2) throw new Error(arg.type + ' items: ' + e2.message);
-    return data.id;`, { modeId, type, label, order });
-
-const setConfig = (page: Page, id: string, cfg: Record<string, unknown>) =>
-  sb(page, `await sb.from('blocks').update({ title: arg.t }).eq('id', arg.id);`,
-    { id, t: JSON.stringify({ ...cfg, tlm1: true }) });
+    if (e2) throw new Error('carousel items: ' + e2.message);
+    return data.id;`, { modeId, label, order });
 
 /**
- * The strip, found through a card's LABEL rather than by class: the strip's
+ * The PRODUCT CARDS borrow: the account's own block on the mode being measured.
+ *
+ * Returns its id, the title to hand back, and the label of its FIRST card —
+ * derived from what the block actually holds, never assumed, so a future change
+ * to the canonical tree's product names moves the anchor with it instead of
+ * breaking the spec. Two preconditions are checked loudly, because both would
+ * otherwise surface as a 20s wait on a card that never renders:
+ *   • the block must exist (it is canonical; its absence means the account was
+ *     not reseeded, and every measurement below would be meaningless);
+ *   • it must hold >= 2 items, which is ProductCardsBlock's own `loop` gate —
+ *     below it the filmstrip renders no wrap copy and never glides at all.
+ */
+const borrowProducts = async (page: Page, modeId: string) => {
+  const found = await sb<{ id: string; title: string | null; labels: string[] } | null>(page, `
+    const { data: blocks } = await sb.from('blocks')
+      .select('id,title,type').eq('mode_id', arg.modeId).eq('type', 'product_cards');
+    const b = (blocks || [])[0];
+    if (!b) return null;
+    const { data: items } = await sb.from('block_items')
+      .select('label,order_index').eq('block_id', b.id).order('order_index', { ascending: true });
+    return { id: b.id, title: b.title, labels: (items || []).map(r => r.label).filter(Boolean) };`,
+    { modeId });
+
+  if (!found) {
+    throw new Error(
+      `no product_cards block on mode ${modeId} — the canonical tree seeds one per mode; reseed the account`,
+    );
+  }
+  if (found.labels.length < 2) {
+    throw new Error(
+      `the product_cards block holds ${found.labels.length} labelled item(s); the filmstrip loop needs >= 2`,
+    );
+  }
+  return { id: found.id, title: found.title, card: shownLabel(found.labels[0]) };
+};
+
+/**
+ * Write a block's config into its title.
+ *
+ * `prev` is the borrow's stash: pass the block's ORIGINAL title for a borrowed
+ * block so sweep() can hand it back after a killed run, and leave it undefined
+ * for a block this spec created, which sweep() deletes outright.
+ */
+const setConfig = (page: Page, id: string, cfg: Record<string, unknown>, prev?: string | null) =>
+  sb(page, `await sb.from('blocks').update({ title: arg.t }).eq('id', arg.id);`,
+    { id, t: JSON.stringify(prev === undefined ? { ...cfg, tlm1: true } : { ...cfg, tlm1: true, tlm1Prev: prev }) });
+
+/**
+ * The strip, found through a CARD'S OWN TEXT rather than by class: the strip's
  * className changes with the loop/no-loop branch, and a selector that tracked it
  * would silently match nothing the day that branch moves. `:visible` matters
- * because the page renders inside a device stage on desktop.
+ * because the page renders inside a device stage on desktop, and `.first()`
+ * because the looping filmstrip renders every card twice.
+ *
+ * `card` is the exact rendered text — 'TLM1-CAR-0' for the created carousel,
+ * the borrowed block's own first product name for the product strip.
  */
-const stripOf = (page: Page, label: string): Locator =>
-  page.locator(`:text-is("${label}-0"):visible`).first()
+const stripOf = (page: Page, card: string): Locator =>
+  page.locator(`:text-is("${card}"):visible`).first()
     .locator('xpath=ancestor::div[contains(@class,"overflow-x-auto")][1]');
 
 /**
@@ -156,40 +275,80 @@ const measure = async (strip: Locator, ms = 2500) => strip.evaluate(async (el, w
   return { pxPerSec: dx / ((t1 - t0) / 1000), moved: dx, clientWidth: el.clientWidth };
 }, ms);
 
-const reload = async (page: Page, label: string) => {
+const reload = async (page: Page, card: string) => {
   await page.goto(HANDLE);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator(`:text-is("${label}-0"):visible`).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(`:text-is("${card}"):visible`).first()).toBeVisible({ timeout: 20_000 });
   // Let the strip's geometry settle before the loop's rate is sampled.
   await page.waitForTimeout(800);
 };
 
-/** The account's page must be left exactly as it was found. */
+/**
+ * The account's page must be left exactly as it was found.
+ *
+ * Pre-flight sweep, then create the carousel and borrow the product block; the
+ * finally hands both back. The pre-flight matters more since the borrow exists:
+ * without it a run killed mid-flight would leave the product block wearing this
+ * spec's config, and the NEXT run would capture that as "the account's title"
+ * and restore the wrong thing forever.
+ *
+ * `configureProducts` is bound rather than handed out as a raw id so the borrow
+ * stash (`tlm1Prev`) rides along on every write — a call site cannot forget it.
+ */
 const withFixtures = async (
   page: Page,
   browser: Browser,
-  body: (ids: { carousel: string; products: string }) => Promise<void>,
+  body: (fx: {
+    carousel: string;
+    productCard: string;
+    configureProducts: (cfg: Record<string, unknown>) => Promise<unknown>;
+  }) => Promise<void>,
 ) => {
   await page.goto(HANDLE);
   await page.waitForLoadState('networkidle');
   const modeId = await liveModeId(page);
-  await sweep(page);
-  const carousel = await makeBlock(page, modeId, 'carousel', CAR_LABEL, 9001);
-  const products = await makeBlock(page, modeId, 'product_cards', PRD_LABEL, 9002);
+  await sweep(page, modeId);
+  const carousel = await makeCarousel(page, modeId, CAR_LABEL, 9001);
+  const products = await borrowProducts(page, modeId);
+
+  let bodyErr: unknown;
   try {
-    await body({ carousel, products });
+    await body({
+      carousel,
+      productCard: products.card,
+      configureProducts: (cfg) => setConfig(page, products.id, cfg, products.title),
+    });
+  } catch (e) {
+    bodyErr = e;
+    throw e;
   } finally {
     // A timeout closes the page out from under this block, so fall back to a
-    // fresh context rather than leaving fixture blocks on a real page.
+    // fresh context. If THAT fails too the run must go red loudly: a stranded
+    // borrow silently rewrites the account's own product config for every spec
+    // that follows, which is far worse than one red test. (TL.ISO.0 flagged
+    // exactly this class — a restore that fails quietly and strands state.)
+    let restored = false;
+    let firstErr: unknown;
     try {
-      await sweep(page);
-    } catch {
+      await sweep(page, modeId);
+      restored = true;
+    } catch (e) {
+      firstErr = e;
+    }
+    if (!restored) {
       const ctx = await browser.newContext({ storageState: 'tests/.auth/user.json' });
-      const rescue = await ctx.newPage();
       try {
+        const rescue = await ctx.newPage();
         await rescue.goto(HANDLE);
         await rescue.waitForTimeout(2500);
-        await sweep(rescue);
+        await sweep(rescue, modeId);
+      } catch (e) {
+        throw new Error(
+          'TL.MOTION.1 could not put the account back: the borrowed product_cards block may still be '
+          + "wearing this spec's config and a fixture carousel may still be on the page. The next run's "
+          + `pre-flight sweep heals both. in-page: ${String(firstErr)} · rescue: ${String(e)}`
+          + (bodyErr ? ` · the test itself had already failed with: ${String(bodyErr)}` : ''),
+        );
       } finally {
         await ctx.close();
       }
@@ -207,9 +366,9 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
 
       for (const tier of ['slow', 'medium', 'fast'] as const) {
         await setConfig(page, carousel, { cardSize: 'big', autoScroll: true, speed: tier });
-        await reload(page, CAR_LABEL);
+        await reload(page, `${CAR_LABEL}-0`);
 
-        const m = await measure(stripOf(page, CAR_LABEL));
+        const m = await measure(stripOf(page, `${CAR_LABEL}-0`));
         measured[tier] = m.pxPerSec;
 
         const want = rateNow(m.clientWidth, CARD_FRAC.big, TIER_MS[tier]);
@@ -240,8 +399,8 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
       // much slower. A shared scale with a hardcoded 0.72 would pass everything
       // above and fail exactly here.
       await setConfig(page, carousel, { cardSize: 'small', autoScroll: true, speed: 'fast' });
-      await reload(page, CAR_LABEL);
-      const small = await measure(stripOf(page, CAR_LABEL));
+      await reload(page, `${CAR_LABEL}-0`);
+      const small = await measure(stripOf(page, `${CAR_LABEL}-0`));
       const wantSmall = rateNow(small.clientWidth, CARD_FRAC.small, TIER_MS.fast);
       const ratio = small.pxPerSec / measured.fast;
       console.log(
@@ -254,12 +413,12 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
       expect(ratio, 'small glides ~0.56x big at the same tier').toBeGreaterThan(0.47);
       expect(ratio).toBeLessThan(0.67);
 
-      await stripOf(page, CAR_LABEL).screenshot({ path: `tests/screenshots/${tag}-motion1-carousel-small.png` });
+      await stripOf(page, `${CAR_LABEL}-0`).screenshot({ path: `tests/screenshots/${tag}-motion1-carousel-small.png` });
 
       // (4) auto-scroll off is a full stop, not a very slow glide.
       await setConfig(page, carousel, { cardSize: 'big', autoScroll: false, speed: 'fast' });
-      await reload(page, CAR_LABEL);
-      const frozen = await measure(stripOf(page, CAR_LABEL), 2000);
+      await reload(page, `${CAR_LABEL}-0`);
+      const frozen = await measure(stripOf(page, `${CAR_LABEL}-0`), 2000);
       console.log(`[${tag}] carousel auto-scroll off: ${frozen.moved.toFixed(2)}px in 2s`);
       expect(frozen.moved, 'auto-scroll off freezes the carousel completely').toBeLessThan(1);
     });
@@ -269,14 +428,14 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
     test.slow();
     const tag = testInfo.project.name;
 
-    await withFixtures(page, browser, async ({ products }) => {
+    await withFixtures(page, browser, async ({ productCard, configureProducts }) => {
       const measured: Record<string, number> = {};
 
       for (const tier of ['slow', 'medium', 'fast'] as const) {
-        await setConfig(page, products, { layout: 'filmstrip', autoScroll: true, speed: tier });
-        await reload(page, PRD_LABEL);
+        await configureProducts({ layout: 'filmstrip', autoScroll: true, speed: tier });
+        await reload(page, productCard);
 
-        const m = await measure(stripOf(page, PRD_LABEL));
+        const m = await measure(stripOf(page, productCard));
         measured[tier] = m.pxPerSec;
 
         const want = rateNow(m.clientWidth, PRODUCT_FRAC, TIER_MS[tier]);
@@ -293,7 +452,7 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
         expect(m.pxPerSec / was).toBeLessThan(0.42);
 
         if (tier === 'medium') {
-          await stripOf(page, PRD_LABEL).screenshot({ path: `tests/screenshots/${tag}-motion1-products-medium.png` });
+          await stripOf(page, productCard).screenshot({ path: `tests/screenshots/${tag}-motion1-products-medium.png` });
         }
       }
 
@@ -306,9 +465,9 @@ test.describe('TL.MOTION.1 — carousel + product-cards glide rates', () => {
       // spec 43's gallery formula with the same two factors, so the bands each
       // spec measures against are the same numbers.
 
-      await setConfig(page, products, { layout: 'filmstrip', autoScroll: false, speed: 'fast' });
-      await reload(page, PRD_LABEL);
-      const frozen = await measure(stripOf(page, PRD_LABEL), 2000);
+      await configureProducts({ layout: 'filmstrip', autoScroll: false, speed: 'fast' });
+      await reload(page, productCard);
+      const frozen = await measure(stripOf(page, productCard), 2000);
       console.log(`[${tag}] products auto-scroll off: ${frozen.moved.toFixed(2)}px in 2s`);
       expect(frozen.moved, 'auto-scroll off freezes the product strip completely').toBeLessThan(1);
     });

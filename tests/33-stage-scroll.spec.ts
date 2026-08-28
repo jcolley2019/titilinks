@@ -20,9 +20,27 @@
 // Suite-05 route-interception pattern: theme_json.pageStyle is pinned to
 // 'full_bleed' on GET reads and writes are swallowed — ZERO real mutation.
 
-import { test, expect, type Page } from './fixtures';
+import { test, expect, type Page, type Route } from './fixtures';
 
 const DESKTOP = { width: 1440, height: 1000 };
+
+/** How many extra link rows the scroll test injects. See padScrollContent(). */
+const PAD_ROWS = 6;
+
+// TEST.FLAKE.26 — route.fetch() re-issues the intercepted request to the live
+// Supabase backend; under a full battery that passthrough intermittently stalls
+// and throws at the fetch boundary, failing the mock rather than the feature.
+const routeFetchWithRetry = async (route: Route, attempts = 4) => {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await route.fetch({ timeout: 20_000 });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('route.fetch failed after retries');
+};
 
 // Pin full_bleed everywhere (reads only; writes swallowed → nothing mutates).
 const pinFullBleed = (page: Page) =>
@@ -42,6 +60,71 @@ const pinFullBleed = (page: Page) =>
       try { await route.continue(); } catch { /* page closing */ }
     }
   });
+
+/**
+ * TL.ISO.4b — the spec brings its own scroll headroom.
+ *
+ * The precondition below needs the frame's content to overrun its scrollport by
+ * a real margin. On the canonical fixture tree the page overruns by ~191px, and
+ * WebKit's slightly taller text metrics put it either side of the 200px bar: in
+ * one battery run the desktop project passed and the mobile project failed at
+ * 1065 vs a required 1074, then passed on retry. That is not a timing flake, it
+ * is a spec measuring a height it does not own.
+ *
+ * Two things it must NOT do about that. Fattening the canonical tree taxes every
+ * other spec that counts the account's blocks. Shaving the bar down to whatever
+ * today's content happens to be just re-points the same dependency at a smaller
+ * number. So instead the spec pads the LINKS block's item list on the way to the
+ * browser — the suite-05/11/26 route-interception pattern this file already
+ * uses, extended one table further. Real rows, cloned from a real one, rendered
+ * by the real LinkButton at real heights; ZERO database mutation, so the
+ * "nothing here mutates" contract in the file header still holds, and no other
+ * worker's view of the shared account moves while this runs.
+ *
+ * Only the editor's bulk `block_items?block_id=in.(…)` read is padded — the one
+ * query Editor.tsx uses to render the canvas. Every other blocks/items request
+ * (the prefill probes, the HEAD counts) passes through untouched.
+ */
+const padScrollContent = async (page: Page) => {
+  let linksBlockId: string | null = null;
+
+  await page.route('**/rest/v1/blocks*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const res = await routeFetchWithRetry(route);
+    let body: unknown;
+    try { body = await res.json(); } catch { return route.fulfill({ response: res }); }
+    if (Array.isArray(body)) {
+      const links = body.find((b) => (b as { type?: string })?.type === 'links') as { id?: string } | undefined;
+      if (links?.id) linksBlockId = links.id;
+    }
+    await route.fulfill({ response: res, body: JSON.stringify(body) });
+  });
+
+  await page.route('**/rest/v1/block_items*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const bulk = (new URL(route.request().url()).searchParams.get('block_id') || '').startsWith('in.');
+    const res = await routeFetchWithRetry(route);
+    let body: unknown;
+    try { body = await res.json(); } catch { return route.fulfill({ response: res }); }
+    if (!bulk || !linksBlockId || !Array.isArray(body)) {
+      return route.fulfill({ response: res, body: JSON.stringify(body) });
+    }
+    const rows = body as Array<Record<string, unknown>>;
+    const mine = rows.filter((r) => r.block_id === linksBlockId);
+    // No seed row to clone → leave the response alone and let the precondition
+    // below report the real headroom rather than a half-padded one.
+    if (!mine.length) return route.fulfill({ response: res, body: JSON.stringify(body) });
+    const seed = mine[0];
+    const base = Math.max(...mine.map((r) => Number(r.order_index) || 0)) + 1;
+    const pad = Array.from({ length: PAD_ROWS }, (_, i) => ({
+      ...seed,
+      id: `fix-stage-3-pad-${i}`,
+      label: `Scroll headroom ${i + 1}`,
+      order_index: base + i,
+    }));
+    await route.fulfill({ response: res, body: JSON.stringify([...rows, ...pad]) });
+  });
+};
 
 test.describe('FIX.STAGE.3 — stage scroll geometry parity', () => {
   test('frame owns the transform, its child owns the scroll', async ({ page }) => {
@@ -74,6 +157,7 @@ test.describe('FIX.STAGE.3 — stage scroll geometry parity', () => {
 
   test('full_bleed at the bottom: lower region paints content, sticky photo covers the scrollport', async ({ page }) => {
     await pinFullBleed(page);
+    await padScrollContent(page);
     await page.setViewportSize(DESKTOP);
     await page.goto('/dashboard/editor');
     await page.waitForLoadState('networkidle');
@@ -83,10 +167,12 @@ test.describe('FIX.STAGE.3 — stage scroll geometry parity', () => {
     await expect(frame).toBeVisible();
 
     // Bail loudly (not hollow-pass) if the account state can't exercise the
-    // geometry: full_bleed needs a hero photo (sticky layer) and enough
-    // content to scroll.
+    // geometry: full_bleed needs a hero photo (sticky layer) and enough content
+    // to scroll. padScrollContent() guarantees the second half, so a failure
+    // here now means the injection itself stopped landing — worth knowing.
     const geo = await scroller.evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight }));
-    expect(geo.sh, 'full_bleed page must actually scroll').toBeGreaterThan(geo.ch + 200);
+    expect(geo.sh, `full_bleed page must actually scroll (with ${PAD_ROWS} padded link rows)`)
+      .toBeGreaterThan(geo.ch + 200);
 
     await scroller.evaluate((el) => { el.scrollTop = el.scrollHeight; });
     await page.waitForTimeout(350);
