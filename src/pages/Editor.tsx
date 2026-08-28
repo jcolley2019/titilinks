@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
-import { ensureDefaultBlocks } from '@/lib/default-blocks';
+import { ensureDefaultBlocks, PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import type { HeroFraming } from '@/lib/hero-framing';
 import { Loader2, Eye, Pencil } from 'lucide-react';
 import { AdultGateModal } from '@/components/AdultGateModal';
@@ -308,6 +308,35 @@ export default function Editor() {
       if (blocks.length === 0) {
         setAllBlocks([]);
         return;
+      }
+
+      // TL.EVNT.SGL: page-singleton blocks (events) live on ONE mode — their
+      // canonical home is page1 — but both page styles render them. When the
+      // selected mode does not host one, graft the page's copy in from the
+      // other mode(s), sorted by its own order_index (position and enablement
+      // are shared across styles by design). Read-only: the graft never
+      // inserts, and every downstream write (reorder, toggle, editor saves)
+      // targets the block by id, so edits land on the one shared row.
+      const otherModeIds = modes.filter((m) => m.id !== mode.id).map((m) => m.id);
+      if (otherModeIds.length) {
+        const present = new Set(blocks.map((b) => b.type));
+        const missingTypes = [...PAGE_SINGLETON_TYPES].filter((t) => !present.has(t));
+        if (missingTypes.length) {
+          const { data: shared, error: sharedError } = await supabase
+            .from('blocks')
+            .select('*')
+            .in('mode_id', otherModeIds)
+            .in('type', missingTypes)
+            .order('created_at', { ascending: true });
+          if (sharedError) throw sharedError;
+          const grafted = new Set<string>();
+          for (const b of shared ?? []) {
+            if (grafted.has(b.type)) continue; // one per type — oldest wins
+            grafted.add(b.type);
+            blocks.push(b);
+          }
+          if (grafted.size) blocks.sort((a, b) => a.order_index - b.order_index);
+        }
       }
 
       const blockIds = blocks.map((b) => b.id);

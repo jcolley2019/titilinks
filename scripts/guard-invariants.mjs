@@ -40,6 +40,18 @@ const checks = [
   { name:'BLOCK-SEED-ONE-HOME', file:'pages/Editor.tsx',
     needs:[/ensureDefaultBlocks\(mode\.id\)/, /from '@\/lib\/default-blocks'/],
     absent:[/from\('blocks'\)\s*\n?\s*\.insert/] },
+  // TL.EVNT.SGL: the events block is a per-PAGE singleton shared by both page
+  // styles, with no DB floor of its own — the contract holds only because both
+  // composition-replace paths PRESERVE page-singleton blocks (a page reset must
+  // not destroy cross-style event data) and resolveBlockId resolves them
+  // page-wide, creating only on the page1 mode. A refactor that rewrites either
+  // removable filter without consulting PAGE_SINGLETON_TYPES silently makes a
+  // Layout apply delete both styles' events; this catches that regrowth. The
+  // set's contents ({events}) are pinned by default-blocks.test.mjs.
+  { name:'EVNT-PAGE-SINGLETON-RESET', file:'components/ProfileDashboard.tsx',
+    needs:[/&&\s*!PAGE_SINGLETON_TYPES\.has\(b\.type\)/, /PAGE_SINGLETON_TYPES\.has\(blockType\)/] },
+  { name:'EVNT-PAGE-SINGLETON-TPL', file:'lib/tpl-apply.ts',
+    needs:[/!HEADER_TYPES\.has\(b\.type\)\s*&&\s*!PAGE_SINGLETON_TYPES\.has\(b\.type\)/] },
   // ES-SWEEP.1 Task 3: en/es dictionary parity — the 9th invariant. A Spanish
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.

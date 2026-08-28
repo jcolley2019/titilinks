@@ -19,8 +19,10 @@ import { readFileSync } from 'node:fs';
 import {
   ensureDefaultBlocks,
   dedupeSingletonBlocks,
+  collapsePageSingletonBlocks,
   DEFAULT_BLOCK_TYPES,
   MANY_PER_MODE_TYPES,
+  PAGE_SINGLETON_TYPES,
   isSingletonBlockType,
   __resetInFlightForTests,
 } from '../src/lib/default-blocks';
@@ -331,6 +333,84 @@ const counts = (rows) => {
   assert.equal(out.length, clean.length);
   assert.deepEqual(out.map((b) => b.type), clean.map((b) => b.type));
   ok('dedupe leaves a clean snapshot payload untouched, in order');
+}
+
+// ── 13. Events is a singleton per PAGE, and no seeder can mint a pair ───────
+// TL.EVNT.SGL: the page holds ONE events block shared by both page styles.
+// There is deliberately no DB floor for the page level (a trigger was ruled
+// out), so the contract is: every page-singleton type is also a per-mode
+// singleton, is never a default block, and appears in no shipped composition —
+// leaving resolveBlockId (which creates page-wide, on the page1 mode) as the
+// only way one is ever born.
+{
+  assert.deepEqual([...PAGE_SINGLETON_TYPES], ['events'],
+    'PAGE_SINGLETON_TYPES changed — resolveBlockId, both composition replaces, the graft in Editor/PublicProfile, and BLOCK A of the TL.EVNT.SGL migration all assume exactly {events}');
+  for (const type of PAGE_SINGLETON_TYPES) {
+    assert.equal(isSingletonBlockType(type), true,
+      `page-singleton '${type}' must also be singleton per mode (never in MANY_PER_MODE_TYPES)`);
+  }
+  assert.ok(!DEFAULT_BLOCK_TYPES.some((d) => PAGE_SINGLETON_TYPES.has(d.type)),
+    'a page-singleton type in the default set would be seeded once PER MODE — the pair reborn');
+  for (const preset of BLOCK_PRESETS) {
+    assert.ok(!preset.blocks.some((b) => PAGE_SINGLETON_TYPES.has(b.type)),
+      `BLOCK_PRESETS '${preset.key}' contains a page-singleton type — applyPreset/ensureSecondPage would mint a pair`);
+  }
+  for (const preset of TPL_PRESETS) {
+    assert.ok(!(preset.composition ?? []).some((b) => PAGE_SINGLETON_TYPES.has(b.type)),
+      `TPL preset '${preset.id}' contains a page-singleton type — a Layout apply would mint a pair`);
+  }
+  ok('events is a per-page singleton and no seeder or shipped composition can mint a pair');
+}
+
+// ── 14. collapsePageSingletonBlocks keeps the populated copy, homed on page1 ─
+{
+  const item = { label: 'x', url: '', order_index: 0 };
+  const modes = [
+    { type: 'page1', sticky: true, blocks: [
+      { type: 'links', title: 'Links', is_enabled: true, order_index: 0, items: [item] },
+      { type: 'events', title: 'Events A', is_enabled: true, order_index: 3, items: [] },
+    ] },
+    { type: 'page2', sticky: false, blocks: [
+      { type: 'events', title: 'Events B', is_enabled: true, order_index: 1, items: [item, item] },
+      { type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 2, items: [] },
+    ] },
+  ];
+  const out = collapsePageSingletonBlocks(modes);
+  const p1 = out.find((m) => m.type === 'page1');
+  const p2 = out.find((m) => m.type === 'page2');
+  assert.deepEqual(p1.blocks.map((b) => b.title), ['Links', 'Events B'],
+    'the populated copy wins the pair and is re-homed onto page1, sorted by its own order_index');
+  assert.deepEqual(p2.blocks.map((b) => b.title), ['Gallery'],
+    'the loser is dropped from page2');
+  assert.equal(p1.sticky, true, 'non-block mode fields pass through untouched');
+  ok('a snapshot pair collapses to the populated copy, homed on page1');
+}
+
+// ── 15. collapse tiebreak → page1; lone off-home copy re-homes; clean no-op ─
+{
+  const bothEmpty = collapsePageSingletonBlocks([
+    { type: 'page1', blocks: [{ type: 'events', title: 'P1', is_enabled: true, order_index: 5, items: [] }] },
+    { type: 'page2', blocks: [{ type: 'events', title: 'P2', is_enabled: true, order_index: 1, items: [] }] },
+  ]);
+  assert.deepEqual(bothEmpty.find((m) => m.type === 'page1').blocks.map((b) => b.title), ['P1'],
+    'an all-empty pair resolves to the page1 copy');
+  assert.equal(bothEmpty.find((m) => m.type === 'page2').blocks.length, 0);
+
+  const loneOffHome = collapsePageSingletonBlocks([
+    { type: 'page1', blocks: [] },
+    { type: 'page2', blocks: [{ type: 'events', title: 'Only', is_enabled: true, order_index: 2, items: [] }] },
+  ]);
+  assert.deepEqual(loneOffHome.find((m) => m.type === 'page1').blocks.map((b) => b.title), ['Only'],
+    'a lone copy living off-home is re-homed onto page1');
+  assert.equal(loneOffHome.find((m) => m.type === 'page2').blocks.length, 0);
+
+  const clean = [
+    { type: 'page1', blocks: [{ type: 'links', title: 'Links', is_enabled: true, order_index: 0, items: [] }] },
+    { type: 'page2', blocks: [{ type: 'gallery', title: 'Gallery', is_enabled: true, order_index: 0, items: [] }] },
+  ];
+  assert.equal(collapsePageSingletonBlocks(clean), clean,
+    'a payload with no page-singleton blocks passes through by reference');
+  ok('collapse tiebreaks to page1, re-homes a lone off-home copy, and no-ops cleanly');
 }
 
 console.log(`\n${passed} default-block assertions passed.`);

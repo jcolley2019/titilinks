@@ -282,4 +282,17 @@ const ok = (m) => { passed++; console.log(`ok ${m}`); };
   ok('archiveCleanupDue: strict window, ambiguity never deletes');
 }
 
+// ── 16. Events is a per-PAGE singleton (TL.EVNT.SGL) ─────────────────────────
+// The deep contract (survivor rule, seeders, composition preservation) lives in
+// default-blocks.test.mjs; this battery pins the events-side expectation so a
+// change to either module trips a test that names events by name.
+{
+  const { PAGE_SINGLETON_TYPES, isSingletonBlockType } = await import('../src/lib/default-blocks');
+  assert.equal(PAGE_SINGLETON_TYPES.has('events'), true,
+    'events left PAGE_SINGLETON_TYPES — both page styles must render ONE shared events block');
+  assert.equal(isSingletonBlockType('events'), true,
+    'events must stay singleton per mode too, or the page-level collapse has no floor at all');
+  ok('events is declared a per-page singleton (one block, both page styles)');
+}
+
 console.log(`\nevent-fields: ${passed} checks passed`);

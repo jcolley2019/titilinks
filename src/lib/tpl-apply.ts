@@ -42,6 +42,7 @@
 
 import type { Database } from '@/integrations/supabase/types';
 import { resolveTplVariant, type TplPreset } from '@/lib/tpl-presets';
+import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 
 type BlocksInsert = Database['public']['Tables']['blocks']['Insert'];
 type BlockItemsInsert = Database['public']['Tables']['block_items']['Insert'];
@@ -205,7 +206,13 @@ export async function applyTplPreset(opts: TplApplyOptions, deps: TplApplyDeps =
       .eq('mode_id', modeId);
     if (exErr) throw exErr;
     const removableIds = (existingBlocks ?? [])
-      .filter((b) => !HEADER_TYPES.has(b.type))
+      // TL.EVNT.SGL: page-singleton blocks (events) are shared by both page
+      // styles, so they survive a composition replace exactly like the header
+      // socials — a Layout apply on one style must not destroy the other's
+      // events. No shipped composition contains one (asserted by the
+      // default-blocks battery), so preserving can never collide with the
+      // incoming insert on the singleton index.
+      .filter((b) => !HEADER_TYPES.has(b.type) && !PAGE_SINGLETON_TYPES.has(b.type))
       .map((b) => b.id);
     if (removableIds.length) {
       const { error: delItemsErr } = await client.from('block_items').delete().in('block_id', removableIds);

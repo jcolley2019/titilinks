@@ -18,6 +18,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, resolveDesktopStageDeviceId, type ThemeJson } from '@/lib/theme-defaults';
 import { resolveEffectivePageStyle } from '@/lib/surface';
+import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
@@ -310,10 +311,30 @@ export default function PublicProfile() {
             items: (itemsData || []).filter((item) => item.block_id === block.id),
           }));
 
-      setBlocksByMode({
+      const grouped = {
         page1: groupForMode(shopMode?.id),
         page2: groupForMode(page2Mode?.id),
-      });
+      };
+
+      // TL.EVNT.SGL: page-singleton blocks (events) live on ONE mode but both
+      // page styles render them — a creator's events are the same events
+      // whichever style the page wears. When exactly one copy exists on the
+      // page, graft it into the style that does not host it, sorted by its own
+      // order_index. A page still carrying a legacy pair (pre-migration) keeps
+      // both copies rendering exactly as before.
+      if (shopMode && page2Mode) {
+        for (const type of PAGE_SINGLETON_TYPES) {
+          const inP1 = grouped.page1.find((b) => b.type === type);
+          const inP2 = grouped.page2.find((b) => b.type === type);
+          if (!!inP1 === !!inP2) continue; // none, or a legacy pair — leave as-is
+          const shared = (inP1 ?? inP2) as BlockWithItems;
+          const target = inP1 ? grouped.page2 : grouped.page1;
+          target.push(shared);
+          target.sort((a, b) => a.order_index - b.order_index);
+        }
+      }
+
+      setBlocksByMode(grouped);
     } catch (error) {
       console.error('Error fetching page:', error);
       setNotFound(true);

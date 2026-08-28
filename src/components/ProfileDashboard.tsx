@@ -72,6 +72,7 @@ import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSet
 import type { ChecklistRoute } from '@/lib/ais-checklist';
 import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
+import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 
 export interface EditingBlockTarget {
@@ -969,9 +970,13 @@ export function ProfileDashboard({
         .select('id, type')
         .eq('mode_id', activeModeId);
       if (fErr) throw fErr;
-      // Preserve the header social blocks; replace everything else.
+      // Preserve the header social blocks AND the page-singleton blocks
+      // (TL.EVNT.SGL: the events block is shared by both page styles — a
+      // composition reset on one style must not destroy it for the other);
+      // replace everything else.
       const removableIds = (existing || [])
-        .filter((b) => b.type !== 'social_links' && b.type !== 'social_icon_row')
+        .filter((b) => b.type !== 'social_links' && b.type !== 'social_icon_row'
+          && !PAGE_SINGLETON_TYPES.has(b.type))
         .map((b) => b.id);
       if (removableIds.length) {
         const { error: iErr } = await supabase.from('block_items').delete().in('block_id', removableIds);
@@ -1017,10 +1022,29 @@ export function ProfileDashboard({
   ): Promise<string | null> => {
     if (!modeId) return null;
 
+    // TL.EVNT.SGL: page-singleton types (events) resolve PAGE-WIDE, not
+    // per-mode — the page holds ONE such block shared by both styles, so the
+    // search spans every mode of the page and a create lands on the page1
+    // mode, its canonical home. Everything else keeps the per-mode scope.
+    let searchModeIds = [modeId];
+    let createModeId = modeId;
+    if (PAGE_SINGLETON_TYPES.has(blockType) && pageId) {
+      const { data: pageModes, error: pmErr } = await supabase
+        .from('modes')
+        .select('id, type')
+        .eq('page_id', pageId);
+      if (pmErr) throw pmErr;
+      const modeRows = pageModes ?? [];
+      if (modeRows.length) {
+        searchModeIds = modeRows.map((m) => m.id);
+        createModeId = modeRows.find((m) => m.type === 'page1')?.id ?? modeId;
+      }
+    }
+
     const { data: rows, error } = await supabase
       .from('blocks')
       .select('id')
-      .eq('mode_id', modeId)
+      .in('mode_id', searchModeIds)
       .eq('type', blockType)
       .order('created_at', { ascending: true });
 
@@ -1032,7 +1056,7 @@ export function ProfileDashboard({
     const { data: newBlock, error: insertError } = await supabase
       .from('blocks')
       .insert({
-        mode_id: modeId,
+        mode_id: createModeId,
         type: blockType,
         title,
         is_enabled: true,
@@ -1051,7 +1075,7 @@ export function ProfileDashboard({
         const { data: raced } = await supabase
           .from('blocks')
           .select('id')
-          .eq('mode_id', modeId)
+          .in('mode_id', searchModeIds)
           .eq('type', blockType)
           .order('created_at', { ascending: true });
         const racedRows = raced ?? [];

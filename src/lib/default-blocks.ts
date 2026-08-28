@@ -66,6 +66,29 @@ export const MANY_PER_MODE_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['
 /** True when a mode may hold at most one block of this type. */
 export const isSingletonBlockType = (type: BlockType): boolean => !MANY_PER_MODE_TYPES.has(type);
 
+/**
+ * Block types that are a singleton per PAGE, not per mode (TL.EVNT.SGL).
+ *
+ * Most types are deliberately paired — one per page style / mode — but a
+ * creator's events are the same events whichever style the page wears, so the
+ * page holds ONE events block and both styles render it. The contract has no
+ * DB floor of its own (per-page uniqueness would need a trigger; ruled out):
+ * it holds because every consumer of this set cooperates —
+ *   • `resolveBlockId` (ProfileDashboard) resolves these page-wide and only
+ *     ever CREATES them on the page1 mode (the canonical home);
+ *   • `applyPreset` (ProfileDashboard) and `applyTplPreset` (tpl-apply.ts)
+ *     PRESERVE them through a composition replace, like the header socials —
+ *     a page reset must not destroy cross-style event data;
+ *   • Editor.tsx / PublicProfile.tsx graft the page's one block into the mode
+ *     that does not host it, so both styles read the same row;
+ *   • `collapsePageSingletonBlocks` filters restore payloads so a pre-collapse
+ *     snapshot cannot resurrect a pair.
+ * Types here must ALSO be singleton per mode (never in MANY_PER_MODE_TYPES),
+ * and must never appear in a shipped composition (BLOCK_PRESETS/TPL_PRESETS) —
+ * both asserted by scripts/default-blocks.test.mjs.
+ */
+export const PAGE_SINGLETON_TYPES: ReadonlySet<BlockType> = new Set<BlockType>(['events']);
+
 /** Postgres unique_violation. PostgREST surfaces it verbatim as `error.code`. */
 const UNIQUE_VIOLATION = '23505';
 
@@ -222,6 +245,67 @@ export function dedupeSingletonBlocks<
 
   out.push(...bestByType.values());
   return out.sort((a, b) => a.order_index - b.order_index);
+}
+
+/**
+ * Collapse page-singleton blocks across a page's modes, keeping ONE per type
+ * (TL.EVNT.SGL — the page-level sibling of `dedupeSingletonBlocks`).
+ *
+ * Used by `restoreSnapshot`: a snapshot captured BEFORE the collapse can carry
+ * an events block per mode, and re-inserting both would resurrect the pair the
+ * migration removed. Survivor rule (the architect-approved order): the copy
+ * with the most items → tie goes to the page1 mode's copy → then the lowest
+ * order_index → then first seen. The survivor is re-homed into the page1
+ * mode's block list (its canonical home) when the payload has one, keeping its
+ * own order_index — position and enablement are shared across styles by design.
+ *
+ * Pure and structural over its element types (same discipline as
+ * `dedupeSingletonBlocks`): no supabase import, unit-tested under tsx.
+ */
+export function collapsePageSingletonBlocks<
+  B extends { type: BlockType; order_index: number; items: unknown[] },
+  M extends { type: string; blocks: B[] },
+>(modes: M[]): M[] {
+  type Candidate = { block: B; modeType: string; seen: number };
+  const candidates = new Map<BlockType, Candidate[]>();
+  let seen = 0;
+
+  for (const m of modes) {
+    for (const b of m.blocks) {
+      if (!PAGE_SINGLETON_TYPES.has(b.type)) continue;
+      const list = candidates.get(b.type) ?? [];
+      list.push({ block: b, modeType: m.type, seen: seen++ });
+      candidates.set(b.type, list);
+    }
+  }
+
+  const survivors = new Map<BlockType, Candidate>();
+  for (const [type, list] of candidates) {
+    const winner = list.reduce((best, c) => {
+      if (c.block.items.length !== best.block.items.length)
+        return c.block.items.length > best.block.items.length ? c : best;
+      if ((c.modeType === 'page1') !== (best.modeType === 'page1'))
+        return c.modeType === 'page1' ? c : best;
+      if (c.block.order_index !== best.block.order_index)
+        return c.block.order_index < best.block.order_index ? c : best;
+      return best.seen <= c.seen ? best : c;
+    });
+    survivors.set(type, winner);
+  }
+  if (survivors.size === 0) return modes;
+
+  const hasPage1 = modes.some((m) => m.type === 'page1');
+  return modes.map((m) => {
+    const kept = m.blocks.filter((b) => !PAGE_SINGLETON_TYPES.has(b.type));
+    for (const [, winner] of survivors) {
+      // Home: the page1 mode when the payload has one, else wherever the
+      // survivor already lived (a payload with no page1 mode is degenerate,
+      // but a restore must still not drop the data).
+      const home = hasPage1 ? m.type === 'page1' : m.type === winner.modeType;
+      if (home) kept.push(winner.block);
+    }
+    return { ...m, blocks: kept.sort((a, b) => a.order_index - b.order_index) };
+  });
 }
 
 /** Test seam — clears the in-flight map between cases. Not used by the app. */

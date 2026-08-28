@@ -18,7 +18,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import { getEntitlements } from '@/lib/entitlements';
-import { dedupeSingletonBlocks } from '@/lib/default-blocks';
+import { dedupeSingletonBlocks, collapsePageSingletonBlocks } from '@/lib/default-blocks';
 import { getThemeWithDefaults } from '@/lib/theme-defaults';
 
 type ModeType = Database['public']['Enums']['mode_type'];
@@ -347,7 +347,11 @@ export async function restoreSnapshot(snapshotId: string, autoName = 'Before res
   }
 
   // Re-insert blocks + items per payload mode (preserving order_index).
-  for (const mode of payload.modes) {
+  // TL.EVNT.SGL: a snapshot captured before the events collapse can carry one
+  // events block PER MODE; restoring both would resurrect the pair. Collapse
+  // page-singleton types to the one survivor (homed on page1) first — same
+  // filter-don't-trust discipline as dedupeSingletonBlocks below.
+  for (const mode of collapsePageSingletonBlocks(payload.modes)) {
     let modeId = modeByType.get(mode.type);
     if (!modeId) {
       // A payload mode with no surviving mode on the page — recreate it.

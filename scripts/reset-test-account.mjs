@@ -140,6 +140,14 @@ if (planOnly || handle !== BATTERY_HANDLE) {
 // VideoFeedBlock renders nothing without a config, the account has no real
 // videos to point at, and a dead embed URL on a page the battery screenshots is
 // worse than an absent block. The block itself stays so the editor row resolves.
+//
+// TL.EVNT.SGL — the canonical tree holds NO events block, and that is the
+// ruling, not an omission: events is a per-PAGE singleton (one block shared by
+// both page styles, PAGE_SINGLETON_TYPES in src/lib/default-blocks.ts), it is
+// not in BLOCK_PRESETS or any shipped composition, and it is only ever born
+// on demand via resolveBlockId (on the page1 mode). Spec 49 mints and sweeps
+// its own events fixtures. If the canonical tree ever gains an events block,
+// it must be AT MOST ONE for the whole page, homed on the page1 mode.
 
 /** The gallery's config lives JSON-in-title — GalleryEditor's own defaults. */
 const GALLERY_CONFIG = JSON.stringify({ layout: 'full', autoScroll: true, speed: 'slow' });
