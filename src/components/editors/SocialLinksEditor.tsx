@@ -898,8 +898,15 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
 
           </div>
 
-          {/* Actions — pinned to the bottom of the panel while content scrolls. */}
-          <div className="z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
+          {/* Actions — pinned to the bottom of the panel while content scrolls.
+              TL.PANEL.1a: `sticky bottom-0` is load-bearing and was dropped in
+              TL.SOC.1b on the theory that mt-auto alone pins it outside the
+              scroller. It cannot: the dashboard wrapper is `min-h-full`, a
+              FLOOR and not a cap, so a long platform list grows the wrapper,
+              the inner scroller above never engages, the dashboard's own
+              scroller scrolls instead, and an unstuck strip rides off-screen.
+              Every other editor carries both classes for exactly this reason. */}
+          <div className="sticky bottom-0 z-10 mt-auto flex gap-3 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0e0c09]">
             <Button
               type="button"
               onClick={() => onOpenChange(false)}

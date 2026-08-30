@@ -52,6 +52,16 @@ const checks = [
     needs:[/&&\s*!PAGE_SINGLETON_TYPES\.has\(b\.type\)/, /PAGE_SINGLETON_TYPES\.has\(blockType\)/] },
   { name:'EVNT-PAGE-SINGLETON-TPL', file:'lib/tpl-apply.ts',
     needs:[/!HEADER_TYPES\.has\(b\.type\)\s*&&\s*!PAGE_SINGLETON_TYPES\.has\(b\.type\)/] },
+  // TL.PANEL.1a: every editor-panel footer stays pinned to the panel's bottom
+  // edge. The FOOTER.1-3 epic (July) put `sticky bottom-0 z-10 mt-auto` on all
+  // of them; TL.SOC.1b then dropped the sticky half from SocialLinksEditor on
+  // the theory that mt-auto alone suffices once the footer sits outside an
+  // inner scroller. It does not, and that is the whole trap this catches: the
+  // dashboard wrapper is `min-h-full` — a FLOOR, not a cap — so long content
+  // grows the wrapper past the scrollport, the inner scroller never engages,
+  // the dashboard's own scroller scrolls instead, and a footer with only
+  // mt-auto rides off-screen. Both classes, always, belt AND suspenders.
+  { name:'PANEL-FOOTER-PIN', panelFooterPin:true },
   // ES-SWEEP.1 Task 3: en/es dictionary parity — the 9th invariant. A Spanish
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.
@@ -102,6 +112,45 @@ const walkTests = (dir = 'tests') => {
 };
 let failed = 0;
 for (const c of checks) {
+  if (c.panelFooterPin) {
+    // A footer strip is identified by the two classes every one of them carries
+    // on the same element: mt-auto (the anchor) and border-t (the separator).
+    // Panels that are footer-LESS by design contribute no strips and so pass
+    // trivially — the TL.PANEL.1-RECON ruling names four, and they stay named
+    // here so a future reader doesn't "fix" them: TemplateGallery (apply is a
+    // per-preset hover-reveal, the TPL.3d ruling) and TextBlocksPanel (a list
+    // that routes into TextBlockEditor, which owns the footer) are skipped by
+    // name; Pages and Video Profile live inside ProfileDashboard.tsx, which is
+    // scanned for the Name & Handle hub's own strip — both write on change and
+    // have no Save gesture, so neither contributes a match.
+    const FOOTERLESS = new Set(['TemplateGallery.tsx', 'TextBlocksPanel.tsx']);
+    const files = readdirSync('src/components/editors')
+      .filter((n) => n.endsWith('.tsx') && !FOOTERLESS.has(n))
+      .map((n) => `src/components/editors/${n}`)
+      .concat('src/components/ProfileDashboard.tsx');
+    const bad = [];
+    let strips = 0;
+    for (const f of files) {
+      readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (!/\bmt-auto\b/.test(line) || !/\bborder-t\b/.test(line)) return;
+        strips++;
+        if (/\bsticky bottom-0\b/.test(line) && /\bz-10\b/.test(line)) return;
+        bad.push(`${f}:${i + 1}  ${line.trim().slice(0, 110)}`);
+      });
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - an editor footer lost its pin`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      a panel footer needs 'sticky bottom-0 z-10 mt-auto', not mt-auto alone:`);
+      console.error(`      the dashboard wrapper is min-h-full (a floor), so long content grows it`);
+      console.error(`      past the scrollport and an unstuck strip scrolls off the bottom edge -`);
+      console.error(`      the TL.SOC.1b defect. Copy the strip from any compliant editor.`);
+    } else {
+      console.log(`ok ${c.name} (${strips} footer strips pinned)`);
+    }
+    continue;
+  }
   if (c.parity) {
     const dict = readFileSync(F('hooks/useLanguage.tsx'), 'utf8');
     const enStart = dict.indexOf('  en: {');

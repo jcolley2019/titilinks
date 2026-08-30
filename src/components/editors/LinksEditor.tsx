@@ -1218,12 +1218,15 @@ function LinkDetailPanel({
       </ScrollArea>
 
       {/* Save button — sits below the bounded ScrollArea, on the panel's bottom
-          edge. px-4 matches the ScrollArea so the Add button aligns with the
-          inputs (the separator border still spans edge-to-edge). mt-auto
-          replaces mt-3: both set margin-top, and the anchor has to win. pb-4
-          re-homes the bottom breathing room the panel root's py-4 used to give,
-          now that the strip owns the edge. */}
-      <div className="sticky bottom-0 z-10 mt-auto px-4 pt-3 pb-4 border-t border-border bg-[#0e0c09]">
+          edge. mt-auto replaces mt-3: both set margin-top, and the anchor has
+          to win. TL.PANEL.1a brings the strip onto the FOOTER.2 spec: -mx-4
+          cancels the panelMode root's px-4 so the separator reaches the true
+          panel edge like every other editor's, and the safe-area pad replaces a
+          flat pb-4 that under-padded on a notched phone. Note this panel insets
+          its fields twice (root px-4 + the ScrollArea's own px-4): a matching px-4
+          here would land the button 16px inside the panel while the fields sit
+          at 32px, so the strip pads px-8 to meet them (visual gate, TL.PANEL.1a). */}
+      <div className="sticky bottom-0 z-10 mt-auto -mx-4 px-8 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border bg-[#0e0c09]">
         {confirmRevert && (
           <div className="mb-3 rounded-xl border border-[#C9A55C]/40 bg-[#1a160f] px-3 py-3">
             <div className="flex items-start gap-2">
@@ -1232,7 +1235,14 @@ function LinkDetailPanel({
                 {t('linksEditor.pairIncompleteWarning')}
               </p>
             </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
+            {/* flex-wrap: measured at the TL.PANEL.1b gate. These two labels
+                fit side by side on one line in English at every panel width,
+                but Spanish ("Completar segunda tarjeta" + "Guardar como
+                grande") wants 345px and the strip's px-8 leaves 270-340px, so
+                without this the buttons kept their row and wrapped their TEXT
+                to two ragged lines. Wrapping the row instead stacks them
+                right-aligned, each on one line, in any language. */}
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmRevert(false)}
@@ -1250,19 +1260,14 @@ function LinkDetailPanel({
             </div>
           </div>
         )}
-        <Button
-          onClick={handleSave}
-          data-testid="link-detail-save"
-          className="w-full h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold"
-        >
-          {isPair && cardB
-            ? (isNew ? t('blockEditor.addPair') : t('blockEditor.savePair'))
-            : (isNew ? t('blockEditor.add') : t('blockEditor.save'))}
-        </Button>
-        {/* Delete — labeled + confirm (replaces the confusing header trashcan). */}
+        {/* Delete — labeled + confirm (replaces the confusing header trashcan).
+            TL.PANEL.1c parks it ABOVE the halves: the commit row is the last
+            element in every footer strip, so Cancel/Save never move. Its
+            margins are mb-* for the same reason — the gap now belongs to the
+            bottom of this block, not the top. */}
         {!active.id.startsWith('new-') && (
           confirmDelete ? (
-            <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+            <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
               <p className="mb-2 text-[13px] text-white/85">{t('linksEditor.confirmDelete')}</p>
               <div className="flex gap-2">
                 <button
@@ -1285,12 +1290,40 @@ function LinkDetailPanel({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="mt-2 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
+              className="mb-2 flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
             >
               <Trash2 className="h-4 w-4" /> {t('linksEditor.deleteLink')}
             </button>
           )
         )}
+        {/* TL.PANEL.1b: the FOOTER.2 halves, ruled in at the TL.PANEL.1a gate.
+            LinksEditor sat outside FOOTER.2's 13-editor sweep (it was in the
+            FOOTER.1 trio) and FOOTER.3 only restyled its button, so the Cancel
+            half was never added — the semantics were always the group's own
+            (local draft, explicit Save, dismissal discards). Cancel wires to
+            onBack, which the parent already passes: close in directMode, back
+            to the list otherwise. TL.PANEL.1c: this row is the LAST element
+            in the strip — secondary actions stack above it — so Cancel/Save
+            sit at the same fixed spot on every panel. */}
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            onClick={onBack}
+            data-testid="link-detail-cancel"
+            className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20"
+          >
+            {t('blockEditor.cancel')}
+          </Button>
+          <Button
+            onClick={handleSave}
+            data-testid="link-detail-save"
+            className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold"
+          >
+            {isPair && cardB
+              ? (isNew ? t('blockEditor.addPair') : t('blockEditor.savePair'))
+              : (isNew ? t('blockEditor.add') : t('blockEditor.save'))}
+          </Button>
+        </div>
       </div>
     </div>
   );
