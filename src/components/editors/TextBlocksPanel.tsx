@@ -29,9 +29,14 @@ interface TextBlocksPanelProps {
   onRefresh: () => void;
   /** Open the shared TextBlockEditor for this block (two-level nav lives in the host). */
   onEdit: (blockId: string) => void;
+  /** TL.SECT.2 — the ONE enable/disable path (Editor's handleBlockToggle). This
+   *  panel used to write `is_enabled` itself, which meant a text box re-enabled
+   *  here missed the top-placement and the toast every other surface gives.
+   *  Resolves true when the write landed, false when it was rolled back. */
+  onToggle: (blockId: string, enabled: boolean) => Promise<boolean>;
 }
 
-export function TextBlocksPanel({ modeId, onRefresh, onEdit }: TextBlocksPanelProps) {
+export function TextBlocksPanel({ modeId, onRefresh, onEdit, onToggle }: TextBlocksPanelProps) {
   const { t } = useLanguage();
   const [blocks, setBlocks] = useState<TextBlockRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,15 +72,19 @@ export function TextBlocksPanel({ modeId, onRefresh, onEdit }: TextBlocksPanelPr
     return label || t('textBlocks.untitled');
   };
 
+  // TL.SECT.2: the write, the preview patch, the enable-time top-placement and
+  // the failure toast all belong to the shared handler now — this list only
+  // mirrors the row optimistically and puts it back if the write was rejected.
+  // On success it re-reads, because an enable moves the block to the top of the
+  // page and this list is ordered by the same order_index.
   const handleToggle = async (id: string, enabled: boolean) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, is_enabled: enabled } : b)));
-    const { error } = await supabase.from('blocks').update({ is_enabled: enabled }).eq('id', id);
-    if (error) {
+    const ok = await onToggle(id, enabled);
+    if (!ok) {
       setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, is_enabled: !enabled } : b)));
-      toast.error(t('dashboard.couldNotSave'));
       return;
     }
-    onRefresh();
+    fetchBlocks();
   };
 
   const handleDelete = async (id: string) => {

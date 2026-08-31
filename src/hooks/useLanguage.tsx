@@ -1325,6 +1325,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'editor.socialNeedsLink': 'Add link',
     'editor.blocksLabel': 'Blocks',
     'editor.failedToggle': 'Failed to update block',
+    'editor.blockEnabledTop': 'Block added to the top of your page — drag it to reorder',
     'editor.failedReorder': 'Failed to reorder blocks',
     'editor.linkRemoved': 'Link removed',
     'editor.failedDelete': 'Failed to delete link',
@@ -1459,6 +1460,13 @@ export const translations: Record<Language, Record<string, string>> = {
     // AIS.0 — "Set up my page" guided wizard.
     'dashboard.pageSetup': 'Set up my page',
     'dashboard.pageSetupDesc': 'Answer 2 questions, get a ready page',
+    // TL.SECT.2 — the Sections rail.
+    'dashboard.sections': 'Sections',
+    'sections.enabledLabel': 'Show this section',
+    'sections.empty': 'No sections yet. Add content to build your page.',
+    'sections.statusShown': 'Shown on your page',
+    'sections.statusHidden': 'Hidden',
+    'sections.bothPages': 'Both pages',
     'wizard.q1Title': 'What describes you best?',
     'wizard.q1Subtitle': 'Pick the closest match',
     'wizard.q2Title': "What's your main goal?",
@@ -3222,6 +3230,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'editor.socialNeedsLink': 'Agregar enlace',
     'editor.blocksLabel': 'Bloques',
     'editor.failedToggle': 'Error al actualizar bloque',
+    'editor.blockEnabledTop': 'Bloque añadido al principio de tu página — arrástralo para reordenarlo',
     'editor.failedReorder': 'Error al reordenar bloques',
     'editor.linkRemoved': 'Enlace eliminado',
     'editor.failedDelete': 'Error al eliminar enlace',
@@ -3356,6 +3365,13 @@ export const translations: Record<Language, Record<string, string>> = {
     // AIS.0 — asistente "Configura mi página".
     'dashboard.pageSetup': 'Configura mi página',
     'dashboard.pageSetupDesc': 'Responde 2 preguntas y ten una página lista',
+    // TL.SECT.2 — el panel de secciones.
+    'dashboard.sections': 'Secciones',
+    'sections.enabledLabel': 'Mostrar esta sección',
+    'sections.empty': 'Aún no hay secciones. Agrega contenido para crear tu página.',
+    'sections.statusShown': 'Visible en tu página',
+    'sections.statusHidden': 'Oculta',
+    'sections.bothPages': 'Ambas páginas',
     'wizard.q1Title': '¿Qué te describe mejor?',
     'wizard.q1Subtitle': 'Elige la opción más parecida',
     'wizard.q2Title': '¿Cuál es tu objetivo principal?',

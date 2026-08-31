@@ -20,6 +20,9 @@ import {
   Image as ImageIcon,
   User,
   ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ListChecks,
   Files,
   GalleryHorizontalEnd,
   History,
@@ -74,6 +77,11 @@ import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
 import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
+// TL.SECT.2 — the Sections rail borrows TextBlocksPanel's row furniture (the
+// same Switch, the same text-block label derivation) rather than inventing a
+// second toggle control.
+import { Switch } from '@/components/ui/switch';
+import { parseTextConfig } from '@/lib/text-block-config';
 
 export interface EditingBlockTarget {
   id: string;
@@ -93,6 +101,14 @@ interface ProfileDashboardProps {
   modeId: string | null;
   onBlockEdit: (blockId: string) => void;
   onRefresh: () => void;
+  /** TL.SECT.2 — the editing page's blocks, in canvas order, as the Editor
+   *  holds them. The Sections rail renders from this rather than fetching its
+   *  own copy, so rail state and preview state can never disagree. */
+  blocks: BlockWithItems[];
+  /** TL.SECT.2 — the ONE enable/disable path (Editor's handleBlockToggle):
+   *  instant persist, optimistic state, top-placement + toast on enable.
+   *  Resolves true when the write landed, false when it was rolled back. */
+  onBlockToggle: (blockId: string, enabled: boolean) => Promise<boolean>;
   /** Active editing page (page1 = Page 1, page2 = Page 2). Drives which page's
    *  hero config the dashboard reads/writes, and the Pages config view. */
   selectedMode?: 'page1' | 'page2';
@@ -189,6 +205,33 @@ async function pickPopulatedBlock(ids: string[]): Promise<string> {
   for (const row of data) counts.set(row.block_id, (counts.get(row.block_id) ?? 0) + 1);
   return ids.reduce((best, id) => ((counts.get(id) ?? 0) > (counts.get(best) ?? 0) ? id : best), ids[0]);
 }
+
+/**
+ * TL.SECT.2 — block type → rail glyph. The catalog rows below are the source of
+ * these choices (a gallery is an image, events are a calendar), so the rail and
+ * the add menu name the same thing with the same icon. The three types with no
+ * catalog row (featured_media, hero_card, content_section) are legacy shapes a
+ * page can still hold; they get a sensible glyph rather than a blank tile.
+ *
+ * Header socials are deliberately absent: they are excluded from the rail
+ * entirely (see `railBlocks`), the same exclusion EditableProfileView applies
+ * to the canvas — their home is the Manage Platforms editor.
+ */
+const SECTION_ICONS: Partial<Record<BlockWithItems['type'], React.ReactNode>> = {
+  primary_cta: <MousePointer className="h-4 w-4 text-white/70" />,
+  links: <LinkIcon className="h-4 w-4 text-white/70" />,
+  product_cards: <ShoppingBag className="h-4 w-4 text-white/70" />,
+  featured_media: <Video className="h-4 w-4 text-white/70" />,
+  hero_card: <LayoutGrid className="h-4 w-4 text-white/70" />,
+  email_subscribe: <FileText className="h-4 w-4 text-white/70" />,
+  content_section: <FileText className="h-4 w-4 text-white/70" />,
+  gallery: <ImageIcon className="h-4 w-4 text-white/70" />,
+  bio: <User className="h-4 w-4 text-white/70" />,
+  video_feed: <Youtube className="h-4 w-4 text-white/70" />,
+  text: <Type className="h-4 w-4 text-white/70" />,
+  carousel: <GalleryHorizontalEnd className="h-4 w-4 text-white/70" />,
+  events: <Calendar className="h-4 w-4 text-white/70" />,
+};
 
 interface DashboardRow {
   icon: React.ReactNode;
@@ -403,6 +446,8 @@ export function ProfileDashboard({
   modeId,
   onBlockEdit,
   onRefresh,
+  blocks,
+  onBlockToggle,
   editingBlock,
   openVideoProfile,
   onVideoPosDraft,
@@ -474,6 +519,12 @@ export function ProfileDashboard({
   const [desktopViewOpen, setDesktopViewOpen] = useState(false);
   // BRAND.2: the Brand Kit sub-panel (Style group).
   const [brandKitOpen, setBrandKitOpen] = useState(false);
+  // TL.SECT.2c: the Sections rail is NOT a sub-panel — it is the first group
+  // inside the Add Content list, above My Links, so the page's on/off state is
+  // the first thing the panel shows with nothing to tap through. This is only
+  // its fold: expanded by default, and remembered for the session (the panel's
+  // contents unmount on close, this component does not).
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
   // TEXT.1: standalone text-blocks list sub-panel. `textEditingId` is the
   // two-level nav state — null = list view, a block id = editing that block.
   const [textBlocksOpen, setTextBlocksOpen] = useState(false);
@@ -1261,6 +1312,116 @@ export function ProfileDashboard({
     // The editor calls onOpenChange(false) right after onSave(); swallow it once
     // so the editor stays open. The user leaves via the X / back arrow.
     skipNextCloseRef.current = true;
+  };
+
+  /**
+   * TL.SECT.2 — open a rail row's block in its own editor, through the SAME
+   * activeBlock triple the section rows and the guided checklist use. Entry mode
+   * stays 'add', so the editor's back arrow clears the triple and lands on the
+   * rail again (the rail sits directly below activeBlockId in both chains).
+   *
+   * Unlike the Featured Links CATALOG row, a links row here does NOT open a
+   * blank add-link: the rail manages sections that already exist, so it opens
+   * the block's list.
+   */
+  const openSectionEditor = (block: BlockWithItems) => {
+    setDirectItemId(null);
+    setDirectNew(false);
+    setActiveBlockId(block.id);
+    setActiveBlockType(block.type);
+    setActiveBlockTitle(t(`blocks.${block.type}.title`) || block.type);
+  };
+
+  /**
+   * TL.SECT.2 — the Sections rail: every block on the editing page, in canvas
+   * order, each carrying the toggle that decides whether it renders at all.
+   * TL.SECT.1 made a disabled block vanish from the phone preview, which is what
+   * makes this list load-bearing rather than a convenience — it is the way back.
+   *
+   * Write-on-change, no footer: a boolean has nothing to stage, so this joins
+   * the documented footer-less branches (Pages, Video Profile, Name Effects).
+   * Every toggle goes through `onBlockToggle` — the one enable path, which owns
+   * top-placement, the toast and the rollback.
+   */
+  const renderSectionsRail = () => {
+    // Header socials are excluded exactly as EditableProfileView excludes them
+    // from the canvas (its `displayBlocks`): they render inside the header, not
+    // as a section, and their home is the Manage Platforms editor. What is left
+    // is the canvas card list, in the same order, so the rail reads top-to-bottom
+    // the way the preview does.
+    const railBlocks = blocks.filter(
+      (b) => b.type !== 'social_links' && b.type !== 'social_icon_row',
+    );
+
+    if (railBlocks.length === 0) {
+      return (
+        <div className="px-4 pb-1">
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-white/15 px-4 py-6 text-center">
+            <ListChecks className="h-6 w-6 text-white/30" />
+            <p className="text-sm text-white/50">{t('sections.empty')}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // TL.SECT.2b (Quick Settings density): one grouped card with hairline
+    // dividers instead of a stack of separate cards, and a two-line row — name
+    // over a muted status — at ~48px. Ten sections fit without scrolling, which
+    // is the point of a rail: see the whole page's on/off state at once.
+    return (
+      <div data-testid="sections-rail" className="px-4 pb-1">
+        <div className="overflow-hidden rounded-2xl bg-white/5 divide-y divide-white/5">
+          {railBlocks.map((block) => {
+            // Text is the one many-per-mode type, so its own heading is what
+            // tells two rows apart — it takes the name slot, exactly as it does
+            // in the text-blocks list, and the type is carried by the glyph.
+            let label = t(`blocks.${block.type}.title`) || block.type;
+            if (block.type === 'text') {
+              const cfg = parseTextConfig(block.title);
+              label = (cfg.heading || cfg.body).trim() || label;
+            }
+            // The status line says what the toggle MEANS, in the creator's
+            // terms. For events it also carries the TL.EVNT.SGL contract — one
+            // block, both page styles — which only matters once Page 2 exists.
+            let status = block.is_enabled ? t('sections.statusShown') : t('sections.statusHidden');
+            if (block.type === 'events' && pagesEnabled) status = `${status} · ${t('sections.bothPages')}`;
+            return (
+              <div
+                key={block.id}
+                data-testid="section-row"
+                data-section-type={block.type}
+                className="flex items-center gap-2.5 px-3 py-2"
+              >
+                <button
+                  type="button"
+                  onClick={() => openSectionEditor(block)}
+                  className="flex flex-1 min-w-0 items-center gap-2.5 text-left"
+                >
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
+                    {SECTION_ICONS[block.type] ?? <LayoutGrid className="h-4 w-4 text-white/70" />}
+                  </div>
+                  {/* min-w-0 is what lets both lines truncate instead of pushing
+                      the toggle off the panel's right edge. */}
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[13px] font-semibold leading-tight ${block.is_enabled ? 'text-white' : 'text-white/40'}`}>
+                      {label}
+                    </p>
+                    <p className="truncate text-[11px] leading-tight text-white/40">{status}</p>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-white/20" />
+                </button>
+                <Switch
+                  data-testid={`section-toggle-${block.id}`}
+                  checked={block.is_enabled}
+                  onCheckedChange={(v) => onBlockToggle(block.id, v)}
+                  aria-label={`${t('sections.enabledLabel')}: ${label}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const renderEditor = () => {
@@ -2149,6 +2310,7 @@ export function ProfileDashboard({
                       modeId={modeId}
                       onRefresh={onRefresh}
                       onEdit={(id) => setTextEditingId(id)}
+                      onToggle={onBlockToggle}
                     />
                   )}
                 </div>
@@ -2161,6 +2323,25 @@ export function ProfileDashboard({
                 // Footer-less branch: carries the bottom breathing room the
                 // scroller's pb-8 used to hand out.
                 <div className="pb-8">
+                  {/* TL.SECT.2c: the Sections rail leads the panel — the page's
+                      own blocks and their on/off state come before the catalog
+                      of things you could add. Collapsible (session-remembered)
+                      for anyone who wants the catalog back at the top. */}
+                  <div className="dark text-foreground">
+                    <button
+                      type="button"
+                      data-testid="sections-group-toggle"
+                      onClick={() => setSectionsCollapsed((c) => !c)}
+                      aria-expanded={!sectionsCollapsed}
+                      className="flex w-full items-center justify-between px-4 pt-6 pb-3"
+                    >
+                      <span className="text-lg font-bold text-white">{t('dashboard.sections')}</span>
+                      <ChevronDown
+                        className={`h-5 w-5 flex-shrink-0 text-white/40 transition-transform ${sectionsCollapsed ? '-rotate-90' : ''}`}
+                      />
+                    </button>
+                    {!sectionsCollapsed && renderSectionsRail()}
+                  </div>
                   {sections.map((section) => (
                     <div key={section.labelKey}>
                       <p className="text-lg font-bold text-white px-4 pt-6 pb-3">

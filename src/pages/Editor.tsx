@@ -576,28 +576,82 @@ export default function Editor() {
 
   // Visitor mode shows only ENABLED blocks — the public route filters is_enabled
   // at the query level and EditableProfileView's view branch does not, so mirror
-  // that here. Edit mode keeps disabled blocks visible (they carry their toggle).
+  // that here.
   const visitorBlocks = useMemo(
     () => previewBlocks.filter((b) => b.is_enabled),
     [previewBlocks]
   );
 
-  const handleBlockToggle = async (blockId: string, enabled: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('blocks')
-        .update({ is_enabled: enabled })
-        .eq('id', blockId);
+  // TL.SECT.1: the edit canvas treats toggles honestly — a disabled block never
+  // renders publicly, so it renders nowhere in the phone preview either (its
+  // card, toggle and all, vanishes; re-enabling lives in the Sections rail).
+  // Exemption: a block whose editor panel is open stays visible while it is
+  // being worked on, whichever door opened it — `editingBlock` covers the
+  // canvas doors, and the draft channels' own blockIds cover the dashboard
+  // section-list / checklist doors, which leave editingBlock null (see the
+  // GalleryDraft note above).
+  const editBlocks = useMemo(() => {
+    const exempt = new Set(
+      [
+        editingBlock?.id,
+        draftItem?.blockId,
+        draftTitle?.blockId,
+        galleryDraft?.blockId,
+        eventsDraft?.blockId,
+      ].filter(Boolean) as string[],
+    );
+    return previewBlocks.filter((b) => b.is_enabled || exempt.has(b.id));
+  }, [previewBlocks, editingBlock, draftItem, draftTitle, galleryDraft, eventsDraft]);
 
-      if (error) throw error;
+  /**
+   * The ONE enable/disable path for a block, wherever the gesture came from —
+   * the canvas card's toggle, the Sections rail, or the text-blocks list
+   * (TL.SECT.2 folded that one in). Instant persist, no staging: a boolean has
+   * nothing to draft.
+   *
+   * TL.SECT.1 (architect ruling): re-enabling surfaces the block at the TOP of
+   * the page — deterministic, and honest about where it reappeared (the toast
+   * says so and points at drag-to-reorder). order_index goes below the current
+   * minimum in the same write, so a hidden block's stale index can never decide
+   * the landing slot. Disable stays a silent one-column write.
+   *
+   * Optimistic, because the rail's Switch is controlled by this state and would
+   * otherwise sit dead for a round-trip. A rejected write resyncs from the DB
+   * rather than restoring a snapshot — the same recovery `handleBlockReorder`
+   * uses, and the only one that cannot clobber a concurrent change.
+   * Returns whether the write landed, so callers holding their own row state
+   * (TextBlocksPanel) know whether to roll back.
+   */
+  const handleBlockToggle = async (blockId: string, enabled: boolean): Promise<boolean> => {
+    const minOrder = Math.min(...allBlocks.map((b) => b.order_index));
+    const newOrder = Number.isFinite(minOrder) ? minOrder - 1 : 0;
 
-      setAllBlocks((prev) =>
-        prev.map((b) => (b.id === blockId ? { ...b, is_enabled: enabled } : b))
-      );
-    } catch (error) {
+    setAllBlocks((prev) => {
+      const target = prev.find((b) => b.id === blockId);
+      if (!target) return prev;
+      if (!enabled) {
+        return prev.map((b) => (b.id === blockId ? { ...b, is_enabled: false } : b));
+      }
+      return [
+        { ...target, is_enabled: true, order_index: newOrder },
+        ...prev.filter((b) => b.id !== blockId),
+      ];
+    });
+
+    const { error } = await supabase
+      .from('blocks')
+      .update(enabled ? { is_enabled: true, order_index: newOrder } : { is_enabled: false })
+      .eq('id', blockId);
+
+    if (error) {
       console.error('Error toggling block:', error);
       toast.error(t('editor.failedToggle'));
+      fetchBlocks();
+      return false;
     }
+
+    if (enabled) toast(t('editor.blockEnabledTop'));
+    return true;
   };
 
   const handleBlockReorder = async (blockIds: string[]) => {
@@ -883,7 +937,7 @@ export default function Editor() {
                   drafts remain visible in visitor mode. */}
               <EditableProfileView
                 page={page}
-                blocks={isVisitor ? visitorBlocks : previewBlocks}
+                blocks={isVisitor ? visitorBlocks : editBlocks}
                 headerDraft={headerDraft}
                 themeDraft={themeDraft}
                 editMode={!isVisitor}
@@ -915,7 +969,7 @@ export default function Editor() {
         <EditableProfileView
           stickyTop="4rem"
           page={page}
-          blocks={previewBlocks}
+          blocks={editBlocks}
           headerDraft={headerDraft}
           themeDraft={themeDraft}
           editMode={true}
@@ -949,6 +1003,8 @@ export default function Editor() {
         onSelectedModeChange={setSelectedMode}
         onBlockEdit={handleEditBlock}
         onRefresh={refresh}
+        blocks={allBlocks}
+        onBlockToggle={handleBlockToggle}
         editingBlock={editingBlock}
         openVideoProfile={openVideoProfile}
         onVideoPosDraft={setVideoPosDraft}
