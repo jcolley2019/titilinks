@@ -67,6 +67,12 @@ export default function Editor() {
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
   // Opens the dashboard straight to the Video Profile menu (hero video pencil).
   const [openVideoProfile, setOpenVideoProfile] = useState(false);
+  // TL.SECT.4: the block whose editor the dashboard panel currently has open,
+  // reported by the panel. Distinct from `editingBlock`, which is what the
+  // CANVAS asked to edit — this one is set by the panel's own doors (a rail
+  // row, a section-list row, a checklist route) and is what keeps a hidden
+  // block previewable while it is being edited.
+  const [panelEditingId, setPanelEditingId] = useState<string | null>(null);
   // PHOTO.ROUTE.1: "open the photo editor" request counters. Two of them because
   // BOTH EditableProfileView instances below stay mounted (desktop `hidden lg:block`
   // + mobile `lg:hidden` — CSS picks the visible one), and a request that reached
@@ -390,6 +396,7 @@ export default function Editor() {
   const handleProfileDashboardClose = () => {
     setProfileDashboardOpen(false);
     setEditingBlock(null);
+    setPanelEditingId(null);
     setOpenVideoProfile(false);
     setDraftItem(null);
     setDraftTitle(null);
@@ -586,14 +593,22 @@ export default function Editor() {
   // renders publicly, so it renders nowhere in the phone preview either (its
   // card, toggle and all, vanishes; re-enabling lives in the Sections rail).
   // Exemption: a block whose editor panel is open stays visible while it is
-  // being worked on, whichever door opened it — `editingBlock` covers the
-  // canvas doors, and the draft channels' own blockIds cover the dashboard
-  // section-list / checklist doors, which leave editingBlock null (see the
-  // GalleryDraft note above).
+  // being worked on, whichever door opened it.
+  //
+  // TL.SECT.4 made that promise true for every door. `editingBlock` only ever
+  // covered the canvas doors, and a hidden block HAS no canvas card — so the
+  // rail (the one place you can reach a hidden block) was editing it blind
+  // unless its editor happened to publish a draft on mount, which most do not.
+  // `panelEditingId` is the dashboard's own open-editor id, reported by the
+  // panel itself, so the rail, the section list and the guided checklist all
+  // exempt alike and every exit clears it. The draft channels stay in the set:
+  // they still cover a block whose panel published a draft, and a Set makes the
+  // overlap free.
   const editBlocks = useMemo(() => {
     const exempt = new Set(
       [
         editingBlock?.id,
+        panelEditingId,
         draftItem?.blockId,
         draftTitle?.blockId,
         galleryDraft?.blockId,
@@ -601,7 +616,7 @@ export default function Editor() {
       ].filter(Boolean) as string[],
     );
     return previewBlocks.filter((b) => b.is_enabled || exempt.has(b.id));
-  }, [previewBlocks, editingBlock, draftItem, draftTitle, galleryDraft, eventsDraft]);
+  }, [previewBlocks, editingBlock, panelEditingId, draftItem, draftTitle, galleryDraft, eventsDraft]);
 
   /**
    * The ONE enable/disable path for a block, wherever the gesture came from —
@@ -1005,6 +1020,7 @@ export default function Editor() {
         onRefresh={refresh}
         blocks={allBlocks}
         onBlockToggle={handleBlockToggle}
+        onEditingBlockChange={setPanelEditingId}
         editingBlock={editingBlock}
         openVideoProfile={openVideoProfile}
         onVideoPosDraft={setVideoPosDraft}

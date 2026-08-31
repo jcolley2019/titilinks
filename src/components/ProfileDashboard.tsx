@@ -109,6 +109,12 @@ interface ProfileDashboardProps {
    *  instant persist, optimistic state, top-placement + toast on enable.
    *  Resolves true when the write landed, false when it was rolled back. */
   onBlockToggle: (blockId: string, enabled: boolean) => Promise<boolean>;
+  /** TL.SECT.4 — which block this panel currently has an editor open on, or
+   *  null. The preview keeps such a block visible even when it is disabled
+   *  (the TL.SECT.1 exemption), so a hidden block can actually be edited: the
+   *  rail is the only door to one, and a hidden block has no canvas card for
+   *  `editingBlock` to come from. */
+  onEditingBlockChange?: (blockId: string | null) => void;
   /** Active editing page (page1 = Page 1, page2 = Page 2). Drives which page's
    *  hero config the dashboard reads/writes, and the Pages config view. */
   selectedMode?: 'page1' | 'page2';
@@ -448,6 +454,7 @@ export function ProfileDashboard({
   onRefresh,
   blocks,
   onBlockToggle,
+  onEditingBlockChange,
   editingBlock,
   openVideoProfile,
   onVideoPosDraft,
@@ -593,6 +600,16 @@ export function ProfileDashboard({
       setEntryMode('edit');
     }
   }, [open, editingBlock]);
+
+  // TL.SECT.4 — publish the open editor's block upward. Keyed on the state
+  // rather than hand-called at each door, so every way IN (rail row, section
+  // row, checklist route, the editingBlock mirror above) reports itself, and
+  // every way OUT (back, X, an editor's own close) clears it — a signal that
+  // cannot drift from the thing it describes. The panel component itself is
+  // never unmounted by Editor, so there is no torn-down state to clean up.
+  useEffect(() => {
+    onEditingBlockChange?.(activeBlockId);
+  }, [activeBlockId, onEditingBlockChange]);
 
   const handleClose = () => {
     setActiveBlockId(null);

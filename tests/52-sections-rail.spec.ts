@@ -34,6 +34,7 @@ const GALLERY_ID = 's52-gallery';
 const TEXT_ID = 's52-text';
 const EVENTS_ID = 's52-events';
 const BIO_ID = 's52-bio';
+const CTA_ID = 's52-cta';
 const SOCIAL_ID = 's52-social';
 
 const TEXT_HEADING = 'S52 text heading';
@@ -61,6 +62,11 @@ const seed = async (page: Page, opts: { page2: boolean }) => {
     { id: TEXT_ID, mode_id: '', type: 'text', title: JSON.stringify({ heading: TEXT_HEADING, body: '' }), is_enabled: false, order_index: 3 },
     { id: EVENTS_ID, mode_id: '', type: 'events', title: null, is_enabled: true, order_index: 4 },
     { id: BIO_ID, mode_id: '', type: 'bio', title: 'Bio', is_enabled: true, order_index: 5 },
+    // Deliberately a type with NO live-draft channel (see renderEditor: the CTA
+    // editor is handed no onDraftChange/onTitleDraftChange). A hidden gallery or
+    // events block would preview from its own draft on mount and could not tell
+    // the TL.SECT.4 signal from that side effect.
+    { id: CTA_ID, mode_id: '', type: 'primary_cta', title: 'Primary CTA', is_enabled: false, order_index: 6 },
   ];
 
   await page.route('**/rest/v1/pages*', async (route) => {
@@ -163,7 +169,7 @@ test.describe('Sections rail (TL.SECT.1+2)', () => {
 
     // Every block EXCEPT the header socials, which are managed in their own
     // editor and render inside the header rather than as a section.
-    await expect(page.getByTestId('section-row')).toHaveCount(5);
+    await expect(page.getByTestId('section-row')).toHaveCount(6);
     await expect(page.locator('[data-section-type="social_links"]')).toHaveCount(0);
     await expect(page.locator('[data-section-type="social_icon_row"]')).toHaveCount(0);
 
@@ -299,6 +305,30 @@ test.describe('Sections rail (TL.SECT.1+2)', () => {
     // Closing the panel clears the exemption — now it obeys its toggle.
     await panelHeaderButtons(page).last().click();
     await expect(frame.getByText('Bio', { exact: true })).toHaveCount(0);
+  });
+
+  test('a HIDDEN block opened from its rail row previews while its editor is open (TL.SECT.4)', async ({ page }) => {
+    await gotoEditor(page);
+    const frame = page.getByTestId('device-frame');
+    // The rail is the only door to a hidden block — it has no canvas card — so
+    // this is the door that decides whether hidden blocks can be edited at all.
+    await expect(frame.getByText('Primary CTA', { exact: true })).toHaveCount(0);
+
+    await openPanel(page);
+    await railRow(page, 'Primary CTA').getByRole('button').first().click();
+    await expect(page.getByTestId('sections-rail')).toHaveCount(0); // an editor is open
+
+    // It previews — and its own toggle still reads OFF, so this is the exemption
+    // rather than an accidental enable.
+    const bar = frame.locator('div.flex.items-center.gap-3').filter({ hasText: 'Primary CTA' });
+    await expect(bar).toBeVisible();
+    await expect(bar.locator('button[class*="w-[33px]"]')).toHaveClass(/bg-white\/20/);
+
+    // Back to the rail: the exemption leaves with the editor.
+    await panelHeaderButtons(page).first().click();
+    await expect(page.getByTestId('sections-rail')).toBeVisible();
+    await expect(frame.getByText('Primary CTA', { exact: true })).toHaveCount(0);
+    await expect(railRow(page, 'Primary CTA')).toContainText('Hidden');
   });
 
   test('the text-blocks panel enables through the same path: top of the page, same toast', async ({ page }) => {
