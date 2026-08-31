@@ -582,8 +582,12 @@ export function ProfileDashboard({
   // G2 direct single-item entry (links only). Null/false => normal list view.
   const [directItemId, setDirectItemId] = useState<string | null>(null);
   const [directNew, setDirectNew] = useState<boolean>(false);
-  // 'add' = entered via section list. 'edit' = opened directly via editingBlock prop.
-  // Drives whether back-button / save closes the panel or returns to the list.
+  // Which door opened the current editor. TL.SECT.5 took the BACK ARROW off
+  // this — back is uniform now — so it survives for exactly one question: does
+  // the editor closing ITSELF (its Cancel half, or a cancel-shaped
+  // onOpenChange) also close the panel? For a preview-card door it does, which
+  // is the shipped TL.GAL.6 contract spec 44 pins. Left alone deliberately: the
+  // ruling named the arrow and the X, not Cancel.
   const [entryMode, setEntryMode] = useState<'add' | 'edit'>('add');
   // Set by Save so the editor's follow-up onOpenChange(false) is ignored once —
   // saving never closes the panel; the user leaves via the X / back arrow.
@@ -1307,8 +1311,11 @@ export function ProfileDashboard({
         skipNextCloseRef.current = false;
         return;
       }
-      // In edit mode, closing the editor closes the whole panel (the user
-      // came from the live preview, not from the section list).
+      // The editor closed itself (Cancel, or a cancel-shaped onOpenChange).
+      // For a preview-card door that closes the panel — shipped TL.GAL.6
+      // behaviour, pinned by spec 44. TL.SECT.5 deliberately did NOT change
+      // this: it ruled on the back arrow and the X. Whether Cancel should
+      // follow the arrow is an open question for the architect.
       if (entryMode === 'edit') {
         handleClose();
         return;
@@ -1665,19 +1672,17 @@ export function ProfileDashboard({
                 <>
                   <button
                     onClick={() => {
-                      // In edit mode, back closes the whole panel; in add mode
-                      // it returns to the section list — or to the AIS.0b
-                      // wizard, when a checklist row is what opened this editor.
-                      if (entryMode === 'edit') {
-                        handleClose();
-                      } else {
-                        setActiveBlockId(null);
-                        setActiveBlockType(null);
-                        setActiveBlockTitle('');
-                        setDirectItemId(null);
-                        setDirectNew(false);
-                        returnToWizardIfPending();
-                      }
+                      // TL.SECT.5: back ALWAYS goes up a level — to the Add
+                      // Content list (Sections group in whatever fold state it
+                      // was left in), or to the AIS.0b wizard when a checklist
+                      // row is what opened this editor, which is that flow's
+                      // own "one level up". Only the X closes the panel.
+                      setActiveBlockId(null);
+                      setActiveBlockType(null);
+                      setActiveBlockTitle('');
+                      setDirectItemId(null);
+                      setDirectNew(false);
+                      returnToWizardIfPending();
                     }}
                     className="text-white/60 hover:text-white transition-colors"
                   >

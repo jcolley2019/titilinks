@@ -26,6 +26,18 @@
 
 import { test, expect, type Page } from './fixtures';
 
+// The mobile project keeps everything that makes it a phone run — isMobile, touch
+// taps — but not its DPR-3 raster. Every test here forces the 1440x1000 viewport
+// below, and at deviceScaleFactor 3 that is a 4320x3000 surface for the software
+// rasteriser to repaint, which drops the page to ~0-3 frames per 500ms. Playwright
+// calls an element "stable" by comparing its box across two consecutive animation
+// frames, so at that frame budget the sample straddles the panel's own 150/300ms
+// slide transitions and a header-button click can burn the full 30s timeout with
+// "element is not stable" — on tests that have nothing to do with what they assert.
+// DPR is raster resolution only: no behaviour, no touch path, no layout. Pinning it
+// to 1 costs the mobile project no coverage and gives the spec frames to settle in.
+test.use({ deviceScaleFactor: 1 });
+
 const DESKTOP = { width: 1440, height: 1000 };
 
 // Fixture block ids (fixture-injection precedent: tests/14-visitor-preview.spec.ts).
@@ -329,6 +341,52 @@ test.describe('Sections rail (TL.SECT.1+2)', () => {
     await expect(page.getByTestId('sections-rail')).toBeVisible();
     await expect(frame.getByText('Primary CTA', { exact: true })).toHaveCount(0);
     await expect(railRow(page, 'Primary CTA')).toContainText('Hidden');
+  });
+
+  test('back from a preview-card editor lands on Add Content, not a closed panel (TL.SECT.5)', async ({ page }) => {
+    await gotoEditor(page);
+    const frame = page.getByTestId('device-frame');
+
+    // Fold the group first: back must restore the list AS LEFT, not a default.
+    await openPanel(page);
+    await page.getByTestId('sections-group-toggle').click();
+    await expect(page.getByTestId('sections-rail')).toHaveCount(0);
+    await panelHeaderButtons(page).last().click();
+    await expect(page.getByTestId('sections-group-toggle')).toHaveCount(0);
+
+    // The preview card's chevron — the door that used to close the whole panel
+    // on back, making the arrow mean something different from every other door.
+    const bar = frame.locator('div.flex.items-center.gap-3').filter({ hasText: 'Bio' });
+    await bar.locator('button').last().click();
+    await expect(page.getByTestId('sections-group-toggle')).toHaveCount(0); // an editor
+
+    await panelHeaderButtons(page).first().click();
+
+    // Add Content, still open, with the fold exactly as it was left.
+    await expect(page.getByTestId('sections-group-toggle')).toBeVisible();
+    await expect(page.getByTestId('sections-group-toggle')).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('sections-rail')).toHaveCount(0);
+    // And the X still means what it always meant.
+    await panelHeaderButtons(page).last().click();
+    await expect(page.getByTestId('sections-group-toggle')).toHaveCount(0);
+  });
+
+  test('backing out of an editor ends the exemption too — no block stuck on screen (TL.SECT.5)', async ({ page }) => {
+    await gotoEditor(page);
+    const frame = page.getByTestId('device-frame');
+
+    // Open a block from its card, hide it mid-edit (the exemption keeps it), then
+    // leave by BACK rather than the X: the preview must stop making an exception
+    // for a block whose editor is no longer open.
+    const bar = frame.locator('div.flex.items-center.gap-3').filter({ hasText: 'Bio' });
+    await bar.locator('button').last().click();
+    await bar.locator('button[class*="w-[33px]"]').click();
+    await expect(bar).toBeVisible();
+
+    await panelHeaderButtons(page).first().click();
+    await expect(page.getByTestId('sections-group-toggle')).toBeVisible();
+    await expect(frame.getByText('Bio', { exact: true })).toHaveCount(0);
+    await expect(railRow(page, 'Bio')).toContainText('Hidden');
   });
 
   test('the text-blocks panel enables through the same path: top of the page, same toast', async ({ page }) => {

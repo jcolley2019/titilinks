@@ -600,14 +600,20 @@ export default function Editor() {
   // rail (the one place you can reach a hidden block) was editing it blind
   // unless its editor happened to publish a draft on mount, which most do not.
   // `panelEditingId` is the dashboard's own open-editor id, reported by the
-  // panel itself, so the rail, the section list and the guided checklist all
-  // exempt alike and every exit clears it. The draft channels stay in the set:
-  // they still cover a block whose panel published a draft, and a Set makes the
-  // overlap free.
+  // panel itself, so the rail, the section list, the checklist AND the canvas
+  // doors exempt alike (a canvas tap sets `editingBlock`, which the panel
+  // mirrors into that same id) and every exit clears it.
+  //
+  // TL.SECT.5: `editingBlock` is deliberately NOT in this set. It is a REQUEST
+  // to open an editor, not a statement that one is open, and now that back
+  // returns to the list instead of closing the panel it outlives the editor it
+  // opened — leaving a hidden block stuck on screen with nothing being edited.
+  // The panel's own id cannot say that, because it IS the editor's presence.
+  // The draft channels stay: they cover a block whose panel published a draft,
+  // and a Set makes the overlap free.
   const editBlocks = useMemo(() => {
     const exempt = new Set(
       [
-        editingBlock?.id,
         panelEditingId,
         draftItem?.blockId,
         draftTitle?.blockId,
@@ -616,7 +622,7 @@ export default function Editor() {
       ].filter(Boolean) as string[],
     );
     return previewBlocks.filter((b) => b.is_enabled || exempt.has(b.id));
-  }, [previewBlocks, editingBlock, panelEditingId, draftItem, draftTitle, galleryDraft, eventsDraft]);
+  }, [previewBlocks, panelEditingId, draftItem, draftTitle, galleryDraft, eventsDraft]);
 
   /**
    * The ONE enable/disable path for a block, wherever the gesture came from —
