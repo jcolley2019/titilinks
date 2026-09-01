@@ -49,7 +49,15 @@ comment on table public.stripe_webhook_events is
 create or replace function public.guard_billing_columns()
 returns trigger
 language plpgsql
-security definer
+-- SECURITY INVOKER, deliberately — and it is load-bearing, not a default worth
+-- omitting. This function is owned by `postgres`, so under SECURITY DEFINER
+-- `current_user` inside the body would ALWAYS be 'postgres' and the bypass four
+-- lines below would fire for every caller: the guard would silently become a
+-- no-op while still appearing to be installed. Prod is INVOKER
+-- (pg_proc.prosecdef = false, verified read-only against ohmvlypcbrfkuudcuqub
+-- on 2026-08-31); this file previously said `security definer` and did NOT
+-- match. Never "restore" this function as DEFINER.
+security invoker
 set search_path = public
 as $$
 begin

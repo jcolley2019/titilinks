@@ -138,7 +138,15 @@ create policy "Users can create their own snapshots"
 create or replace function public.guard_entitlement_columns()
 returns trigger
 language plpgsql
-security definer
+-- SECURITY INVOKER, deliberately — same reasoning as guard_billing_columns in
+-- 20260729120100_add_webhook_events.sql, and the same trap. This function is
+-- owned by `postgres`; under SECURITY DEFINER `current_user` inside the body
+-- would always be 'postgres', so the `current_user not in ('authenticated',
+-- 'anon')` bypass below would match for every caller and the guard would
+-- silently become a no-op. Prod is INVOKER (pg_proc.prosecdef = false, verified
+-- read-only against ohmvlypcbrfkuudcuqub on 2026-08-31); this file previously
+-- said `security definer` and did NOT match. Never "restore" it as DEFINER.
+security invoker
 set search_path = public
 as $$
 declare
