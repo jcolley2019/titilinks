@@ -537,10 +537,21 @@
     padding: 8px 44px;
     min-height: 44px;
   }
-  .lb-velvet.lb-size-button .lb-text { text-align: center; }
+  /* TL.LINK.ICONFIX: the 44px side padding already reserves the icon's lane,
+     but a flex child defaults to min-width:auto, so an unbreakable label (a
+     raw URL pasted as the label) grew .lb-text past the padding on both sides
+     and ran under the absolutely-positioned icon. min-width:0 lets the text
+     box shrink to the padded lane; nowrap + ellipsis truncates inside it.
+     Padding is symmetric, so a short label still centres exactly as before. */
+  .lb-velvet.lb-size-button .lb-text {
+    text-align: center;
+    min-width: 0; max-width: 100%; overflow: hidden;
+  }
   .lb-velvet.lb-size-button .lb-title {
     font-family: var(--font-body);
     font-weight: 600; font-size: 14px; letter-spacing: 0.01em;
+    display: block; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
   }
   .lb-velvet.lb-size-button .lb-social {
     position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
