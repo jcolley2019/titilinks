@@ -385,7 +385,7 @@ ok('price allowlist accepts only the two Pro prices — Business is not purchasa
       const text = readFileSync(full, 'utf-8');
       // A write to profiles carrying any billing column.
       const writes = text.matchAll(
-        /\.(update|upsert|insert)\(\s*\{[^}]*\b(plan|stripe_customer_id|subscription_status|subscription_period_end)\s*:/g,
+        /\.(update|upsert|insert)\(\s*\{[^}]*\b(plan|stripe_customer_id|subscription_status|subscription_period_end|comped_until)\s*:/g,
       );
       for (const m of writes) {
         offenders.push(`${path.relative(SRC, full)} → .${m[1]}({ ${m[2]}: … })`);
@@ -399,7 +399,26 @@ ok('price allowlist accepts only the two Pro prices — Business is not purchasa
     [],
     `client-side billing writes found — Stripe must be the only writer:\n  ${offenders.join('\n  ')}`,
   );
-  ok('census: zero client-side writes to plan / stripe_customer_id / subscription_*');
+  ok('census: zero client-side writes to plan / stripe_customer_id / subscription_* / comped_until');
+}
+
+// TL.COMP.1: admin_revoke_comp derives the post-revoke plan from the Stripe
+// mirror with an inline copy of planForSubscriptionStatus. Same discipline as
+// the ENT.SRV quota mirror below — parse the migration, compare to the export.
+{
+  const migration = readFileSync(
+    path.resolve(import.meta.dirname, '../supabase/migrations/20260901130000_comp_licenses.sql'),
+    'utf-8',
+  );
+  const m = migration.match(/when v_status in \(([^)]*)\) then 'pro'/);
+  assert.ok(m, "admin_revoke_comp is missing its `when v_status in (...) then 'pro'` mirror clause");
+  const sqlStatuses = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+  assert.deepEqual(
+    sqlStatuses,
+    [...ACCESS_GRANTING_STATUSES].sort(),
+    'admin_revoke_comp status list drifted from ACCESS_GRANTING_STATUSES — edit plan-lifecycle.ts and the migration together',
+  );
+  ok('COMP mirror: admin_revoke_comp grants pro for exactly ACCESS_GRANTING_STATUSES');
 }
 
 // ── 10. referral rules R1-R6 ─────────────────────────────────────────────────

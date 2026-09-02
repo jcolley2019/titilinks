@@ -97,6 +97,22 @@ const checks = [
   // discriminator (the block whose first photo is actually on screen), which
   // is a real answer to the hazard rather than a silencer.
   { name:'PW-SCOPED-READS', pwScopedReads:true },
+  // TL.COMP.2: the comp functions (admin_grant_comp / admin_revoke_comp, both
+  // SECURITY DEFINER as postgres) are the one door to a free Pro plan, and the
+  // door is meant to open from the SQL editor ONLY. Supabase's default
+  // privileges hand EXECUTE on every new public function to anon,
+  // authenticated and service_role, so the migration that creates them must
+  // REVOKE ALL from PUBLIC and from those three roles, and no migration —
+  // this one or a later "convenience" one — may GRANT EXECUTE on them back.
+  // A grant to `authenticated` would let any JWT comp itself through
+  // PostgREST. Comments are stripped before matching, so prose may name the
+  // hazard; only live SQL trips it.
+  // KNOWN BOUNDARY (accepted at the TL.COMP.1+2 review): a schema-wide
+  // `grant execute on all functions in schema public to …` re-opens the door
+  // without naming either function and is NOT caught here. The migration's
+  // verification SELECT (grants_ok / proacl) is the backstop for that idiom —
+  // re-run it after any migration that touches schema-wide privileges.
+  { name:'COMP-NO-GRANT', compNoGrant:true },
 ];
 
 // Every .ts under tests/ (specs, helpers, fixtures) — output dirs skipped.
@@ -246,6 +262,46 @@ for (const c of checks) {
       console.error(`      one above: // PW-SCOPED-READS ok: <why this is safe>`);
     } else {
       console.log(`ok ${c.name} (${reads} reads of blocks/block_items)`);
+    }
+    continue;
+  }
+  if (c.compNoGrant) {
+    const FNS = ['admin_grant_comp', 'admin_revoke_comp'];
+    const DIR = 'supabase/migrations';
+    // Comments and string literals (COMMENT ON … IS '…', RAISE messages) are
+    // prose; only live SQL is matched. '' inside a literal is an escaped quote.
+    const stripComments = (sql) => sql.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''");
+    const bad = [];
+    let creators = 0;
+    for (const name of readdirSync(DIR).filter((n) => n.endsWith('.sql')).sort()) {
+      const f = `${DIR}/${name}`;
+      const sql = stripComments(readFileSync(f, 'utf8'));
+      for (const fn of FNS) {
+        if (!sql.includes(fn)) continue;
+        // Any GRANT that names the function, in any migration, ever.
+        const g = sql.match(new RegExp(`\\bgrant\\s+(all|execute)\\b[^;]*\\bon\\s+(function|routine|procedure)\\s+(public\\.)?${fn}\\b`, 'i'));
+        if (g) bad.push(`${f}  GRANT on ${fn}:  ${g[0].replace(/\s+/g, ' ').trim()}`);
+        // The migration that (re)defines the function must lock it.
+        if (!new RegExp(`create\\s+(or\\s+replace\\s+)?function\\s+public\\.${fn}\\b`, 'i').test(sql)) continue;
+        creators++;
+        const revokeFrom = (who) =>
+          new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${fn}\\s*\\([^)]*\\)\\s+from\\s+[^;]*\\b${who}\\b[^;]*;`, 'i');
+        for (const who of ['public', 'anon', 'authenticated', 'service_role']) {
+          if (!revokeFrom(who).test(sql)) bad.push(`${f}  ${fn} is created here but never REVOKE ALL … FROM ${who}`);
+        }
+      }
+    }
+    if (creators === 0) bad.push(`no migration under ${DIR} creates ${FNS.join(' / ')}`);
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - the comp functions must stay SQL-editor-only`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      admin_grant_comp / admin_revoke_comp are SECURITY DEFINER as postgres and`);
+      console.error(`      flip profiles.plan. Supabase grants EXECUTE on new public functions to`);
+      console.error(`      anon/authenticated/service_role by default, so the creating migration must`);
+      console.error(`      REVOKE ALL from public AND those three roles, and nothing may GRANT it back.`);
+    } else {
+      console.log(`ok ${c.name} (${creators} function definition(s) locked, zero grants)`);
     }
     continue;
   }
