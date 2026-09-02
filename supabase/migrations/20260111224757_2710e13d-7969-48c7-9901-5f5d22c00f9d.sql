@@ -1,3 +1,21 @@
+-- DO-NOT-RUN — TL.MIG.1 (2026-09-02) — the removed Canva integration (1 of 5).
+--
+-- ⚠️ DO NOT RUN THIS FILE. ⚠️
+--
+-- (a) PROD TODAY: public.canva_connections does NOT exist. No Canva code,
+--     edge function or UI remains in the repo. docs/AUDIT_rev6.md §1.2 #13.
+--
+-- (b) THE HAZARD: CREATE TABLE public.canva_connections — RESURRECTS a table
+--     holding third-party OAuth credentials in PLAINTEXT (access_token TEXT
+--     NOT NULL, refresh_token TEXT) with owner RLS policies, plus a trigger
+--     on update_updated_at_column(), which prod does not have (§1.3.1), so the
+--     CREATE TRIGGER fails after the table is already created.
+--
+-- (c) RETIRED BY: TL.CANVA.RM.1 (2026-08-11, commits 1d600c6 code + 25dad98
+--     tables). Record only. The Canva set is 20260111224757, 225219, 230038,
+--     233755 and 20260328233337 — the other four only ALTER or add policies to
+--     these tables and fail on their own, but in order they rebuild the set.
+--
 -- Create canva_connections table to store OAuth tokens
 CREATE TABLE public.canva_connections (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,

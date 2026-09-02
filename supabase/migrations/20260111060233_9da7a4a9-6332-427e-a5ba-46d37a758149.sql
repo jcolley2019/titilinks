@@ -1,3 +1,25 @@
+-- DO-NOT-RUN — TL.MIG.1 (2026-09-02) — the retired /l/:code short-link system (1 of 2).
+--
+-- ⚠️ DO NOT RUN THIS FILE. ⚠️
+--
+-- (a) PROD TODAY: public.short_links does NOT exist and neither does
+--     public.resolve_short_link. The live shortener is the SEPARATE
+--     custom_short_links table + resolve_short_link_by_slug RPC from
+--     20260724120000_add_custom_short_links.sql (SHORT.1, the /s/:slug route).
+--     docs/AUDIT_rev6.md §1.2 #5.
+--
+-- (b) THE HAZARD: every statement in this file. CREATE TABLE public.short_links
+--     RESURRECTS the dead table (with its four RLS policies and two indexes),
+--     and CREATE FUNCTION public.resolve_short_link creates a SECURITY DEFINER
+--     function that anyone can call and that INSERTs rows into public.events
+--     with mode = 'shop' — 'shop' is no longer a value of mode_type (prod is
+--     {page1, page2}), so the insert would fail at runtime, but the function
+--     and table would exist again with no code behind them.
+--
+-- (c) RETIRED BY: TL.RETIRE.L.1 (2026-08-12, commit 6e877f9) removed the /l/
+--     route, the resolver and the table; TL.FIX.ANALYTICS.1 (ff815ea)
+--     repointed analytics off it. Kept only as a record of what once ran.
+--
 -- Create short_links table for link shortening
 CREATE TABLE public.short_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

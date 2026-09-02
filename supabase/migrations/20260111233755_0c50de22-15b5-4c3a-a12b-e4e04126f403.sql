@@ -1,2 +1,16 @@
+-- DO-NOT-RUN — TL.MIG.1 (2026-09-02) — the removed Canva integration (4 of 5).
+--
+-- ⚠️ DO NOT RUN THIS FILE. ⚠️
+--
+-- (a) PROD TODAY: public.pending_canva_auth does NOT exist.
+--     docs/AUDIT_rev6.md §1.2 #16.
+--
+-- (b) THE HAZARD: ALTER TABLE public.pending_canva_auth ADD COLUMN
+--     redirect_origin. Alone it fails (no table). Run after 20260111230038 it
+--     extends the resurrected PKCE table.
+--
+-- (c) RETIRED BY: TL.CANVA.RM.1 (2026-08-11, commits 1d600c6 + 25dad98).
+--     Record only.
+--
 -- Add redirect_origin column to pending_canva_auth table
 ALTER TABLE public.pending_canva_auth ADD COLUMN IF NOT EXISTS redirect_origin TEXT;

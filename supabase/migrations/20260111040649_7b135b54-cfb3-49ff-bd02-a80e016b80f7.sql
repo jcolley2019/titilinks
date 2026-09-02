@@ -1,3 +1,38 @@
+-- DO-NOT-RUN — TL.MIG.1 (2026-09-02) — the January schema-init file.
+--
+-- ⚠️ DO NOT RUN THIS FILE AS A WHOLE. ⚠️
+--
+-- (a) PROD TODAY (ref ohmvlypcbrfkuudcuqub, audited read-only 2026-09-01,
+--     docs/AUDIT_rev6.md §1.2 #1, §1.3.1–1.3.5, §1.3.8): every type, table and
+--     policy this file creates already exists, so a whole-file paste fails at
+--     the first CREATE TYPE. Prod has ALSO moved on from it by hand — mode_type
+--     is {page1, page2} not {shop, recruit}, pages.goal_recruit_item_id is
+--     goal_secondary_item_id, the updated_at trigger function and the seven
+--     idx_* indexes were never applied, and the get_*_owner helpers lost
+--     STABLE + search_path. Most of that is harmless or would IMPROVE prod.
+--
+-- (b) THE HAZARDS — two stanzas that must never be pasted on their own:
+--     1. CREATE POLICY "Anyone can insert events" ON public.events FOR INSERT
+--        WITH CHECK (true)   — near the bottom of this file. Prod dropped that
+--        policy; every event write now goes through the track_event SECURITY
+--        DEFINER RPC (2 KB metadata cap, unknown page ids ignored). Re-creating
+--        it REOPENS unauthenticated direct INSERT into events for anon.
+--     2. CREATE POLICY "Users can update their own profile" ON public.profiles
+--        FOR UPDATE USING (auth.uid() = id)   — fails today (name exists), but
+--        a DROP-then-recreate from this text would REPLACE the live policy,
+--        whose WITH CHECK pins six billing/referral columns (plan,
+--        stripe_customer_id, stripe_subscription_id, subscription_status,
+--        current_period_end, referred_by). The live expression is recorded
+--        verbatim in 20260901120000_profiles_update_policy_mirror.sql.
+--
+-- (c) RETIRED BY: the events policy by TL.SEC.EVENTS.1 (2026-08-12, commit
+--     55f66e1; §1.2 records the drop as Aug 13); the profiles policy was
+--     hardened in place by hand (recorded 2026-09-01, TL.COMP.1c/5b).
+--
+-- Everything else in the file is a RECORD of the January schema. If a single
+-- stanza is ever wanted again (e.g. the updated_at triggers, §1.3.1), copy
+-- that stanza out on its own — never this file.
+--
 -- Create enums
 CREATE TYPE public.mode_type AS ENUM ('shop', 'recruit');
 CREATE TYPE public.block_type AS ENUM ('primary_cta', 'product_cards', 'featured_media', 'social_links', 'links');

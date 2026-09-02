@@ -124,6 +124,30 @@ const checks = [
   // starts the download earlier. Any @import returning to index.css is the
   // defect regrowing, whatever its position.
   { name:'FONTS-IN-HEAD', fontsInHead:true },
+  // TL.MIG.1 (AUDIT_rev6 #4): prod is managed by hand in the SQL editor and
+  // schema_migrations is empty, so this directory is a RECORD, not a ledger.
+  // Nine files would resurrect deliberately dropped objects (short_links, the
+  // Canva OAuth tables) or reopen closed write paths (anonymous INSERT into
+  // events / page_subscribers) if pasted again, and one more is a pure record
+  // of the live profiles UPDATE policy. Each must announce "DO NOT RUN" within
+  // its first 10 lines, and supabase/migrations/README.md must list EVERY .sql
+  // in the directory so a new file cannot arrive unclassified.
+  { name:'MIG-HEADERS', migHeaders:true },
+];
+
+// TL.MIG.1: the files whose re-run would harm prod. Adding a file here means
+// its header carries the "DO NOT RUN" line; see README.md for the classes.
+const DO_NOT_RUN = [
+  '20260111040649_7b135b54-cfb3-49ff-bd02-a80e016b80f7.sql', // schema init: events INSERT + profiles UPDATE stanzas
+  '20260111060233_9da7a4a9-6332-427e-a5ba-46d37a758149.sql', // short_links (dropped, TL.RETIRE.L.1)
+  '20260111060716_c36f7fc9-bad1-44bf-b135-d01bd08684a3.sql', // resolve_short_link v2 (dropped)
+  '20260111224757_2710e13d-7969-48c7-9901-5f5d22c00f9d.sql', // canva_connections (dropped, TL.CANVA.RM.1)
+  '20260111225219_25f5d823-1e2d-4ae7-aa92-457655b15aa1.sql', // canva_connections tightening
+  '20260111230038_d0cd2999-d909-441b-9dd3-c12cbe7578f8.sql', // pending_canva_auth
+  '20260111233755_0c50de22-15b5-4c3a-a12b-e4e04126f403.sql', // pending_canva_auth.redirect_origin
+  '20260328233337_8781412c-19ee-45d8-ae3a-2ce2625c842b.sql', // pending_canva_auth SELECT policy
+  '20260328233922_d99ccf5f-b378-44be-99fa-29bf5f0e5056.sql', // page_subscribers public INSERT (dropped)
+  '20260901120000_profiles_update_policy_mirror.sql',       // record of the live profiles UPDATE policy
 ];
 
 // Every .ts under tests/ (specs, helpers, fixtures) — output dirs skipped.
@@ -295,6 +319,36 @@ for (const c of checks) {
       console.error(`      no Playfair/DM Sans/Bebas/Pacifico. Put the URL in a <link> in index.html.`);
     } else {
       console.log(`ok ${c.name} (${fontLinks.length} font stylesheet link(s) in <head>, zero @import in index.css)`);
+    }
+    continue;
+  }
+  if (c.migHeaders) {
+    const DIR = 'supabase/migrations';
+    const bad = [];
+    const sqlFiles = readdirSync(DIR).filter((n) => n.endsWith('.sql')).sort();
+    for (const name of DO_NOT_RUN) {
+      let src;
+      try { src = readFileSync(`${DIR}/${name}`, 'utf8'); }
+      catch { bad.push(`${DIR}/${name}  is in DO_NOT_RUN but does not exist`); continue; }
+      const head = src.split(/\r?\n/).slice(0, 10).join('\n');
+      if (!head.includes('DO NOT RUN')) bad.push(`${DIR}/${name}  has no "DO NOT RUN" line in its first 10 lines`);
+    }
+    let readme = '';
+    try { readme = readFileSync(`${DIR}/README.md`, 'utf8'); }
+    catch { bad.push(`${DIR}/README.md is missing`); }
+    for (const name of sqlFiles) {
+      if (!readme.includes(name)) bad.push(`${DIR}/README.md  does not list ${name}`);
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - landmine migrations must be labelled and every file classified`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      prod is pasted by hand and schema_migrations is empty, so this directory is a`);
+      console.error(`      record, not a ledger. A file in DO_NOT_RUN reopens a closed write path or`);
+      console.error(`      resurrects a dropped table if pasted again; it must say "DO NOT RUN" up top.`);
+      console.error(`      Every .sql must appear in README.md's table with a class label.`);
+    } else {
+      console.log(`ok ${c.name} (${DO_NOT_RUN.length} DO-NOT-RUN headers, ${sqlFiles.length} files listed in README)`);
     }
     continue;
   }
