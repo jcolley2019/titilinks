@@ -113,6 +113,17 @@ const checks = [
   // verification SELECT (grants_ok / proacl) is the backstop for that idiom —
   // re-run it after any migration that touches schema-wide privileges.
   { name:'COMP-NO-GRANT', compNoGrant:true },
+  // TL.FONT.1 (AUDIT_rev6 #1): the brand fonts (Playfair Display, DM Sans,
+  // Bebas Neue, Pacifico) are loaded by <link rel="stylesheet"> tags in
+  // index.html, NOT by @import in src/index.css. An @import placed after the
+  // @tailwind lines violates the CSS rule that @import precede every other
+  // statement, so PostCSS DROPS it at build ("@import must precede all other
+  // statements") and production ships with zero brand fonts on every page
+  // that does not inject its own <link> at runtime - the marketing site fell
+  // back to Georgia/system-ui. A <link> in <head> is immune to that rule and
+  // starts the download earlier. Any @import returning to index.css is the
+  // defect regrowing, whatever its position.
+  { name:'FONTS-IN-HEAD', fontsInHead:true },
 ];
 
 // Every .ts under tests/ (specs, helpers, fixtures) — output dirs skipped.
@@ -262,6 +273,28 @@ for (const c of checks) {
       console.error(`      one above: // PW-SCOPED-READS ok: <why this is safe>`);
     } else {
       console.log(`ok ${c.name} (${reads} reads of blocks/block_items)`);
+    }
+    continue;
+  }
+  if (c.fontsInHead) {
+    const html = readFileSync('index.html', 'utf8');
+    const css = readFileSync(F('index.css'), 'utf8');
+    const bad = [];
+    const links = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
+    const fontLinks = links.filter((t) => /rel=["']stylesheet["']/.test(t) && /href=["']https:\/\/fonts\.googleapis\.com\//.test(t));
+    if (!fontLinks.length) bad.push('index.html has no <link rel="stylesheet" href="https://fonts.googleapis.com/..."> in <head>');
+    css.split(/\r?\n/).forEach((line, i) => {
+      if (/^\s*@import\b/.test(line)) bad.push(`src/index.css:${i + 1}  ${line.trim().slice(0, 110)}`);
+    });
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - brand fonts must load from index.html, never via @import`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      an @import after the @tailwind lines is dropped by PostCSS at build time`);
+      console.error(`      ("@import must precede all other statements"), so production ships with`);
+      console.error(`      no Playfair/DM Sans/Bebas/Pacifico. Put the URL in a <link> in index.html.`);
+    } else {
+      console.log(`ok ${c.name} (${fontLinks.length} font stylesheet link(s) in <head>, zero @import in index.css)`);
     }
     continue;
   }
