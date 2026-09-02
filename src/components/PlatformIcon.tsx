@@ -27,7 +27,11 @@ import bigoLiveMark from '@/assets/platform-bigo-live.png';
 // contrast rescue below — the accepted trade-off. Declare it here, never by
 // special-casing a label at the render site.
 interface PathMark { Icon: IconType; color: string }
-interface ImageMark { image: string; color: string }
+// `scale` (TL.ICON.BIGO) is an optical-size trim for a bitmap whose artwork
+// sits inside more padding than the path marks do, so it reads small beside
+// them at the same box. It enlarges the PAINT only — the <svg> box stays the
+// size every sizing rule and spec 47 measure — and is declared per mark here.
+interface ImageMark { image: string; color: string; scale?: number }
 type PlatformMeta = PathMark | ImageMark;
 
 const isImageMark = (m: PlatformMeta): m is ImageMark => 'image' in m;
@@ -53,10 +57,17 @@ const makeBrandIcon = (d: string): IconType =>
 // here for free instead of needing an `img` twin that could drift out of sync.
 // `color` is swallowed rather than forwarded — a bitmap cannot tint, so
 // putting the requested color on the DOM would only be a lie.
-function RasterMark({ src, size = 24, className }: { src: string; size?: number; className?: string }) {
+//
+// TL.ICON.BIGO: `scale` grows the painted bitmap about the box's centre and
+// lets it overflow the viewBox, so the shell's box (and therefore every
+// CSS-sized surface and spec 47's parity checks) is untouched — only the
+// visible artwork gets bigger. 1 = paint fills the box exactly, as before.
+function RasterMark({ src, size = 24, scale = 1, className }: { src: string; size?: number; scale?: number; className?: string }) {
+  const side = 24 * scale;
+  const offset = (24 - side) / 2;
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size} className={className}>
-      <image href={src} xlinkHref={src} x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size} className={className} overflow="visible">
+      <image href={src} xlinkHref={src} x={offset} y={offset} width={side} height={side} preserveAspectRatio="xMidYMid meet" />
     </svg>
   );
 }
@@ -96,7 +107,10 @@ const PLATFORMS: Record<string, PlatformMeta> = {
   'Cash App': { Icon: SiCashapp, color: '#00D632' },
   'Twitch': { Icon: SiTwitch, color: '#9146FF' },
   'Kick': { Icon: SiKick, color: '#53FC18' },
-  'Bigo Live': { image: bigoLiveMark, color: '#00FFEE' },
+  // scale 1.15: the PNG's mascot sits in more padding than a Simple Icons path,
+  // so at the same box it read small next to the vector marks (TL.ICON.BIGO;
+  // 1.07 was imperceptible at the visual gate, 1.15 is the settled value).
+  'Bigo Live': { image: bigoLiveMark, color: '#00FFEE', scale: 1.15 },
   'Netflix': { Icon: SiNetflix, color: '#E50914' },
   'Steam': { Icon: SiSteam, color: '#FFFFFF' },
   'Etsy': { Icon: SiEtsy, color: '#F16521' },
@@ -212,6 +226,6 @@ export function PlatformIcon({ label, size = 20, className, color }: PlatformIco
   }
   // TL.POLISH.1d: a registry-declared image mark paints full-color; `color`
   // (brand tint or icon-row mono mode) cannot apply to a bitmap.
-  if (isImageMark(meta)) return <RasterMark src={meta.image} size={size} className={className} />;
+  if (isImageMark(meta)) return <RasterMark src={meta.image} size={size} scale={meta.scale} className={className} />;
   return <meta.Icon size={size} className={className} color={color ?? meta.color} />;
 }
