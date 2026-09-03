@@ -66,6 +66,7 @@ import { SmoothImage } from '@/components/SmoothImage';
 import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
+import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -187,6 +188,10 @@ function getFontFamily(theme: ThemeJson): string {
 // paints a stroke BEHIND the fill (paint-order), width doubled so the
 // visible outside edge matches the chosen 1/2/3px.
 // Pure so both the public header and the edit-mode name card can share it.
+// TL.POLISH.1a: the legibility scrim the public name/handle get ONLY when the
+// hero band behind them samples light (see heroIsLight). Explicit theme
+// text_effect (nameFx) is spread after it and still wins.
+const NAME_SCRIM_SHADOW = '0 1px 2px rgba(0,0,0,0.65), 0 0 14px rgba(0,0,0,0.55)';
 function getNameFx(fx: any): React.CSSProperties {
   if (!fx || !fx.type || fx.type === 'none') return { textShadow: 'none' };
   if (fx.type === 'shadow') {
@@ -2444,6 +2449,20 @@ export function EditableProfileView({
   const heroImage = selectedMode === 'page2'
     ? (heroInherit ? page1HeroImage : (localHeroImages.page2 || page2AvatarUrl || ''))
     : page1HeroImage;
+  // TL.POLISH.1a: is the band the name sits over LIGHT? White text over a
+  // white logo hero is unreadable (/mecivietnam), so the public name/handle
+  // get a legibility scrim only when this is true. Public path only; edit
+  // mode never reads it. Stale samples are ignored on src change / unmount.
+  const [heroIsLight, setHeroIsLight] = useState(false);
+  useEffect(() => {
+    if (editMode || !heroImage) { setHeroIsLight(false); return; }
+    let cancelled = false;
+    sampleHeroBand(heroImage).then((lum) => {
+      if (cancelled) return;
+      setHeroIsLight(lum != null && needsNameScrim(lum));
+    });
+    return () => { cancelled = true; };
+  }, [heroImage, editMode]);
   // Hero display config (HERO-1). HERO.DEFAULTS.1: resolved at read time, so an
   // absent/partial config renders the dialed-in default (Fill, posY 25 — faces
   // in the top third) with no stored data. Feeds heroFit/heroPosY below and the
@@ -2595,6 +2614,12 @@ export function EditableProfileView({
 
   // NAMEFX.1b: the public header's text effect, from the saved theme (see getNameFx).
   const nameFx: React.CSSProperties = getNameFx((page.theme_json as any)?.typography?.text_effect);
+  // TL.POLISH.1a: getNameFx returns textShadow:'none' for the no-effect case
+  // too, so "spread nameFx last" alone would erase the scrim. The scrim
+  // applies only when NO explicit effect is set; shadow/outline still win.
+  const nameFxType = (page.theme_json as any)?.typography?.text_effect?.type;
+  const nameFxExplicit = !!nameFxType && nameFxType !== 'none';
+  const nameScrimFx: React.CSSProperties = heroIsLight && !nameFxExplicit ? { textShadow: NAME_SCRIM_SHADOW } : {};
   // Same effect for the edit-mode name card, previewing the hub's in-progress
   // draft (L4) when there is one, else the saved value.
   const editNameFx: React.CSSProperties = getNameFx(
@@ -2828,7 +2853,7 @@ export function EditableProfileView({
             const headerNameColor = headerConfig.nameColor || chrome.text;
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,1)';
             if (id === '__name_handle__') return (
-              <div key={id} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
+              <div key={id} data-name-scrim={heroIsLight ? 'on' : 'off'} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -2836,6 +2861,9 @@ export function EditableProfileView({
                     color: headerNameColor,
                     textShadow: 'none',
                     ...nameFx,
+                    // TL.POLISH.1a: legibility scrim over a light hero only,
+                    // and only when no explicit theme text_effect is set.
+                    ...nameScrimFx,
                   }}
                 >
                   {page.display_name || `@${page.handle}`}
@@ -2846,6 +2874,7 @@ export function EditableProfileView({
                     color: headerHandleColor,
                     textShadow: 'none',
                     ...nameFx,
+                    ...nameScrimFx,
                     margin: 0,
                     marginTop: headerSpacing.nameHandle,
                   }}
