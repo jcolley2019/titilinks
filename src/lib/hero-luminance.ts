@@ -43,20 +43,33 @@ const BAND_LEFT_FRACTION = 0.2;
 const BAND_WIDTH_FRACTION = 0.6;
 
 /**
- * Loads `src` with CORS, draws it to an offscreen canvas 32 px wide and returns
- * the mean luminance of the name band, or null on ANY failure. Never throws.
+ * Loads `src` with CORS so a canvas can read it back. Resolves null on any
+ * failure; never throws. Shared with logo-detect.ts (TL.POLISH.1b).
  */
-export async function sampleHeroBand(src: string): Promise<number | null> {
-  try {
-    if (!src || typeof document === 'undefined' || typeof Image === 'undefined') return null;
-    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+export function loadCorsImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise<HTMLImageElement | null>((resolve) => {
+    try {
+      if (!src || typeof Image === 'undefined') { resolve(null); return; }
       const el = new Image();
       // Must be set BEFORE .src or the browser ignores it (same trap as crop.ts).
       el.crossOrigin = 'anonymous';
       el.onload = () => resolve(el);
       el.onerror = () => resolve(null);
       el.src = src;
-    });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Loads `src` with CORS, draws it to an offscreen canvas 32 px wide and returns
+ * the mean luminance of the name band, or null on ANY failure. Never throws.
+ */
+export async function sampleHeroBand(src: string): Promise<number | null> {
+  try {
+    if (!src || typeof document === 'undefined') return null;
+    const img = await loadCorsImage(src);
     if (!img || !img.naturalWidth || !img.naturalHeight) return null;
     const w = SAMPLE_WIDTH;
     const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * w));

@@ -67,6 +67,7 @@ import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
 import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
+import { analyzeImageForLogo } from '@/lib/logo-detect';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -2463,13 +2464,40 @@ export function EditableProfileView({
     });
     return () => { cancelled = true; };
   }, [heroImage, editMode]);
+  // TL.POLISH.1b: auto-Fit for LOGO-like heroes on pages that NEVER chose a
+  // display mode. resolveHeroConfig merges HERO_DEFAULTS in and loses that
+  // distinction, so "never chose" is read off the RAW theme_json slot the
+  // writers target (heroConfigKey — Page 2's own slot when editing it
+  // un-inherited, else Page 1's). Any explicit fit — 'fill' included — wins
+  // and switches this off for good. Render-time only: nothing is written.
+  // Runs in edit mode too, so the canvas and the Fill/Fit control agree.
+  const neverChoseFit: boolean = (page.theme_json as any)?.[heroConfigKey]?.fit === undefined;
+  const [heroAutoFit, setHeroAutoFit] = useState(false);
+  useEffect(() => {
+    if (!neverChoseFit || !heroImage) { setHeroAutoFit(false); return; }
+    let cancelled = false;
+    analyzeImageForLogo(heroImage).then((isLogo) => {
+      if (cancelled) return;
+      setHeroAutoFit(isLogo === true);
+    });
+    return () => { cancelled = true; };
+  }, [heroImage, neverChoseFit]);
+  // The editor's Fill/Fit control shows the EFFECTIVE mode: while auto-fit is
+  // on, the draft sits on Fit. Every save path writes `fit: heroFitDraft`
+  // explicitly (handleHeroDisplaySave + the photo save), so flipping the
+  // control to Fill persists 'fill' and ends auto-fit for good. Declared after
+  // the heroConfigKey resync above, so on a page switch this one wins.
+  useEffect(() => {
+    if (neverChoseFit) setHeroFitDraft(heroAutoFit ? 'fit' : 'fill');
+  }, [heroAutoFit, neverChoseFit, heroConfigKey]);
   // Hero display config (HERO-1). HERO.DEFAULTS.1: resolved at read time, so an
   // absent/partial config renders the dialed-in default (Fill, posY 25 — faces
   // in the top third) with no stored data. Feeds heroFit/heroPosY below and the
   // full-bleed background's objectPosition. Public + editor share this path.
   const heroConfig = resolveHeroConfig(page.theme_json, heroPageId);
   const heroVideo: string = heroConfig.video || '';
-  const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : 'fill';
+  // TL.POLISH.1b: explicit Fit → Fit; never-chose + logo-like → Fit; else Fill.
+  const heroFit: 'fill' | 'fit' = heroConfig.fit === 'fit' ? 'fit' : (heroAutoFit ? 'fit' : 'fill');
   const heroPosY: number = typeof heroConfig.posY === 'number' ? heroConfig.posY : 50;
   const heroAudio: 'silent' | 'clip' | 'voiceover' =
     heroConfig.audio === 'clip' || heroConfig.audio === 'voiceover' ? heroConfig.audio : 'silent';
@@ -2693,7 +2721,7 @@ export function EditableProfileView({
           against the previewed device frame, not the desktop window. On the
           public route the var is absent, so `var(--pv-vh, 1dvh) * 50` falls back
           to `50dvh` and the computed geometry is byte-identical. */}
-      <div ref={heroContainerRef} data-testid="hero-sticky" className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(var(--pv-vh, 1dvh) * 50 + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
+      <div ref={heroContainerRef} data-testid="hero-sticky" data-hero-autofit={heroAutoFit ? 'on' : 'off'} className="relative w-full" style={{ position: 'sticky', top: stickyTop, height: 'calc(var(--pv-vh, 1dvh) * 50 + ' + HERO_EXTRA + 'px)', maxHeight: 'calc(500px + ' + HERO_EXTRA + 'px)', overflow: 'hidden', zIndex: 1 }}>
         {isFullBleed ? null : heroVideo ? (
           <HeroVideo
             src={heroVideo}

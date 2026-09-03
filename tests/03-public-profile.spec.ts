@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 test.describe('Public Profile', () => {
@@ -52,5 +52,44 @@ test.describe('TL.POLISH.1a — conditional name scrim', () => {
     await expect(wrap).toHaveAttribute('data-name-scrim', 'on', { timeout: 15_000 });
     const shadow = await wrap.locator('h1').evaluate((el) => getComputedStyle(el).textShadow);
     expect(shadow).not.toBe('none');
+  });
+});
+
+// TL.POLISH.1b — auto-Fit for logo-like heroes. A page that NEVER chose a
+// display mode (no `fit` in its raw theme_json hero slot) renders Fit when the
+// hero samples logo-like (src/lib/logo-detect.ts: 2 of {≤96 colours, ≥0.5 flat
+// border, near-square}). An explicit fit — 'fill' included — always wins. All
+// three visits are ANONYMOUS and READ ONLY: render-time only, nothing written.
+test.describe('TL.POLISH.1b — auto-Fit for logo-like heroes', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  const expectHero = async (
+    page: Page,
+    handle: string,
+    autofit: 'on' | 'off',
+    fit: 'fit' | 'fill',
+  ) => {
+    await page.goto(`/${handle}`);
+    await page.waitForLoadState('networkidle');
+    const hero = page.locator('[data-testid="hero-sticky"]').first();
+    await expect(hero).toHaveAttribute('data-hero-autofit', autofit, { timeout: 15_000 });
+    // The resolved framing string is "scale;posX;posY;fit;box" — pin the mode.
+    // Page-wide, not scoped to the sticky hero: /joeyc is a full_bleed page,
+    // whose framed <img> is the background layer (fit pinned to 'fill' there).
+    await expect(page.locator('[data-hero-framing]').first()).toHaveAttribute(
+      'data-hero-framing', new RegExp(`;${fit};`), { timeout: 15_000 },
+    );
+  };
+
+  test('/mecivietnam (140 px logo, no heroConfig) → autofit ON, renders ;fit;', async ({ page }) => {
+    await expectHero(page, 'mecivietnam', 'on', 'fit');
+  });
+
+  test('/joeyc (photo, explicit fit:fill) → autofit OFF, renders ;fill;', async ({ page }) => {
+    await expectHero(page, 'joeyc', 'off', 'fill');
+  });
+
+  test(`/${TEST_HANDLE} (photo, no heroConfig) → autofit OFF, renders ;fill;`, async ({ page }) => {
+    await expectHero(page, TEST_HANDLE, 'off', 'fill');
   });
 });
