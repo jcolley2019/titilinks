@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 const F = (p) => `src/${p}`;
 const checks = [
   { name:'STICKY-HERO', file:'components/EditableProfileView.tsx',
@@ -143,6 +144,19 @@ const checks = [
   // read it. tests/tsconfig.json extends the app config over tests/**/*.ts;
   // `tsc -p tests/tsconfig.json` must exit 0. Runs last: it is the slow one.
   { name:'TESTS-TYPECHECK', testsTypecheck:true },
+  // TL.BUNDLE.1 (AUDIT_rev6 #13): the build is split. ONE 3.4 MB chunk used to
+  // serve every route, and @vladmandic/face-api (TensorFlow inside, 1.33 MB
+  // pre-minified) rode in it because EditableProfileView imported it
+  // statically — so a visitor to /:handle downloaded the editor, the dashboard,
+  // onboarding and a face detector to look at a link page. This runs
+  // `vite build --manifest` into dist/ and reads the manifest: the static
+  // import closure of the entry (what /:handle actually loads) must not carry
+  // the face-api chunk or its model strings, assets/ must hold >= 4 JS chunks,
+  // and no app chunk may exceed 1.2 MB raw. The face-api chunk is the one
+  // named exception to that cap: it is a single pre-minified module that
+  // cannot be split further, it is lazy, and it gets its own ceiling. A full
+  // build, so it is the slowest invariant — it runs last.
+  { name:'BUNDLE-SPLIT', bundleSplit:true },
 ];
 
 // TL.MIG.1: the files whose re-run would harm prod. Adding a file here means
@@ -417,6 +431,67 @@ for (const c of checks) {
       console.error(`      tests/tsconfig.json to hide them.`);
     } else {
       console.log(`ok ${c.name} (tsc -p tests/tsconfig.json exit 0, ${walkTests().length} files)`);
+    }
+    continue;
+  }
+  if (c.bundleSplit) {
+    const OUT = 'dist';
+    const CAP = 1_200_000;           // bytes raw, every app chunk
+    const FACE_CAP = 1400000;       // bytes raw, the lazy face-api chunk (one pre-minified module)
+    const FACE_KEY = '@vladmandic/face-api';
+    const MODEL_MARK = /tiny_face_detector_model|ssd_mobilenetv1_model|face_landmark_68_model/;
+    const vite = join(dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin', 'vite.js');
+    const bad = [];
+    let summary = '';
+    const r = spawnSync(process.execPath, [vite, 'build', '--manifest', '--outDir', OUT, '--logLevel', 'error'], { encoding: 'utf8' });
+    if (r.error || r.status !== 0) {
+      bad.push(`vite build failed (${r.error ? r.error.message : `exit ${r.status}`})`);
+      `${r.stdout ?? ''}${r.stderr ?? ''}`.split(/\r?\n/).filter(Boolean).slice(-20).forEach((l) => bad.push(l));
+    } else {
+      let manifest = null;
+      try { manifest = JSON.parse(readFileSync(`${OUT}/.vite/manifest.json`, 'utf8')); }
+      catch (e) { bad.push(`${OUT}/.vite/manifest.json unreadable: ${e.message}`); }
+      if (manifest) {
+        const js = readdirSync(`${OUT}/assets`).filter((n) => n.endsWith('.js'));
+        const size = (n) => statSync(`${OUT}/assets/${n}`).size;
+        // The eager closure: every chunk an entry pulls in through STATIC
+        // imports before first paint. Dynamic imports — the lazy routes and
+        // face-api — are exactly what must stay out of it.
+        const eager = new Set();
+        const walk = (key) => {
+          const m = manifest[key];
+          if (!m || eager.has(m.file)) return;
+          eager.add(m.file);
+          (m.imports ?? []).forEach(walk);
+        };
+        Object.entries(manifest).filter(([, m]) => m.isEntry).forEach(([k]) => walk(k));
+        const entry = Object.values(manifest).find((m) => m.isEntry && m.file.endsWith('.js'));
+        const faceFiles = new Set(Object.keys(manifest).filter((k) => k.includes(FACE_KEY)).map((k) => manifest[k].file));
+        if (js.length < 4) bad.push(`assets/ holds ${js.length} JS chunk(s); route-level splitting should produce at least 4`);
+        if (!faceFiles.size) bad.push(`no chunk for ${FACE_KEY} in the manifest - the library is no longer a separate lazy chunk`);
+        for (const f of faceFiles) if (eager.has(f)) bad.push(`${f} (face-api) is in the entry's static import closure - /:handle would download it`);
+        for (const f of eager) {
+          if (f.endsWith('.js') && MODEL_MARK.test(readFileSync(`${OUT}/${f}`, 'utf8'))) bad.push(`${f} is eager and carries face-api model strings`);
+        }
+        for (const n of js) {
+          const isFace = faceFiles.has(`assets/${n}`);
+          const cap = isFace ? FACE_CAP : CAP;
+          const b = size(n);
+          if (b > cap) bad.push(`assets/${n} is ${b.toLocaleString('en-US')} B raw, over the ${cap.toLocaleString('en-US')} B ${isFace ? 'face-api' : 'chunk'} cap`);
+        }
+        const entryBytes = entry ? statSync(`${OUT}/${entry.file}`).size : 0;
+        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, face-api lazy`;
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - the build must stay route-split with face-api out of the entry`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      one chunk serving every route is the AUDIT_rev6 #13 defect: /:handle visitors`);
+      console.error(`      download the editor, the dashboard and a face detector. Keep the routes in`);
+      console.error(`      App.tsx lazy and face-api behind loadFaceApi(); never re-add a static import.`);
+    } else {
+      console.log(`ok ${c.name} (${summary})`);
     }
     continue;
   }

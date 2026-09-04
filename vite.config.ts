@@ -22,6 +22,34 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // TL.BUNDLE.1 (AUDIT_rev6 #13): the eager vendor libraries get their own
+  // chunks. The routes are lazy (App.tsx) and face-api is lazy (loadFaceApi),
+  // so the entry's static closure is the framework plus the public page — but
+  // React, the router, Radix, framer-motion, Supabase and react-query alone
+  // pushed that single entry past the 1.2 MB guard cap. Splitting them out
+  // changes nothing about WHAT /:handle downloads (they were eager already);
+  // it caps every chunk and lets the vendor bytes cache across deploys. The
+  // exclusion is deliberate: face-api must never be assigned to a static
+  // chunk, or it would ride back into the first paint.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Rollup ids are posix-normalised, so this is a plain path split.
+          const parts = id.split("/node_modules/");
+          if (parts.length < 2) return undefined;
+          const seg = parts[parts.length - 1].split("/");
+          const pkg = seg[0].startsWith("@") ? `${seg[0]}/${seg[1]}` : seg[0];
+          const scope = seg[0];
+          if (pkg === "@vladmandic/face-api") return undefined;
+          if (["react", "react-dom", "scheduler", "react-router", "react-router-dom"].includes(pkg)) return "vendor-react";
+          if (scope === "@radix-ui" || pkg === "framer-motion" || pkg === "lucide-react") return "vendor-ui";
+          if (scope === "@supabase" || scope === "@tanstack") return "vendor-data";
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

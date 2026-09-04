@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, cloneElement, type ReactElement } from 'react';
-import * as faceapi from '@vladmandic/face-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
@@ -96,6 +95,17 @@ import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
 import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
+
+// TL.BUNDLE.1 (AUDIT_rev6 #13): face-api — TensorFlow inside, 1.3 MB minified —
+// is loaded on demand. It only serves the AI-crop path, and the static import
+// it replaced shipped it to every visitor of every public page. One shared
+// promise, so the preload effect and detectFace never start a second download.
+type FaceApi = typeof import('@vladmandic/face-api');
+let faceApiLoad: Promise<FaceApi> | null = null;
+const loadFaceApi = (): Promise<FaceApi> => {
+  if (!faceApiLoad) faceApiLoad = import('@vladmandic/face-api');
+  return faceApiLoad;
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1634,7 +1644,10 @@ export function EditableProfileView({
   const [rcAreaPixels, setRcAreaPixels] = useState<CropArea | null>(null);
   // CROP.3a readiness (STEP 2): true once the TinyFaceDetector model is loaded.
   // Gates the AI-crop buttons so the first click can't race the model load.
-  const [faceModelReady, setFaceModelReady] = useState(faceapi.nets.tinyFaceDetector.isLoaded);
+  // TL.BUNDLE.1: starts false — the library itself is lazy now, so readiness is
+  // only ever learned from the preload effect below (an already-loaded model
+  // resolves it on the next tick).
+  const [faceModelReady, setFaceModelReady] = useState(false);
   // CROP.3a slider-truth (STEP 2/Defect D): the hero preview box + the photo's
   // natural aspect drive whether the Top/Bottom slider has any vertical travel.
   const heroPreviewRef = useRef<HTMLDivElement>(null);
@@ -1686,9 +1699,11 @@ export function EditableProfileView({
   // load failure is logged (name+message) and leaves the buttons disabled.
   useEffect(() => {
     if (photoStep !== 'manual') return;
-    if (faceapi.nets.tinyFaceDetector.isLoaded) { setFaceModelReady(true); return; }
     let cancelled = false;
-    faceapi.nets.tinyFaceDetector.loadFromUri('/models')
+    // TL.BUNDLE.1: the library arrives lazily (loadFaceApi); an already-loaded
+    // model resolves this chain immediately, exactly as the sync check did.
+    loadFaceApi()
+      .then((faceapi) => (faceapi.nets.tinyFaceDetector.isLoaded ? undefined : faceapi.nets.tinyFaceDetector.loadFromUri('/models')))
       .then(() => { if (!cancelled) setFaceModelReady(true); })
       .catch((e) => console.error('[AI CROP] model preload failed:', (e as any)?.name, (e as any)?.message));
     return () => { cancelled = true; };
@@ -2151,6 +2166,8 @@ export function EditableProfileView({
   // Detect face using face-api.js TinyFaceDetector (works in all browsers, 190KB model)
   const detectFace = async (img: HTMLImageElement): Promise<{ x: number; y: number; w: number; h: number } | null> => {
     try {
+      // TL.BUNDLE.1: the library is lazy — this is the one place it is needed.
+      const faceapi = await loadFaceApi();
       // Load model on first use (cached after that)
       if (!faceapi.nets.tinyFaceDetector.isLoaded) {
         console.log('[AI CROP] Loading face detection model...');
