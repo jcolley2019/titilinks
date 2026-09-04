@@ -139,6 +139,46 @@ export function subscriptionPatch(
   return patch;
 }
 
+/**
+ * TL.COMP.3 — is a comp (hand-granted Pro) still in force?
+ *
+ * `profiles.comped_until` is a timestamptz. PostgREST serialises Postgres
+ * `'infinity'` as the STRING "infinity", and `Date.parse("infinity")` is NaN, so
+ * `new Date(row.comped_until) > new Date()` is FALSE for exactly the rows that
+ * matter — every real comp in prod is `'infinity'`. That literal is special-cased
+ * here, and nowhere else may re-derive this. Any other unparseable value fails
+ * OPEN to Stripe truth: never grant Pro from a value we do not understand.
+ *
+ * The boundary is strict (`>`): a comp whose end equals `now` has expired.
+ */
+export function isCompActive(compedUntil: unknown, now: Date = new Date()): boolean {
+  if (typeof compedUntil !== "string" || compedUntil === "") return false;
+  const trimmed = compedUntil.trim().toLowerCase();
+  if (trimmed === "infinity") return true;
+  if (trimmed === "-infinity") return false;
+  const ms = Date.parse(compedUntil);
+  return Number.isFinite(ms) && ms > now.getTime();
+}
+
+/**
+ * TL.COMP.3 — the patch with `plan` REMOVED while a comp is active.
+ *
+ * Ruling: while comped, `plan` stays 'pro' no matter what Stripe says. The
+ * Stripe mirror columns (subscription_status / subscription_period_end /
+ * stripe_customer_id) still go through so the ledger stays truthful — we record
+ * what Stripe thinks, we just refuse to act on it. Comp expiry is not decided
+ * here; `admin_revoke_comp` is the door. Pure: the caller supplies the row.
+ */
+export function withCompGuard<T extends { plan?: string }>(
+  patch: T,
+  compedUntil: unknown,
+  now: Date = new Date(),
+): T {
+  if (!isCompActive(compedUntil, now)) return patch;
+  const { plan: _plan, ...rest } = patch;
+  return rest as T;
+}
+
 /** Period end as milliseconds, or null when the subscription carries none. */
 function periodEndMillis(sub: StripeSubscriptionLike): number | null {
   const iso = periodEndOf(sub);

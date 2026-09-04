@@ -2,3 +2,9 @@ project_id = "qnrrixfwicybhchvuutu"
 
 [functions.qr]
 verify_jwt = false
+
+# TL.DEPLOY.1 (folded into TL.COMP.3) — Stripe cannot send a Supabase JWT.
+# Recorded here so a plain `supabase functions deploy stripe-webhook` cannot
+# 401 every Stripe delivery; the header deploy line still passes --no-verify-jwt.
+[functions.stripe-webhook]
+verify_jwt = false

@@ -29,6 +29,7 @@ import {
   resolveSubscriptionId,
   resolveUserId,
   subscriptionPatch,
+  withCompGuard,
   type ProfileBillingPatch,
   type StripeEventLike,
   type StripeSubscriptionLike,
@@ -95,8 +96,23 @@ async function resolveProfile(svc: Svc, event: StripeEventLike): Promise<Profile
   return null;
 }
 
-/** Apply a billing patch, dropping no-op writes. */
+/**
+ * Apply a billing patch, dropping no-op writes.
+ *
+ * TL.COMP.3 — the comp guard lives HERE, not in resolveProfile, because
+ * handleCheckoutCompleted never reads a profile row (it passes a bare userId
+ * from event metadata). One extra select by id covers all three handlers.
+ * A failed read throws so Stripe retries rather than a comp being clobbered.
+ */
 async function patchProfile(svc: Svc, profileId: string, patch: ProfileBillingPatch) {
+  if (Object.keys(patch).length === 0) return;
+  const { data: row, error: readErr } = await svc
+    .from("profiles")
+    .select("comped_until")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (readErr) throw new Error(`profile comp read failed: ${readErr.message}`);
+  patch = withCompGuard(patch, (row as { comped_until?: unknown } | null)?.comped_until);
   if (Object.keys(patch).length === 0) return;
   const { error } = await svc.from("profiles").update(patch).eq("id", profileId);
   if (error) throw new Error(`profile update failed: ${error.message}`);

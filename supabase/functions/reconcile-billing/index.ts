@@ -31,6 +31,7 @@ import { corsHeaders, fail, json } from "../_shared/cors.ts";
 import { stripeFetch } from "../_shared/stripe.ts";
 import {
   customerIdOf,
+  isCompActive,
   selectAuthoritativeSubscription,
   subscriptionPatch,
   type ProfileBillingPatch,
@@ -71,6 +72,7 @@ interface LinkedProfile {
   stripe_customer_id: string;
   subscription_status: string | null;
   subscription_period_end: string | null;
+  comped_until: string | null;
 }
 
 interface FindingRow {
@@ -154,7 +156,8 @@ async function listAllSubscriptions(): Promise<StripeSubscriptionLike[]> {
  * downgrade a deliberately granted account.
  */
 async function loadLinkedProfiles(svc: Svc): Promise<LinkedProfile[]> {
-  const columns = "id, plan, stripe_customer_id, subscription_status, subscription_period_end";
+  const columns =
+    "id, plan, stripe_customer_id, subscription_status, subscription_period_end, comped_until";
   const all: LinkedProfile[] = [];
 
   for (let from = 0; from < MAX_PROFILE_ROWS;) {
@@ -223,6 +226,10 @@ function compareProfile(
   const selected = selectAuthoritativeSubscription(subs);
   const expected = subscriptionPatch(selected ?? {}, { revoked: selected === null });
   const subscriptionId = selected?.id ?? null;
+
+  // TL.COMP.3 — an active comp holds `plan` at 'pro' regardless of Stripe, so
+  // that is the expectation; the mirror columns below are still compared.
+  if (isCompActive(profile.comped_until)) expected.plan = "pro";
 
   const findings: FindingRow[] = [];
 

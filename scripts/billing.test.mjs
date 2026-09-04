@@ -35,8 +35,10 @@ import {
   resolveCustomerId,
   resolveSubscriptionId,
   resolveUserId,
+  isCompActive,
   selectAuthoritativeSubscription,
   subscriptionPatch,
+  withCompGuard,
 } from '../supabase/functions/_shared/plan-lifecycle.ts';
 import {
   SIGNATURE_TOLERANCE_SECONDS,
@@ -862,6 +864,98 @@ ok('rule R6: thresholds are named constants with ToS references');
     assert.equal(selectAuthoritativeSubscription([second, first]), second, 'and there, the ORDER is what decides');
   }
   ok('selection is total: empty, null elements, junk types and NaN timestamps never throw');
+}
+
+// ── 13. TL.COMP.3 — comp × Stripe lifecycle ──────────────────────────────────
+//
+// Ruling: while a comp is active, `plan` stays 'pro' no matter what Stripe says;
+// the Stripe mirror columns are still written so the ledger is truthful. The
+// decision is pure (referrals.ts decideX precedent) so it runs here without
+// Stripe, Deno or a DB. What this canNOT prove: that stripe-webhook's
+// patchProfile and reconcile-billing's compareProfile actually CALL these — both
+// index.ts files `Deno.serve()` at module scope and cannot be imported into
+// Node. That wiring is verified by reading the diff, not by this suite.
+{
+  const NOW_ISO = '2026-09-04T12:00:00.000Z';
+  const now = new Date(NOW_ISO);
+
+  // ── isCompActive ──
+  const COMP_TABLE = [
+    [null, false, 'never comped'],
+    [undefined, false, 'column absent from the row'],
+    ['', false, 'empty string'],
+    ['infinity', true, "the real prod shape — Postgres 'infinity' arrives as a string"],
+    ['INFINITY', true, 'case-insensitive'],
+    ['-infinity', false, 'negative infinity is the past'],
+    ['2026-01-01T00:00:00Z', false, 'dated comp, expired'],
+    ['2027-01-01T00:00:00Z', true, 'dated comp, unexpired'],
+    [NOW_ISO, false, 'boundary: end === now is expired (strict >)'],
+    ['not-a-date', false, 'garbage fails OPEN to Stripe truth'],
+    [1_900_000_000_000, false, 'a number is not a timestamptz string'],
+    [{}, false, 'an object never grants'],
+  ];
+  for (const [value, expected, why] of COMP_TABLE) {
+    assert.equal(isCompActive(value, now), expected, `isCompActive(${JSON.stringify(value)}) — ${why}`);
+  }
+  assert.doesNotThrow(() => isCompActive(Symbol('x'), now), 'never throws');
+  ok(`isCompActive: ${COMP_TABLE.length}-row table, 'infinity' special-cased, garbage never grants`);
+
+  // ── the falsification row: the naive guard FAILS where isCompActive succeeds ──
+  assert.equal(Number.isNaN(Date.parse('infinity')), true, "Date.parse('infinity') is NaN");
+  assert.equal(new Date('infinity') > new Date(), false,
+    "naive `new Date(comped_until) > new Date()` is FALSE for 'infinity' — it would not protect a single prod comp");
+  assert.equal(isCompActive('infinity', now), true, 'isCompActive gets it right');
+  ok("falsification: the naive Date comparison silently misses 'infinity'; the helper does not");
+
+  // ── withCompGuard ──
+  const FULL = {
+    plan: 'free',
+    subscription_status: 'canceled',
+    subscription_period_end: '2026-10-01T00:00:00.000Z',
+    stripe_customer_id: 'cus_comped',
+  };
+
+  {
+    const out = withCompGuard(FULL, 'infinity', now);
+    assert.equal('plan' in out, false, 'active comp strips plan');
+    assert.equal(out.subscription_status, 'canceled', 'status mirror kept');
+    assert.equal(out.subscription_period_end, FULL.subscription_period_end, 'period end mirror kept');
+    assert.equal(out.stripe_customer_id, 'cus_comped', 'customer id kept');
+    assert.equal(FULL.plan, 'free', 'input is not mutated');
+    assert.notEqual(out, FULL, 'returns a copy');
+  }
+  assert.equal('plan' in withCompGuard(FULL, '2027-01-01T00:00:00Z', now), false, 'dated unexpired comp strips plan');
+  ok('withCompGuard: active comp drops plan, every Stripe mirror column survives');
+
+  for (const inactive of [null, undefined, '', '-infinity', '2026-01-01T00:00:00Z', 'not-a-date']) {
+    const out = withCompGuard(FULL, inactive, now);
+    assert.equal(out, FULL, `inactive (${JSON.stringify(inactive)}) passes the patch through untouched`);
+    assert.equal(out.plan, 'free', 'an expired / absent comp MUST downgrade');
+  }
+  ok('withCompGuard: inactive comp is identity — expired comps downgrade like anyone else');
+
+  {
+    const noPlan = { stripe_customer_id: 'cus_bind_only' };
+    assert.deepEqual(withCompGuard(noPlan, 'infinity', now), noPlan, 'a patch without plan is unchanged in shape');
+    assert.deepEqual(withCompGuard(noPlan, null, now), noPlan, 'in either comp state');
+    // Upgrade not blocked: dropping plan:'pro' on a comped row is a no-op either
+    // way; ruled as dropped so the guard has one behaviour, not two.
+    assert.equal('plan' in withCompGuard({ plan: 'pro' }, 'infinity', now), false, "plan:'pro' is dropped too — no behavioural difference");
+  }
+  ok('withCompGuard: patch without plan unchanged; upgrade on a comped row is a harmless no-op');
+
+  // Census: plan-lifecycle.ts is the ONLY _shared/ module that derives a plan
+  // from a Stripe status (planForSubscriptionStatus / subscriptionPatch), so a
+  // second producer cannot appear and bypass the guard. (billing.ts's price
+  // catalog carries a `plan: "pro"` FIELD — a product attribute, not a patch.)
+  {
+    const dir = path.join(process.cwd(), 'supabase', 'functions', '_shared');
+    const producers = readdirSync(dir)
+      .filter((f) => f.endsWith('.ts'))
+      .filter((f) => /planForSubscriptionStatus|subscriptionPatch/.test(readFileSync(path.join(dir, f), 'utf8')));
+    assert.deepEqual(producers, ['plan-lifecycle.ts'], `only plan-lifecycle.ts may derive plan from Stripe (found: ${producers.join(', ')})`);
+  }
+  ok('census: plan-lifecycle.ts is the only _shared/ module deriving plan from a Stripe status');
 }
 
 console.log(`\nAll ${passed} billing checks passed.`);
