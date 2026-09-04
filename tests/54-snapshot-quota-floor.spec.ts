@@ -21,7 +21,7 @@
 // user_id and page_id.
 
 import { test, expect, allowWrites, type Page } from './fixtures';
-import { TEST_HANDLE } from './helpers/auth';
+import { TEST_HANDLE, PINNED_TEST_USER_ID, loginAsTestUser } from './helpers/auth';
 
 const MARK = 'SNAP1B-';
 /** The battery account's plan ceiling (entitlements maxSnapshots for pro). */
@@ -41,6 +41,33 @@ interface Target {
   userId: string;
   pageId: string;
   plan: string;
+}
+
+/** The signed-in user id, or null when the session is gone. */
+const signedInId = (page: Page) => sb<string | null>(page, `
+  const { data } = await sb.auth.getUser();
+  return data?.user?.id ?? null;`);
+
+/**
+ * Guarantee a live battery session before the first write.
+ *
+ * Spec 39 signs the shared session out FOR REAL — tests/fixtures.ts names
+ * auth/v1/logout as a standing write-guard exception for exactly that reason.
+ * The saved storageState survives on disk, but its refresh token does not, so
+ * any spec scheduled after 39 in the same battery starts unauthenticated. Every
+ * other spec either mocks its data or reads world-readable rows and never
+ * notices; this one authenticates for real, so it is the only one that breaks.
+ * Recover by logging in again rather than betting on file order — file order is
+ * not something a spec gets to control.
+ */
+async function ensureSession(page: Page): Promise<void> {
+  await page.goto('/');
+  if (await signedInId(page)) return;
+  await loginAsTestUser(page);
+  await page.goto('/');
+  if (!(await signedInId(page))) {
+    throw new Error('could not establish a battery session — check .env.test credentials');
+  }
 }
 
 /** Who we are and which page we are writing to — handle-scoped, no wildcards. */
@@ -97,13 +124,19 @@ test.describe('TL.ENT.SNAP.1b — maxSnapshots server floor', () => {
       test.info().project.name !== 'desktop',
       'real-row quota test — one project only, the row budget is global',
     );
+    // A real login (when spec 39 revoked the shared session) plus ~10 Postgres
+    // round-trips does not fit the 30s default.
+    test.setTimeout(120_000);
     await allowWrites(page, ['rest/v1/profile_snapshots']);
-    await page.goto('/');
+    await ensureSession(page);
 
     const t = await target(page);
 
     // Preconditions, asserted rather than assumed — a plan change or leftover
     // manual snapshots would otherwise fail this test with a confusing count.
+    expect(t.userId, 'TL.ISO.1 — real rows may only be written to the battery account').toBe(
+      PINNED_TEST_USER_ID,
+    );
     expect(t.plan, 'battery account plan (the quota is pro = 5)').toBe('pro');
     await sweep(page, t); // pre-flight: clear residue from an interrupted run
     expect(
