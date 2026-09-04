@@ -31,6 +31,7 @@ const LIMIT = 5;
 const sb = <T,>(page: Page, body: string, arg?: unknown): Promise<T> =>
   page.evaluate(
     async ({ body, a }) => {
+      // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const m = await import('/src/integrations/supabase/client.ts');
       return (0, eval)(`(async (sb, arg) => { ${body} })`)((m as any).supabase, a);
     },

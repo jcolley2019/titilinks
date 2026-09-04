@@ -45,6 +45,7 @@ const panelTiles = (page: Page) => panelOf(page).locator(`img[alt="${T['galleryE
  *  Re-imported per call: every navigation wipes anything cached on window. */
 const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evaluate(
   async ({ body, a }) => {
+    // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
     const m = await import('/src/integrations/supabase/client.ts');
     return (0, eval)(`(async (sb, arg) => { ${body} })`)((m as any).supabase, a);
   },

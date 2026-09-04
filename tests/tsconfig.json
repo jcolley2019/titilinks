@@ -1,0 +1,12 @@
+{
+  // TL.HYG.1 (AUDIT_rev6 §4.4): the specs are typechecked by
+  // `tsc -p tests/tsconfig.json` (guard invariant TESTS-TYPECHECK). Playwright's
+  // transform strips types without checking them and tsconfig.app.json is
+  // src/ only, so this is the only compiler that ever reads tests/. Same
+  // strictness as the app config, nothing looser.
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["node", "@playwright/test"]
+  },
+  "include": ["**/*.ts"]
+}

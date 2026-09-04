@@ -102,7 +102,7 @@ const seed = async (
       await route.fulfill({ status: 204, body: '' });
       return;
     }
-    const item = (o: Record<string, unknown>) => ({
+    const item = (o: { block_id: string } & Record<string, unknown>) => ({
       is_adult: false, subtitle: null, badge: null, image_url: null,
       size: 'medium', style_json: null, ...o,
     });

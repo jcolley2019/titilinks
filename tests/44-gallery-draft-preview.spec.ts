@@ -42,7 +42,7 @@ const T = translations.en;
 const TIER_MS = { slow: 7000, medium: 5000, fast: 3000 } as const;
 
 // The glide is skipped outright under reduced motion.
-test.use({ reducedMotion: 'no-preference' });
+test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 const panelOf = (page: Page) => page.locator('[class*="z-[120]"]');
 const sheetOf = (page: Page) => page.locator('[class*="z-[150]"]');
@@ -53,6 +53,7 @@ const grips = (page: Page) => panelOf(page).getByRole('button', { name: T['galle
 /** Run a supabase query with the app's own client (RLS as the signed-in user). */
 const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evaluate(
   async ({ body, a }) => {
+    // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
     const m = await import('/src/integrations/supabase/client.ts');
     return (0, eval)(`(async (sb, arg) => { ${body} })`)((m as never)['supabase'], a);
   },

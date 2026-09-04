@@ -1,4 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 const F = (p) => `src/${p}`;
 const checks = [
   { name:'STICKY-HERO', file:'components/EditableProfileView.tsx',
@@ -133,6 +135,14 @@ const checks = [
   // its first 10 lines, and supabase/migrations/README.md must list EVERY .sql
   // in the directory so a new file cannot arrive unclassified.
   { name:'MIG-HEADERS', migHeaders:true },
+  // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
+  // the specs — Playwright's Babel transform strips types without checking
+  // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
+  // option is a silent no-op: test.use({ reducedMotion }) sat in three glide
+  // specs and never applied (the key belongs under contextOptions) until tsc
+  // read it. tests/tsconfig.json extends the app config over tests/**/*.ts;
+  // `tsc -p tests/tsconfig.json` must exit 0. Runs last: it is the slow one.
+  { name:'TESTS-TYPECHECK', testsTypecheck:true },
 ];
 
 // TL.MIG.1: the files whose re-run would harm prod. Adding a file here means
@@ -389,6 +399,24 @@ for (const c of checks) {
       console.error(`      REVOKE ALL from public AND those three roles, and nothing may GRANT it back.`);
     } else {
       console.log(`ok ${c.name} (${creators} function definition(s) locked, zero grants)`);
+    }
+    continue;
+  }
+  if (c.testsTypecheck) {
+    const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
+    const r = spawnSync(process.execPath, [tsc, '-p', 'tests/tsconfig.json', '--pretty', 'false'], { encoding: 'utf8' });
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.split(/\r?\n/).filter(Boolean);
+    if (r.error || r.status !== 0) {
+      failed++;
+      console.error(`x ${c.name} - tests/ does not typecheck (tsc -p tests/tsconfig.json: ${r.error ? r.error.message : `exit ${r.status}`})`);
+      out.slice(0, 40).forEach((l) => console.error(`      ${l}`));
+      if (out.length > 40) console.error(`      … ${out.length - 40} more line(s)`);
+      console.error(`      nothing else compiles the specs (Playwright strips types, tsconfig.app.json`);
+      console.error(`      is src/ only), so a wrong-shaped test option is a silent no-op until tsc`);
+      console.error(`      reads it - the TL.HYG.1 reducedMotion defect. Fix the errors; never widen`);
+      console.error(`      tests/tsconfig.json to hide them.`);
+    } else {
+      console.log(`ok ${c.name} (tsc -p tests/tsconfig.json exit 0, ${walkTests().length} files)`);
     }
     continue;
   }

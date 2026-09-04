@@ -26,6 +26,7 @@ const SHORT_LABEL = `${MARK}_short`; // under 20 chars — must still centre
 const sb = <T,>(page: Page, body: string, arg?: unknown): Promise<T> =>
   page.evaluate(
     async ({ body, a }) => {
+      // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const m = await import('/src/integrations/supabase/client.ts');
       return (0, eval)(`(async (sb, arg) => { ${body} })`)((m as any).supabase, a);
     },

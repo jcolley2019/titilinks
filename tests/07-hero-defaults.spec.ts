@@ -24,6 +24,7 @@ import { resolveHeroConfig, HERO_DEFAULTS } from '../src/lib/surface';
 type RawTheme = {
   heroConfig?: Record<string, unknown>;
   heroConfig_page2?: Record<string, unknown>;
+  [key: string]: unknown; // the raw theme_json carries other keys (pages, buttons …)
 };
 const rawRender = (themeJson: RawTheme, key: 'heroConfig' | 'heroConfig_page2') => {
   const cfg = (themeJson[key] || {}) as { fit?: string; posY?: unknown };

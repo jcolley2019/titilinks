@@ -74,10 +74,11 @@ const rateBefore = (clientWidth: number, frac: number, ms: number) => (clientWid
 
 // The glide is skipped outright under reduced motion, so pin the preference
 // rather than inheriting whatever the runner's OS says.
-test.use({ reducedMotion: 'no-preference' });
+test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 const sb = <T,>(page: Page, fn: string, arg?: unknown): Promise<T> => page.evaluate(
   async ({ body, a }) => {
+    // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
     const m = await import('/src/integrations/supabase/client.ts');
     return (0, eval)(`(async (sb, arg) => { ${body} })`)((m as any).supabase, a);
   },

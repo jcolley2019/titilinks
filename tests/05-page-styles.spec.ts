@@ -124,7 +124,7 @@ test.describe('per-page style — the swap feeds the render', () => {
   // from a normalized theme would silently always return the profile default —
   // per-page styles would appear to work in the editor and do nothing live.
   test('the normalized theme has no pages — the resolver needs the raw json', () => {
-    const normalized = getThemeWithDefaults(TWO_STYLES) as Record<string, unknown>;
+    const normalized = getThemeWithDefaults(TWO_STYLES) as unknown as Record<string, unknown>;
     expect(normalized.pages).toBeUndefined();
     // Resolving from the normalized theme loses Page 2's style...
     expect(resolveEffectivePageStyle(normalized, 'page2')).toBe('hero');

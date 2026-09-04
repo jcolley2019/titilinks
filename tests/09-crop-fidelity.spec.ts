@@ -11,6 +11,7 @@ test.describe('crop engine fidelity', () => {
   test('getCroppedImage extracts the exact region + error-cause mapping', async ({ page }) => {
     await page.goto('/');
     const r = await page.evaluate(async () => {
+      // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const mod: any = await import('/src/lib/crop.ts');
       const { getCroppedImage, cropErrorCauseKey } = mod;
 
