@@ -874,6 +874,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'onboardingFlow.goToDashboard': 'Go to my dashboard',
     'onboardingFlow.saveFailed': 'Failed to save. Please try again.',
     'onboardingFlow.usernameTaken': 'This username is already taken.',
+    'onboardingFlow.usernameReserved': 'This username is reserved and cannot be used.',
+    'onboardingFlow.usernameFormat': 'Use 3–30 lowercase letters, numbers or hyphens, not starting or ending with a hyphen.',
 
 
     // Design Editor
@@ -2781,6 +2783,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'onboardingFlow.goToDashboard': 'Ir a mi panel',
     'onboardingFlow.saveFailed': 'Error al guardar. Intenta de nuevo.',
     'onboardingFlow.usernameTaken': 'Este nombre de usuario ya está en uso.',
+    'onboardingFlow.usernameReserved': 'Este nombre de usuario está reservado y no se puede usar.',
+    'onboardingFlow.usernameFormat': 'Usa de 3 a 30 minúsculas, números o guiones, sin empezar ni terminar con guion.',
 
 
     // Design Editor

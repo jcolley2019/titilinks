@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Check, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCroppedImage, cropErrorCauseKey } from '@/lib/crop';
+import { validateHandle } from '@/lib/handle-rules';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
@@ -76,11 +77,23 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     }
   }, []);
 
+  // TL.HANDLE.1: format + reserved floor, checked locally on every keystroke.
+  // 'format' | 'reserved' | null — see src/lib/handle-rules.ts. A failure here
+  // outranks availability: a reserved word is unavailable to everyone, and the
+  // pages_handle_rules CHECK would reject the write with a bare 23514.
+  const handleError = validateHandle(state.username);
+
   // Debounced username availability check
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (state.username.trim().length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    // Don't spend a round-trip on a handle the rules already reject.
+    if (handleError) {
       setUsernameStatus('idle');
       return;
     }
@@ -99,7 +112,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     }, 500);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [state.username, user?.id]);
+  }, [state.username, handleError, user?.id]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -186,7 +199,10 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     ? state.displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const isValid = state.displayName.trim().length > 0 && state.username.trim().length >= 3 && usernameStatus !== 'taken' && usernameStatus !== 'checking';
+  // TL.HANDLE.1: !handleError covers both the length floor and the shape, and
+  // blocks Continue on a reserved word — it is decided locally, so unlike
+  // 'taken' it can never be softened by a failed availability round-trip.
+  const isValid = state.displayName.trim().length > 0 && !handleError && usernameStatus !== 'taken' && usernameStatus !== 'checking';
 
   // ONB.6: photo nudge — first Continue without a photo prompts to add
   // one; a second attempt acknowledges the choice and proceeds.
@@ -277,7 +293,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
             }}
             placeholder={t('onboardingFlow.usernamePlaceholder')}
             className={`flex-1 px-4 py-3 rounded-lg bg-white/5 border text-white placeholder:text-white/30 focus:outline-none font-body ${
-              usernameStatus === 'taken' ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#C9A55C]/50'
+              usernameStatus === 'taken' || (handleError && state.username.length >= 3)
+                ? 'border-red-500 focus:border-red-500'
+                : 'border-white/10 focus:border-[#C9A55C]/50'
             }`}
           />
         </div>
@@ -286,6 +304,20 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
             <p className="text-xs text-[#C9A55C]/70 font-body">
               titilinks.com/{state.username}
             </p>
+            {/* TL.HANDLE.1: the local rules outrank availability — a reserved
+                or malformed handle never reaches the uniqueness query. */}
+            {handleError === 'reserved' && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400 font-body">
+                <X className="w-3 h-3 shrink-0" />
+                {t('onboardingFlow.usernameReserved')}
+              </p>
+            )}
+            {handleError === 'format' && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400 font-body">
+                <X className="w-3 h-3 shrink-0" />
+                {t('onboardingFlow.usernameFormat')}
+              </p>
+            )}
             {usernameStatus === 'checking' && (
               <p className="flex items-center gap-1.5 text-xs text-white/40 font-body">
                 <Loader2 className="w-3 h-3 animate-spin" />

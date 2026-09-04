@@ -13,6 +13,7 @@ import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
+import { validateHandle } from '@/lib/handle-rules';
 import type { ThemeTypography } from '@/lib/theme-defaults';
 import { BLOCK_PRESETS } from '@/lib/block-presets';
 import { useQueryClient } from '@tanstack/react-query';
@@ -109,6 +110,17 @@ export default function OnboardingFlow() {
     if (stepSavingRef.current) return;
     stepSavingRef.current = true;
     try {
+      // TL.HANDLE.1: format + reserved floor BEFORE the uniqueness query — a
+      // reserved word is unavailable no matter who else holds it, and the DB
+      // CHECK would reject the write anyway (23514, no friendly message).
+      const handleError = validateHandle(state.username);
+      if (handleError) {
+        toast.error(t(handleError === 'reserved'
+          ? 'onboardingFlow.usernameReserved'
+          : 'onboardingFlow.usernameFormat'));
+        return;
+      }
+
       // Check username uniqueness against both profiles and pages
       const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
         supabase.from('profiles').select('id').eq('username', state.username).neq('id', user.id).maybeSingle(),
@@ -345,10 +357,22 @@ export default function OnboardingFlow() {
         return;
       }
 
-      // Create new page
+      // Create new page. TL.HANDLE.1: re-check the handle at the only site that
+      // actually writes pages.handle — step 2 gated it, but a user can go Back,
+      // edit the field and come forward through a cached step-2 pass.
+      const newHandle = state.username.trim().toLowerCase();
+      const handleError = validateHandle(newHandle);
+      if (handleError) {
+        toast.error(t(handleError === 'reserved'
+          ? 'onboardingFlow.usernameReserved'
+          : 'onboardingFlow.usernameFormat'));
+        dispatch({ type: 'GO_TO_STEP', step: 2 });
+        return;
+      }
+
       const { data: page, error: pageError } = await supabase.from('pages').insert({
         user_id: user.id,
-        handle: state.username,
+        handle: newHandle,
         display_name: state.displayName,
         avatar_url: state.avatarPreview || null,
         theme_json: {
