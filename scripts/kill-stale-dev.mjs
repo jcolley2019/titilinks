@@ -8,17 +8,31 @@
 //   node scripts/kill-stale-dev.mjs            → sweep the whole 8080-8090 range
 //   node scripts/kill-stale-dev.mjs 8085       → sweep a single port (predev)
 //   node scripts/kill-stale-dev.mjs 8080 8090  → sweep an explicit lo..hi range
+//   node scripts/kill-stale-dev.mjs 8085 --force → kill even a healthy server
+//
+// HOUSE.2 — "stale" means "not answering", NOT "not mine". Before killing a node
+// listener the sweep probes it over HTTP; anything that answers is a dev server
+// someone is using and is left alone. Killing a healthy server has already cost
+// one false gate failure, so the probe is the default and --force is the escape.
 //
 // Safety: only listeners whose owning process is node are killed; anything else
 // on those ports is reported and left alone. Cross-platform (Windows netstat +
-// taskkill, POSIX lsof + kill). Always exits 0 — a clean range is success.
+// taskkill, POSIX lsof + kill).
+//
+// Exit codes: 0 normally (a clean range is success). 1 only in single-port
+// (predev) mode when the port is already serving — so `npm run dev` stops with
+// the reuse message instead of failing later on strictPort.
 
 import { execSync } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
 
 const isWin = process.platform === 'win32';
 
 // ── resolve the target port set from argv ────────────────────────────────────
-const nums = process.argv.slice(2).map((a) => Number.parseInt(a, 10)).filter(Number.isFinite);
+const argv = process.argv.slice(2);
+const force = argv.includes('--force');
+const nums = argv.map((a) => Number.parseInt(a, 10)).filter(Number.isFinite);
+const singlePort = nums.length === 1; // predev shape — the only mode that exits 1
 let ports;
 if (nums.length === 0) {
   ports = range(8080, 8090);
@@ -90,6 +104,39 @@ function kill(pid) {
   }
 }
 
+// ── is this listener actually serving? (any HTTP answer ⇒ healthy, keep it) ──
+// A refused connection, a timeout, or a socket hang-up ⇒ stale ⇒ safe to kill.
+// localhost can resolve to ::1 on Windows while Vite binds IPv4 only, so a
+// failed localhost probe is retried on 127.0.0.1 before condemning the process.
+// node:http, not fetch: fetch's pooled sockets outlive the sweep and trip a
+// libuv assertion when the process exits underneath them.
+function probeHost(host, port) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+    const req = httpRequest(
+      { host, port, path: '/', method: 'GET', agent: false, timeout: 2000 },
+      (res) => { res.destroy(); done(true); }, // ANY status — 200, 404, 500 — is an answer
+    );
+    req.on('timeout', () => { req.destroy(); done(false); });
+    req.on('error', () => done(false));
+    req.end();
+  });
+}
+
+async function probe(port) {
+  for (const host of ['localhost', '127.0.0.1']) {
+    if (await probeHost(host, port)) return true;
+  }
+  return false;
+}
+
+async function servingPorts(list) {
+  const out = [];
+  for (const port of list) if (await probe(port)) out.push(port);
+  return out;
+}
+
 // ── sweep ────────────────────────────────────────────────────────────────────
 const byPid = isWin ? listenersWin() : listenersPosix();
 
@@ -99,15 +146,30 @@ if (byPid.size === 0) {
 }
 
 let killed = 0;
+let healthy = 0;
 for (const [pid, pset] of byPid) {
-  const where = `pid ${pid} (port ${[...pset].sort((a, b) => a - b).join(', ')})`;
-  if (isNode(pid)) {
-    kill(pid);
-    killed++;
-    console.log(`[kill-stale-dev] killed node dev server — ${where}`);
-  } else {
+  const plist = [...pset].sort((a, b) => a - b);
+  const where = `pid ${pid} (port ${plist.join(', ')})`;
+  if (!isNode(pid)) {
     console.log(`[kill-stale-dev] SKIPPED non-node listener — ${where} (left running)`);
+    continue;
   }
+  const serving = force ? [] : await servingPorts(plist);
+  if (serving.length > 0) {
+    healthy++;
+    for (const port of serving) {
+      console.log(`[kill-stale-dev] port ${port} is already serving (PID ${pid}) — reuse it. Not killed.`);
+    }
+    console.log('[kill-stale-dev] it answers HTTP, so it is not stale. Pass --force to kill it anyway.');
+    continue;
+  }
+  kill(pid);
+  killed++;
+  console.log(`[kill-stale-dev] killed node dev server — ${where}`);
 }
 console.log(`[kill-stale-dev] done — ${killed} stale dev server(s) killed`);
-process.exit(0);
+
+// predev shape + a live server = stop the run here, so `npm run dev` reports the
+// reuse message rather than dying on strictPort a second later.
+// exitCode (not process.exit) so the probe sockets finish closing on their own.
+process.exitCode = healthy > 0 && singlePort ? 1 : 0;

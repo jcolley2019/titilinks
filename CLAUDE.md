@@ -37,5 +37,11 @@ Rules:
 - Edge function deploys require `--project-ref ohmvlypcbrfkuudcuqub`.
 - All SQL is run by the USER in the Supabase web SQL editor — never run DB/SQL from the CLI or MCP.
 
+## Dev server
+- Dev runs on **8085** (`strictPort`). Check 8085 before starting anything — if a server is already up, reuse it rather than starting a second one.
+- `npm run dev` sweeps 8085 first (`predev`). A listener that answers HTTP is healthy and is never killed: predev prints `port 8085 is already serving (PID n) — reuse it. Not killed.` and exits 1. That is NOT a failure — point your work at the server that is already running.
+- Only a listener that does not answer is stale, and only those get killed.
+- `node scripts/kill-stale-dev.mjs 8085 --force` restores the old kill-anything behaviour. Never use `--force` without Joey's word.
+
 ## Environment
 - Windows + PowerShell semantics for any commands suggested to the user; the agent shell is bash.
