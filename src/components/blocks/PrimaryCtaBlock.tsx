@@ -9,6 +9,7 @@ import { LinkButton } from '@/components/LinkButton';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import type { ThemedBlockProps } from './types';
 import { gatedHref, isGated } from '@/lib/adult-gate';
+import { displayLabel } from '@/lib/link-label';
 
 export function PrimaryCtaBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const { t } = useLanguage();
@@ -27,6 +28,11 @@ export function PrimaryCtaBlock({ block, onOutboundClick, theme, editMode }: The
   } catch {
     // Not JSON, ignore
   }
+
+  // TL.POLISH.1d — a title that IS the URL shows as the clean hostname instead.
+  // No image-card carve-out here: the CTA never renders media, so there is no
+  // blank-title-by-design case to protect.
+  const shownLabel = displayLabel(item.label, item.url);
 
   const handleClick = (e: React.MouseEvent) => {
     // ADULT.2c: report the EFFECTIVE gate, not the stored flag, so a
@@ -53,7 +59,7 @@ export function PrimaryCtaBlock({ block, onOutboundClick, theme, editMode }: The
         theme={theme}
         blockStyle={blockStyle}
         animation={blockStyle.animation}
-        title={tc(item.label)}
+        title={tc(shownLabel)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         meta={item.is_adult ? '18+' : undefined}
         size={item.subtitle ? 'medium' : 'button'}

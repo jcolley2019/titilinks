@@ -93,3 +93,52 @@ test.describe('TL.POLISH.1b — auto-Fit for logo-like heroes', () => {
     await expectHero(page, TEST_HANDLE, 'off', 'fill');
   });
 });
+
+// TL.POLISH.1d — a label that IS a URL renders as a clean name. All six of
+// mecivietnam's links were saved on 2026-08-19 with the address in the Title
+// field (recon 1d.0), so the public page showed
+// "https://www.pinterest.com/pin/1084945366506614118/" across a button. The
+// rule lives in src/lib/link-label.ts and is applied at RENDER, so those rows
+// read correctly on sight with no write to them. Both visits are ANONYMOUS
+// (empty storageState) and READ ONLY. Viewport pinned to 390 so both projects
+// measure the same phone-width page.
+test.describe('TL.POLISH.1d — bare-URL labels render as a clean name', () => {
+  test.use({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 390, height: 844 },
+  });
+
+  const buttonTitles = async (page: Page) =>
+    (await page.locator('.lb-title').allInnerTexts()).map((s) => s.trim()).filter(Boolean);
+
+  test('/mecivietnam — both Pinterest buttons read "pinterest.com"', async ({ page }) => {
+    await page.goto('/mecivietnam');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.lb-title').first()).toBeVisible({ timeout: 15_000 });
+
+    const shown = await buttonTitles(page);
+    // The two pins (…614118 and …614334) collapse to one hostname each.
+    expect(shown.filter((s) => s === 'pinterest.com'), 'two Pinterest buttons').toHaveLength(2);
+    // The other four rows are hostnames too — no label is an address.
+    expect(shown.filter((s) => /^https?:\/\//i.test(s)), 'no label is a raw URL').toEqual([]);
+    expect(shown, 'the website and plurk rows resolve too')
+      .toEqual(expect.arrayContaining(['mecivietnam.com', 'plurk.com']));
+
+    await page.screenshot({ path: 'tests/screenshots/polish1d-mecivietnam.png', fullPage: true });
+  });
+
+  test(`/${TEST_HANDLE} — ordinary titles are untouched`, async ({ page }) => {
+    await page.goto(`/${TEST_HANDLE}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.lb-title').first()).toBeVisible({ timeout: 15_000 });
+
+    // Recorded from the live rows on 2026-09-03, before the change. None is
+    // URL-shaped, so every one must survive verbatim. (Playwright runs en-US,
+    // so content-i18n leaves these English seeds alone.)
+    const shown = await buttonTitles(page);
+    for (const label of ['My Website', 'Latest Blog Post', 'Work With Me']) {
+      expect(shown, `battery label "${label}" unchanged`).toContain(label);
+    }
+    expect(shown.filter((s) => /^https?:\/\//i.test(s)), 'no battery label is a raw URL').toEqual([]);
+  });
+});

@@ -53,6 +53,7 @@ import {
   parseWhatsAppUrl,
 } from '@/lib/whatsapp';
 import { isAdultPlatformLabel, isAdultUrl } from '@/lib/adult-gate';
+import { displayLabel, labelFromUrl, looksLikeUrl } from '@/lib/link-label';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
 
@@ -87,17 +88,17 @@ function normalizeUrl(raw: string | null | undefined): string {
 }
 
 // Title is optional — when empty, fall back to the URL's hostname so the card
-// is not blank (FL.11). Tolerates a missing protocol; strips a leading "www.".
-function labelFromUrl(url: string | null | undefined): string {
-  const raw = (url || '').trim();
-  if (!raw) return 'Link';
-  try {
-    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-    return u.hostname.replace(/^www\./, '');
-  } catch {
-    return raw;
-  }
-}
+// is not blank (FL.11). That hostname logic now lives in src/lib/link-label.ts
+// (imported above) so the editor's save fallback and the public render share
+// one home; TL.POLISH.1d added the sibling rule that a title which IS a URL
+// counts as no title at all.
+
+// TL.POLISH.1d — the panel preview shows what the VISITOR will read, so a title
+// that is itself a URL previews as the clean hostname it will save as. An empty
+// title is deliberately left alone here: the preview still needs to fall through
+// to its "Title" placeholder while the card is being filled in.
+const previewLabel = (c: { label: string; url: string }): string =>
+  looksLikeUrl(c.label) ? displayLabel(c.label, c.url) : c.label;
 
 interface LinksBlockConfig {
   style: BlockStyleConfig;
@@ -512,13 +513,13 @@ function LinkDetailPanel({
             )}
             {/* Title only when set — a deleted title shows no overlay, matching
                 the live card; positioned bottom-left like the reference. */}
-            {card.label && (
+            {previewLabel(card) && (
               <div
                 className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6 text-left"
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
               >
                 <span className="text-[13px] font-bold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-                  {card.label}
+                  {previewLabel(card)}
                 </span>
               </div>
             )}
@@ -647,7 +648,7 @@ function LinkDetailPanel({
                         blockStyle={previewBlockStyle}
                         fillGradient={gradFor(active)}
                         titleColor={active.title_color || undefined}
-                        title={active.label || t('linksEditor.title')}
+                        title={previewLabel(active) || t('linksEditor.title')}
                         size={isMedium ? 'medium' : 'button'}
                         socialIcon={leadingIconFor({
                           url: active.url,
@@ -731,7 +732,7 @@ function LinkDetailPanel({
                           textShadow: '0 2px 8px rgba(0,0,0,0.5)',
                         }}
                       >
-                        {active.label || t('linksEditor.title')}
+                        {previewLabel(active) || t('linksEditor.title')}
                       </span>
                     </div>
                     {/* Corner = auto link/social icon (a website link shows the
@@ -766,7 +767,7 @@ function LinkDetailPanel({
                         : <Camera className="h-5 w-5" />}
                     </button>
                     <span className="font-semibold text-white/90 text-[15px]">
-                      {active.label || t('linksEditor.title')}
+                      {previewLabel(active) || t('linksEditor.title')}
                     </span>
                   </div>
                 );
@@ -792,7 +793,7 @@ function LinkDetailPanel({
                       theme={previewTheme}
                       blockStyle={previewBlockStyle}
                       titleColor={active.title_color || undefined}
-                      title={active.label || t('linksEditor.title')}
+                      title={previewLabel(active) || t('linksEditor.title')}
                       subtitle={active.subtitle || undefined}
                       media={active.image_url ? { kind: 'image', src: active.image_url } : undefined}
                       socialIcon={leadingIconFor({
@@ -1513,7 +1514,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
       // Image cards (cover thumbnails) may have NO title — the image carries the
       // meaning, so a deleted title stays deleted. Only fall back to the hostname
       // when there's no image, so a plain button/text link is never left blank.
-      label: item.label.trim() || (item.image_url ? '' : labelFromUrl(item.url)),
+      // TL.POLISH.1d: a title that IS a URL is no title at all, so it takes the
+      // same fallback. An unfurled title has already been written into
+      // item.label by then, which keeps its precedence over the hostname.
+      label: (item.label.trim() && !looksLikeUrl(item.label))
+        ? item.label.trim()
+        : (item.image_url ? '' : labelFromUrl(item.url)),
       url: normalizeUrl(item.url),
       subtitle: item.subtitle || null,
       badge: item.badge || null,

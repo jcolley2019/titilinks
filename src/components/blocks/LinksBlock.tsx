@@ -29,6 +29,7 @@ import { translateContent } from '@/lib/content-i18n';
 import { LinkButton } from '@/components/LinkButton';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 import { leadingIconFor, useProfileAvatar } from './link-leading-icon';
+import { displayLabel } from '@/lib/link-label';
 import type { BlockStyleConfig } from '@/lib/theme-defaults';
 import { planLinkLayout, VALID_SIZES, type ItemSize } from '@/lib/link-layout';
 import type { BlockItem, ThemedBlockProps } from './types';
@@ -220,6 +221,15 @@ export function LinksBlock({
         }
       : theme;
 
+    // TL.POLISH.1d — a title that IS the URL reads as a mistake; displayLabel
+    // shows the clean hostname instead. Image cards keep their "no title"
+    // freedom: a BLANK label on a card that carries an image stays blank rather
+    // than gaining a hostname it never had (mirrors the save rule in
+    // LinksEditor.buildItemPayload).
+    const shownLabel = item.image_url && !(item.label || '').trim()
+      ? item.label
+      : displayLabel(item.label, item.url);
+
     const itemBlockStyle = (sj || filled)
       ? {
           ...blockStyle,
@@ -240,7 +250,7 @@ export function LinksBlock({
         fillGradient={fillGradient}
         titleColor={item.title_color || undefined}
         animation={sj?.animation as string | undefined}
-        title={tc(item.label)}
+        title={tc(shownLabel)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}
         meta={
