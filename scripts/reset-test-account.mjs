@@ -30,6 +30,14 @@
 // ── CANONICAL STATE ──────────────────────────────────────────────────────────
 //   profiles.plan       = 'pro'    → PRO entitlements (snapshots, animations…)
 //   profiles.show_badge = true     → "Made with TitiLinks" badge (PROMO.TOGGLE.1)
+//   profiles.comped_until = 'infinity' → TL.COMP.4: the Pro is a COMP, not a
+//                         subscription. The reseed re-asserts it so a restore
+//                         can never silently demote the account to a plan with
+//                         no recorded term. The Stripe mirror columns
+//                         (stripe_customer_id / subscription_*) are deliberately
+//                         NOT written here — they must stay null, or a future
+//                         admin_revoke_comp would read a stale status and leave
+//                         the account on Pro (20260904120000_comp4_*.sql).
 //   page1 mode          = 9 blocks, the app's own default composition
 //                         (BLOCK_PRESETS default + the two header social blocks)
 //                         plus an email_subscribe block, with content
@@ -83,7 +91,7 @@ const h = esc(handle);
 // ── The plan/badge patch (the original HOUSE.1 emitter) ─────────────────────
 const planSql = () => `-- HOUSE.1 reset — restore the Playwright test account's plan and badge.
 -- Target: public.profiles for the account behind handle '${h}'.
--- Canonical: plan = 'pro', show_badge = true.
+-- Canonical: plan = 'pro', show_badge = true, comped_until = 'infinity'.
 -- Run in the Supabase SQL editor (prod ref ${SUPABASE_PROJECT_REF}). Read-only
 -- SELECTs bracket the UPDATE so you can eyeball the row before and after.
 --
@@ -91,21 +99,27 @@ const planSql = () => `-- HOUSE.1 reset — restore the Playwright test account'
 -- gallery suite needs), run: node scripts/reset-test-account.mjs
 
 -- 1. BEFORE — confirm you are about to touch exactly one, correct row.
-select p.id, pg.handle, p.plan, p.show_badge
+select p.id, pg.handle, p.plan, p.show_badge, p.comped_until,
+       p.stripe_customer_id, p.subscription_status
 from public.profiles p
 join public.pages pg on pg.user_id = p.id
 where pg.handle = '${h}';
 
--- 2. RESET — put plan and badge back to canonical.
+-- 2. RESET — put plan, badge and comp term back to canonical.
+--    comped_until is re-asserted (TL.COMP.4); subscription_* are left alone so
+--    they stay null and a later revoke falls to 'free' rather than to a stale
+--    sandbox status.
 update public.profiles
 set plan = 'pro',
-    show_badge = true
+    show_badge = true,
+    comped_until = 'infinity'
 where id = (
   select user_id from public.pages where handle = '${h}' limit 1
 );
 
 -- 3. AFTER — verify the reset landed.
-select p.id, pg.handle, p.plan, p.show_badge
+select p.id, pg.handle, p.plan, p.show_badge, p.comped_until,
+       p.stripe_customer_id, p.subscription_status
 from public.profiles p
 join public.pages pg on pg.user_id = p.id
 where pg.handle = '${h}';
@@ -376,10 +390,13 @@ ${PAGE1.map((b, i) => blockSql(b, i)).join('\n\n')}
 ${page2Sql};
   end if;
 
-  -- ── 4. PLAN + BADGE ──────────────────────────────────────────────────────
+  -- ── 4. PLAN + BADGE + COMP TERM ──────────────────────────────────────────
+  -- The Stripe mirror columns are NOT touched: this account's Pro is a comp
+  -- (TL.COMP.4) and stripe_customer_id / subscription_* must stay null.
   update public.profiles
-  set plan = 'pro',          -- PRO entitlements: snapshots, animations, 2 pages
-      show_badge = true      -- PROMO.TOGGLE.1 canonical
+  set plan = 'pro',                 -- PRO entitlements: snapshots, animations, 2 pages
+      show_badge = true,            -- PROMO.TOGGLE.1 canonical
+      comped_until = 'infinity'     -- TL.COMP.4 permanent comp, re-asserted
   where id = v_user;
 end $$;
 
@@ -448,7 +465,16 @@ checks(seq, check_name, expected, actual) as (
         (select p.show_badge::text from public.profiles p, ctx where p.id = ctx.user_id)),
     (12, 'hero photo present (spec 33 needs one; SQL cannot restore it)',
         'true',
-        (select (ctx.avatar_url is not null and ctx.avatar_url <> '')::text from ctx))
+        (select (ctx.avatar_url is not null and ctx.avatar_url <> '')::text from ctx)),
+    (13, 'profiles.comped_until (TL.COMP.4 permanent comp)',
+        'infinity',
+        (select p.comped_until::text from public.profiles p, ctx where p.id = ctx.user_id)),
+    (14, 'profiles Stripe mirror is empty (a comp, not a subscription)',
+        'true',
+        (select (p.stripe_customer_id is null
+             and p.subscription_status is null
+             and p.subscription_period_end is null)::text
+           from public.profiles p, ctx where p.id = ctx.user_id))
 )
 -- coalesce, not a bare '=': a check whose subquery finds no row at all yields
 -- NULL, and a NULL ok column reads as "fine" at a glance. It is not fine.

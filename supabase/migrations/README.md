@@ -27,7 +27,7 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 41 files
+## All 42 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
@@ -72,6 +72,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 39 | `20260901120000_profiles_update_policy_mirror.sql` | RECORD of the live `profiles` UPDATE policy (six pinned columns) | DO-NOT-RUN (a record, not a migration) | MATCH — byte-identical to prod `polwithcheck` |
 | 40 | `20260901130000_comp_licenses.sql` | TL.COMP.1 `profiles.comped_until`, `comp_grants` ledger, `admin_grant_comp` / `admin_revoke_comp` | RE-RUNNABLE | MATCH — COMP-NO-GRANT holds in prod |
 | 41 | `20260903120000_ent_snap1_drop_stray_insert_policy.sql` | TL.ENT.SNAP.1 record of the drop of the hand-made `snapshots_insert_own` policy that OR'd past the ENT.SRV `maxSnapshots` quota | RE-RUNNABLE | MATCH — dropped in prod 2026-09-03, four policies remain |
+| 42 | `20260904120000_comp4_founder_and_battery_grants.sql` | TL.COMP.4 record of the founder (`joeyc`) and battery (`joey2019pwtestbattery`) comps: sandbox Stripe mirror cleared, then `admin_grant_comp(..., 'pro', 'infinity')` on both; carries a read-only identity-assertion block | RECORD-ONLY (re-running appends duplicate `comp_grants` rows) | MATCH — 2 profiles pro/infinity, 2 ledger rows, Stripe mirror null |
 
 Counts: 22 MATCH (#8 missing trigger, #30 grant drift are the caveats), 9 DRIFT, 9 DROPPED/SUPERSEDED.
 
