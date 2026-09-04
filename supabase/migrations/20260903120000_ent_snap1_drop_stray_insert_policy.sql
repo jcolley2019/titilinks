@@ -1,0 +1,52 @@
+-- RE-RUNNABLE — TL.ENT.SNAP.1 — drop the hand-made snapshots_insert_own policy that bypassed the maxSnapshots quota.
+--
+-- RAN ON PROD 2026-09-03 by Joey in the Supabase web SQL editor (ref
+-- ohmvlypcbrfkuudcuqub). This file is the RECORD of that statement; it is
+-- idempotent (`drop policy if exists`), so re-pasting it changes nothing.
+-- Do NOT `supabase db push` — config.toml points at an orphan project.
+--
+-- WHAT IT WAS
+--   `snapshots_insert_own` was a hand-made permissive INSERT policy on
+--   public.profile_snapshots, created alongside the `snapshots_select_own` /
+--   `snapshots_delete_own` pair. Its check was the bare ownership test:
+--       (auth.uid() = user_id)
+--   It has no migration in this directory — it is part of the §1.3.9 drift the
+--   2026-09-01 audit found between file #22 and prod.
+--
+-- WHY IT WAS WRONG (AUDIT_rev6 finding #2, §1.3.9)
+--   Multiple PERMISSIVE policies for the same command are OR'd, not AND'd. So
+--   the table carried TWO permissive INSERT policies and a row only had to
+--   satisfy EITHER one. The ENT.SRV quota policy — "Users can create their own
+--   snapshots" — enforces the plan's manual-snapshot ceiling:
+--       (auth.uid() = user_id)
+--       AND ( kind <> 'manual'
+--             OR (select count(*) from profile_snapshots existing
+--                  where existing.user_id = auth.uid()
+--                    and existing.page_id = profile_snapshots.page_id
+--                    and existing.kind = 'manual')
+--                 < plan_limit(current_plan(), 'maxSnapshots') )
+--   ...but `snapshots_insert_own` admitted any owned row unconditionally, so an
+--   over-quota manual snapshot that the quota policy rejected was admitted by
+--   the other branch of the OR. The server-side maxSnapshots floor was a no-op:
+--   only the client-side check in src/lib/snapshots.ts stood between a user and
+--   an unbounded number of manual snapshots. Dropping the stray policy leaves
+--   the quota policy as the sole INSERT gate, which is what ENT.SRV intended.
+--
+-- WHAT IS UNAFFECTED
+--   Auto safety-net snapshots. The surviving policy's `kind <> 'manual'` branch
+--   admits them on ownership alone, so the pre-template / pre-reset auto hooks
+--   still write regardless of how many manual snapshots the page holds. Only
+--   `kind = 'manual'` inserts are now counted against plan_limit(...,
+--   'maxSnapshots'). SELECT / UPDATE / DELETE are untouched.
+--
+-- VERIFIED AFTER THE DROP (2026-09-03, read-only):
+--   select policyname, cmd from pg_policies
+--    where tablename = 'profile_snapshots' order by 1;
+--   → exactly four rows —
+--       "Users can create their own snapshots"   INSERT  (the quota policy)
+--       "Users can rename own manual snapshots"  UPDATE  (SNAP.2, file #23)
+--       snapshots_delete_own                     DELETE
+--       snapshots_select_own                     SELECT
+--     and no snapshots_insert_own.
+
+drop policy if exists "snapshots_insert_own" on public.profile_snapshots;

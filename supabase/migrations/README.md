@@ -27,7 +27,7 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 40 files
+## All 41 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 19 | `20260407120000_add_bio_block_type.sql` | `block_type` += `bio` | RE-RUNNABLE | MATCH |
 | 20 | `20260426120000_add_avatar_original_url.sql` | `pages.avatar_original_url` | RE-RUNNABLE | MATCH |
 | 21 | `20260503201357_add_block_item_styling.sql` | per-item styling columns on `block_items` | RE-RUNNABLE | MATCH |
-| 22 | `20260719011300_add_profile_snapshots.sql` | SNAP.1 `profile_snapshots` table, indexes, owner policies | RECORD-ONLY | DRIFT — prod indexes and policy names differ (`snapshots_*_own` trio, §1.3.9) |
+| 22 | `20260719011300_add_profile_snapshots.sql` | SNAP.1 `profile_snapshots` table, indexes, owner policies | RECORD-ONLY | DRIFT — prod indexes and policy names differ (`snapshots_*_own`, a trio until #41 dropped the INSERT one, §1.3.9) |
 | 23 | `20260720010000_add_snapshot_rename_policy.sql` | SNAP.2 owner UPDATE (rename) policy on `profile_snapshots` | RECORD-ONLY | MATCH |
 | 24 | `20260722110000_add_brand_kit.sql` | BRAND: `profiles.brand_json`, `fonts` bucket + policies, `get_public_brand_fonts` | RECORD-ONLY | MATCH (prod adds a 10 MB limit) |
 | 25 | `20260722140000_add_public_page_plan.sql` | PRICE.TRUTH.1 `get_public_page_plan` | RE-RUNNABLE | MATCH |
@@ -61,7 +61,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 28 | `20260729120000_add_billing_columns.sql` | BILL.B1 Stripe columns on `profiles` | RE-RUNNABLE | MATCH |
 | 29 | `20260729120100_add_webhook_events.sql` | BILL.B2 `stripe_webhook_events` ledger + `guard_billing_columns` trigger | RE-RUNNABLE | MATCH (prod function is SECURITY INVOKER, identical body) |
 | 30 | `20260729120200_add_referrals.sql` | BILL.B3 referral codes, `pending_grants`, `claim_referral`, 3-column `get_public_page_branding` | RE-RUNNABLE | MATCH for objects; EXECUTE grant drift (§1.3.11) |
-| 31 | `20260729120300_ent_srv.sql` | ENT.SRV `plan_limit` / `plan_allows` / `current_plan`, entitlement guard, plan-gated `subscribe_to_page`, quota policies | RE-RUNNABLE | MATCH for bodies; snapshot quota policy bypassed (§1.3.9); comment drift (§1.3.12) |
+| 31 | `20260729120300_ent_srv.sql` | ENT.SRV `plan_limit` / `plan_allows` / `current_plan`, entitlement guard, plan-gated `subscribe_to_page`, quota policies | RE-RUNNABLE | MATCH for bodies; the snapshot quota policy is the sole INSERT gate since #41 (§1.3.9 closed); comment drift (§1.3.12) |
 | 32 | `20260813000000_ent_pages_quota.sql` | ENT.PAGES.1 maxPages quota on the `pages` INSERT policy | RE-RUNNABLE | MATCH |
 | 33 | `20260813120000_bill_recon_tables.sql` | BILL.RECON.3 `billing_recon_runs` / `billing_recon_findings` | RE-RUNNABLE | MATCH |
 | 34 | `20260816120000_stor4_products_delete_policy.sql` | TL.STOR.4 `products` bucket DELETE policy | RECORD-ONLY (file says NOT IDEMPOTENT) | MATCH |
@@ -71,6 +71,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 38 | `20260827120000_add_event_archived_at.sql` | TL.EVNT.3c `block_items.archived_at` | RE-RUNNABLE | MATCH |
 | 39 | `20260901120000_profiles_update_policy_mirror.sql` | RECORD of the live `profiles` UPDATE policy (six pinned columns) | DO-NOT-RUN (a record, not a migration) | MATCH — byte-identical to prod `polwithcheck` |
 | 40 | `20260901130000_comp_licenses.sql` | TL.COMP.1 `profiles.comped_until`, `comp_grants` ledger, `admin_grant_comp` / `admin_revoke_comp` | RE-RUNNABLE | MATCH — COMP-NO-GRANT holds in prod |
+| 41 | `20260903120000_ent_snap1_drop_stray_insert_policy.sql` | TL.ENT.SNAP.1 record of the drop of the hand-made `snapshots_insert_own` policy that OR'd past the ENT.SRV `maxSnapshots` quota | RE-RUNNABLE | MATCH — dropped in prod 2026-09-03, four policies remain |
 
 Counts: 22 MATCH (#8 missing trigger, #30 grant drift are the caveats), 9 DRIFT, 9 DROPPED/SUPERSEDED.
 
@@ -95,6 +96,7 @@ re-type it from memory.
   on `page_subscribers`. Both are absent in prod and both remain in files #1 / #18 — hence their headers.
 - **`profile_snapshots` policies (§1.3.9):** `snapshots_select_own`, `snapshots_insert_own`,
   `snapshots_delete_own` — a hand-created trio under a different naming scheme than #22.
+  `snapshots_insert_own` was dropped 2026-09-03 (#41); the SELECT/DELETE pair is still prod-only.
 - **Storage (§1.1, §1.3.6–1.3.7):** narrowed own-folder SELECT policies on `avatars` / `page-assets` /
   `products`; bucket size and MIME limits (avatars 50 MB image+video, page-assets 10 MB no SVG,
   products 10 MB, fonts 10 MB any type); `avatars` and `page-assets` have NO UPDATE/DELETE policy.
@@ -113,7 +115,7 @@ re-type it from memory.
 - **§1.3.6** Prod-only functions, the `block_items_url_scheme` CHECK, two policy drops, storage narrowing.
 - **§1.3.7** Repo promises owner UPDATE/DELETE on `avatars` / `page-assets`; prod has none (orphaned avatars accumulate).
 - **§1.3.8** `page_subscribers` has no unique `(page_id, email)` index; `subscribe_to_page`'s duplicate-as-success branch can never fire.
-- **§1.3.9** `profile_snapshots` has two permissive INSERT policies; `snapshots_insert_own` bypasses the ENT.SRV `maxSnapshots` quota.
+- **§1.3.9** `profile_snapshots` has two permissive INSERT policies; `snapshots_insert_own` bypasses the ENT.SRV `maxSnapshots` quota. **CLOSED 2026-09-03** — `snapshots_insert_own` dropped in prod (#41), leaving the ENT.SRV quota policy as the only INSERT gate.
 - **§1.3.10** `custom_short_links.target_url` has no CHECK, contrary to TITILINKS_HANDOFF_rev3.md.
 - **§1.3.11** EXECUTE grant drift on `claim_referral`, `referral_earned_in_window`, `generate_referral_code`.
 - **§1.3.12** `plan_limit` comment text differs between prod and #31 (numbers identical).
