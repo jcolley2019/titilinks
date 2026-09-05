@@ -46,6 +46,10 @@ comment on table public.stripe_webhook_events is
 -- Service-role and superuser writes pass through (that is the webhook). Any
 -- other role gets its billing-column changes rejected outright rather than
 -- silently reverted, so an attempt is loud in the logs.
+-- ⚠️ SUPERSEDED — the body below is superseded by
+-- 20260905120000_comp3b_comped_until_pins.sql (#44), which adds the
+-- comped_until pin as a 5th guarded column. Re-running THIS file would
+-- silently drop that pin. If you must re-run it, re-run #44 afterwards.
 create or replace function public.guard_billing_columns()
 returns trigger
 language plpgsql

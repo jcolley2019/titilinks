@@ -87,6 +87,10 @@ comment on table public.comp_grants is
 -- PASSES — see the column comment. This function never touches the Stripe
 -- mirror columns (stripe_customer_id, subscription_status,
 -- subscription_period_end); those stay the webhook's.
+-- ⚠️ SUPERSEDED — the body below is superseded by
+-- 20260905120000_comp3b_comped_until_pins.sql (#44), which adds a RAISE
+-- NOTICE when the account already has a Stripe customer. Re-running THIS
+-- file restores the older (notice-less) body; re-run #44 afterwards.
 create or replace function public.admin_grant_comp(
   p_handle text,
   p_reason text,

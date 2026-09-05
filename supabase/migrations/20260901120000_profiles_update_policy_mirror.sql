@@ -2,6 +2,10 @@
 --
 -- ⚠️ DO NOT RUN THIS FILE. ⚠️
 --
+-- SUPERSEDED 2026-09-05 by 20260905120000_comp3b_comped_until_pins.sql — the
+-- live policy now carries SEVEN pins (comped_until added). The six-pin
+-- expression below is historical; #44 is the current WITH CHECK.
+--
 -- Every other migration in this directory is a mirror of DDL that was applied
 -- by hand and is meant to be re-runnable. This one is a RECORD. It exists
 -- because the hardened `WITH CHECK` below is live in prod

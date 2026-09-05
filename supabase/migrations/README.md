@@ -27,7 +27,7 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 43 files
+## All 44 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
@@ -59,7 +59,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 26 | `20260722150000_add_show_badge.sql` | PROMO.TOGGLE.1 `profiles.show_badge` + 2-column `get_public_page_branding` | SUPERSEDED (by #30's 3-column RPC) | SUPERSEDED — a drop-then-run would strip `referral_code` from the badge RPC |
 | 27 | `20260724120000_add_custom_short_links.sql` | SHORT.1 `custom_short_links` table, policies, `resolve_short_link_by_slug` | RECORD-ONLY | MATCH for table/RPC; INSERT policy superseded by #31; recorded `target_url` CHECK does not exist (§1.3.10) |
 | 28 | `20260729120000_add_billing_columns.sql` | BILL.B1 Stripe columns on `profiles` | RE-RUNNABLE | MATCH |
-| 29 | `20260729120100_add_webhook_events.sql` | BILL.B2 `stripe_webhook_events` ledger + `guard_billing_columns` trigger | RE-RUNNABLE | MATCH (prod function is SECURITY INVOKER, identical body) |
+| 29 | `20260729120100_add_webhook_events.sql` | BILL.B2 `stripe_webhook_events` ledger + `guard_billing_columns` trigger | RE-RUNNABLE | MATCH for the ledger; the `guard_billing_columns` body (4 columns) is SUPERSEDED by #44 (adds the `comped_until` pin) — re-running this file drops that pin, re-run #44 after |
 | 30 | `20260729120200_add_referrals.sql` | BILL.B3 referral codes, `pending_grants`, `claim_referral`, 3-column `get_public_page_branding` | RE-RUNNABLE | MATCH for objects; EXECUTE grant drift (§1.3.11) |
 | 31 | `20260729120300_ent_srv.sql` | ENT.SRV `plan_limit` / `plan_allows` / `current_plan`, entitlement guard, plan-gated `subscribe_to_page`, quota policies | RE-RUNNABLE | MATCH for bodies; the snapshot quota policy is the sole INSERT gate since #41 (§1.3.9 closed); comment drift (§1.3.12) |
 | 32 | `20260813000000_ent_pages_quota.sql` | ENT.PAGES.1 maxPages quota on the `pages` INSERT policy | RE-RUNNABLE | MATCH |
@@ -69,13 +69,14 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 36 | `20260818120100_add_event_timestamps.sql` | TL.EVNT `block_items.starts_at` / `ends_at` | RE-RUNNABLE | MATCH |
 | 37 | `20260819120000_blocks_singleton_type.sql` | TL.BLOCK.1 `blocks_mode_type_singleton_uidx` (partial, `type <> 'text'`) | RE-RUNNABLE | MATCH — predicate equals `MANY_PER_MODE_TYPES` |
 | 38 | `20260827120000_add_event_archived_at.sql` | TL.EVNT.3c `block_items.archived_at` | RE-RUNNABLE | MATCH |
-| 39 | `20260901120000_profiles_update_policy_mirror.sql` | RECORD of the live `profiles` UPDATE policy (six pinned columns) | DO-NOT-RUN (a record, not a migration) | MATCH — byte-identical to prod `polwithcheck` |
-| 40 | `20260901130000_comp_licenses.sql` | TL.COMP.1 `profiles.comped_until`, `comp_grants` ledger, `admin_grant_comp` / `admin_revoke_comp` | RE-RUNNABLE | MATCH — COMP-NO-GRANT holds in prod |
+| 39 | `20260901120000_profiles_update_policy_mirror.sql` | RECORD of the `profiles` UPDATE policy as of 2026-09-01 (six pinned columns) — superseded by #44, which restates it with seven | DO-NOT-RUN (a record, not a migration) | SUPERSEDED 2026-09-05 — prod `polwithcheck` now carries the seventh pin (`comped_until`, #44) |
+| 40 | `20260901130000_comp_licenses.sql` | TL.COMP.1 `profiles.comped_until`, `comp_grants` ledger, `admin_grant_comp` / `admin_revoke_comp` | RE-RUNNABLE | MATCH for column/ledger/`admin_revoke_comp` — COMP-NO-GRANT holds in prod; the `admin_grant_comp` body is SUPERSEDED by #44 (adds the Stripe-customer notice), re-run #44 after |
 | 41 | `20260903120000_ent_snap1_drop_stray_insert_policy.sql` | TL.ENT.SNAP.1 record of the drop of the hand-made `snapshots_insert_own` policy that OR'd past the ENT.SRV `maxSnapshots` quota | RE-RUNNABLE | MATCH — dropped in prod 2026-09-03, four policies remain |
 | 42 | `20260904120000_comp4_founder_and_battery_grants.sql` | TL.COMP.4 record of the founder (`joeyc`) and battery (`joey2019pwtestbattery`) comps: sandbox Stripe mirror cleared, then `admin_grant_comp(..., 'pro', 'infinity')` on both; carries a read-only identity-assertion block | RECORD-ONLY (re-running appends duplicate `comp_grants` rows) | MATCH — 2 profiles pro/infinity, 2 ledger rows, Stripe mirror null |
 | 43 | `20260904130000_handle1_reserved_and_format.sql` | TL.HANDLE.1 `pages_handle_rules` + `profiles_username_rules` CHECKs: 3–30 lowercase alnum/hyphen, no edge hyphen, and a 54-word reserved list generated from `src/lib/handle-rules.ts` (AUDIT_rev6 #5) | RE-RUNNABLE | MATCH — applied 2026-09-04; both constraints `convalidated`, definitions byte-match `handle-rules.ts` (54 words, same regex) |
+| 44 | `20260905120000_comp3b_comped_until_pins.sql` | TL.COMP.3b `comped_until` pinned against client writes: 7th pin on the `profiles` UPDATE policy WITH CHECK, 5th column in `guard_billing_columns` (still SECURITY INVOKER), and `admin_grant_comp` RAISE NOTICEs when the account has a Stripe customer (AUDIT_rev6 #11). Supersedes the bodies in #29 / #39 / #40 | RE-RUNNABLE | MATCH — applied 2026-09-05; policy_pins 7, guard pins comped_until, notice present |
 
-Counts: 22 MATCH (#8 missing trigger, #30 grant drift are the caveats), 9 DRIFT, 9 DROPPED/SUPERSEDED.
+Counts: 23 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
 
 ## Prod-only objects (live in prod, no file behind them)
 
@@ -105,7 +106,7 @@ re-type it from memory.
 - **Grants (§1.3.11):** `claim_referral` EXECUTE for anon/service_role; `referral_earned_in_window`
   and `generate_referral_code` PUBLIC-executable; PUBLIC/anon EXECUTE on `plan_limit` / `plan_allows` /
   `current_plan`.
-- **`profiles` UPDATE policy `WITH CHECK`** (six pins) — hand-altered in place; recorded in #39.
+- **`profiles` UPDATE policy `WITH CHECK`** (seven pins since 2026-09-05) — hand-altered in place; six-pin record in #39, current seven-pin form restated by #44.
 
 ## Known drift (docs/AUDIT_rev6.md §1.3)
 
