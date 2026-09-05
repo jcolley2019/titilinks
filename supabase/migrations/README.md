@@ -75,6 +75,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 42 | `20260904120000_comp4_founder_and_battery_grants.sql` | TL.COMP.4 record of the founder (`joeyc`) and battery (`joey2019pwtestbattery`) comps: sandbox Stripe mirror cleared, then `admin_grant_comp(..., 'pro', 'infinity')` on both; carries a read-only identity-assertion block | RECORD-ONLY (re-running appends duplicate `comp_grants` rows) | MATCH — 2 profiles pro/infinity, 2 ledger rows, Stripe mirror null |
 | 43 | `20260904130000_handle1_reserved_and_format.sql` | TL.HANDLE.1 `pages_handle_rules` + `profiles_username_rules` CHECKs: 3–30 lowercase alnum/hyphen, no edge hyphen, and a 54-word reserved list generated from `src/lib/handle-rules.ts` (AUDIT_rev6 #5) | RE-RUNNABLE | MATCH — applied 2026-09-04; both constraints `convalidated`, definitions byte-match `handle-rules.ts` (54 words, same regex) |
 | 44 | `20260905120000_comp3b_comped_until_pins.sql` | TL.COMP.3b `comped_until` pinned against client writes: 7th pin on the `profiles` UPDATE policy WITH CHECK, 5th column in `guard_billing_columns` (still SECURITY INVOKER), and `admin_grant_comp` RAISE NOTICEs when the account has a Stripe customer (AUDIT_rev6 #11). Supersedes the bodies in #29 / #39 / #40 | RE-RUNNABLE | MATCH — applied 2026-09-05; policy_pins 7, guard pins comped_until, notice present |
+| 45 | `20260905130000_stor7_secgrants1.sql` | TL.STOR.7 + TL.SEC.GRANTS.1 `fonts` bucket `allowed_mime_types` locked to the nine font MIMEs generated from `src/lib/user-fonts.ts` (drift-checked by `scripts/user-fonts.test.mjs`); `generate_referral_code` / `referral_earned_in_window` EXECUTE revoked from PUBLIC/anon/authenticated and `claim_referral` from PUBLIC/anon; TRUNCATE/REFERENCES/TRIGGER revoked from anon/authenticated on every public table plus default privileges; `custom_short_links_target_url_scheme` CHECK (AUDIT_rev6 §1.1 fonts, §1.3.10, §1.3.11) | RE-RUNNABLE | MATCH — applied 2026-09-05; 9/0/0/1/3/0/128/true |
 
 Counts: 23 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
 
@@ -102,9 +103,10 @@ re-type it from memory.
   `snapshots_insert_own` was dropped 2026-09-03 (#41); the SELECT/DELETE pair is still prod-only.
 - **Storage (§1.1, §1.3.6–1.3.7):** narrowed own-folder SELECT policies on `avatars` / `page-assets` /
   `products`; bucket size and MIME limits (avatars 50 MB image+video, page-assets 10 MB no SVG,
-  products 10 MB, fonts 10 MB any type); `avatars` and `page-assets` have NO UPDATE/DELETE policy.
-- **Grants (§1.3.11):** `claim_referral` EXECUTE for anon/service_role; `referral_earned_in_window`
-  and `generate_referral_code` PUBLIC-executable; PUBLIC/anon EXECUTE on `plan_limit` / `plan_allows` /
+  products 10 MB, fonts 10 MB — nine font MIMEs since 2026-09-05, #45); `avatars` and `page-assets` have NO UPDATE/DELETE policy.
+- **Grants (§1.3.11):** CLOSED by #45 — `generate_referral_code` / `referral_earned_in_window` are no
+  longer client-executable (service_role + the SECURITY DEFINER trigger only); `claim_referral` is
+  authenticated + service_role only. Still prod-only: PUBLIC/anon EXECUTE on `plan_limit` / `plan_allows` /
   `current_plan`.
 - **`profiles` UPDATE policy `WITH CHECK`** (seven pins since 2026-09-05) — hand-altered in place; six-pin record in #39, current seven-pin form restated by #44.
 
@@ -119,8 +121,8 @@ re-type it from memory.
 - **§1.3.7** Repo promises owner UPDATE/DELETE on `avatars` / `page-assets`; prod has none (orphaned avatars accumulate).
 - **§1.3.8** `page_subscribers` has no unique `(page_id, email)` index; `subscribe_to_page`'s duplicate-as-success branch can never fire.
 - **§1.3.9** `profile_snapshots` has two permissive INSERT policies; `snapshots_insert_own` bypasses the ENT.SRV `maxSnapshots` quota. **CLOSED 2026-09-03** — `snapshots_insert_own` dropped in prod (#41), leaving the ENT.SRV quota policy as the only INSERT gate.
-- **§1.3.10** `custom_short_links.target_url` has no CHECK, contrary to TITILINKS_HANDOFF_rev3.md.
-- **§1.3.11** EXECUTE grant drift on `claim_referral`, `referral_earned_in_window`, `generate_referral_code`.
+- **§1.3.10** `custom_short_links.target_url` has no CHECK, contrary to TITILINKS_HANDOFF_rev3.md. **CLOSED 2026-09-05** — #45, `custom_short_links_target_url_scheme` exists (`convalidated`).
+- **§1.3.11** EXECUTE grant drift on `claim_referral`, `referral_earned_in_window`, `generate_referral_code`. **CLOSED 2026-09-05** — #45 revoked the client grants (0 / 0 / 1 / 3 verified).
 - **§1.3.12** `plan_limit` comment text differs between prod and #31 (numbers identical).
 - **§1.3.13** `src/integrations/supabase/types.ts` lacks `comped_until`, `comp_grants`, `billing_recon_*`, `admin_grant_comp`.
 

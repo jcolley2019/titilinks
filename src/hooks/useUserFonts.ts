@@ -6,6 +6,7 @@ import type { Json } from '@/integrations/supabase/types';
 import type { UserFont } from '@/lib/fonts';
 import {
   ensureUserFontFaces,
+  fontContentType,
   fontFamilyFromFileName,
   fontsFromBrandJson,
   validateFontFile,
@@ -91,7 +92,7 @@ export function useUserFonts() {
       const path = `${user.id}/${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from('fonts')
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: fontContentType(file.name) ?? undefined });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('fonts').getPublicUrl(path);
       const entry: UserFont = { family: fontFamilyFromFileName(file.name), url: urlData.publicUrl };

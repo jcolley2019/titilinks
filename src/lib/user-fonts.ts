@@ -32,6 +32,14 @@ function fileExt(name: string): string {
   return (name.split('.').pop() || '').toLowerCase();
 }
 
+/** Every MIME the fonts bucket accepts — the flat, de-duplicated union of FONT_TYPES, in declaration order. The prod bucket's allowed_mime_types (migration 20260905130000) is generated from this list; scripts/user-fonts.test.mjs fails the guard if they drift. */
+export const FONT_MIME_TYPES: string[] = [...new Set(Object.values(FONT_TYPES).flatMap((t) => t.mimes))];
+
+/** Content-Type to send on upload, chosen by extension (the OS-reported type is unreliable on Windows). null when the extension is not a font — validateFontFile has already refused those. */
+export function fontContentType(name: string): string | null {
+  return FONT_TYPES[fileExt(name)]?.mimes[0] ?? null;
+}
+
 /** Validate extension + MIME + size. Returns an error code (i18n'd by the
  *  caller) or null when the file is acceptable. */
 export function validateFontFile(file: { name: string; type: string; size: number }): FontFileError | null {

@@ -6,7 +6,7 @@
 --
 -- Why: TL.COMP.1 added profiles.comped_until, but the two client-write locks
 -- (the profiles UPDATE policy WITH CHECK — record #39 — and the
--- guard_billing_columns trigger — #16) pinned only the Stripe columns. A JWT
+-- guard_billing_columns trigger — #29) pinned only the Stripe columns. A JWT
 -- bearer could PATCH its own comped_until through PostgREST and the reconciler
 -- would honour it. This closes that door: comped_until is now the 7th policy
 -- pin and the 5th trigger column. Only postgres (admin_grant_comp /
