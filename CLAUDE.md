@@ -35,6 +35,11 @@ Rules:
 ## Supabase
 - Production project ref: ohmvlypcbrfkuudcuqub. supabase/config.toml line 1 points at an ORPHAN project — never `supabase db push` or `supabase link`.
 - Edge function deploys require `--project-ref ohmvlypcbrfkuudcuqub`.
+- TL.EDGE.1 post-deploy probes (after deploying `unfurl` + `youtube-feed` and `supabase functions delete qr`), each with `apikey: <anon key>` AND `Authorization: Bearer <anon key>` (what a visitor's browser sends with no session — a bare `apikey` never reaches the function, the gateway answers 401 `UNAUTHORIZED_NO_AUTH_HEADER`), against `https://ohmvlypcbrfkuudcuqub.supabase.co/functions/v1/`:
+  - `POST unfurl` body `{"url":"https://example.com"}` → **401** (`Sign in to fetch link previews.`)
+  - `POST youtube-feed` body `{"channel_id":"UCBR8-60-B28hp2BmDPdntcQ","limit":3}` → **403** (`This feed is not configured on any page.`); body `{"input":"https://www.youtube.com/@youtube"}` → **403** (`Sign in to resolve a new feed.`)
+  - `GET qr?url=https://example.com` → **404** (function deleted)
+  - `tests/58-edge1-function-gates.spec.ts` automates these plus the signed-in / configured-source 200 paths; it hits the LIVE functions, so it is only green after the deploy.
 - All SQL is run by the USER in the Supabase web SQL editor — never run DB/SQL from the CLI or MCP.
 
 ## Dev server

@@ -10,14 +10,22 @@
 //   - redirects are followed MANUALLY, re-validating each hop's host
 //   - ~5s timeout, ~1.5MB streamed body cap, <=5 redirects
 //
-// Auth: relies on the platform default verify_jwt=true. Do NOT add an
-// [functions.unfurl] entry to config.toml; never set verify_jwt=false here.
+// Auth (TL.EDGE.1): enforced IN CODE via getAuthedUser — a request carrying
+// only the public anon key (which is itself a JWT, so the gateway's verify_jwt
+// lets it through) is refused with 401. Signed-in callers are capped at
+// DAILY_LIMITS.unfurl per 24h via ai_usage_events. The platform default
+// verify_jwt=true is still the outer door: do NOT add an [functions.unfurl]
+// entry to config.toml; never set verify_jwt=false here.
 //
 // KNOWN RESIDUAL (v1, accepted): the range check does not fully close DNS
 // rebinding (the host could resolve to a public IP at validation time and a
 // private IP at fetch time). Hardened later by pinning the validated IP.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
+import { DAILY_LIMITS, overDailyQuota, recordUsage } from "../_shared/quota.ts";
+
+const FN = "unfurl";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -349,6 +357,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // TL.EDGE.1: a real session is required; the anon key alone is refused.
+  const user = await getAuthedUser(req);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Sign in to fetch link previews." }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const svc = serviceClient();
+  if (await overDailyQuota(svc, user.id, FN, DAILY_LIMITS.unfurl)) {
+    return new Response(
+      JSON.stringify({ error: "Daily link-preview limit reached. Please try again tomorrow." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const url = (body as { url?: unknown }).url;
@@ -408,6 +432,10 @@ serve(async (req) => {
     if (!result.title) {
       result.title = u.hostname.replace(/^www\./, "");
     }
+
+    // Counted only when a real preview was produced; the empty early returns
+    // above (no/invalid URL) cost nothing and are not recorded.
+    await recordUsage(svc, user.id, FN);
 
     return json200(result);
   } catch (error) {
