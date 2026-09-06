@@ -27,11 +27,11 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 44 files
+## All 46 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
-| 1 | `20260111040649_7b135b54-cfb3-49ff-bd02-a80e016b80f7.sql` | January schema init: enums, profiles/pages/modes/blocks/block_items/events, RLS, owner helpers, `handle_new_user`, `updated_at` triggers | DO-NOT-RUN (as a whole; the `"Anyone can insert events"` and `"Users can update their own profile"` stanzas are the hazards) | DRIFT (§1.3.1–1.3.5, 1.3.8) |
+| 1 | `20260111040649_7b135b54-cfb3-49ff-bd02-a80e016b80f7.sql` | January schema init: enums, profiles/pages/modes/blocks/block_items/events, RLS, owner helpers, `handle_new_user`, `updated_at` triggers; blocks / block_items public SELECT stanzas superseded by #46 | DO-NOT-RUN (as a whole; the `"Anyone can insert events"` and `"Users can update their own profile"` stanzas are the hazards) | DRIFT (§1.3.1–1.3.5, 1.3.8) |
 | 2 | `20260111040817_b20d120f-061f-44e0-8ece-d06716baa587.sql` | `update_updated_at_column()` with `search_path` | RECORD-ONLY | DRIFT — function absent in prod |
 | 3 | `20260111042037_125c0bf8-3a9d-4610-bd35-83a774e6c361.sql` | `avatars` bucket + 4 storage policies | RECORD-ONLY | DRIFT — prod has own-folder SELECT/INSERT only, 50 MB image+video limit |
 | 4 | `20260111043832_b59a1833-ed5d-4b32-87f7-c1a0127ba4fc.sql` | `products` bucket + storage policies | RECORD-ONLY | DRIFT — differently-named INSERT/SELECT, DELETE from #34, no UPDATE |
@@ -76,8 +76,9 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 43 | `20260904130000_handle1_reserved_and_format.sql` | TL.HANDLE.1 `pages_handle_rules` + `profiles_username_rules` CHECKs: 3–30 lowercase alnum/hyphen, no edge hyphen, and a 54-word reserved list generated from `src/lib/handle-rules.ts` (AUDIT_rev6 #5) | RE-RUNNABLE | MATCH — applied 2026-09-04; both constraints `convalidated`, definitions byte-match `handle-rules.ts` (54 words, same regex) |
 | 44 | `20260905120000_comp3b_comped_until_pins.sql` | TL.COMP.3b `comped_until` pinned against client writes: 7th pin on the `profiles` UPDATE policy WITH CHECK, 5th column in `guard_billing_columns` (still SECURITY INVOKER), and `admin_grant_comp` RAISE NOTICEs when the account has a Stripe customer (AUDIT_rev6 #11). Supersedes the bodies in #29 / #39 / #40 | RE-RUNNABLE | MATCH — applied 2026-09-05; policy_pins 7, guard pins comped_until, notice present |
 | 45 | `20260905130000_stor7_secgrants1.sql` | TL.STOR.7 + TL.SEC.GRANTS.1 `fonts` bucket `allowed_mime_types` locked to the nine font MIMEs generated from `src/lib/user-fonts.ts` (drift-checked by `scripts/user-fonts.test.mjs`); `generate_referral_code` / `referral_earned_in_window` EXECUTE revoked from PUBLIC/anon/authenticated and `claim_referral` from PUBLIC/anon; TRUNCATE/REFERENCES/TRIGGER revoked from anon/authenticated on every public table plus default privileges; `custom_short_links_target_url_scheme` CHECK (AUDIT_rev6 §1.1 fonts, §1.3.10, §1.3.11) | RE-RUNNABLE | MATCH — applied 2026-09-05; 9/0/0/1/3/0/128/true |
+| 46 | `20260905140000_rls_blocks1_enabled_only_public_select.sql` | TL.RLS.BLOCKS.1 public SELECT on `blocks` limited to `is_enabled`, on `block_items` to items of enabled blocks; new owner SELECT policies (`get_mode_owner` / `get_block_owner`) keep the editor's full read. Write policies untouched. Supersedes the two `USING (true)` public SELECT stanzas in #1 (AUDIT_rev6 §2 #6) | RE-RUNNABLE | MATCH — applied 2026-09-05; anon sees 22/28 blocks, 46/51 items, 0 disabled |
 
-Counts: 23 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
+Counts: 24 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
 
 ## Prod-only objects (live in prod, no file behind them)
 
@@ -98,6 +99,9 @@ re-type it from memory.
 - **Constraint:** `block_items_url_scheme` CHECK (§1.3.6).
 - **Policy drops (§1.3.6):** `"Anyone can insert events"` on `events`; `"Public can subscribe to pages"`
   on `page_subscribers`. Both are absent in prod and both remain in files #1 / #18 — hence their headers.
+- **`blocks` / `block_items` public SELECT `USING (true)` (§2 #6 — disabled blocks and their items world-readable):**
+  **CLOSED 2026-09-05** (#46) — public SELECT is now `USING (is_enabled)` / items-of-enabled-blocks, plus owner
+  SELECT policies. The `USING (true)` stanzas in #1 are superseded; `pages` / `modes` remain `USING (true)` (§2.2).
 - **`profile_snapshots` policies (§1.3.9):** `snapshots_select_own`, `snapshots_insert_own`,
   `snapshots_delete_own` — a hand-created trio under a different naming scheme than #22.
   `snapshots_insert_own` was dropped 2026-09-03 (#41); the SELECT/DELETE pair is still prod-only.

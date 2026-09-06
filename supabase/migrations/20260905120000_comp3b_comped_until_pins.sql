@@ -12,7 +12,7 @@
 -- pin and the 5th trigger column. Only postgres (admin_grant_comp /
 -- admin_revoke_comp, SECURITY DEFINER) and the service role can change it.
 --
--- Supersedes: the guard_billing_columns body in #16 (4 columns) and the
+-- Supersedes: the guard_billing_columns body in #29 (4 columns) and the
 -- admin_grant_comp body in #40 (no notice). Re-running either of those files
 -- would silently REMOVE what this file adds — both carry a header saying so.
 -- Record #39 (six pins) is superseded by the WITH CHECK below.
