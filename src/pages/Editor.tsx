@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
+import { PublicHeader } from '@/components/PublicHeader';
+import { resolveEffectivePageStyle } from '@/lib/surface';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import { useApplyLayout } from '@/components/editors/gallery-shared';
@@ -123,6 +125,10 @@ export default function Editor() {
   const devicePreset = resolveDevicePreset(deviceId);
   const previewAreaRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(1);
+  // TL.PREV.HDR.1: the device frame's scroller, handed to the preview's
+  // PublicHeader as its scrollHost (callback ref → state so the header's
+  // listener re-binds when the element mounts, not just when it changes).
+  const [frameScrollEl, setFrameScrollEl] = useState<HTMLElement | null>(null);
 
   // ── DP.2: visitor-preview toggle ──
   // 'edit' shows the WYSIWYG editing chrome; 'visitor' renders the same shared
@@ -943,7 +949,28 @@ export default function Editor() {
                 which intermittently drops rastered tiles (grey regions) on
                 full-bleed pages. Same split as DesktopStage: the parent owns
                 the transform, this unscaled child owns the scrolling. */}
+            {/* TL.PREV.HDR.1: the live page's fade-in header (name + save-contact,
+                full-bleed scrim), positioned against the frame and driven by the
+                frame's scroller — so edit AND visitor preview fade it in exactly
+                like the public page. Sibling of the scroller, not a child: it
+                sits at the frame's top edge and scrolls with nothing. Name reads
+                the same draft the on-canvas name does, so a renamed-but-unsaved
+                name matches. Edit mode passes no onSaveContact → inert button +
+                pointer-events-none, so EPV's top-right camera/pencil overlays
+                (z-[15], under this z-50) stay clickable through it. */}
+            <PublicHeader
+              position="absolute"
+              name={headerDraft?.displayName ?? (page.display_name || page.handle)}
+              scrollHost={frameScrollEl}
+              isFullBleed={resolveEffectivePageStyle(page.theme_json, selectedMode) === 'full_bleed'}
+              onSaveContact={isVisitor ? () => {} : undefined}
+              // Edit mode only: EPV draws its camera/pencil column at top-3 right-3
+              // (48px wide); slide the inert button left of it so the two never
+              // overlap. Visitor mode has no overlays → live layout, untouched.
+              rightInsetPx={isVisitor ? undefined : 56}
+            />
             <div
+              ref={setFrameScrollEl}
               data-testid="device-frame-scroll"
               className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
               style={{

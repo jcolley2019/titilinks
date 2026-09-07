@@ -10,7 +10,6 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Share2,
-  UserPlus,
 } from 'lucide-react';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 import { useEventTracking } from '@/hooks/useEventTracking';
@@ -25,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { TrackingPixels } from '@/components/TrackingPixels';
 import { DesktopStage } from '@/components/DesktopStage';
+import { PublicHeader } from '@/components/PublicHeader';
 import { ensureUserFontFaces, fontsFromBrandJson } from '@/lib/user-fonts';
 import { usePublicPageBranding } from '@/hooks/usePublicPageBranding';
 import { can } from '@/lib/entitlements';
@@ -96,7 +96,6 @@ export default function PublicProfile() {
 
   // Scroll-to-top visibility
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [headerOpacity, setHeaderOpacity] = useState(0);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
   const [shareView, setShareView] = useState(false);
   const [shareName, setShareName] = useState('');
@@ -106,13 +105,14 @@ export default function PublicProfile() {
   // window never moves and `window.scrollY` would sit at 0 forever — the header
   // would never fade in. The stage hands back its own scroller; `null` means
   // the viewport is narrow and the window is the scroller, as before.
+  // (TL.PREV.HDR.1: the header's own fade listener now lives in PublicHeader;
+  // this one only drives the scroll-to-top button.)
   const [scrollHost, setScrollHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
     const target: HTMLElement | Window = scrollHost ?? window;
     const onScroll = () => {
       const y = scrollHost ? scrollHost.scrollTop : window.scrollY;
       setShowScrollTop(y > 300);
-      setHeaderOpacity(Math.min(y / 220, 1));
     };
     onScroll(); // resync when the scroller changes under us
     target.addEventListener('scroll', onScroll, { passive: true });
@@ -441,40 +441,14 @@ export default function PublicProfile() {
           phone's, so the desktop render IS the mobile render. */}
       <DesktopStage backdropImage={backdropImage} theme={publicTheme} deviceId={stageDeviceId} onScrollHost={setScrollHost}>
       <div className="min-h-screen bg-[#0e0c09]">
-        {/* Public header — transparent at top; color + name fade in on scroll (Step 2) */}
-        <header className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', backgroundColor: `rgba(14, 12, 9, ${isFullBleedPage ? 0 : headerOpacity})` }}>
-          <div className="flex items-center justify-between px-4 h-14">
-            <div className="min-w-0 flex-1" style={{ opacity: headerOpacity, ...(isFullBleedPage ? { textShadow: '0 1px 8px rgba(0,0,0,0.7)' } : {}) }}>
-              <p className="truncate text-white font-semibold text-[15px] leading-none">
-                {page?.display_name || page?.handle}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setContactSheetOpen(true)}
-              aria-label={t('publicProfile.saveContactAria')}
-              className="flex items-center justify-center h-9 w-9 rounded-full bg-black/30 backdrop-blur-sm text-white"
-            >
-              <UserPlus className="h-5 w-5" />
-            </button>
-          </div>
-        </header>
-
-        {/* FS.HEADER-b: full-screen only — content melts away as it
-            scrolls under the transparent header, keeping the header
-            name legible. Sits below the header (z-50), above the
-            scrolling content. Hero pages: none. */}
-        {isFullBleedPage && (
-          <div
-            aria-hidden="true"
-            className="fixed top-0 left-0 right-0 z-40 pointer-events-none"
-            style={{
-              height: 'calc(env(safe-area-inset-top, 0px) + 96px)',
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.45) 45%, transparent 100%)',
-              opacity: headerOpacity,
-            }}
-          />
-        )}
+        {/* TL.PREV.HDR.1: the fade-in header + full-bleed scrim, shared with the
+            editor's phone preview. Same markup as before the extraction. */}
+        <PublicHeader
+          name={page?.display_name || page?.handle || ''}
+          scrollHost={scrollHost}
+          isFullBleed={isFullBleedPage}
+          onSaveContact={() => setContactSheetOpen(true)}
+        />
 
         {/* Contact sheet — Save to Contacts (Step A) */}
         <AnimatePresence>
