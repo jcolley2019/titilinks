@@ -42,6 +42,15 @@ Rules:
   - `tests/58-edge1-function-gates.spec.ts` automates these plus the signed-in / configured-source 200 paths; it hits the LIVE functions, so it is only green after the deploy.
 - All SQL is run by the USER in the Supabase web SQL editor — never run DB/SQL from the CLI or MCP.
 
+## Account roster (prod, ohmvlypcbrfkuudcuqub)
+Four accounts exist in `auth.users`. Know which one you are touching before any write.
+- **joeyc** — Joey's PERSONAL page (`3eb457d7-…`). Never a test target. The Aug 18-19 2026 incident minted 32 duplicate blocks here while specs shared it; `tests/auth.setup.ts` refuses this id by name.
+- **joey2019pwtestbattery** — the PRO battery (`d3f1cfce-…`, TL.ISO.1). Comped to `'infinity'` (TL.COMP.4). Every spec that is not free-tier specific runs as this account. Reseed with `node scripts/reset-test-account.mjs` (prints SQL; Joey runs it).
+- **joey2019pwtestfree** — the FREE account (`87d14c9b-…`, TL.HARNESS.FREE.1). Signed up through the real onboarding on 2026-09-07: plan `free`, `comped_until` null, one page, left exactly as onboarding built it. It exists to prove the CLOSED side of plan gates the battery can only prove open. **Never comp it, never seed it, never reset it** — `scripts/reset-test-account.mjs` refuses its handle, and a spec may only write to it under an explicit `allowWrites()` that restores what it changed.
+- **mecivietnam** — a REAL customer. Never a test target, never an example, never touched.
+
+Specs reach the battery through the project-level storageState (`tests/.auth/user.json`) and the free account through `withFreeUser(browser, fn)` from `tests/fixtures.ts` — one door, two keys. Opening `tests/.auth/free.json` any other way skips the write guard and fails the PW-ONE-DOOR invariant.
+
 ## Dev server
 - Dev runs on **8085** (`strictPort`). Check 8085 before starting anything — if a server is already up, reuse it rather than starting a second one.
 - `npm run dev` sweeps 8085 first (`predev`). A listener that answers HTTP is healthy and is never killed: predev prints `port 8085 is already serving (PID n) — reuse it. Not killed.` and exits 1. That is NOT a failure — point your work at the server that is already running.

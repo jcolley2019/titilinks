@@ -11,6 +11,8 @@
 // The FORMER battery account (joey2019pwtest, handle "joeyc") is Joey's PERSONAL
 // page since TL.ISO.1 — this script refuses to emit SQL for it, and the emitted
 // SQL re-checks the identity pin server-side before it changes a single row.
+// It refuses the FREE account (handle "joey2019pwtestfree", TL.HARNESS.FREE.1)
+// for the opposite reason: that account has to STAY free and un-seeded.
 //
 // ── WHY THE TREE, NOT JUST THE PLAN ──────────────────────────────────────────
 // The gallery suite (specs 41-45, 30 tests across the two projects) does not
@@ -79,6 +81,22 @@ const handle = handleArg || BATTERY_HANDLE;
 if (handle === 'joeyc') {
   console.error(
     'REFUSED: "joeyc" is Joey\'s PERSONAL page (TL.ISO.1). The battery account is "joey2019pwtestbattery".'
+  );
+  process.exit(1);
+}
+
+// TL.HARNESS.FREE.1 — the free-plan account is the harness's second locked
+// door, and its whole value is that it is a REAL free account: plan 'free',
+// comped_until null, a page exactly as onboarding built it. Every canonical
+// state this script writes (plan 'pro', comped_until 'infinity', a seeded
+// content tree) would destroy that. Spec 60 proves the free-tier floor against
+// this account; a "reset" would turn it green for the wrong reason forever.
+if (handle === 'joey2019pwtestfree') {
+  console.error(
+    'REFUSED: "joey2019pwtestfree" is the FREE test account (TL.HARNESS.FREE.1). ' +
+      'It is never comped, never seeded and never reset — this script would put it ' +
+      'on plan \'pro\' with comped_until \'infinity\' and overwrite its page. ' +
+      'The battery account is "joey2019pwtestbattery".'
   );
   process.exit(1);
 }

@@ -74,6 +74,18 @@ const checks = [
   // test) and tests/auth.setup.ts (the one real login, minted before any spec
   // context exists). A spec reaching the raw runner — even for a type — skips
   // the deny layer entirely; that is the Aug 18-19 incident class growing back.
+  // TL.HARNESS.FREE.1 adds the SECOND key to the same door and a second rule
+  // under the same name. The battery key (tests/.auth/user.json) is a
+  // project-level storageState, so every spec context is built by the runner
+  // and carries the fixture's routes. The FREE key is not: a spec has to open
+  // it explicitly, and `browser.newContext({ storageState: '…/free.json' })`
+  // produces a context with NO write guard on it at all — every mutation would
+  // reach the free account's live rows. fixtures.withFreeUser() is the one
+  // opener that installs the guard, so naming the free key anywhere outside
+  // the two doors fails here. (The battery key is deliberately NOT covered:
+  // specs 41-45 hand-roll rescue contexts from it, a hole the TL.ISO.2 header
+  // records and review owns. The free account is the one that must never be
+  // written to by accident, so its key gets the stricter rule.)
   { name:'PW-ONE-DOOR', pwOneDoor:true },
   // TL.ISO.2: route.continue()/route.fetch() skip every remaining handler and
   // go straight to the network. Behind a non-GET gate that is a spec
@@ -248,20 +260,38 @@ for (const c of checks) {
   if (c.pwOneDoor) {
     const DOORS = new Set(['tests/fixtures.ts', 'tests/auth.setup.ts']);
     const bad = [];
+    const freeKey = [];
     for (const f of walkTests()) {
       if (DOORS.has(f)) continue;
       readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
         if (line.includes('@playwright/test')) bad.push(`${f}:${i + 1}  ${line.trim()}`);
+        // TL.HARNESS.FREE.1 — the free key, as a STRING LITERAL in live code.
+        // Comments may name the file (this rule is explained in prose in the
+        // fixture and in helpers/auth.ts); only a real path opens a session.
+        const code = /^\s*(\/\*|\*)/.test(line) ? '' : line.replace(/\/\/.*$/, '');
+        if (/['"`][^'"`]*\.auth[\\/]+free\.json/.test(code)) {
+          freeKey.push(`${f}:${i + 1}  ${line.trim()}`);
+        }
       });
     }
-    if (bad.length) {
+    if (bad.length || freeKey.length) {
       failed++;
-      console.error(`x ${c.name} - direct '@playwright/test' import outside the fixture door`);
-      bad.forEach((b) => console.error(`      ${b}`));
-      console.error(`      specs must import { test, expect } (and types) from tests/fixtures.ts -`);
-      console.error(`      the TL.ISO.2 default-deny write guard only exists behind that door.`);
+      if (bad.length) {
+        console.error(`x ${c.name} - direct '@playwright/test' import outside the fixture door`);
+        bad.forEach((b) => console.error(`      ${b}`));
+        console.error(`      specs must import { test, expect } (and types) from tests/fixtures.ts -`);
+        console.error(`      the TL.ISO.2 default-deny write guard only exists behind that door.`);
+      }
+      if (freeKey.length) {
+        console.error(`x ${c.name} - tests/.auth/free.json named outside the fixture door`);
+        freeKey.forEach((b) => console.error(`      ${b}`));
+        console.error(`      a hand-rolled browser.newContext({ storageState: free.json }) carries NO`);
+        console.error(`      write-guard routes, so every mutation lands on the free account for real.`);
+        console.error(`      Open the free session with withFreeUser(browser, async (page) => { ... })`);
+        console.error(`      from tests/fixtures.ts - it installs the same guard the battery runs behind.`);
+      }
     } else {
-      console.log(`ok ${c.name} (${walkTests().length} files, one door)`);
+      console.log(`ok ${c.name} (${walkTests().length} files, one door, two keys)`);
     }
     continue;
   }
