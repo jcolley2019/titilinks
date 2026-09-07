@@ -10,10 +10,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Sparkles, Plus, ExternalLink } from 'lucide-react';
+import { Loader2, Sparkles, Plus, ExternalLink, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell, UPGRADE_PATH } from '@/hooks/useProUpsell';
 
 interface SuggestedLink {
   label: string;
@@ -30,6 +33,13 @@ interface SuggestLinksDialogProps {
 
 export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }: SuggestLinksDialogProps) {
   const { t } = useLanguage();
+  // TL.EDGE.2 — AI tools are Pro-only. The server (suggest-links) enforces it
+  // via plan_allows('aiTools'); this is the client-side twin that produces the
+  // upsell instead of a failed call, plus a 403 PLAN_REQUIRED handler in case
+  // the cached plan is stale (defence in depth).
+  const { entitlements } = useEntitlements();
+  const canAi = entitlements.aiTools;
+  const showUpsell = useProUpsell();
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -37,6 +47,10 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const handleGenerate = async () => {
+    if (!canAi) {
+      showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body'));
+      return;
+    }
     if (!prompt.trim()) {
       toast.error(t('suggestLinks.describePrompt'));
       return;
@@ -51,7 +65,16 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
         body: { prompt: prompt.trim() },
       });
 
-      if (error) throw error;
+      if (error) {
+        // TL.EDGE.2: the server's plan gate answers 403 { code: 'PLAN_REQUIRED' }.
+        // supabase-js hides the body behind error.context (a Response).
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        if (body?.code === 'PLAN_REQUIRED') {
+          showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body'));
+          return;
+        }
+        throw error;
+      }
 
       if (data?.links && Array.isArray(data.links)) {
         setSuggestions(data.links);
@@ -186,6 +209,21 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
           </DialogDescription>
         </DialogHeader>
 
+        {!canAi ? (
+          /* TL.EDGE.2 — free tier: the body IS the upsell (same shape as the
+             Analytics ProGate). No prompt, no function call. */
+          <div
+            className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4 py-8"
+            data-testid="suggest-links-pro-gate"
+          >
+            <Lock className="h-5 w-5 text-primary" />
+            <p className="text-sm font-medium text-foreground">{t('ai.proOnly.title')}</p>
+            <p className="text-xs text-muted-foreground">{t('ai.proOnly.body')}</p>
+            <Button asChild size="sm" className="mt-2">
+              <Link to={UPGRADE_PATH}>{t('upsell.seePro')}</Link>
+            </Button>
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
           {/* Prompt Input */}
           <div className="space-y-2">
@@ -273,6 +311,7 @@ export function SuggestLinksDialog({ open, onOpenChange, modeId, onLinksAdded }:
             </div>
           )}
         </div>
+        )}
 
         {/* Footer */}
         {suggestions.length > 0 && (

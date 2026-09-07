@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, cloneElement, type ReactElement } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { useProUpsell } from '@/hooks/useProUpsell';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
@@ -1586,6 +1588,9 @@ export function EditableProfileView({
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  // TL.EDGE.2 — AI photo enhance is Pro-only (server: ai-enhance → plan_allows('aiTools')).
+  const { entitlements } = useEntitlements();
+  const showUpsell = useProUpsell();
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoOriginalFile, setPhotoOriginalFile] = useState<File | null>(null);
@@ -2288,7 +2293,11 @@ export function EditableProfileView({
       let aiSucceeded = false;
       let aiErrorMsg = '';
 
-      try {
+      if (!entitlements.aiTools) {
+        // TL.EDGE.2: free tier — skip the AI call entirely and take the
+        // crop-only fallback below (no network, no error toast).
+        console.log('[AI Enhance] Skipped — AI tools are a Pro feature; crop-only.');
+      } else try {
         const [hdr, b64] = croppedDataUrl.split(',');
         const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
         console.log(`[AI Enhance] Sending ${(b64.length / 1024).toFixed(0)}KB to crystal-upscaler...`);
@@ -2358,6 +2367,11 @@ export function EditableProfileView({
   };
 
   const handleAiEnhance = async (mode: 'upscale' | 'face_restore', fromCrop?: boolean) => {
+    if (!entitlements.aiTools) {
+      // TL.EDGE.2: Pro-only — upsell before any work or network call.
+      showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body'));
+      return;
+    }
     setAiProcessing(true);
     setPhotoStep('ai');
     try {
@@ -2378,6 +2392,12 @@ export function EditableProfileView({
         body: { base64, mediaType },
       });
 
+      if (error) {
+        // TL.EDGE.2: the server's plan gate answers 403 { code: 'PLAN_REQUIRED' };
+        // supabase-js hides the body behind error.context (a Response).
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        if (body?.code === 'PLAN_REQUIRED') throw Object.assign(new Error(body.error), { code: 'PLAN_REQUIRED' });
+      }
       if (error || !data?.output) throw new Error(error?.message || 'Enhancement failed');
 
       // Fetch enhanced image from Replicate's URL
@@ -2403,7 +2423,11 @@ export function EditableProfileView({
       }
     } catch (err) {
       console.error('AI enhance error:', err);
-      toast.error(t('editor.crop.enhanceFailed'));
+      if ((err as { code?: string })?.code === 'PLAN_REQUIRED') {
+        showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body')); // TL.EDGE.2
+      } else {
+        toast.error(t('editor.crop.enhanceFailed'));
+      }
       setPhotoStep('choose');
     } finally {
       setAiProcessing(false);

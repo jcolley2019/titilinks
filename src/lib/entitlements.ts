@@ -48,7 +48,8 @@ export interface PlanEntitlements {
   /** Meta / TikTok / GA4 tracking pixels injected on the public profile. Paid
    *  everywhere in the market (Linktree, Link.me), so Pro+ here. */
   trackingPixels: boolean;
-  aiBio: boolean;
+  /** AI link suggestions + AI photo enhance; server-enforced by plan_allows('aiTools') in suggest-links / ai-enhance (TL.EDGE.2). */
+  aiTools: boolean;
   emailSubscribe: boolean;
   /** Swipeable carousel of link cards (Featured Links → Carousel). */
   carousel: boolean;
@@ -83,7 +84,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     premiumThemes: false,
     analyticsAdvanced: false,
     trackingPixels: false,
-    aiBio: false,
+    aiTools: false,
     emailSubscribe: false,
     carousel: false,
     linkAnimations: false,
@@ -104,7 +105,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     premiumThemes: true,
     analyticsAdvanced: true,
     trackingPixels: true,
-    aiBio: true,
+    aiTools: true,
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,
@@ -125,7 +126,7 @@ export const ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
     premiumThemes: true,
     analyticsAdvanced: true,
     trackingPixels: true,
-    aiBio: true,
+    aiTools: true,
     emailSubscribe: true,
     carousel: true,
     linkAnimations: true,

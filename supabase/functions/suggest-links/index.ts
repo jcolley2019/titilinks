@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
+import { planAllows } from "../_shared/plan.ts";
 
 const FN = "suggest-links";
 const DAILY_LIMIT = 40;
@@ -19,6 +20,18 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: "Unauthorized" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Service client: the plan gate below and the quota count/insert further down
+  // both need it (profiles / ai_usage_events are owner-read only under RLS).
+  const svc = serviceClient();
+
+  // TL.EDGE.2 — AI tools are a Pro/Business feature. plan_allows fails CLOSED.
+  if (!(await planAllows(svc, user.id, "aiTools"))) {
+    return new Response(
+      JSON.stringify({ error: "AI tools are a Pro feature.", code: "PLAN_REQUIRED" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
@@ -48,7 +61,6 @@ serve(async (req) => {
     }
 
     // Per-user daily quota (service role: RLS is owner-read only).
-    const svc = serviceClient();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { count, error: countError } = await svc
       .from("ai_usage_events")

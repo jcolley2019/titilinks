@@ -750,6 +750,33 @@ ok('rule R6: thresholds are named constants with ToS references');
   }
 
   ok(`ENT.SRV: SQL quotas match entitlements.ts (3 limits × 3 tiers, ${flags.length} flags)`);
+
+  // TL.EDGE.2 — the mirror rule for the one flag the edge functions enforce.
+  // aiTools is checked server-side by suggest-links / ai-enhance through
+  // plan_allows('aiTools'); the SQL row lives in #47 (which restates #31's
+  // body). Pin all three: entitlements.ts, the #47 mirror, and the #31 header
+  // note that points at it — so no one re-pastes #31 and silently drops the row.
+  const edge2 = readFileSync(
+    path.resolve(import.meta.dirname, '../supabase/migrations/20260905150000_edge2_plan_allows_aitools.sql'),
+    'utf-8',
+  );
+  assert.equal(ENTITLEMENTS.free.aiTools, false, 'entitlements.ts: free must NOT have aiTools');
+  assert.equal(ENTITLEMENTS.pro.aiTools, true, 'entitlements.ts: pro must have aiTools');
+  assert.equal(ENTITLEMENTS.business.aiTools, true, 'entitlements.ts: business must have aiTools');
+  assert.ok(!('aiBio' in ENTITLEMENTS.free), 'aiBio was renamed to aiTools (TL.EDGE.2)');
+  const AI_ROW = /when 'aiTools' then coalesce\(p_plan, 'free'\) in \('pro', 'business'\)/;
+  assert.match(edge2, AI_ROW, "#47 must carry the `when 'aiTools'` row");
+  assert.match(edge2, /^-- RE-RUNNABLE — TL\.EDGE\.2/, '#47 first line names its class');
+  assert.match(migration, /SUPERSEDED by\s*\n?--\s*20260905150000_edge2_plan_allows_aitools\.sql/, '#31 must point at #47 above plan_allows');
+  // Every flag #31 polices must survive in #47 (a restatement, not a rewrite).
+  const edge2Flags = [...edge2.matchAll(/when '(\w+)' then coalesce\(p_plan, 'free'\) in \('pro', 'business'\)/g)].map((m) => m[1]);
+  assert.deepEqual(edge2Flags, [...flags, 'aiTools'], `#47 = #31's flags + aiTools (got ${edge2Flags.join(', ')})`);
+  for (const [fn, file] of [['suggest-links', 'suggest-links/index.ts'], ['ai-enhance', 'ai-enhance/index.ts']]) {
+    const src = readFileSync(path.resolve(import.meta.dirname, '../supabase/functions', file), 'utf-8');
+    assert.match(src, /planAllows\(svc, user\.id, "aiTools"\)/, `${fn} must gate on planAllows(…, "aiTools")`);
+    assert.match(src, /PLAN_REQUIRED/, `${fn} must answer PLAN_REQUIRED`);
+  }
+  ok('TL.EDGE.2: aiTools mirrored in entitlements.ts ↔ #47 (+#31 note) and enforced by suggest-links / ai-enhance');
 }
 
 // ── 12. BILL.RECON.1 — which subscription speaks for the customer ────────────

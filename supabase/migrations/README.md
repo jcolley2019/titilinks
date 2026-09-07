@@ -27,7 +27,7 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 46 files
+## All 47 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 28 | `20260729120000_add_billing_columns.sql` | BILL.B1 Stripe columns on `profiles` | RE-RUNNABLE | MATCH |
 | 29 | `20260729120100_add_webhook_events.sql` | BILL.B2 `stripe_webhook_events` ledger + `guard_billing_columns` trigger | RE-RUNNABLE | MATCH for the ledger; the `guard_billing_columns` body (4 columns) is SUPERSEDED by #44 (adds the `comped_until` pin) — re-running this file drops that pin, re-run #44 after |
 | 30 | `20260729120200_add_referrals.sql` | BILL.B3 referral codes, `pending_grants`, `claim_referral`, 3-column `get_public_page_branding` | RE-RUNNABLE | MATCH for objects; EXECUTE grant drift (§1.3.11) |
-| 31 | `20260729120300_ent_srv.sql` | ENT.SRV `plan_limit` / `plan_allows` / `current_plan`, entitlement guard, plan-gated `subscribe_to_page`, quota policies | RE-RUNNABLE | MATCH for bodies; the snapshot quota policy is the sole INSERT gate since #41 (§1.3.9 closed); comment drift (§1.3.12) |
+| 31 | `20260729120300_ent_srv.sql` | ENT.SRV `plan_limit` / `plan_allows` / `current_plan`, entitlement guard, plan-gated `subscribe_to_page`, quota policies; the `plan_allows` body is superseded by #47 (adds `aiTools`) — re-run #47 after | RE-RUNNABLE | MATCH for bodies (plan_allows now carries the #47 row); the snapshot quota policy is the sole INSERT gate since #41 (§1.3.9 closed); comment drift (§1.3.12) |
 | 32 | `20260813000000_ent_pages_quota.sql` | ENT.PAGES.1 maxPages quota on the `pages` INSERT policy | RE-RUNNABLE | MATCH |
 | 33 | `20260813120000_bill_recon_tables.sql` | BILL.RECON.3 `billing_recon_runs` / `billing_recon_findings` | RE-RUNNABLE | MATCH |
 | 34 | `20260816120000_stor4_products_delete_policy.sql` | TL.STOR.4 `products` bucket DELETE policy | RECORD-ONLY (file says NOT IDEMPOTENT) | MATCH |
@@ -77,6 +77,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 44 | `20260905120000_comp3b_comped_until_pins.sql` | TL.COMP.3b `comped_until` pinned against client writes: 7th pin on the `profiles` UPDATE policy WITH CHECK, 5th column in `guard_billing_columns` (still SECURITY INVOKER), and `admin_grant_comp` RAISE NOTICEs when the account has a Stripe customer (AUDIT_rev6 #11). Supersedes the bodies in #29 / #39 / #40 | RE-RUNNABLE | MATCH — applied 2026-09-05; policy_pins 7, guard pins comped_until, notice present |
 | 45 | `20260905130000_stor7_secgrants1.sql` | TL.STOR.7 + TL.SEC.GRANTS.1 `fonts` bucket `allowed_mime_types` locked to the nine font MIMEs generated from `src/lib/user-fonts.ts` (drift-checked by `scripts/user-fonts.test.mjs`); `generate_referral_code` / `referral_earned_in_window` EXECUTE revoked from PUBLIC/anon/authenticated and `claim_referral` from PUBLIC/anon; TRUNCATE/REFERENCES/TRIGGER revoked from anon/authenticated on every public table plus default privileges; `custom_short_links_target_url_scheme` CHECK (AUDIT_rev6 §1.1 fonts, §1.3.10, §1.3.11) | RE-RUNNABLE | MATCH — applied 2026-09-05; 9/0/0/1/3/0/128/true |
 | 46 | `20260905140000_rls_blocks1_enabled_only_public_select.sql` | TL.RLS.BLOCKS.1 public SELECT on `blocks` limited to `is_enabled`, on `block_items` to items of enabled blocks; new owner SELECT policies (`get_mode_owner` / `get_block_owner`) keep the editor's full read. Write policies untouched. Supersedes the two `USING (true)` public SELECT stanzas in #1 (AUDIT_rev6 §2 #6) | RE-RUNNABLE | MATCH — applied 2026-09-05; anon sees 22/28 blocks, 46/51 items, 0 disabled |
+| 47 | `20260905150000_edge2_plan_allows_aitools.sql` | TL.EDGE.2 `plan_allows` restated with a fifth flag, `aiTools` (Pro/Business) — the server gate for the `suggest-links` / `ai-enhance` edge functions (AUDIT_rev6 #10 / §2.5). Supersedes the `plan_allows` body in #31; mirror-checked against `src/lib/entitlements.ts` by `scripts/billing.test.mjs` | RE-RUNNABLE | MATCH — applied 2026-09-06; `plan_allows('free'/'pro'/'business','aiTools')` = false/true/true |
 
 Counts: 24 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
 

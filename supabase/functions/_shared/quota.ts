@@ -1,10 +1,10 @@
 // Shared per-user daily quota for the gated utility functions (TL.EDGE.1).
 //
-// Same mechanism as generate-bio: one `ai_usage_events` row per successful
+// Same mechanism as suggest-links / ai-enhance: one `ai_usage_events` row per successful
 // call, a count of the caller's rows in the last 24h before doing work. The
 // count runs with the service client because the table's RLS is owner-read
 // only. A count FAILURE is non-blocking (the request proceeds), mirroring
-// generate-bio, so a Postgres hiccup degrades to "no quota" rather than an
+// the AI functions, so a Postgres hiccup degrades to "no quota" rather than an
 // outage.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -27,7 +27,7 @@ export async function overDailyQuota(
     .gte("created_at", oneDayAgo);
   if (error) {
     console.error(`[${fn}] quota count failed:`, error);
-    return false; // Non-blocking: allow the request (mirror generate-bio).
+    return false; // Non-blocking: allow the request (mirror the AI functions).
   }
   return count !== null && count >= limit;
 }

@@ -48,6 +48,9 @@ as $$
   end;
 $$;
 
+-- NOTE (TL.EDGE.2, 2026-09-06): this plan_allows body is SUPERSEDED by
+-- 20260905150000_edge2_plan_allows_aitools.sql, which restates it plus a
+-- `when 'aiTools'` row. Re-run that file after this one.
 create or replace function public.plan_allows(p_plan text, p_feature text)
 returns boolean
 language sql

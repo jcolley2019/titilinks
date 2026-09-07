@@ -1867,6 +1867,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'suggestLinks.link': 'link',
     'suggestLinks.links': 'links',
     'suggestLinks.failedAdd': 'Failed to add links',
+    // TL.EDGE.2 — AI tools (link suggestions + photo enhance) are Pro-only.
+    'ai.proOnly.title': 'AI tools are a Pro feature',
+    'ai.proOnly.body': 'Upgrade to Pro to get AI link suggestions and AI photo enhancement.',
 
     // Templates Page
     'templates.title': 'Find your perfect',
@@ -3774,6 +3777,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'suggestLinks.link': 'enlace',
     'suggestLinks.links': 'enlaces',
     'suggestLinks.failedAdd': 'Error al agregar enlaces',
+    // TL.EDGE.2 — las herramientas de IA (sugerencias de enlaces + mejora de fotos) son solo Pro.
+    'ai.proOnly.title': 'Las herramientas de IA son una función Pro',
+    'ai.proOnly.body': 'Mejora a Pro para obtener sugerencias de enlaces con IA y mejora de fotos con IA.',
 
     // Templates Page
     'templates.title': 'Encuentra tu',
