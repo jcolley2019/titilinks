@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { DEVICE_PRESETS, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 import { ensureDefaultBlocks, PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import type { HeroFraming } from '@/lib/hero-framing';
-import { Loader2, Eye, Pencil } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { AdultGateModal } from '@/components/AdultGateModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Navigate } from 'react-router-dom';
 import { EditableProfileView } from '@/components/EditableProfileView';
-import { PublicHeader } from '@/components/PublicHeader';
-import { resolveEffectivePageStyle } from '@/lib/surface';
+import { EditorStage } from '@/components/EditorStage';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { ProfileDashboard, type EditingBlockTarget } from '@/components/ProfileDashboard';
 import { useApplyLayout } from '@/components/editors/gallery-shared';
@@ -22,7 +20,6 @@ import type { EventsDraft } from '@/components/editors/EventsEditor';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { safeHref } from '@/lib/safe-url';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -114,57 +111,9 @@ export default function Editor() {
   // "no panel is drafting", and the rows are exactly what Save would write.
   const [eventsDraft, setEventsDraft] = useState<EventsDraft | null>(null);
 
-  // ── DP.1: device-truthful preview frame ──
-  // The desktop preview renders at a real device's LOGICAL CSS viewport
-  // (src/lib/device-presets.ts) instead of a made-up 390×844 box, so what the
-  // user composes matches what phones actually show. Selection persists.
-  const devicePrefKey = 'titilinks-editor-device';
-  const [deviceId, setDeviceId] = useState<string>(
-    () => resolveDevicePreset(localStorage.getItem(devicePrefKey)).id
-  );
-  const devicePreset = resolveDevicePreset(deviceId);
-  const previewAreaRef = useRef<HTMLDivElement>(null);
-  const [previewScale, setPreviewScale] = useState(1);
-  // TL.PREV.HDR.1: the device frame's scroller, handed to the preview's
-  // PublicHeader as its scrollHost (callback ref → state so the header's
-  // listener re-binds when the element mounts, not just when it changes).
-  const [frameScrollEl, setFrameScrollEl] = useState<HTMLElement | null>(null);
-
-  // ── DP.2: visitor-preview toggle ──
-  // 'edit' shows the WYSIWYG editing chrome; 'visitor' renders the same shared
-  // EditableProfileView in view mode (editMode=false) — exactly what a visitor
-  // gets, including public 18+ gating (stripped hrefs + tap-to-gate). Session-
-  // only on purpose: it resets to 'edit' on reload so the editor never boots into
-  // a read-only surface. The device selector stays live in both modes.
-  const [previewMode, setPreviewMode] = useState<'edit' | 'visitor'>('edit');
   // The gated destination pending an 18+ confirmation in visitor mode. Mirrors
   // the public route's handler, but opens in a new tab so the editor stays put.
   const [pendingGate, setPendingGate] = useState<{ url: string } | null>(null);
-  const isVisitor = previewMode === 'visitor';
-
-  useEffect(() => {
-    try { localStorage.setItem(devicePrefKey, deviceId); } catch { /* storage disabled */ }
-  }, [deviceId]);
-
-  // Scale the frame uniformly to fit the preview column (never magnify past
-  // 100%). Recomputes on column resize — including the dashboard panel opening,
-  // which narrows the column — and on preset change.
-  useEffect(() => {
-    const el = previewAreaRef.current;
-    if (!el) return;
-    const fitPad = 24; // px of breathing room around the frame
-    const compute = () => {
-      const availW = el.clientWidth - fitPad * 2;
-      const availH = el.clientHeight - fitPad * 2;
-      if (availW <= 0 || availH <= 0) return;
-      const s = Math.min(availW / devicePreset.width, availH / devicePreset.height, 1);
-      setPreviewScale(s > 0 ? s : 1);
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [devicePreset.width, devicePreset.height]);
 
   // ── Data Fetching ──
 
@@ -816,201 +765,33 @@ export default function Editor() {
       onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}
       onViewLive={openLive}
     >
-      {/* ═══ DESKTOP: Blurred hero bg + phone frame ═══ */}
-      <div
-        className={cn(
-          "hidden lg:block fixed top-0 bottom-0 left-64 overflow-hidden transition-all duration-300 ease-out",
-          profileDashboardOpen ? "right-[420px]" : "right-0"
-        )}
-      >
-        {/* Blurred hero background */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <div
-            style={{
-              backgroundImage: `url(${page.avatar_url || ''})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'blur(40px)',
-              transform: 'scale(1.15)',
-              opacity: 0.35,
-              position: 'absolute',
-              inset: '-20px',
-            }}
-          />
-          <div className="absolute inset-0 bg-black/50" />
-        </div>
-
-        {/* Desktop top bar */}
-        <div className="relative z-30 flex items-center justify-between px-6 h-[52px] bg-black/30 backdrop-blur-md border-b border-white/5">
-          <span className="text-sm font-bold text-white">
-            Titi<span className="italic text-[#C9A55C]">Links</span>
-          </span>
-
-          <div className="flex items-center gap-3">
-            {/* DP.1: device-truthful preview selector. Device names stay
-                untranslated; the aria-label / caption are localized. */}
-            <div className="flex items-center gap-1.5">
-              <select
-                data-testid="device-selector"
-                aria-label={t('editor.devicePreset')}
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-                className="text-xs bg-black/40 text-white/80 border border-white/15 rounded-full px-3 py-1.5 max-w-[210px] cursor-pointer hover:border-white/30 focus:outline-none focus:border-[#C9A55C]/60 transition-colors"
-              >
-                {DEVICE_PRESETS.map((d) => (
-                  <option key={d.id} value={d.id} className="bg-[#1a1a1a] text-white">
-                    {d.label} · {d.width}×{d.height}
-                  </option>
-                ))}
-              </select>
-              {previewScale < 0.999 && (
-                <span
-                  data-testid="device-scale"
-                  title={t('editor.deviceScaled')}
-                  className="text-[10px] text-white/40 tabular-nums"
-                >
-                  {Math.round(previewScale * 100)}%
-                </span>
-              )}
-            </div>
-            {/* DP.2: visitor-preview toggle — flips the frame between the editing
-                chrome and the exact public view (view mode + public 18+ gating).
-                Session-only; the device selector stays live in both modes. */}
-            <button
-              type="button"
-              data-testid="preview-mode-toggle"
-              onClick={() => setPreviewMode((m) => (m === 'edit' ? 'visitor' : 'edit'))}
-              aria-pressed={isVisitor}
-              aria-label={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
-              title={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
-              className={cn(
-                'flex items-center gap-1.5 text-xs rounded-full border px-3 py-1.5 transition-colors',
-                isVisitor
-                  ? 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C] font-bold'
-                  : 'bg-black/40 text-white/80 border-white/15 hover:border-white/30'
-              )}
-            >
-              {isVisitor ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              <span>{isVisitor ? t('editor.previewEditingLabel') : t('editor.previewVisitorLabel')}</span>
-            </button>
-            <span className="text-xs text-white/50">@{page.handle}</span>
-            <button
-              onClick={() => setProfileDashboardOpen(true)}
-              className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
-            >
-              {t('dashLayout.editProfile')}
-            </button>
-            <button
-              onClick={openLive}
-              className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
-            >
-              {t('editor.viewLive')} ↗
-            </button>
-          </div>
-        </div>
-
-        {/* Phone frame — DP.1 device-truthful preview */}
-        <div
-          ref={previewAreaRef}
-          className="relative z-10 flex items-center justify-center h-[calc(100vh-52px)] overflow-hidden"
-        >
-          {devicePreset.note && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[10px] text-white/45 bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
-              {t('editor.deviceAndroidNote')}
-            </div>
-          )}
-          <div
-            data-testid="device-frame"
-            className="relative overflow-hidden"
-            style={{
-              // Exact logical CSS-viewport of the selected device — the frame
-              // renders at these px so the composition is device-truthful. The
-              // hairline uses `outline` (not `border`) so the box stays exactly
-              // width×height. Scaled to fit; offsetWidth/Height ignore transform.
-              width: `${devicePreset.width}px`,
-              height: `${devicePreset.height}px`,
-              // DP.2: expose the frame's logical height / 100 as a viewport-unit
-              // proxy. Descendant `dvh` reads that opt in via `var(--pv-vh, 1dvh)`
-              // then resolve against the DEVICE frame instead of the desktop
-              // window, so the hero container's `50dvh` is truthful per preset.
-              // Absent on the public route → the 1dvh fallback keeps it identical.
-              '--pv-vh': `${devicePreset.height / 100}px`,
-              flex: '0 0 auto',
-              transform: `scale(${previewScale})`,
-              transformOrigin: 'center center',
-              borderRadius: '44px',
-              outline: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 0 0 2px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.8)',
-            } as CSSProperties}
-          >
-            {/* FIX.STAGE.3: the scaled element must NOT be the scroller — a
-                fractional `scale` on the scrolling element forces the GPU
-                compositor to re-tile scrolled content on every scale churn,
-                which intermittently drops rastered tiles (grey regions) on
-                full-bleed pages. Same split as DesktopStage: the parent owns
-                the transform, this unscaled child owns the scrolling. */}
-            {/* TL.PREV.HDR.1: the live page's fade-in header (name + save-contact,
-                full-bleed scrim), positioned against the frame and driven by the
-                frame's scroller — so edit AND visitor preview fade it in exactly
-                like the public page. Sibling of the scroller, not a child: it
-                sits at the frame's top edge and scrolls with nothing. Name reads
-                the same draft the on-canvas name does, so a renamed-but-unsaved
-                name matches. Edit mode passes no onSaveContact → inert button +
-                pointer-events-none, so EPV's top-right camera/pencil overlays
-                (z-[15], under this z-50) stay clickable through it. */}
-            <PublicHeader
-              position="absolute"
-              name={headerDraft?.displayName ?? (page.display_name || page.handle)}
-              scrollHost={frameScrollEl}
-              isFullBleed={resolveEffectivePageStyle(page.theme_json, selectedMode) === 'full_bleed'}
-              onSaveContact={isVisitor ? () => {} : undefined}
-              // Edit mode only: EPV draws its camera/pencil column at top-3 right-3
-              // (48px wide); slide the inert button left of it so the two never
-              // overlap. Visitor mode has no overlays → live layout, untouched.
-              rightInsetPx={isVisitor ? undefined : 56}
-            />
-            <div
-              ref={setFrameScrollEl}
-              data-testid="device-frame-scroll"
-              className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              } as CSSProperties}
-            >
-              {/* DP.2: same shared render path in both modes. Visitor mode drops
-                  editMode (public chrome + gating), shows enabled blocks only, and
-                  routes gated taps through the 18+ modal. The live-mirror props
-                  (previewBlocks/headerDraft/themeDraft) still flow, so unsaved
-                  drafts remain visible in visitor mode. */}
-              <EditableProfileView
-                page={page}
-                blocks={isVisitor ? visitorBlocks : editBlocks}
-                headerDraft={headerDraft}
-                themeDraft={themeDraft}
-                editMode={!isVisitor}
-                showBranding={showBranding}
-                onOutboundClick={isVisitor ? handleVisitorOutbound : undefined}
-                onBlockEdit={handleEditBlock}
-                onBlockToggle={handleBlockToggle}
-                onBlockReorder={handleBlockReorder}
-                onRefresh={refresh}
-                selectedMode={selectedMode}
-                onModeChange={setSelectedMode}
-                onAddContent={() => setProfileDashboardOpen(true)}
-                onEditVideo={handleEditVideo}
-                openPhotoRequest={photoRequestDesktop}
-                videoPosDraft={videoPosDraft}
-                onGalleryStagedDelete={handleGalleryStagedDelete}
-                onItemEdit={handleItemEdit}
-                onItemDelete={handleItemDelete}
-                onItemAdd={handleItemAdd}
-                onItemsReorder={handleItemsReorder}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ═══ DESKTOP: Blurred hero bg + phone frame — TL.ONB.STAGE.1: lifted into EditorStage ═══ */}
+      <EditorStage
+        page={page}
+        editBlocks={editBlocks}
+        visitorBlocks={visitorBlocks}
+        headerDraft={headerDraft}
+        themeDraft={themeDraft}
+        showBranding={showBranding}
+        selectedMode={selectedMode}
+        onModeChange={setSelectedMode}
+        panelOpen={profileDashboardOpen}
+        onOpenPanel={() => setProfileDashboardOpen(true)}
+        onViewLive={openLive}
+        onVisitorOutbound={handleVisitorOutbound}
+        onBlockEdit={handleEditBlock}
+        onBlockToggle={handleBlockToggle}
+        onBlockReorder={handleBlockReorder}
+        onRefresh={refresh}
+        onEditVideo={handleEditVideo}
+        openPhotoRequest={photoRequestDesktop}
+        videoPosDraft={videoPosDraft}
+        onGalleryStagedDelete={handleGalleryStagedDelete}
+        onItemEdit={handleItemEdit}
+        onItemDelete={handleItemDelete}
+        onItemAdd={handleItemAdd}
+        onItemsReorder={handleItemsReorder}
+      />
 
       {/* ═══ MOBILE: Full screen live profile ═══ */}
       <div className="lg:hidden -mx-4 -mt-6 min-h-screen bg-[#0e0c09]">
