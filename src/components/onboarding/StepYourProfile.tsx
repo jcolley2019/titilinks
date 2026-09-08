@@ -7,6 +7,7 @@ import { validateHandle } from '@/lib/handle-rules';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
+import { planOriginal } from '@/lib/onboarding-photo';
 
 interface Props {
   state: OnboardingState;
@@ -50,6 +51,45 @@ function compressImage(file: File): Promise<File> {
       );
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.src = url;
+  });
+}
+
+// TL.ONB.PHOTO.1 — what onboarding keeps as the ORIGINAL. Under the cap the
+// bytes are untouched (editor parity); over it, a 2400px "large original". The
+// decision lives in src/lib/onboarding-photo.ts (unit-tested); this is the
+// canvas that carries it out. Never throws into the caller: any failure
+// falls back to the raw file so the original is never silently dropped.
+function prepareOriginal(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    const bail = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const plan = planOriginal({ bytes: file.size, width: img.naturalWidth, height: img.naturalHeight });
+      if (plan.keepBytes !== false) { resolve(file); return; }
+      const target = plan;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = target.width;
+        canvas.height = target.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, target.width, target.height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(file); return; }
+            resolve(new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          target.quality
+        );
+      } catch {
+        resolve(file);
+      }
+    };
+    img.onerror = bail;
     img.src = url;
   });
 }
@@ -145,6 +185,8 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         processedFile = await compressImage(rawFile);
       }
       updateField('avatarFile', processedFile);
+      // TL.ONB.PHOTO.1 — keep the raw pick (or its 2400px large-original) too.
+      updateField('avatarOriginalFile', await prepareOriginal(rawFile));
       const reader = new FileReader();
       reader.onloadend = () => updateField('avatarPreview', reader.result as string);
       reader.readAsDataURL(processedFile);
@@ -160,6 +202,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     try {
       const croppedFile = await getCroppedImage(rawImageSrc, croppedAreaPixels);
       updateField('avatarFile', croppedFile);
+      // TL.ONB.PHOTO.1 — the ORIGINAL is the uncropped pick, exactly as the
+      // editor stores photoOriginalFile beside its crop.
+      if (rawFile) updateField('avatarOriginalFile', await prepareOriginal(rawFile));
       const reader = new FileReader();
       reader.onloadend = () => updateField('avatarPreview', reader.result as string);
       reader.readAsDataURL(croppedFile);
@@ -171,6 +216,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       toast.error(`${t('onboardingFlow.cropFailedFallback')} — ${t(cropErrorCauseKey(err))}`);
       if (rawFile) {
         updateField('avatarFile', rawFile);
+        updateField('avatarOriginalFile', rawFile);
         const reader = new FileReader();
         reader.onloadend = () => updateField('avatarPreview', reader.result as string);
         reader.readAsDataURL(rawFile);

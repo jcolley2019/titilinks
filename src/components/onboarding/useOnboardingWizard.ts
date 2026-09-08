@@ -6,6 +6,12 @@ export interface OnboardingState {
   username: string;
   avatarFile: File | null;
   avatarPreview: string | null;
+  // TL.ONB.PHOTO.1 — the picked file before any downsizing (uploaded beside the
+  // display copy as avatar_original_url). A File, so never persisted.
+  avatarOriginalFile: File | null;
+  // TL.ONB.PHOTO.1 — public URL of the uploaded original (step 2 → pages.insert in
+  // step 3). A string, so it survives the sessionStorage round-trip.
+  avatarOriginalUrl: string | null;
   backgroundColor: string;
   backgroundType: 'solid' | 'gradient';
   gradientStart: string;
@@ -40,6 +46,8 @@ const initialState: OnboardingState = {
   username: '',
   avatarFile: null,
   avatarPreview: null,
+  avatarOriginalFile: null,
+  avatarOriginalUrl: null,
   backgroundColor: '#0e0c09',
   backgroundType: 'solid',
   gradientStart: '#667eea',
@@ -95,7 +103,7 @@ function loadPersisted(storageKey: string | undefined): OnboardingState {
       typeof parsed.currentStep === 'number' && Number.isFinite(parsed.currentStep)
         ? Math.min(5, Math.max(1, Math.round(parsed.currentStep)))
         : 1;
-    return { ...initialState, ...parsed, currentStep: restoredStep, avatarFile: null };
+    return { ...initialState, ...parsed, currentStep: restoredStep, avatarFile: null, avatarOriginalFile: null };
   } catch {
     return initialState;
   }
@@ -111,7 +119,7 @@ export function useOnboardingWizard(userId?: string) {
   useEffect(() => {
     if (!storageKey || typeof window === 'undefined') return;
     try {
-      const { avatarFile: _omit, ...serializable } = state;
+      const { avatarFile: _omit, avatarOriginalFile: _omitOrig, ...serializable } = state;
       window.sessionStorage.setItem(storageKey, JSON.stringify(serializable));
     } catch {
       /* storage unavailable / full — non-fatal, flow still works in-memory */

@@ -14,6 +14,7 @@ import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { validateHandle } from '@/lib/handle-rules';
+import { originalObjectName } from '@/lib/onboarding-photo';
 import type { ThemeTypography } from '@/lib/theme-defaults';
 import { BLOCK_PRESETS } from '@/lib/block-presets';
 import { useQueryClient } from '@tanstack/react-query';
@@ -141,6 +142,23 @@ export default function OnboardingFlow() {
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
         avatarUrl = publicUrl;
+
+        // TL.ONB.PHOTO.1 — the full-resolution original rides alongside the display
+        // copy, named exactly as the editor names its originals
+        // (`<uid>/<uuid>-original.<ext>`), and lands in pages.avatar_original_url
+        // at the step-3 insert. Best effort: a failed original upload is logged
+        // and onboarding continues — the page must never be blocked on it.
+        if (state.avatarOriginalFile) {
+          try {
+            const origPath = originalObjectName(user.id, randomUUID(), state.avatarOriginalFile.name);
+            const { error: origError } = await supabase.storage.from('avatars').upload(origPath, state.avatarOriginalFile);
+            if (origError) throw origError;
+            updateField('avatarOriginalUrl', supabase.storage.from('avatars').getPublicUrl(origPath).data.publicUrl);
+          } catch (origErr) {
+            console.error('[ONB.PHOTO.1] original upload failed (continuing without it):', origErr);
+            updateField('avatarOriginalUrl', null);
+          }
+        }
       } else if (!avatarUrl && user.user_metadata?.avatar_url) {
         avatarUrl = user.user_metadata.avatar_url;
       }
@@ -375,6 +393,8 @@ export default function OnboardingFlow() {
         handle: newHandle,
         display_name: state.displayName,
         avatar_url: state.avatarPreview || null,
+        // TL.ONB.PHOTO.1 — the original uploaded in step 2 (null if none / upload failed).
+        avatar_original_url: state.avatarOriginalUrl || null,
         theme_json: {
           background: backgroundJson,
           ...(fbButtons ? { buttons: fbButtons } : {}),
