@@ -804,7 +804,14 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
         // ancestor of its own, so its tiles measure from further up the tree and
         // offsetLeft overshoots by the strip's inset (measured: 29px, which left
         // the new photo clipped at the window's left edge).
-        el.scrollLeft += lastTile.getBoundingClientRect().left - el.getBoundingClientRect().left;
+        // TL.GAL.7: rects are SCREEN px, scrollLeft is the strip's own layout px.
+        // Inside the editor's scaled device frame (DP.1 transform: scale) they
+        // differ by the frame's scale, so divide the delta by the strip's measured
+        // scale — rect width over layout width; exactly 1 on the public page and
+        // at 100%, where this reduces to the previous line.
+        const stripRect = el.getBoundingClientRect();
+        const stripScale = el.offsetWidth > 0 ? stripRect.width / el.offsetWidth : 1;
+        el.scrollLeft += (lastTile.getBoundingClientRect().left - stripRect.left) / stripScale;
       }
       return;
     }
