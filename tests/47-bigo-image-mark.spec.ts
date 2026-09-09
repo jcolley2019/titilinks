@@ -233,11 +233,12 @@ test('leading icon obeys the same CSS sizing as a path mark', async ({ page }, i
 
 // ─── 3. The picker row (editor) ─────────────────────────────────────────────
 
-test('platform picker row renders the image mark', async ({ page }, info) => {
-  // Seed WITHOUT Bigo so the picker row renders in its normal addable state —
-  // an already-added row is dimmed, which is not what the gate is judging.
-  await seed(page, { iconColorMode: 'color', iconBgStyle: 'default', iconSize: 'medium' },
-    ['Instagram', 'TikTok', 'Spotify']);
+// TL.PLAT.HIDE.1 hid Bigo Live from the picker (Titi, Sep 2026), so the
+// editor-side parity check moved to the surface that still renders it: the
+// saved-rows list. The picker is asserted to NOT offer it (spec 63 owns the
+// full picker contract; this is the cross-reference).
+test('saved-row list renders the image mark; the picker no longer offers Bigo', async ({ page }, info) => {
+  await seed(page, { iconColorMode: 'color', iconBgStyle: 'default', iconSize: 'medium' });
 
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
@@ -252,10 +253,12 @@ test('platform picker row renders the image mark', async ({ page }, info) => {
   // The saved-row list first (icon at 20px), then the picker row (22px).
   await page.screenshot({ path: shot(`${suffix(info)}-bigo-editor-rows`) });
 
-  await page.getByRole('button', { name: 'Add Platform' }).click();
-  await page.getByPlaceholder('Search platforms...').fill('Bigo');
-  const row = page.getByRole('button', { name: 'Bigo Live', exact: true }).first();
+  const row = page.getByTestId('social-row').filter({ hasText: 'Bigo Live' }).first();
   await expect(row).toBeVisible();
   await expect(row.locator('svg image')).toHaveCount(1);
-  await row.screenshot({ path: shot(`${suffix(info)}-bigo-picker-row`) });
+  await row.screenshot({ path: shot(`${suffix(info)}-bigo-saved-row`) });
+
+  await page.getByRole('button', { name: 'Add Platform' }).click();
+  await page.getByPlaceholder('Search platforms...').fill('Bigo');
+  await expect(page.getByRole('button', { name: 'Bigo Live', exact: true })).toHaveCount(0);
 });

@@ -2,7 +2,17 @@
 // SocialLinksEditor and StepAddYourLinks. Rendering goes through PlatformIcon,
 // which keys off `label` — entries carry no icon of their own.
 // scripts/audit-platforms.mjs cross-references this file.
-export const PLATFORM_CATALOG = [
+export interface CatalogPlatform {
+  label: string;
+  placeholder: string;
+  /** TL.PLAT.HIDE.1 — kept in the catalog (icons, builders, 18+ gate, saved-row presets) but left out of PICKER_CATALOG. */
+  hidden?: true;
+}
+export interface CatalogCategory {
+  label: string;
+  platforms: CatalogPlatform[];
+}
+export const PLATFORM_CATALOG: CatalogCategory[] = [
   {
     label: 'SOCIAL',
     platforms: [
@@ -61,7 +71,8 @@ export const PLATFORM_CATALOG = [
     platforms: [
       { label: 'Twitch', placeholder: 'Twitch username' },
       { label: 'Kick', placeholder: 'Kick username' },
-      { label: 'Bigo Live', placeholder: 'Bigo Live username' },
+      // TL.PLAT.HIDE.1 — hidden from the pickers by Titi's decision (Sep 2026); icons/builders/gate stay so existing links keep working. Remove the flag to bring one back.
+      { label: 'Bigo Live', placeholder: 'Bigo Live username', hidden: true },
       { label: 'Netflix', placeholder: 'Netflix link' },
       { label: 'Steam', placeholder: 'Steam profile URL' },
       { label: 'Roblox', placeholder: 'Roblox profile URL' },
@@ -84,10 +95,19 @@ export const PLATFORM_CATALOG = [
   {
     label: 'ADULT (18+)',
     platforms: [
-      { label: 'OnlyFans', placeholder: 'OnlyFans username' },
-      { label: 'Fansly', placeholder: 'Fansly username' },
-      { label: 'Privacy', placeholder: 'Privacy username' },
-      { label: 'FatalFans', placeholder: 'FatalFans username' },
+      { label: 'OnlyFans', placeholder: 'OnlyFans username', hidden: true },
+      { label: 'Fansly', placeholder: 'Fansly username', hidden: true },
+      { label: 'Privacy', placeholder: 'Privacy username', hidden: true },
+      { label: 'FatalFans', placeholder: 'FatalFans username', hidden: true },
     ],
   },
 ];
+
+// TL.PLAT.HIDE.1 — what the pickers (SocialLinksEditor, StepAddYourLinks)
+// iterate. Derived from PLATFORM_CATALOG, never a second list: hidden
+// platforms are filtered out and a category left empty is dropped. Preset
+// lookups for EXISTING rows and the 18+ gate keep reading PLATFORM_CATALOG.
+export const PICKER_CATALOG: CatalogCategory[] = PLATFORM_CATALOG.map((c) => ({
+  label: c.label,
+  platforms: c.platforms.filter((p) => !p.hidden),
+})).filter((c) => c.platforms.length > 0);

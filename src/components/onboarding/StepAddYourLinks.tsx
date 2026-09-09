@@ -1,6 +1,6 @@
 import { ArrowLeft, Check } from 'lucide-react';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { PLATFORM_CATALOG } from '@/lib/platform-catalog';
+import { PICKER_CATALOG } from '@/lib/platform-catalog';
 import type { OnboardingState } from './useOnboardingWizard';
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
   t: (key: string) => string;
 }
 
-const PLATFORM_CATEGORIES = PLATFORM_CATALOG.map((c) => ({
+const PLATFORM_CATEGORIES = PICKER_CATALOG.map((c) => ({
   label: c.label,
   platforms: c.platforms.map((p) => p.label),
 }));

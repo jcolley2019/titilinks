@@ -47,7 +47,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
-import { PLATFORM_CATALOG as PLATFORM_CATEGORIES } from '@/lib/platform-catalog';
+import { PLATFORM_CATALOG as PLATFORM_CATEGORIES, PICKER_CATALOG } from '@/lib/platform-catalog';
 import { isAdultPlatformLabel } from '@/lib/adult-gate';
 import { planSocialSave } from '@/lib/social-save';
 
@@ -758,7 +758,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 </div>
                 {search && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                    {PICKER_CATALOG.flatMap(c => c.platforms).filter(p =>
                       p.label.toLowerCase().includes(search.toLowerCase())
                     ).length} {t('socialLinksEditor.platformsFound')}
                   </p>
@@ -770,7 +770,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                 {search ? (
                   /* Search results - flat list */
                   <div>
-                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms)
+                    {PICKER_CATALOG.flatMap(c => c.platforms)
                       .filter(p => p.label.toLowerCase().includes(search.toLowerCase()))
                       .map((platform) => (
                         // TL.SOC.1 — the query and the picker both survive a
@@ -784,7 +784,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                           className="px-4 py-3 border-b border-border last:border-0"
                         />
                       ))}
-                    {PLATFORM_CATEGORIES.flatMap(c => c.platforms).filter(p =>
+                    {PICKER_CATALOG.flatMap(c => c.platforms).filter(p =>
                       p.label.toLowerCase().includes(search.toLowerCase())
                     ).length === 0 && (
                       <div className="px-4 py-6 text-center text-sm text-muted-foreground">
@@ -794,7 +794,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
                   </div>
                 ) : (
                   /* Categorized view */
-                  PLATFORM_CATEGORIES.map((category) => (
+                  PICKER_CATALOG.map((category) => (
                     <div key={category.label} className="border-b border-border last:border-0">
                       {/* Category header */}
                       <button
