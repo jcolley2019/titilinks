@@ -232,7 +232,9 @@ function SocialSvgIcon({ label, size = 20, color }: { label: string; size?: numb
 // (h-8/h-10/h-12 -> h-9/h-11/h-[52px], i.e. 32/40/48px -> 36/44/52px); the
 // inter-icon gap tightens (gap-3 12px -> gap-1.5 6px, per ICON.GAP.1).
 const ICON_GLYPH_PX: Record<string, number> = { small: 17, medium: 22, large: 29 };
-const ICON_CIRCLE_CLASS: Record<string, string> = { small: 'h-9 w-9', medium: 'h-11 w-11', large: 'h-[52px] w-[52px]' };
+// TL.SOC.8: shrink-0 — the circles are flex items in a row that must OVERFLOW
+// (and drift) as soon as the icons exceed the width, never squeeze to fit.
+const ICON_CIRCLE_CLASS: Record<string, string> = { small: 'h-9 w-9 shrink-0', medium: 'h-11 w-11 shrink-0', large: 'h-[52px] w-[52px] shrink-0' };
 const ICON_ROW_GAP = 'gap-1.5';
 const ICON_GAP_PX = 6; // matches gap-1.5; used as per-icon marginRight in drift mode
 // Slow horizontal drift when the row overflows. Reuses the Gallery/Carousel rAF
@@ -264,9 +266,20 @@ function resolveIconBg(
 // pre-IR.1 look). Overflows => the row becomes a single drifting strip that
 // reuses the Gallery block's rAF scrollLeft loop (duplicated for a seamless
 // wrap), disabled under prefers-reduced-motion. A pointer/touch pauses it 8s.
-function HeaderIconRow({ nodes, gapTop }: { nodes: ReactElement[]; gapTop: number }) {
+// TL.SOC.7: `trailing` is an optional extra child (the edit canvas's "+") that
+// rides inside the centred row while the icons fit and is left out of the
+// drifting strip; `onOverflowChange` reports each flip so the caller can place
+// it elsewhere. The public mount passes neither, so its render is unchanged:
+// no trailing => children are exactly `nodes`, and the measure subtracts 0.
+function HeaderIconRow({ nodes, gapTop, trailing, onOverflowChange }: {
+  nodes: ReactElement[];
+  gapTop: number;
+  trailing?: ReactElement;
+  onOverflowChange?: (overflowing: boolean) => void;
+}) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [overflowing, setOverflowing] = useState(false);
+  const reported = useRef<boolean | null>(null);
   const pausedUntil = useRef(0);
   const pause = () => { pausedUntil.current = Date.now() + 8000; };
 
@@ -276,14 +289,24 @@ function HeaderIconRow({ nodes, gapTop }: { nodes: ReactElement[]; gapTop: numbe
     const el = stripRef.current;
     if (!el) return;
     const measure = () => {
-      const single = overflowing ? el.scrollWidth / 2 : el.scrollWidth;
-      setOverflowing(single > el.clientWidth + 1);
+      // TL.SOC.7: while fitted, `trailing` sits inside the row and scrollWidth
+      // counts it. Overflow means "the ICONS alone don't fit", so take its
+      // width (plus the flex gap before it) back out of the measurement.
+      const tr = overflowing ? null : el.querySelector<HTMLElement>('[data-icon-trailing]');
+      const extra = tr ? tr.offsetWidth + ICON_GAP_PX : 0;
+      const single = (overflowing ? el.scrollWidth / 2 : el.scrollWidth) - extra;
+      const next = single > el.clientWidth + 1;
+      setOverflowing(next);
+      if (reported.current !== next) {
+        reported.current = next;
+        onOverflowChange?.(next);
+      }
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [nodes.length, overflowing]);
+  }, [nodes.length, overflowing, !!trailing]);
 
   useEffect(() => {
     if (!overflowing) return;
@@ -336,7 +359,11 @@ function HeaderIconRow({ nodes, gapTop }: { nodes: ReactElement[]; gapTop: numbe
         overflowing ? 'justify-start overflow-x-auto' : `justify-center overflow-x-hidden ${ICON_ROW_GAP}`,
       )}
     >
-      {overflowing ? [...spaced(nodes, false), ...spaced(nodes, true)] : nodes}
+      {overflowing
+        ? [...spaced(nodes, false), ...spaced(nodes, true)]
+        : trailing
+          ? [...nodes, cloneElement(trailing, { key: '__trailing', 'data-icon-trailing': '' })]
+          : nodes}
     </div>
   );
 }
@@ -1136,6 +1163,9 @@ function SocialIconsCard({
 }) {
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
+  // TL.SOC.7: reported by HeaderIconRow — true only when the icons alone no
+  // longer fit on one line, which is when the "+" drops beneath the strip.
+  const [rowOverflowing, setRowOverflowing] = useState(false);
 
   const resolvedIconColor = localIconColorMode === 'black' ? '#000000' : localIconColorMode === 'white' ? '#ffffff' : undefined;
   const iconBg = resolveIconBg(localIconBgStyle, localIconColorMode, chrome.iconBg);
@@ -1156,8 +1186,14 @@ function SocialIconsCard({
         className="relative"
         style={{ paddingTop: 0, paddingBottom: 0 }}
       >
-        <div className={cn('flex flex-wrap justify-center px-4', ICON_ROW_GAP)}>
-          {socialItems.map((item) => {
+        {(() => {
+          // TL.SOC.7: the per-item nodes are unchanged; they now feed the same
+          // HeaderIconRow the public page uses (fits => centred line, overflow
+          // => drifting strip). The "+" rides inline while the row fits and
+          // moves to a centred circle beneath the strip once it overflows.
+          // Horizontal inset comes from the padded header container, as it
+          // does for the public row (the old px-4 was on top of that).
+          const iconNodes = socialItems.map((item) => {
             const href = safeHref(item.url);
             const glyph = (
               <SocialSvgIcon label={item.label} size={ICON_GLYPH_PX[localIconSize]} color={resolveGlyphColor(item.label, resolvedIconColor, iconBg.background)} />
@@ -1204,19 +1240,35 @@ function SocialIconsCard({
                 {glyph}
               </a>
             );
-          })}
-          {/* Add / manage platforms — opens the Manage Platforms menu (edit mode only) */}
-          <button
-            type="button"
-            onClick={onEditSocial}
-            aria-label={t('editor.editSocial')}
-            title={t('editor.editSocial')}
-            className={cn('flex items-center justify-center rounded-full border border-dashed border-white/30 text-white/50 hover:text-white/80 hover:border-white/50 transition-colors', ICON_CIRCLE_CLASS[localIconSize])}
-            style={{ background: chrome.iconBg }}
-          >
-            <Plus size={ICON_GLYPH_PX[localIconSize]} />
-          </button>
-        </div>
+          });
+          // Add / manage platforms — opens the Manage Platforms menu (edit mode only)
+          const addButton = (
+            <button
+              type="button"
+              onClick={onEditSocial}
+              aria-label={t('editor.editSocial')}
+              title={t('editor.editSocial')}
+              data-testid="icon-row-add"
+              className={cn('flex items-center justify-center rounded-full border border-dashed border-white/30 text-white/50 hover:text-white/80 hover:border-white/50 transition-colors', ICON_CIRCLE_CLASS[localIconSize])}
+              style={{ background: chrome.iconBg }}
+            >
+              <Plus size={ICON_GLYPH_PX[localIconSize]} />
+            </button>
+          );
+          return (
+            <>
+              <HeaderIconRow
+                nodes={iconNodes}
+                gapTop={0}
+                trailing={rowOverflowing ? undefined : addButton}
+                onOverflowChange={setRowOverflowing}
+              />
+              {rowOverflowing && (
+                <div className="flex justify-center" style={{ marginTop: 8 }}>{addButton}</div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
     </div>
