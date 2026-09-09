@@ -5,6 +5,10 @@
 // Backdrop, top bar, device frame, PublicHeader and the desktop
 // EditableProfileView mount. State and effects own the device preset,
 // fit-scale, frame scroller and the edit/visitor preview toggle.
+//
+// TL.ONB.STAGE.2: every editing callback is OPTIONAL and the chrome is
+// switchable, so a read-only caller (onboarding) mounts the same stage with
+// no handlers. Every default reproduces the editor's output exactly.
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { DEVICE_PRESETS, resolveDevicePreset } from '@/lib/device-presets';
 import { Eye, Pencil } from 'lucide-react';
@@ -19,58 +23,78 @@ import type { ThemeJson } from '@/lib/theme-defaults';
 import type { HeroFraming } from '@/lib/hero-framing';
 import type { Tables } from '@/integrations/supabase/types';
 
+/** Defaults for the optional callbacks — a read-only stage needs no handlers. */
+const noop = () => {};
+const noopFalse = () => false;
+const noopAsyncFalse = async () => false;
+
 export interface EditorStageProps {
   page: Tables<'pages'>;
   editBlocks: BlockWithItems[];
   visitorBlocks: BlockWithItems[];
-  headerDraft: HeaderDraft | null;
-  themeDraft: ThemeJson | null;
+  headerDraft?: HeaderDraft | null;
+  themeDraft?: ThemeJson | null;
   showBranding: boolean;
   selectedMode: 'page1' | 'page2';
   onModeChange: (mode: 'page1' | 'page2') => void;
-  panelOpen: boolean;
-  onOpenPanel: () => void;
-  onViewLive: () => void;
-  onVisitorOutbound: ClickHandler;
-  onBlockEdit: (blockId: string) => void;
-  onBlockToggle: (blockId: string, enabled: boolean) => void;
-  onBlockReorder: (blockIds: string[]) => void;
-  onRefresh: () => void;
-  onEditVideo: () => void;
-  openPhotoRequest: number;
-  videoPosDraft: HeroFraming | null;
-  onGalleryStagedDelete: (itemId: string) => boolean;
-  onItemEdit: (blockId: string, itemId: string) => void;
-  onItemDelete: (itemId: string) => void;
-  onItemAdd: (blockId: string) => void;
-  onItemsReorder: (blockId: string, orderedItemIds: string[]) => void;
+  panelOpen?: boolean;
+  onOpenPanel?: () => void;
+  onViewLive?: () => void;
+  onVisitorOutbound?: ClickHandler;
+  onBlockEdit?: (blockId: string) => void;
+  onBlockToggle?: (blockId: string, enabled: boolean) => void;
+  onBlockReorder?: (blockIds: string[]) => void;
+  onRefresh?: () => void;
+  onEditVideo?: () => void;
+  openPhotoRequest?: number;
+  videoPosDraft?: HeroFraming | null;
+  onGalleryStagedDelete?: (itemId: string) => boolean;
+  onItemEdit?: (blockId: string, itemId: string) => void;
+  onItemDelete?: (itemId: string) => void;
+  onItemAdd?: (blockId: string) => void;
+  onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
+  /** Wrapper left inset. The editor's sidebar is w-64; onboarding's panel is wider. */
+  leftClass?: string;
+  /** Which top-bar controls this caller wants. Each flag defaults to shown. */
+  chrome?: {
+    label?: string;
+    modeToggle?: boolean;
+    handle?: boolean;
+    editProfile?: boolean;
+    viewLive?: boolean;
+  };
+  /** Seeds the preview mode. The editor boots into 'edit'; onboarding shows the visitor view. */
+  initialMode?: 'edit' | 'visitor';
 }
 
 export function EditorStage({
   page,
   editBlocks,
   visitorBlocks,
-  headerDraft,
-  themeDraft,
+  headerDraft = null,
+  themeDraft = null,
   showBranding,
   selectedMode,
   onModeChange,
-  panelOpen,
-  onOpenPanel,
-  onViewLive,
+  panelOpen = false,
+  onOpenPanel = noop,
+  onViewLive = noop,
   onVisitorOutbound,
-  onBlockEdit,
-  onBlockToggle,
-  onBlockReorder,
-  onRefresh,
-  onEditVideo,
-  openPhotoRequest,
-  videoPosDraft,
-  onGalleryStagedDelete,
-  onItemEdit,
-  onItemDelete,
-  onItemAdd,
-  onItemsReorder,
+  onBlockEdit = noop,
+  onBlockToggle = noopAsyncFalse,
+  onBlockReorder = noop,
+  onRefresh = noop,
+  onEditVideo = noop,
+  openPhotoRequest = 0,
+  videoPosDraft = null,
+  onGalleryStagedDelete = noopFalse,
+  onItemEdit = noop,
+  onItemDelete = noop,
+  onItemAdd = noop,
+  onItemsReorder = noop,
+  leftClass = 'left-64',
+  chrome,
+  initialMode = 'edit',
 }: EditorStageProps) {
   const { t } = useLanguage();
 
@@ -95,7 +119,7 @@ export function EditorStage({
   // gets, including public 18+ gating (stripped hrefs + tap-to-gate). Session-
   // only on purpose: it resets to 'edit' on reload so the editor never boots into
   // a read-only surface. The device selector stays live in both modes.
-  const [previewMode, setPreviewMode] = useState<'edit' | 'visitor'>('edit');
+  const [previewMode, setPreviewMode] = useState<'edit' | 'visitor'>(initialMode);
   const isVisitor = previewMode === 'visitor';
 
   useEffect(() => {
@@ -125,7 +149,8 @@ export function EditorStage({
   return (
   <div
     className={cn(
-      "hidden lg:block fixed top-0 bottom-0 left-64 overflow-hidden transition-all duration-300 ease-out",
+      "hidden lg:block fixed top-0 bottom-0 overflow-hidden transition-all duration-300 ease-out",
+      leftClass,
       panelOpen ? "right-[420px]" : "right-0"
     )}
   >
@@ -148,9 +173,14 @@ export function EditorStage({
 
     {/* Desktop top bar */}
     <div className="relative z-30 flex items-center justify-between px-6 h-[52px] bg-black/30 backdrop-blur-md border-b border-white/5">
-      <span className="text-sm font-bold text-white">
-        Titi<span className="italic text-[#C9A55C]">Links</span>
-      </span>
+      <div className="flex items-center">
+        <span className="text-sm font-bold text-white">
+          Titi<span className="italic text-[#C9A55C]">Links</span>
+        </span>
+        {chrome?.label && (
+          <span data-testid="stage-label" className="ml-3 text-xs uppercase tracking-[0.2em] text-white/60">{chrome.label}</span>
+        )}
+      </div>
 
       <div className="flex items-center gap-3">
         {/* DP.1: device-truthful preview selector. Device names stay
@@ -182,36 +212,44 @@ export function EditorStage({
         {/* DP.2: visitor-preview toggle — flips the frame between the editing
             chrome and the exact public view (view mode + public 18+ gating).
             Session-only; the device selector stays live in both modes. */}
-        <button
-          type="button"
-          data-testid="preview-mode-toggle"
-          onClick={() => setPreviewMode((m) => (m === 'edit' ? 'visitor' : 'edit'))}
-          aria-pressed={isVisitor}
-          aria-label={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
-          title={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
-          className={cn(
-            'flex items-center gap-1.5 text-xs rounded-full border px-3 py-1.5 transition-colors',
-            isVisitor
-              ? 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C] font-bold'
-              : 'bg-black/40 text-white/80 border-white/15 hover:border-white/30'
-          )}
-        >
-          {isVisitor ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          <span>{isVisitor ? t('editor.previewEditingLabel') : t('editor.previewVisitorLabel')}</span>
-        </button>
-        <span className="text-xs text-white/50">@{page.handle}</span>
-        <button
-          onClick={onOpenPanel}
-          className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
-        >
-          {t('dashLayout.editProfile')}
-        </button>
-        <button
-          onClick={onViewLive}
-          className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
-        >
-          {t('editor.viewLive')} ↗
-        </button>
+        {chrome?.modeToggle !== false && (
+          <button
+            type="button"
+            data-testid="preview-mode-toggle"
+            onClick={() => setPreviewMode((m) => (m === 'edit' ? 'visitor' : 'edit'))}
+            aria-pressed={isVisitor}
+            aria-label={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
+            title={isVisitor ? t('editor.previewBackToEditing') : t('editor.previewAsVisitor')}
+            className={cn(
+              'flex items-center gap-1.5 text-xs rounded-full border px-3 py-1.5 transition-colors',
+              isVisitor
+                ? 'bg-[#C9A55C] text-[#0e0c09] border-[#C9A55C] font-bold'
+                : 'bg-black/40 text-white/80 border-white/15 hover:border-white/30'
+            )}
+          >
+            {isVisitor ? <Pencil className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            <span>{isVisitor ? t('editor.previewEditingLabel') : t('editor.previewVisitorLabel')}</span>
+          </button>
+        )}
+        {chrome?.handle !== false && (
+          <span className="text-xs text-white/50">@{page.handle}</span>
+        )}
+        {chrome?.editProfile !== false && (
+          <button
+            onClick={onOpenPanel}
+            className="text-xs font-bold px-4 py-1.5 rounded-full bg-[#C9A55C] text-[#0e0c09] active:scale-95 transition-transform"
+          >
+            {t('dashLayout.editProfile')}
+          </button>
+        )}
+        {chrome?.viewLive !== false && (
+          <button
+            onClick={onViewLive}
+            className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 transition-colors"
+          >
+            {t('editor.viewLive')} ↗
+          </button>
+        )}
       </div>
     </div>
 

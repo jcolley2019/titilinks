@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,7 +15,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { validateHandle } from '@/lib/handle-rules';
 import { originalObjectName } from '@/lib/onboarding-photo';
-import type { ThemeTypography } from '@/lib/theme-defaults';
+import { buildOnboardingTheme, buildPreviewPage, buildPreviewBlocks } from '@/lib/onboarding-preview';
+import { useIsLgUp } from '@/hooks/use-lg-up';
+import { useOnboardingPagePreview } from '@/hooks/useOnboardingPagePreview';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { EditorStage } from '@/components/EditorStage';
 import { BLOCK_PRESETS } from '@/lib/block-presets';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -304,49 +308,9 @@ export default function OnboardingFlow() {
     if (stepSavingRef.current) return;
     stepSavingRef.current = true;
     try {
-      // Map the Vibe choice into the theme background. A gradient goes into
-      // gradient_css with type:'gradient'; solid_color always keeps a real hex
-      // (the gradient's top color) so the hero photo's fade-out stays valid —
-      // a gradient string in solid_color produced an invalid nested gradient
-      // and silently killed the hero fade.
-      const isGradient = state.backgroundType === 'gradient';
-      const backgroundJson = {
-        type: isGradient ? ('gradient' as const) : ('solid' as const),
-        solid_color: isGradient ? state.gradientStart : (state.backgroundColor || '#0e0c09'),
-        gradient_css: isGradient ? `linear-gradient(135deg, ${state.gradientStart}, ${state.gradientEnd})` : '',
-        image_url: '',
-        overlay_color: '#000000',
-        overlay_opacity: 0.5,
-        source: null,
-      };
-
-      // Auto-contrast: dark name/text on light backgrounds, white on dark, so a
-      // light Vibe color never makes the name invisible. Gradients average their
-      // two stops.
-      const lum = (hex: string): number => {
-        const m = (hex || '').replace('#', '');
-        if (m.length < 6) return 0;
-        const r = parseInt(m.slice(0, 2), 16);
-        const g = parseInt(m.slice(2, 4), 16);
-        const b = parseInt(m.slice(4, 6), 16);
-        if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return 0;
-        return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      };
-      const bgLum = isGradient ? (lum(state.gradientStart) + lum(state.gradientEnd)) / 2 : lum(state.backgroundColor);
-      const textColor = bgLum > 0.6 ? '#0e0c09' : '#ffffff';
-
-      // Full-bleed archetype default: outline buttons with a soft
-      // translucent white fill (theme.buttons keys LinkButton honors).
-      // Users refine in the editor. Hero pages write none.
-      const fbButtons = state.pageStyle === 'full_bleed' ? {
-        variant: 'glass',
-        shape: state.buttonShape,
-        background_opacity: 0.35,
-        fill_color: '#FFFFFF',
-        text_color: '#FFFFFF',
-        border_enabled: true,
-        border_color: '#FFFFFF',
-      } : null;
+      // TL.ONB.STAGE.2: the theme literal lives in src/lib/onboarding-preview.ts,
+      // so the desktop phone preview shows exactly what these two writes persist.
+      const themeJson = buildOnboardingTheme(state);
 
       // Check if page already exists
       const { data: existingPage } = await supabase
@@ -358,15 +322,7 @@ export default function OnboardingFlow() {
       if (existingPage) {
         // Update existing page theme
         await supabase.from('pages').update({
-          theme_json: {
-            background: backgroundJson,
-            ...(fbButtons ? { buttons: fbButtons } : {}),
-            buttonStyle: state.buttonStyle,
-            typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
-            pageStyle: state.pageStyle,
-            linkLayout: state.linkLayout,
-            linkCount: state.linkCount,
-          },
+          theme_json: themeJson,
         }).eq('id', existingPage.id);
 
         updateField('createdPageId', existingPage.id);
@@ -395,15 +351,7 @@ export default function OnboardingFlow() {
         avatar_url: state.avatarPreview || null,
         // TL.ONB.PHOTO.1 — the original uploaded in step 2 (null if none / upload failed).
         avatar_original_url: state.avatarOriginalUrl || null,
-        theme_json: {
-          background: backgroundJson,
-          ...(fbButtons ? { buttons: fbButtons } : {}),
-          buttonStyle: state.buttonStyle,
-          typography: { font: state.fontChoice as ThemeTypography['font'], text_color: textColor },
-          pageStyle: state.pageStyle,
-          linkLayout: state.linkLayout,
-          linkCount: state.linkCount,
-        },
+        theme_json: themeJson,
       }).select().single();
 
       if (pageError) throw pageError;
@@ -531,37 +479,17 @@ export default function OnboardingFlow() {
     }
   };
 
-  return (
-    <div className="relative isolate min-h-screen bg-[#0e0c09] text-white flex flex-col">
-      {/* ONB.10: live page preview — once a photo is picked, the wizard
-          backdrop becomes the page being built, per chosen style. */}
-      {state.avatarPreview && state.currentStep >= 2 && (
-        state.pageStyle === 'full_bleed' ? (
-          <div aria-hidden="true" className="fixed inset-0 -z-10">
-            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)' }} />
-          </div>
-        ) : (
-          <div aria-hidden="true" className="fixed top-0 inset-x-0 -z-10" style={{ height: 'min(calc(50dvh + 60px), 560px)' }}>
-            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(14,12,9,0.15) 0%, rgba(14,12,9,0.35) 55%, #0e0c09 100%)' }} />
-          </div>
-        )
-      )}
-      {/* Top bar */}
-      <div className="relative z-[60] flex items-center justify-between px-6 py-4 border-b border-white/5">
+  // TL.ONB.STAGE.2 — hoisted VERBATIM so the desktop branch below and the
+  // untouched mobile return render the SAME nodes. Not a rewrite: the mobile
+  // DOM is byte-for-byte what it was before the hoist.
+  const wordmark = (
         <span className="text-xl font-bold">
           <span className="text-white font-display">Titi</span>
           <span className="italic text-[#C9A55C] font-display">Links</span>
         </span>
-        <div className="w-64">
-          <OnboardingStepIndicator currentStep={state.currentStep} stepLabels={stepLabels} />
-        </div>
-        <div className="w-16" />
-      </div>
+  );
 
-      {/* Step content */}
-      <div className="w-full max-w-3xl mx-auto px-6 pt-12 flex-1 flex flex-col">
+  const stepContent = (
         <AnimatePresence mode="wait" custom={state.direction}>
           <motion.div
             className="flex-1 flex flex-col"
@@ -594,6 +522,89 @@ export default function OnboardingFlow() {
             )}
           </motion.div>
         </AnimatePresence>
+  );
+
+  // ── TL.ONB.STAGE.2: the desktop wizard IS the editor's stage ──
+  // At >=lg the wizard renders its steps in a fixed left panel and mounts the
+  // real EditorStage beside it, so what the user is composing shows in a
+  // device-truthful phone from step 1. Before step 3 there is no page row, so
+  // the phone renders an in-memory projection of what step 3 will create; once
+  // the page exists the read-only hook swaps in the real rows.
+  const isLgUp = useIsLgUp();
+  const { can, showBadge } = useEntitlements();
+  // PROMO.TOGGLE.1: free is always branded; paid tiers follow the owner's
+  // setting — the same line the editor uses, so the preview brands identically.
+  const showBranding = !can('removeBranding') || showBadge;
+  const real = useOnboardingPagePreview(state.createdPageId, state.currentStep);
+  const previewPage = useMemo(
+    () => real.page ?? buildPreviewPage(state, user?.id ?? '', {
+      name: t('onboardingFlow.previewName'),
+      handle: t('onboardingFlow.previewHandle'),
+    }),
+    [real.page, state, user?.id, t]
+  );
+  const previewBlocks = useMemo(
+    () => (real.page ? real.blocks : buildPreviewBlocks(state)),
+    [real.page, real.blocks, state]
+  );
+
+  if (isLgUp) {
+    return (
+      <div data-testid="onboarding-desktop" className="relative min-h-screen bg-[#0e0c09] text-white">
+        <aside data-testid="onboarding-panel" className="fixed top-0 bottom-0 left-0 z-20 flex w-[560px] flex-col border-r border-white/5 bg-[#0e0c09]">
+          <div className="flex items-center gap-4 border-b border-white/5 px-6 py-4">
+            {wordmark}
+            <span data-testid="onboarding-title" className="text-xs uppercase tracking-[0.2em] text-white/60">{t('onboardingFlow.stageLabel')}</span>
+          </div>
+          <div className="border-b border-white/5 px-6 py-4">
+            <OnboardingStepIndicator currentStep={state.currentStep} stepLabels={stepLabels} />
+          </div>
+          <div className="flex flex-1 flex-col overflow-y-auto px-8 pb-8 pt-8">{stepContent}</div>
+        </aside>
+        <EditorStage
+          leftClass="left-[560px]"
+          chrome={{ label: t('onboardingFlow.stageLabel'), modeToggle: false, handle: false, editProfile: false, viewLive: false }}
+          initialMode="visitor"
+          page={previewPage}
+          editBlocks={previewBlocks}
+          visitorBlocks={previewBlocks}
+          showBranding={showBranding}
+          selectedMode="page1"
+          onModeChange={() => {}}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative isolate min-h-screen bg-[#0e0c09] text-white flex flex-col">
+      {/* ONB.10: live page preview — once a photo is picked, the wizard
+          backdrop becomes the page being built, per chosen style. */}
+      {state.avatarPreview && state.currentStep >= 2 && (
+        state.pageStyle === 'full_bleed' ? (
+          <div aria-hidden="true" className="fixed inset-0 -z-10">
+            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)' }} />
+          </div>
+        ) : (
+          <div aria-hidden="true" className="fixed top-0 inset-x-0 -z-10" style={{ height: 'min(calc(50dvh + 60px), 560px)' }}>
+            <img src={state.avatarPreview} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(14,12,9,0.15) 0%, rgba(14,12,9,0.35) 55%, #0e0c09 100%)' }} />
+          </div>
+        )
+      )}
+      {/* Top bar */}
+      <div className="relative z-[60] flex items-center justify-between px-6 py-4 border-b border-white/5">
+        {wordmark}
+        <div className="w-64">
+          <OnboardingStepIndicator currentStep={state.currentStep} stepLabels={stepLabels} />
+        </div>
+        <div className="w-16" />
+      </div>
+
+      {/* Step content */}
+      <div className="w-full max-w-3xl mx-auto px-6 pt-12 flex-1 flex flex-col">
+        {stepContent}
       </div>
     </div>
   );
