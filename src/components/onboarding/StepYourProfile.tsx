@@ -8,6 +8,7 @@ import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
 import { planOriginal } from '@/lib/onboarding-photo';
+import { beginAvatarUpload } from '@/lib/onboarding-upload';
 
 interface Props {
   state: OnboardingState;
@@ -16,7 +17,17 @@ interface Props {
   onPrev: () => void;
   user: any;
   t: (key: string) => string;
+  /** TL.ONB.PERF.1 — true while Continue is waiting on the photo upload. */
+  uploading?: boolean;
 }
+
+// TL.ONB.PERF.1 — the last handle that came back available, remembered ACROSS
+// mounts. Back remounts this step (AnimatePresence keys the step), and every
+// fresh mount re-ran the 500 ms debounce + round-trip with Continue disabled
+// throughout — PERF.0 measured ~0.5 s mocked, ~0.76 s against real Supabase, on
+// a handle the user had already cleared and not touched since. Module-level so
+// the remount cannot forget it; a keystroke moves off it and re-checks.
+let lastAvailableHandle: string | null = null;
 
 function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -94,7 +105,7 @@ function prepareOriginal(file: File): Promise<File> {
   });
 }
 
-export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }: Props) {
+export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, uploading = false }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [compressing, setCompressing] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
@@ -138,6 +149,14 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       return;
     }
 
+    // TL.ONB.PERF.1 — a handle this session already cleared is still clear.
+    // Show it as available immediately rather than disabling Continue for
+    // another debounce + round-trip every time the user comes Back to step 2.
+    if (state.username === lastAvailableHandle) {
+      setUsernameStatus('available');
+      return;
+    }
+
     setUsernameStatus('checking');
     debounceRef.current = setTimeout(async () => {
       try {
@@ -145,7 +164,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
           supabase.from('profiles').select('id').eq('username', state.username).neq('id', user?.id ?? '').maybeSingle(),
           supabase.from('pages').select('id').eq('handle', state.username).neq('user_id', user?.id ?? '').maybeSingle(),
         ]);
-        setUsernameStatus(profileMatch || pageMatch ? 'taken' : 'available');
+        const taken = Boolean(profileMatch || pageMatch);
+        if (!taken) lastAvailableHandle = state.username;
+        setUsernameStatus(taken ? 'taken' : 'available');
       } catch {
         setUsernameStatus('idle');
       }
@@ -175,6 +196,31 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // TL.ONB.PERF.1 — the photo starts uploading HERE, the moment the user
+  // accepts it, instead of on the Continue click. Continue then awaits a
+  // promise that has usually already settled. A second pick supersedes the
+  // first (beginAvatarUpload cancels it), so a stale result never lands.
+  const kickOffUpload = (displayFile: File, originalFile: File | null) => {
+    if (!user?.id) return;
+    // The previous upload's URLs describe a photo the user just replaced.
+    updateField('avatarUploadedUrl', null);
+    updateField('avatarOriginalUrl', null);
+    const handle = beginAvatarUpload(user.id, displayFile, originalFile);
+    handle.promise.then(
+      (result) => {
+        if (handle.cancelled) return;
+        updateField('avatarUploadedUrl', result.avatarUrl);
+        updateField('avatarOriginalUrl', result.avatarOriginalUrl);
+      },
+      (err) => {
+        // Not user-facing: Continue re-uploads synchronously and reports there,
+        // exactly as it did before the photo moved off the click.
+        if (handle.cancelled) return;
+        console.error('[ONB.PERF.1] pre-upload failed (Continue will retry):', err);
+      },
+    );
+  };
+
   const handleUseOriginal = async () => {
     if (!rawFile) return;
     setCompressing(true);
@@ -186,7 +232,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       }
       updateField('avatarFile', processedFile);
       // TL.ONB.PHOTO.1 — keep the raw pick (or its 2400px large-original) too.
-      updateField('avatarOriginalFile', await prepareOriginal(rawFile));
+      const originalFile = await prepareOriginal(rawFile);
+      updateField('avatarOriginalFile', originalFile);
+      kickOffUpload(processedFile, originalFile);
       const reader = new FileReader();
       reader.onloadend = () => updateField('avatarPreview', reader.result as string);
       reader.readAsDataURL(processedFile);
@@ -204,7 +252,12 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       updateField('avatarFile', croppedFile);
       // TL.ONB.PHOTO.1 — the ORIGINAL is the uncropped pick, exactly as the
       // editor stores photoOriginalFile beside its crop.
-      if (rawFile) updateField('avatarOriginalFile', await prepareOriginal(rawFile));
+      let originalFile: File | null = null;
+      if (rawFile) {
+        originalFile = await prepareOriginal(rawFile);
+        updateField('avatarOriginalFile', originalFile);
+      }
+      kickOffUpload(croppedFile, originalFile);
       const reader = new FileReader();
       reader.onloadend = () => updateField('avatarPreview', reader.result as string);
       reader.readAsDataURL(croppedFile);
@@ -217,6 +270,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
       if (rawFile) {
         updateField('avatarFile', rawFile);
         updateField('avatarOriginalFile', rawFile);
+        kickOffUpload(rawFile, rawFile);
         const reader = new FileReader();
         reader.onloadend = () => updateField('avatarPreview', reader.result as string);
         reader.readAsDataURL(rawFile);
@@ -397,10 +451,14 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t }:
         </button>
         <button
           onClick={handleContinue}
-          disabled={!isValid}
-          className="px-8 py-3 rounded-lg bg-[#C9A55C] text-[#0e0c09] font-semibold font-body transition-opacity disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90"
+          disabled={!isValid || uploading}
+          data-testid="onb-continue"
+          className="inline-flex items-center gap-2 px-8 py-3 rounded-lg bg-[#C9A55C] text-[#0e0c09] font-semibold font-body transition-opacity disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90"
         >
-          {t('onboardingFlow.continue')}
+          {/* TL.ONB.PERF.1 — only shown when the pick-time upload is still in
+              flight; a finished upload keeps the button reading "Continue". */}
+          {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+          {uploading ? t('onboardingFlow.uploading') : t('onboardingFlow.continue')}
         </button>
       </div>
 

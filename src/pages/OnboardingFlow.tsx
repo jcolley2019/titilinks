@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,9 +12,8 @@ import { StepButtonSize } from '@/components/onboarding/StepButtonSize';
 import { StepAddYourLinks } from '@/components/onboarding/StepAddYourLinks';
 import { StepYoureLive } from '@/components/onboarding/StepYoureLive';
 import { supabase } from '@/integrations/supabase/client';
-import { randomUUID } from '@/lib/utils';
 import { validateHandle } from '@/lib/handle-rules';
-import { originalObjectName } from '@/lib/onboarding-photo';
+import { currentAvatarUpload, startAvatarUpload, type AvatarUploadResult } from '@/lib/onboarding-upload';
 import { buildOnboardingTheme, buildPreviewPage, buildPreviewBlocks } from '@/lib/onboarding-preview';
 import { useIsLgUp } from '@/hooks/use-lg-up';
 import { useOnboardingPagePreview } from '@/hooks/useOnboardingPagePreview';
@@ -94,6 +93,11 @@ export default function OnboardingFlow() {
   // clicks until the in-flight save settles (success or failure).
   const stepSavingRef = useRef(false);
 
+  // TL.ONB.PERF.1 — true only while Continue is actually waiting on the photo
+  // upload (a pick-time upload that has already finished never sets it), so the
+  // step-2 button can say so instead of looking dead.
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
   // Step 1 save: page_style to profiles
   const handleStep1Next = async () => {
     if (!user || !state.pageStyle) return;
@@ -137,32 +141,36 @@ export default function OnboardingFlow() {
         return;
       }
 
-      // Upload avatar if file exists
-      let avatarUrl = state.avatarPreview;
+      // TL.ONB.PERF.1 — the photo was uploaded at pick time (StepYourProfile →
+      // beginAvatarUpload), so this normally awaits an already-settled promise
+      // instead of a fresh 2-4 s POST. The upload itself is unchanged; it lives
+      // in src/lib/onboarding-upload.ts now. Two paths still upload here: a
+      // resumed session (the File survived, the promise did not) and a
+      // pre-upload that failed — both fall back to exactly the old behaviour,
+      // including the throw that surfaces as the saveFailed toast.
+      let avatarUrl = state.avatarUploadedUrl || state.avatarPreview;
       if (state.avatarFile) {
-        const ext = state.avatarFile.name.split('.').pop();
-        const filePath = `${user.id}/${randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, state.avatarFile);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        avatarUrl = publicUrl;
-
-        // TL.ONB.PHOTO.1 — the full-resolution original rides alongside the display
-        // copy, named exactly as the editor names its originals
-        // (`<uid>/<uuid>-original.<ext>`), and lands in pages.avatar_original_url
-        // at the step-3 insert. Best effort: a failed original upload is logged
-        // and onboarding continues — the page must never be blocked on it.
-        if (state.avatarOriginalFile) {
-          try {
-            const origPath = originalObjectName(user.id, randomUUID(), state.avatarOriginalFile.name);
-            const { error: origError } = await supabase.storage.from('avatars').upload(origPath, state.avatarOriginalFile);
-            if (origError) throw origError;
-            updateField('avatarOriginalUrl', supabase.storage.from('avatars').getPublicUrl(origPath).data.publicUrl);
-          } catch (origErr) {
-            console.error('[ONB.PHOTO.1] original upload failed (continuing without it):', origErr);
-            updateField('avatarOriginalUrl', null);
+        const pending = currentAvatarUpload();
+        const mustWait = !pending || !pending.settled;
+        let uploaded: AvatarUploadResult | null = null;
+        if (mustWait) setUploadingPhoto(true);
+        try {
+          if (pending) {
+            try {
+              uploaded = await pending.promise;
+            } catch (preErr) {
+              console.error('[ONB.PERF.1] pre-upload failed, retrying on Continue:', preErr);
+            }
           }
+          if (!uploaded) {
+            uploaded = await startAvatarUpload(user.id, state.avatarFile, state.avatarOriginalFile).promise;
+          }
+        } finally {
+          if (mustWait) setUploadingPhoto(false);
         }
+        avatarUrl = uploaded.avatarUrl;
+        updateField('avatarUploadedUrl', uploaded.avatarUrl);
+        updateField('avatarOriginalUrl', uploaded.avatarOriginalUrl);
       } else if (!avatarUrl && user.user_metadata?.avatar_url) {
         avatarUrl = user.user_metadata.avatar_url;
       }
@@ -173,7 +181,12 @@ export default function OnboardingFlow() {
         avatar_url: avatarUrl,
       }).eq('id', user.id);
 
-      if (avatarUrl) updateField('avatarPreview', avatarUrl);
+      // TL.ONB.PERF.1 — avatarPreview is NOT swapped for the public URL here.
+      // It used to be, which meant every surface showing the photo (the phone
+      // preview, the ONB.10 backdrop) dropped its decoded local copy and
+      // re-fetched a just-written, still-cold storage object — the delay on
+      // Back. The uploaded URL rides in avatarUploadedUrl instead, and that is
+      // what step 3 writes to pages.avatar_url.
       goNext();
     } catch (err) {
       console.error('Step 2 save error:', err);
@@ -348,7 +361,10 @@ export default function OnboardingFlow() {
         user_id: user.id,
         handle: newHandle,
         display_name: state.displayName,
-        avatar_url: state.avatarPreview || null,
+        // TL.ONB.PERF.1 — the UPLOADED url, never avatarPreview's local data
+        // URL. avatarPreview falls back in only for a photo that was never
+        // picked in this session (the resume path fills it from the DB).
+        avatar_url: state.avatarUploadedUrl || state.avatarPreview || null,
         // TL.ONB.PHOTO.1 — the original uploaded in step 2 (null if none / upload failed).
         avatar_original_url: state.avatarOriginalUrl || null,
         theme_json: themeJson,
@@ -505,7 +521,7 @@ export default function OnboardingFlow() {
               <StepChooseStyle state={state} updateField={updateField} onNext={handleStep1Next} t={t} />
             )}
             {state.currentStep === 2 && (
-              <StepYourProfile state={state} updateField={updateField} onNext={handleStep2Next} onPrev={goPrev} user={user} t={t} />
+              <StepYourProfile state={state} updateField={updateField} onNext={handleStep2Next} onPrev={goPrev} user={user} t={t} uploading={uploadingPhoto} />
             )}
             {state.currentStep === 3 && (
               state.pageStyle === 'full_bleed' ? (

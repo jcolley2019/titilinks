@@ -5,7 +5,15 @@ export interface OnboardingState {
   displayName: string;
   username: string;
   avatarFile: File | null;
+  // TL.ONB.PERF.1 — the LOCAL preview (a data URL while a photo is being picked
+  // in this session). It is never swapped for the uploaded public URL: every
+  // surface that shows the photo — the phone preview, the ONB.10 backdrop —
+  // reads it, and swapping meant Back re-fetched a cold storage object.
   avatarPreview: string | null;
+  // TL.ONB.PERF.1 — public URL of the DISPLAY copy, set when the upload that
+  // started at pick time resolves. A string, so it survives the sessionStorage
+  // round-trip; this, not avatarPreview, is what reaches the database.
+  avatarUploadedUrl: string | null;
   // TL.ONB.PHOTO.1 — the picked file before any downsizing (uploaded beside the
   // display copy as avatar_original_url). A File, so never persisted.
   avatarOriginalFile: File | null;
@@ -46,6 +54,7 @@ const initialState: OnboardingState = {
   username: '',
   avatarFile: null,
   avatarPreview: null,
+  avatarUploadedUrl: null,
   avatarOriginalFile: null,
   avatarOriginalUrl: null,
   backgroundColor: '#0e0c09',
