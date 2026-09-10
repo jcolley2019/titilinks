@@ -308,10 +308,7 @@ export function EditorStage({
           scrollHost={frameScrollEl}
           isFullBleed={resolveEffectivePageStyle(page.theme_json, selectedMode) === 'full_bleed'}
           onSaveContact={isVisitor ? () => {} : undefined}
-          // Edit mode only: EPV draws its camera/pencil column at top-3 right-3
-          // (48px wide); slide the inert button left of it so the two never
-          // overlap. Visitor mode has no overlays → live layout, untouched.
-          rightInsetPx={isVisitor ? undefined : 56}
+          // TL.HDR.OVL.1 — no inset: the edit overlays sit below the header, so add-contact keeps its live position in both modes.
         />
         <div
           ref={setFrameScrollEl}

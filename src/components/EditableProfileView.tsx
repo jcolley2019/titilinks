@@ -2891,7 +2891,8 @@ export function EditableProfileView({
         {/* Controls render even with no hero media: the camera is the only
             way to add a first photo; the pencil is inert until one exists. */}
         {editMode && photoStep === 'idle' && (
-          <div className="absolute top-3 right-3 z-[15] flex flex-col gap-2">
+          // TL.HDR.OVL.1 — below the 56px public header so add-contact keeps its live position.
+          <div className="absolute top-[68px] right-3 z-[15] flex flex-col gap-2">
             {!heroVideo && (
               <button
                 onClick={() => {
