@@ -175,7 +175,8 @@ export const TEMPLATES: TemplateDefinition[] = [
       buttons: {
         shape: 'rounded',
         fill_color: '#00ff88',
-        text_color: '#0f0f1a',
+        // TL.TPL.CONTRAST.1 — outline label on the dark page; was the page colour, rescued only by LinkButton's guard
+        text_color: '#ffffff',
         border_enabled: true,
         border_color: '#00ff8840',
         shadow_enabled: true,
@@ -340,7 +341,8 @@ export const TEMPLATES: TemplateDefinition[] = [
       buttons: {
         shape: 'square',
         fill_color: '#18181b',
-        text_color: '#fafafa',
+        // TL.TPL.CONTRAST.1 — outline label on the near-white page; was the page colour, rescued only by LinkButton's guard
+        text_color: '#18181b',
         border_enabled: true,
         border_color: '#18181b',
         shadow_enabled: false,
@@ -418,7 +420,8 @@ export const TEMPLATES: TemplateDefinition[] = [
       buttons: {
         shape: 'pill',
         fill_color: '#451a03',
-        text_color: '#ffffff',
+        // TL.TPL.CONTRAST.1 — glass barely tints, so the label sits on the bright gradient; was white, rescued only by LinkButton's guard
+        text_color: '#451a03',
         border_enabled: true,
         border_color: '#451a03',
         shadow_enabled: false,
