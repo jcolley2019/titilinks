@@ -157,6 +157,8 @@ interface EditableProfileViewProps {
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
+  // TL.AI.LINKS.1 — "Suggest with AI" door on the links block (edit preview only).
+  onSuggestAi?: (blockId: string) => void;
   onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
   // Live-mirror (L4): the Name & Handle hub's in-progress edits. Present fields
   // win over the saved values in the edit-mode preview; absent means "no override".
@@ -379,6 +381,7 @@ function BlockRenderer({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onSuggestAi,
   onItemsReorder,
 }: ThemedBlockProps & {
   pageId?: string;
@@ -386,6 +389,7 @@ function BlockRenderer({
   onItemEdit?: (id: string) => void;
   onItemDelete?: (id: string) => void;
   onItemAdd?: () => void;
+  onSuggestAi?: () => void;
   onItemsReorder?: (orderedItemIds: string[]) => void;
 }) {
   const blockProps = { block, onOutboundClick, theme, editMode };
@@ -403,6 +407,7 @@ function BlockRenderer({
           onItemEdit={onItemEdit}
           onItemDelete={onItemDelete}
           onItemAdd={onItemAdd}
+          onSuggestAi={onSuggestAi}
           onItemsReorder={onItemsReorder}
         />
       );
@@ -1285,6 +1290,7 @@ function SortablePreviewCard({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onSuggestAi,
   onItemsReorder,
   isDragActive,
   theme,
@@ -1296,6 +1302,7 @@ function SortablePreviewCard({
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
+  onSuggestAi?: (blockId: string) => void;
   onItemsReorder?: (orderedItemIds: string[]) => void;
   isDragActive: boolean;
   theme: ThemeJson;
@@ -1397,6 +1404,7 @@ function SortablePreviewCard({
               onItemEdit={(itemId) => onItemEdit?.(block.id, itemId)}
               onItemDelete={onItemDelete}
               onItemAdd={() => onItemAdd?.(block.id)}
+              onSuggestAi={onSuggestAi ? () => onSuggestAi(block.id) : undefined}
               onItemsReorder={onItemsReorder}
             />
           ) : block.type === 'events' ? (
@@ -1639,6 +1647,7 @@ export function EditableProfileView({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onSuggestAi,
   onItemsReorder,
   headerDraft,
   themeDraft,
@@ -3600,6 +3609,7 @@ export function EditableProfileView({
                       onItemEdit={onItemEdit}
                       onItemDelete={onItemDelete}
                       onItemAdd={onItemAdd}
+                      onSuggestAi={onSuggestAi}
                       onItemsReorder={(ids) => onItemsReorder?.(block.id, ids)}
                       isDragActive={isDragActive}
                       theme={theme}

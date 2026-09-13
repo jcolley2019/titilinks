@@ -4,6 +4,7 @@ import { ensureDefaultBlocks, PAGE_SINGLETON_TYPES } from '@/lib/default-blocks'
 import type { HeroFraming } from '@/lib/hero-framing';
 import { Loader2 } from 'lucide-react';
 import { AdultGateModal } from '@/components/AdultGateModal';
+import { SuggestLinksDialog } from '@/components/editors/SuggestLinksDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -66,6 +67,9 @@ export default function Editor() {
   const [profileDashboardOpen, setProfileDashboardOpen] = useState(false);
   // Opens the dashboard straight to the Video Profile menu (hero video pencil).
   const [openVideoProfile, setOpenVideoProfile] = useState(false);
+  // TL.AI.LINKS.1: the Suggest Links (AI) dialog, opened from the links block's
+  // "Suggest with AI" door on the phone. Pro-gated inside the dialog itself.
+  const [suggestAiOpen, setSuggestAiOpen] = useState(false);
   // TL.SECT.4: the block whose editor the dashboard panel currently has open,
   // reported by the panel. Distinct from `editingBlock`, which is what the
   // CANVAS asked to edit — this one is set by the panel's own doors (a rail
@@ -381,6 +385,13 @@ export default function Editor() {
     const title = t(`blocks.${block.type}.title`) || block.type;
     setEditingBlock({ id: block.id, type: block.type, title, directNew: true });
     setProfileDashboardOpen(true);
+  };
+
+  // TL.AI.LINKS.1: the dialog inserts into the current mode's links block
+  // itself (finding or creating it), so the block id is not needed here.
+  const handleSuggestAi = () => {
+    if (!currentMode) return;
+    setSuggestAiOpen(true);
   };
 
   const handleItemDelete = async (itemId: string) => {
@@ -790,6 +801,7 @@ export default function Editor() {
         onItemEdit={handleItemEdit}
         onItemDelete={handleItemDelete}
         onItemAdd={handleItemAdd}
+        onSuggestAi={handleSuggestAi}
         onItemsReorder={handleItemsReorder}
       />
 
@@ -817,6 +829,7 @@ export default function Editor() {
           onItemEdit={handleItemEdit}
           onItemDelete={handleItemDelete}
           onItemAdd={handleItemAdd}
+          onSuggestAi={handleSuggestAi}
           onItemsReorder={handleItemsReorder}
         />
       </div>
@@ -865,6 +878,18 @@ export default function Editor() {
         }}
         onCancel={() => setPendingGate(null)}
       />
+
+      {/* TL.AI.LINKS.1: the Suggest Links (AI) dialog behind the links block's
+          "Suggest with AI" door. Pro upsell lives inside the dialog; it inserts
+          into this mode's links block and refresh() redraws the phone. */}
+      {currentMode && (
+        <SuggestLinksDialog
+          open={suggestAiOpen}
+          onOpenChange={setSuggestAiOpen}
+          modeId={currentMode.id}
+          onLinksAdded={refresh}
+        />
+      )}
     </DashboardLayout>
   );
 }

@@ -5,7 +5,7 @@
 // strings.
 
 import { useState, Fragment } from 'react';
-import { X, GripVertical } from 'lucide-react';
+import { X, GripVertical, Sparkles } from 'lucide-react';
 import { GLASS_AFFORDANCE } from '@/lib/surface';
 import {
   DndContext,
@@ -41,6 +41,9 @@ type LinksBlockEditProps = {
   onItemEdit?: (id: string) => void;
   onItemDelete?: (id: string) => void;
   onItemAdd?: () => void;
+  // TL.AI.LINKS.1 — opens the Suggest Links (AI) dialog. Rendered only when
+  // provided; no plan check here — the dialog owns the Pro upsell.
+  onSuggestAi?: () => void;
   onItemsReorder?: (orderedItemIds: string[]) => void;
 };
 
@@ -137,6 +140,7 @@ export function LinksBlock({
   onItemEdit,
   onItemDelete,
   onItemAdd,
+  onSuggestAi,
   onItemsReorder,
 }: ThemedBlockProps & LinksBlockEditProps) {
   const { t } = useLanguage();
@@ -355,6 +359,20 @@ export function LinksBlock({
       >
         + {t('linksBlock.addLink')}
       </button>
+
+      {/* TL.AI.LINKS.1 — "Suggest with AI" door, same glass shape as the "+"
+          card above. Edit preview only; the public page never renders it. */}
+      {onSuggestAi && (
+        <button
+          type="button"
+          onClick={onSuggestAi}
+          data-testid="links-suggest-ai"
+          className={`mt-2 w-full rounded-2xl ${GLASS_AFFORDANCE}`}
+        >
+          <Sparkles className="inline h-4 w-4 mr-1.5 -mt-0.5" aria-hidden="true" />
+          {t('linksBlock.suggestAi')}
+        </button>
+      )}
     </div>
   );
 }

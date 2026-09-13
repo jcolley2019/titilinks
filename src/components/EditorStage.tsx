@@ -52,6 +52,9 @@ export interface EditorStageProps {
   onItemEdit?: (blockId: string, itemId: string) => void;
   onItemDelete?: (itemId: string) => void;
   onItemAdd?: (blockId: string) => void;
+  /** TL.AI.LINKS.1 — "Suggest with AI" door on the links block. No noop default:
+   *  a caller that does not provide it (onboarding) must not render the door. */
+  onSuggestAi?: (blockId: string) => void;
   onItemsReorder?: (blockId: string, orderedItemIds: string[]) => void;
   /** Wrapper left inset. The editor's sidebar is w-64; onboarding's panel is wider. */
   leftClass?: string;
@@ -91,6 +94,7 @@ export function EditorStage({
   onItemEdit = noop,
   onItemDelete = noop,
   onItemAdd = noop,
+  onSuggestAi,
   onItemsReorder = noop,
   leftClass = 'left-64',
   chrome,
@@ -346,6 +350,7 @@ export function EditorStage({
             onItemEdit={onItemEdit}
             onItemDelete={onItemDelete}
             onItemAdd={onItemAdd}
+            onSuggestAi={onSuggestAi}
             onItemsReorder={onItemsReorder}
           />
         </div>
