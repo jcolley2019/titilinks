@@ -96,8 +96,11 @@ const checks = [
   { name:'PW-WRITE-BYPASS', pwWriteBypass:true },
   // TL.ISO.5: the TL.ISO.4b lesson, promoted to an invariant now that it is a
   // proven hazard class rather than one spec's bad day. `blocks` and
-  // `block_items` both carry `FOR SELECT USING (true)` — public pages have to
-  // render for anonymous visitors — so a spec-side `.select()` with NO filter
+  // `block_items` are both readable by the public role — since TL.RLS.BLOCKS.1
+  // that is `USING (is_enabled)` on `blocks` and a public SELECT on
+  // `block_items` joined to its enabled block, with a separate owner policy
+  // carrying the full read — because public pages have to render for
+  // anonymous visitors, so a spec-side `.select()` with NO filter
   // returns every public page's rows IN THE WHOLE DATABASE, not the battery
   // account's. It stays invisible until the numbers move: TL.ISO.1 gave the
   // battery its own account and specs 41/44 started counting a stranger's
@@ -344,7 +347,8 @@ for (const c of checks) {
       failed++;
       console.error(`x ${c.name} - unscoped read of blocks/block_items in the battery`);
       bad.forEach((b) => console.error(`      ${b}`));
-      console.error(`      both tables are world-readable (FOR SELECT USING (true)), so a select`);
+      console.error(`      both tables are publicly readable - blocks USING (is_enabled),`);
+      console.error(`      block_items joined to its enabled block - so a select`);
       console.error(`      with no filter returns EVERY public page's rows, not this account's -`);
       console.error(`      the TL.ISO.4b defect. Add an .eq( scope to the chain, or, if the read`);
       console.error(`      genuinely cannot be scoped, waive it in writing on that line or the`);
