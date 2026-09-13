@@ -5,3 +5,11 @@ project_id = "qnrrixfwicybhchvuutu"
 # 401 every Stripe delivery; the header deploy line still passes --no-verify-jwt.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# TL.HYG.3 — the AI functions take a signed-in caller's JWT (getAuthedUser);
+# stated explicitly so a redeploy can never inherit a stale --no-verify-jwt.
+[functions.suggest-links]
+verify_jwt = true
+
+[functions.ai-enhance]
+verify_jwt = true
