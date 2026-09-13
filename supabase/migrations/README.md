@@ -27,7 +27,7 @@
 Prod status is the audit's verdict: **MATCH** (prod holds what the file says), **DRIFT**
 (prod differs), **DROPPED** (the object was removed from prod on purpose).
 
-## All 47 files
+## All 48 files
 
 | # | File | Purpose | Class | Prod status (§1.2) |
 |---|---|---|---|---|
@@ -78,6 +78,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 45 | `20260905130000_stor7_secgrants1.sql` | TL.STOR.7 + TL.SEC.GRANTS.1 `fonts` bucket `allowed_mime_types` locked to the nine font MIMEs generated from `src/lib/user-fonts.ts` (drift-checked by `scripts/user-fonts.test.mjs`); `generate_referral_code` / `referral_earned_in_window` EXECUTE revoked from PUBLIC/anon/authenticated and `claim_referral` from PUBLIC/anon; TRUNCATE/REFERENCES/TRIGGER revoked from anon/authenticated on every public table plus default privileges; `custom_short_links_target_url_scheme` CHECK (AUDIT_rev6 §1.1 fonts, §1.3.10, §1.3.11) | RE-RUNNABLE | MATCH — applied 2026-09-05; 9/0/0/1/3/0/128/true |
 | 46 | `20260905140000_rls_blocks1_enabled_only_public_select.sql` | TL.RLS.BLOCKS.1 public SELECT on `blocks` limited to `is_enabled`, on `block_items` to items of enabled blocks; new owner SELECT policies (`get_mode_owner` / `get_block_owner`) keep the editor's full read. Write policies untouched. Supersedes the two `USING (true)` public SELECT stanzas in #1 (AUDIT_rev6 §2 #6) | RE-RUNNABLE | MATCH — applied 2026-09-05; anon sees 22/28 blocks, 46/51 items, 0 disabled |
 | 47 | `20260905150000_edge2_plan_allows_aitools.sql` | TL.EDGE.2 `plan_allows` restated with a fifth flag, `aiTools` (Pro/Business) — the server gate for the `suggest-links` / `ai-enhance` edge functions (AUDIT_rev6 #10 / §2.5). Supersedes the `plan_allows` body in #31; mirror-checked against `src/lib/entitlements.ts` by `scripts/billing.test.mjs` | RE-RUNNABLE | MATCH — applied 2026-09-06; `plan_allows('free'/'pro'/'business','aiTools')` = false/true/true |
+| 48 | `20260913120000_stor8_avatars_pageassets_delete_policy.sql` | TL.STOR.8 `avatars` and `page-assets` bucket DELETE policies (`"Owners can delete own avatars"` / `"Owners can delete own page assets"`), applied by hand 2026-09-13 — the grant that makes `removePublicObject` do anything in those two buckets (TL.STOR.8.1 wires it into the page-1 hero save). Supersedes #34's "avatars and page-assets intentionally have NO delete policy" note and the dead DELETE stanzas in #3 and #7 | RECORD-ONLY (file says NOT IDEMPOTENT) | MATCH — applied 2026-09-13; `pg_policies` cmd='DELETE' on `storage.objects` = 4 rows (avatars, fonts, page assets, product images) |
 
 Counts: 24 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
 

@@ -2143,11 +2143,18 @@ export function EditableProfileView({
           heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft },
         };
         if (originalUrl) nextTheme.avatar_original_url_page2 = originalUrl;
-        await supabase
+        const { error: updateError } = await supabase
           .from('pages')
           .update({ theme_json: nextTheme })
           .eq('id', page.id);
+        if (updateError) throw updateError;
       } else {
+        // TL.STOR.8.1 — the object(s) this save supersedes, read from the row as
+        // it was when the save started. The old ORIGINAL is a candidate only
+        // when a new original was uploaded this save (a fresh pick); a pencil
+        // re-crop reuses the original, so it must survive.
+        const prevAvatarUrl = page.avatar_url ?? null;
+        const prevOriginalUrl = originalUrl ? (page.avatar_original_url ?? null) : null;
         const existingTheme = (page.theme_json as any) || {};
         const existingHero = { ...(existingTheme.heroConfig || {}) };
         delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
@@ -2158,10 +2165,30 @@ export function EditableProfileView({
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
         }
-        await supabase
+        const { error: updateError } = await supabase
           .from('pages')
           .update(updates)
           .eq('id', page.id);
+        if (updateError) throw updateError;
+        // TL.STOR.8.1 — the row now points at the new object(s); the previous
+        // ones are unreachable and would leak forever. Best-effort, after the
+        // write, never before — a failed save must never delete the live image.
+        // Skipped when the old URL is still referenced by another hero slot on
+        // this row (page 2 may share page 1's image).
+        const stillReferenced = (url: string): boolean => {
+          const tj = (page.theme_json as any) || {};
+          return [
+            urlData.publicUrl,
+            originalUrl ?? page.avatar_original_url,
+            tj.avatar_url_page2,
+            tj.avatar_original_url_page2,
+            tj.heroConfig?.video,
+            tj.heroConfig_page2?.video,
+          ].some((u) => typeof u === 'string' && u === url);
+        };
+        for (const old of [prevAvatarUrl, prevOriginalUrl]) {
+          if (old && !stillReferenced(old)) removePublicObject('avatars', old);
+        }
       }
       toast.success(t('editor.hero.photoUpdated'));
       setLocalHeroImages(prev => ({ ...prev, [selectedMode]: urlData.publicUrl }));
