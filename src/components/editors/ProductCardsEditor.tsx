@@ -273,6 +273,13 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         } else {
           const { error } = await supabase.from('block_items').update(itemData).eq('id', item.id);
           if (error) throw error;
+          // TL.STOR.8.2 — image replaced and the row write committed: drop the
+          // superseded object (EventsEditor pattern — user intent, best-effort).
+          // Diffed against the FETCHED row, not the draft.
+          const prev = existingItems.find((ei) => ei.id === item.id);
+          if (prev?.image_url && prev.image_url !== itemData.image_url) {
+            removePublicObject('products', prev.image_url);
+          }
         }
       }
 

@@ -457,6 +457,14 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
             })
             .eq('id', item.id);
           if (error) throw error;
+          // TL.STOR.8.2 — image replaced or removed and the row write
+          // committed: drop the superseded object (the EventsEditor pattern —
+          // user intent, best-effort). Diffed against the FETCHED row, not the
+          // draft, so Cancel paths never get here.
+          const prev = existingItems.find((ei) => ei.id === item.id);
+          if (prev?.image_url && prev.image_url !== (imageUrl || null)) {
+            removePublicObject('products', prev.image_url);
+          }
         }
       }
 
