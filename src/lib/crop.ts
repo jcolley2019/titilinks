@@ -19,15 +19,21 @@ export const cropErrorCauseKey = (err: unknown): string => {
   return 'editor.crop.causeUnknown';
 };
 
-export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
+/** TL.CROP.QUAL.1 — the hero's longest edge after crop. The hero paints at
+ *  full viewport width × 50 vh with object-fit: cover; on a 390 px @3× phone
+ *  that is ~1170 × 1266 device pixels, so the old 800 px cap was upscaled
+ *  ~1.5× on screen. 1440 covers 3× with headroom. */
+export const HERO_MAX_PX = 1440;
+
+/** Load + decode an image for canvas work. crossOrigin BEFORE src
+ *  (FIX.MEDIA.1); real decode() wait with an onload fallback (CROP.3a). */
+const loadHeroImage = async (imageSrc: string): Promise<HTMLImageElement> => {
   const image = new Image();
   // FIX.MEDIA.1 — tainted canvas: editing an EXISTING photo feeds this a remote
   // Supabase storage URL (avatar_original_url), not a local data URL. Without a
   // CORS request the canvas is tainted and toBlob throws SecurityError, so
   // "Crop failed — image is cross-origin protected" was the guaranteed outcome
-  // of every re-crop. The AI path already did this (handleAiCrop); the manual
-  // path did not, which is exactly why AI crop worked on remote photos and
-  // manual crop did not. Must be set BEFORE .src or it does not apply.
+  // of every re-crop. Must be set BEFORE .src or it does not apply.
   image.crossOrigin = 'anonymous';
   image.src = imageSrc;
   // CROP.3a — readiness: wait on a real decode before reading pixels so Apply
@@ -46,14 +52,46 @@ export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promis
       image.onerror = () => reject(new Error('Image decode failed'));
     });
   }
+  return image;
+};
+
+/** TL.CROP.QUAL.1 — encode a hero canvas: WebP 0.85 (≈ half the bytes of JPEG
+ *  at equal quality), falling back to JPEG 0.85 where canvas cannot encode
+ *  WebP (blob null or the browser silently substituted another type). The
+ *  file is named by the type it actually is — handlePhotoSave derives the
+ *  storage extension from the name. */
+const encodeHero = (canvas: HTMLCanvasElement): Promise<File> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (webp) => {
+        if (webp && webp.type === 'image/webp') {
+          resolve(new File([webp], 'avatar.webp', { type: 'image/webp' }));
+          return;
+        }
+        canvas.toBlob(
+          (jpeg) => {
+            if (!jpeg) { reject(new Error('Crop failed')); return; }
+            resolve(new File([jpeg], 'avatar.jpg', { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          0.85,
+        );
+      },
+      'image/webp',
+      0.85,
+    );
+  });
+
+/** Draw pixelCrop (natural pixels) onto a canvas no larger than HERO_MAX_PX on
+ *  its longest edge, never upscaling. Pure geometry; shared by both exports. */
+const renderCrop = (image: HTMLImageElement, pixelCrop: Area): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
-  const maxSize = 800;
   const scaleX = image.naturalWidth / image.width || 1;
   const scaleY = image.naturalHeight / image.height || 1;
   let cropWidth = pixelCrop.width;
   let cropHeight = pixelCrop.height;
-  if (cropWidth > maxSize || cropHeight > maxSize) {
-    const ratio = Math.min(maxSize / cropWidth, maxSize / cropHeight);
+  if (cropWidth > HERO_MAX_PX || cropHeight > HERO_MAX_PX) {
+    const ratio = Math.min(HERO_MAX_PX / cropWidth, HERO_MAX_PX / cropHeight);
     cropWidth = Math.round(cropWidth * ratio);
     cropHeight = Math.round(cropHeight * ratio);
   }
@@ -70,16 +108,23 @@ export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promis
     cropWidth,
     cropHeight
   );
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) { reject(new Error('Crop failed')); return; }
-        resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-      },
-      'image/jpeg',
-      0.8
-    );
-  });
+  return canvas;
+};
+
+export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
+  const image = await loadHeroImage(imageSrc);
+  return encodeHero(renderCrop(image, pixelCrop));
+};
+
+/** TL.CROP.QUAL.1 — the same cap + encoding for an image that is NOT being
+ *  cropped: a full-frame identity crop. Used by the AI-accept path (the model
+ *  returns a full-resolution PNG) and by "Save" with no crop (the raw pick).
+ *  One output path, so a hero can never be uploaded uncapped or mis-typed. */
+export const boundHeroImage = async (imageSrc: string): Promise<File> => {
+  const image = await loadHeroImage(imageSrc);
+  return encodeHero(
+    renderCrop(image, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }),
+  );
 };
 
 /**

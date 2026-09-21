@@ -5,7 +5,7 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { useProUpsell } from '@/hooks/useProUpsell';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import { getCroppedImage, boundForAi, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
+import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
 // FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
 // this file resolves through it; nothing here may hardcode object-fit again.
@@ -2095,6 +2095,14 @@ export function EditableProfileView({
     // an identity there. Every other caller omits it and keeps the user's draft.
     const posYToSave = posYOverride ?? heroPosYDraft;
     let fileToUpload = overrideFile || photoFile;
+    // TL.CROP.QUAL.1 — "Save (no crop)": with no override the file is the raw
+    // pick from handlePhotoSelect (up to a 12 MB phone photo). Route it through
+    // the one output path so the display copy is capped and encoded like every
+    // crop. The original still uploads untouched below (photoOriginalFile).
+    // GIFs are left as picked so an animated hero keeps animating.
+    if (!overrideFile && fileToUpload && photoPreview && fileToUpload.type !== 'image/gif') {
+      fileToUpload = await boundHeroImage(photoPreview);
+    }
     if (!fileToUpload && photoPreview) {
       const res = await fetch(photoPreview);
       const blob = await res.blob();
@@ -3353,9 +3361,10 @@ export function EditableProfileView({
                           onClick={async () => {
                             if (!aiPreviewData) return;
                             setPhotoPreview(aiPreviewData);
-                            const res = await fetch(aiPreviewData);
-                            const blob = await res.blob();
-                            const file = new File([blob], 'ai-enhanced.jpg', { type: 'image/jpeg' });
+                            // TL.CROP.QUAL.1 — the model returns a full-resolution
+                            // PNG; route it through the one output path so it gets
+                            // the same cap, encoding and name as every other hero.
+                            const file = await boundHeroImage(aiPreviewData);
                             setPhotoFile(file);
                             setAiPreviewData(null);
                             await handlePhotoSave(file);
