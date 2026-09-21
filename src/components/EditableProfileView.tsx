@@ -5,7 +5,7 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { useProUpsell } from '@/hooks/useProUpsell';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import { getCroppedImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
+import { getCroppedImage, boundForAi, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
 // FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
 // this file resolves through it; nothing here may hardcode object-fit again.
@@ -2393,9 +2393,14 @@ export function EditableProfileView({
         // crop-only fallback below (no network, no error toast).
         console.log('[AI Enhance] Skipped — AI tools are a Pro feature; crop-only.');
       } else try {
-        const [hdr, b64] = croppedDataUrl.split(',');
+        // TL.AI.COST.1 — the AI payload is bounded to AI_INPUT_MAX_PX on its
+        // longest edge (Replicate bills by output megapixels; see crop.ts).
+        // Only the request is bounded: croppedDataUrl stays native-resolution
+        // for the crop-only fallback below, exactly as before.
+        const aiInput = boundForAi(canvas);
+        const [hdr, b64] = aiInput.dataUrl.split(',');
         const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-        console.log(`[AI Enhance] Sending ${(b64.length / 1024).toFixed(0)}KB to crystal-upscaler...`);
+        console.log(`[AI Enhance] Sending ${aiInput.width}x${aiInput.height} (${(b64.length / 1024).toFixed(0)}KB) to crystal-upscaler...`);
 
         const { data: enhData, error: enhErr } = await supabase.functions.invoke('ai-enhance', {
           body: { base64: b64, mediaType: mt },

@@ -4,7 +4,12 @@ import { planAllows } from "../_shared/plan.ts";
 
 const FN = "ai-enhance";
 const DAILY_LIMIT = 20;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // ~10MB decoded
+// TL.AI.COST.1 — the client bounds the AI input to 1024 px (≈150–300 KB as
+// JPEG 0.9). Replicate bills crystal-upscaler by OUTPUT megapixels at
+// scale_factor 2 (≤4.4 MP $0.05 … 27.5–55 MP $0.80), and recommends data-URI
+// inputs under 1 MB. 2 MB leaves headroom for the bounded payload while
+// refusing a native-resolution upload before it spends a GPU call.
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +67,7 @@ serve(async (req) => {
     // base64 decodes to ~3/4 of its character length.
     if (Math.floor((base64.length * 3) / 4) > MAX_IMAGE_BYTES) {
       return new Response(
-        JSON.stringify({ error: "Image too large (max ~10MB)" }),
+        JSON.stringify({ error: "Image too large (max ~2MB)" }),
         { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -119,7 +124,7 @@ serve(async (req) => {
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error(`[ai-enhance] Replicate API error: status=${createResponse.status}`, errorText);
+      console.error(`[ai-enhance] Replicate API error: user=${user.id} status=${createResponse.status}`, errorText);
       return new Response(
         JSON.stringify({
           error: `Replicate API ${createResponse.status}: ${errorText.slice(0, 300)}`
@@ -133,7 +138,10 @@ serve(async (req) => {
     // Poll if Prefer: wait didn't complete
     if (prediction.status !== "succeeded" && prediction.status !== "failed") {
       const pollUrl = `https://api.replicate.com/v1/predictions/${prediction.id}`;
-      const maxWait = 90_000;
+      // TL.AI.COST.1 — Prefer: wait can hold up to 60 s; Supabase's request
+      // idle timeout is 150 s. 60 + 75 keeps the worst case under the gateway
+      // limit so the client always receives our answer, not a gateway 504.
+      const maxWait = 75_000;
       const start = Date.now();
 
       while (Date.now() - start < maxWait) {
@@ -147,7 +155,7 @@ serve(async (req) => {
     }
 
     if (prediction.status === "failed") {
-      console.error("[ai-enhance] Replicate prediction failed:", prediction.error);
+      console.error(`[ai-enhance] Replicate prediction failed: user=${user.id}`, prediction.error);
       return new Response(
         JSON.stringify({ error: `Replicate prediction failed: ${prediction.error || "unknown"}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -155,7 +163,7 @@ serve(async (req) => {
     }
 
     if (prediction.status !== "succeeded") {
-      console.error("[ai-enhance] Replicate timeout, last status:", prediction.status);
+      console.error(`[ai-enhance] Replicate timeout: user=${user.id} last status:`, prediction.status);
       return new Response(
         JSON.stringify({ error: `Enhancement timed out (status: ${prediction.status})` }),
         { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -179,7 +187,7 @@ serve(async (req) => {
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("[ai-enhance] Unhandled error:", msg);
+    console.error(`[ai-enhance] Unhandled error: user=${user.id}`, msg);
     return new Response(
       JSON.stringify({ error: `Function exception: ${msg}` }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

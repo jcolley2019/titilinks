@@ -82,4 +82,32 @@ export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promis
   });
 };
 
+/**
+ * TL.AI.COST.1 — bound an image for the AI-enhance request. Replicate bills
+ * crystal-upscaler by OUTPUT megapixels and we always ask for 2×, so the input
+ * decides the price: ≤1024 px in → ≤2048 px out (≈4.2 MP, the cheapest tier)
+ * versus a native-resolution phone crop (3000 px → 36 MP, 16× the price and
+ * far slower). Nothing above ~1500 px is visible on the hero. Never upscales;
+ * a source already within the bound is re-encoded at the same size.
+ */
+export const AI_INPUT_MAX_PX = 1024;
+
+export const boundForAi = (
+  source: HTMLCanvasElement,
+  maxPx: number = AI_INPUT_MAX_PX,
+): { dataUrl: string; width: number; height: number } => {
+  const sw = source.width;
+  const sh = source.height;
+  const ratio = Math.min(1, maxPx / Math.max(sw, sh));
+  const width = Math.max(1, Math.round(sw * ratio));
+  const height = Math.max(1, Math.round(sh * ratio));
+  const out = document.createElement('canvas');
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext('2d');
+  if (!ctx) throw new Error('No canvas context');
+  ctx.drawImage(source, 0, 0, sw, sh, 0, 0, width, height);
+  return { dataUrl: out.toDataURL('image/jpeg', 0.9), width, height };
+};
+
 export type { Area };
