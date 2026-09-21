@@ -40,18 +40,20 @@ test.describe('TL.POLISH.1a — conditional name scrim', () => {
     expect(shadow).not.toBe('none');
   });
 
-  test(`/${TEST_HANDLE} (light-banded hero) → scrim ON, recorded`, async ({ page }) => {
-    // RECORDED, not presumed: the battery hero was expected to be dark, but
-    // the name band (bottom 35%, middle 60%) sampled at lum ≈ 0.67 on
-    // 2026-09-02 — over the 0.55 threshold — so this page scrims too. The
-    // "off" case is /joeyc (lum ≈ 0.18, screenshot only, no spec). If the
-    // battery hero is ever re-seeded darker, flip this to 'off'.
+  test(`/${TEST_HANDLE} (flat dark hero since TL.STOR.8.1) → scrim OFF, recorded`, async ({ page }) => {
+    // RECORDED, not presumed. Until 2026-09-13 the battery hero sampled light
+    // (lum ≈ 0.67 on 2026-09-02) and this page scrimmed. Spec 67 (TL.STOR.8.1)
+    // now saves two flat fills on the battery account and — the thing it
+    // tests — deletes the superseded objects, so the hero is the last fill
+    // (#1e5aa8, dark) and the name band samples far under the 0.55 threshold.
+    // The ON case is /mecivietnam above. If the battery hero is ever re-seeded
+    // light, flip this back to 'on'.
     await page.goto(`/${TEST_HANDLE}`);
     await page.waitForLoadState('networkidle');
     const wrap = page.locator('[data-name-scrim]').first();
-    await expect(wrap).toHaveAttribute('data-name-scrim', 'on', { timeout: 15_000 });
+    await expect(wrap).toHaveAttribute('data-name-scrim', 'off', { timeout: 15_000 });
     const shadow = await wrap.locator('h1').evaluate((el) => getComputedStyle(el).textShadow);
-    expect(shadow).not.toBe('none');
+    expect(shadow).toBe('none');
   });
 });
 

@@ -50,8 +50,19 @@ const POSTER_DATA_URI =
       '</svg>',
   );
 
+/** TL.SPEC49.DATES.1 — fixture dates are relative to the run, not the calendar.
+ *  hasEnded() hides a no-end event 24 h after it starts, so a hard-coded
+ *  starts_at is a time bomb (the 2026-09-12 launch expired on Sep 13 and took
+ *  four tests with it). Same wall-clock time-of-day as before; only the day
+ *  moves. Nothing here asserts the printed date. */
+const dayOffset = (days: number, time: string): string => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return `${d.toISOString().slice(0, 10)}T${time}`;
+};
+
 /** Titi's book launch, plus the three states the card has to prove.
- *  Dates are wall-clock strings — exactly what the editor will write. */
+ *  Dates are wall-clock strings — exactly what the editor will write — offset from today (see dayOffset). */
 const EVENTS = [
   {
     id: 'evnt-launch',
@@ -60,7 +71,7 @@ const EVENTS = [
     subtitle: 'Books & Books · Coral Gables',
     url: 'https://example.com/book-launch-tickets',
     cta_label: 'Get tickets',
-    starts_at: '2026-09-12T19:00:00+00:00',
+    starts_at: dayOffset(7, '19:00:00+00:00'),
     ends_at: null,
     // Pinned: sorts above everything, gold pin next to the title.
     // Stage 3a: this card also carries the poster — above the text row,
@@ -77,7 +88,7 @@ const EVENTS = [
     subtitle: 'Barnes & Noble · Lincoln Road',
     url: 'https://example.com/signing',
     cta_label: 'Get tickets',
-    starts_at: '2026-10-03T14:00:00+00:00',
+    starts_at: dayOffset(28, '14:00:00+00:00'),
     ends_at: null,
     // Sold out: dimmed, relabelled, and rendered inert (span, not anchor).
     style_json: { sold_out: true },
@@ -92,7 +103,7 @@ const EVENTS = [
     subtitle: 'Miami Dade College · Wolfson Campus',
     url: 'https://example.com/book-fair',
     cta_label: null, // falls back to the localized default
-    starts_at: '2026-11-22T00:00:00+00:00',
+    starts_at: dayOffset(70, '00:00:00+00:00'),
     ends_at: null,
     // All-day: the time line reads "All day" instead of a clock time.
     style_json: { all_day: true },
@@ -109,7 +120,7 @@ const EVENTS = [
     // not an inert one.
     url: '',
     cta_label: null,
-    starts_at: '2026-12-05T20:00:00+00:00',
+    starts_at: dayOffset(90, '20:00:00+00:00'),
     ends_at: null,
     style_json: null,
     order_index: 4,
@@ -124,8 +135,8 @@ const EVENTS = [
     url: 'https://example.com/summer-reading',
     cta_label: 'Get tickets',
     // Already over: hidden on the public page, greyed in the editor.
-    starts_at: '2026-07-18T18:30:00+00:00',
-    ends_at: '2026-07-18T21:00:00+00:00',
+    starts_at: dayOffset(-60, '18:30:00+00:00'),
+    ends_at: dayOffset(-60, '21:00:00+00:00'),
     style_json: null,
     order_index: 3,
     badge: null, image_url: null, is_adult: false, size: null,
