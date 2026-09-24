@@ -1,5 +1,5 @@
 // sitemap — public, read-only. Emits the XML sitemap Google/Bing fetch at
-// https://titilinks.com/sitemap.xml (vercel.json rewrites that path here).
+// https://www.titilinks.com/sitemap.xml (vercel.json rewrites that path here).
 //
 // Auth: NONE by design — crawlers send no headers. config.toml records
 // verify_jwt = false for this function (the stripe-webhook precedent) and the
@@ -14,7 +14,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { serviceClient } from "../_shared/auth.ts";
 
-const SITE = "https://titilinks.com";
+// Vercel redirects the apex to www (project domain setting) — list the canonical host.
+const SITE = "https://www.titilinks.com";
 const MARKETING = ["/", "/templates", "/terms", "/privacy"];
 // TL.DOC.ROSTER.1 roster: joey2019pwtestbattery / +free / +onb are harness
 // accounts with real public pages — keep them out of the index.

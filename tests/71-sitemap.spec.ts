@@ -1,15 +1,22 @@
-// TL.SEO.SITEMAP.1 — the dynamic sitemap, probed against the LIVE deployed
-// `sitemap` edge function and the LIVE domain (not the dev server). Green
-// only after Joey deploys the function
+// TL.SEO.SITEMAP.1 / .2 — the dynamic sitemap, probed against the LIVE
+// deployed `sitemap` edge function and the LIVE domain (not the dev server).
+// Green only after Joey deploys the function
 //   npx supabase functions deploy sitemap --project-ref ohmvlypcbrfkuudcuqub --no-verify-jwt
 // and Vercel has deployed the vercel.json rewrite + the robots.txt line.
 // Before that, test 1 is a 404 (no such function) and test 2 is the SPA's
 // index.html served as /sitemap.xml — the gap this task closes.
 //
+// Canonical host (TL.SEO.SITEMAP.2): Vercel's project domains redirect
+// titilinks.com → www.titilinks.com (307), so every <loc>, the robots Sitemap
+// line and these probes use the www host. Test 3 pins that redirect: if the
+// canonical-host setting ever flips, it shows up here first.
+//
 // Doors, as the tests exercise them:
 //   1. GET <SUPABASE_URL>/functions/v1/sitemap, NO headers   → 200 XML urlset
-//   2. GET https://titilinks.com/sitemap.xml, NO headers      → the same
+//   2. GET https://www.titilinks.com/sitemap.xml, NO headers  → the same
 //      (proves the Vercel rewrite), and robots.txt names the sitemap
+//   3. GET https://titilinks.com/sitemap.xml, no redirects    → 307/308 to
+//      https://www.titilinks.com/sitemap.xml
 //
 // Not auth-gated: crawlers send no apikey and no Authorization header, so the
 // probes send none either. A 401 UNAUTHORIZED_NO_AUTH_HEADER here means the
@@ -35,7 +42,9 @@ type APIRequest = TestArgs['playwright']['request'];
 type APIRequestContext = Awaited<ReturnType<APIRequest['newContext']>>;
 type APIResponse = Awaited<ReturnType<APIRequestContext['get']>>;
 
-const SITE = 'https://titilinks.com';
+// The canonical host. The apex redirects here (test 3).
+const SITE = 'https://www.titilinks.com';
+const APEX = 'https://titilinks.com';
 
 /**
  * VITE_SUPABASE_URL — the name the app reads in
@@ -119,7 +128,7 @@ test.describe('TL.SEO.SITEMAP.1 — dynamic sitemap (live function + live domain
     }
   });
 
-  test('2. titilinks.com/sitemap.xml is rewritten to it, and robots.txt names it', async ({ playwright }) => {
+  test('2. www.titilinks.com/sitemap.xml is rewritten to it, and robots.txt names it', async ({ playwright }) => {
     const crawler = await crawlerContext(playwright.request);
     try {
       const res = await crawler.get(`${SITE}/sitemap.xml`);
@@ -129,6 +138,24 @@ test.describe('TL.SEO.SITEMAP.1 — dynamic sitemap (live function + live domain
       const robotsText = await robots.text();
       expect(robots.status(), `robots.txt must be 200 — got ${robots.status()}`).toBe(200);
       expect(robotsText, 'robots.txt carries the Sitemap line').toContain(`Sitemap: ${SITE}/sitemap.xml`);
+    } finally {
+      await crawler.dispose();
+    }
+  });
+
+  test('3. the apex titilinks.com/sitemap.xml redirects to the www host', async ({ playwright }) => {
+    const crawler = await crawlerContext(playwright.request);
+    try {
+      const res = await crawler.get(`${APEX}/sitemap.xml`, { maxRedirects: 0 });
+      expect(
+        [307, 308],
+        `${APEX}/sitemap.xml must redirect to www — got ${res.status()}`,
+      ).toContain(res.status());
+      const location = res.headers()['location'] ?? '';
+      expect(
+        location.startsWith(`${SITE}/sitemap.xml`),
+        `apex redirect must land on ${SITE}/sitemap.xml — got ${JSON.stringify(location)}`,
+      ).toBe(true);
     } finally {
       await crawler.dispose();
     }

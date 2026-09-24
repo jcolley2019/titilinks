@@ -18,4 +18,4 @@ User-agent: *
 Allow: /
 Disallow: /go/
 
-Sitemap: https://titilinks.com/sitemap.xml
+Sitemap: https://www.titilinks.com/sitemap.xml
