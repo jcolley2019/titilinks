@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isReferenced } from '@/lib/storage-refs';
 
 /**
  * Public buckets whose objects are addressed by a `getPublicUrl` string stored
@@ -8,12 +9,25 @@ import { supabase } from '@/integrations/supabase/client';
 export type PublicBucket = 'products' | 'page-assets' | 'avatars';
 
 /**
- * Best-effort delete of the storage object behind a public URL.
+ * Best-effort delete of the storage object behind a public URL — but only once
+ * NOTHING references it any more (TL.STOR.8.3 / TL.SNAP.REF.1).
  *
- * The row that holds the URL is the ONLY pointer to the object — upload paths
- * name files `${userId}/${randomUUID()}.${ext}` with no block segment, so once
- * the row is gone the file cannot be found by prefix, only by full sweep. Call
- * this while the URL is still in hand.
+ * The row that holds the URL is not the only pointer to the object: a snapshot
+ * payload may carry the same URL, and restoring that snapshot brings the row
+ * back. So for `products` / `page-assets` this first awaits `isReferenced(url,
+ * opts)` — live block_items, the page background, every snapshot — and removes
+ * the object only when it answers false. A snapshot delete releases the objects
+ * only it was holding (see snapshots.ts), so nothing is stranded for good.
+ * `avatars` bypasses the check: avatars are outside snapshot scope and the one
+ * caller (EditableProfileView) does its own reference check before calling.
+ *
+ * Call this AFTER the row write that dropped the URL has committed — the check
+ * would otherwise still see that row. `opts.excludeItemId` exists for a caller
+ * that cannot order it so.
+ *
+ * Upload paths name files `${userId}/${randomUUID()}.${ext}` with no block
+ * segment, so once every pointer is gone the file cannot be found by prefix,
+ * only by full sweep. Call this while the URL is still in hand.
  *
  * Fire-and-forget by design, mirroring the fonts cleanup in useUserFonts: a
  * stale file in a public bucket is untidy, but a failed delete must never fail
@@ -26,6 +40,7 @@ export type PublicBucket = 'products' | 'page-assets' | 'avatars';
 export function removePublicObject(
   bucket: PublicBucket,
   url: string | null | undefined,
+  opts?: { excludeItemId?: string },
 ): void {
   if (!url) return;
 
@@ -36,5 +51,14 @@ export function removePublicObject(
   const path = decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
   if (!path) return;
 
-  supabase.storage.from(bucket).remove([path]).catch(() => {});
+  const remove = () => supabase.storage.from(bucket).remove([path]);
+
+  if (bucket === 'avatars') {
+    remove().catch(() => {});
+    return;
+  }
+
+  isReferenced(url, opts)
+    .then((held) => (held ? undefined : remove()))
+    .catch(() => {});
 }

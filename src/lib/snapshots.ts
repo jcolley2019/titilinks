@@ -20,6 +20,8 @@ import type { Database, Json } from '@/integrations/supabase/types';
 import { getEntitlements } from '@/lib/entitlements';
 import { dedupeSingletonBlocks, collapsePageSingletonBlocks } from '@/lib/default-blocks';
 import { getThemeWithDefaults } from '@/lib/theme-defaults';
+import { removePublicObject } from '@/lib/storage-cleanup';
+import { collectPublicUrls, publicObjectRef } from '@/lib/storage-refs';
 
 type ModeType = Database['public']['Enums']['mode_type'];
 type BlockType = Database['public']['Enums']['block_type'];
@@ -164,19 +166,39 @@ async function buildPayload(pageId: string, themeJson: ThemeJson): Promise<Snaps
   return { v: 1, theme_json: themeJson, modes };
 }
 
-/** Ring-buffer: after an auto capture, keep only the newest AUTO_KEEP per page. */
-async function pruneAuto(pageId: string): Promise<void> {
+/**
+ * TL.STOR.8.3 — release the storage objects a deleted snapshot was holding.
+ * Call AFTER the row is gone: removePublicObject re-checks every reference
+ * (live rows + the remaining snapshots) and removes only what nothing holds.
+ */
+function releaseSnapshotObjects(urls: string[]): void {
+  for (const url of new Set(urls)) {
+    const ref = publicObjectRef(url);
+    if (ref) removePublicObject(ref.bucket, url);
+  }
+}
+
+/**
+ * Ring-buffer: after an auto capture, keep only the newest AUTO_KEEP per page.
+ * The pruned rows' objects are released — immediately, or pushed onto
+ * `deferRelease` for a caller (restoreSnapshot) that must finish writing first.
+ */
+async function pruneAuto(pageId: string, deferRelease?: string[]): Promise<void> {
   const { data: autos, error } = await supabase
     .from('profile_snapshots')
-    .select('id')
+    .select('id, payload')
     .eq('page_id', pageId)
     .eq('kind', 'auto')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const stale = (autos ?? []).slice(AUTO_KEEP).map((r) => r.id);
+  const staleRows = (autos ?? []).slice(AUTO_KEEP);
+  const stale = staleRows.map((r) => r.id);
   if (stale.length) {
     const { error: delErr } = await supabase.from('profile_snapshots').delete().in('id', stale);
     if (delErr) throw delErr;
+    const urls = staleRows.flatMap((r) => collectPublicUrls(r.payload));
+    if (deferRelease) deferRelease.push(...urls);
+    else releaseSnapshotObjects(urls);
   }
 }
 
@@ -184,11 +206,13 @@ async function pruneAuto(pageId: string): Promise<void> {
  * Capture the current theme + block tree of `pageId` as one snapshot row.
  * Manual captures are quota-enforced (throws SnapshotQuotaError at the cap);
  * auto captures skip the quota and prune the ring buffer afterwards.
+ * `deferRelease` is restoreSnapshot's: see pruneAuto.
  */
 export async function captureSnapshot(
   pageId: string,
   name: string,
   kind: SnapshotKind = 'manual',
+  deferRelease?: string[],
 ): Promise<SnapshotRow> {
   // Owner + theme in one read (RLS guarantees the page belongs to the caller).
   const { data: page, error: pageErr } = await supabase
@@ -226,7 +250,7 @@ export async function captureSnapshot(
     .single();
   if (insErr) throw insErr;
 
-  if (kind === 'auto') await pruneAuto(pageId);
+  if (kind === 'auto') await pruneAuto(pageId, deferRelease);
 
   return row;
 }
@@ -242,10 +266,21 @@ export async function listSnapshots(pageId: string): Promise<SnapshotRow[]> {
   return data ?? [];
 }
 
-/** Delete one snapshot by id. */
+/**
+ * Delete one snapshot by id, then release the storage objects only it was
+ * holding (TL.STOR.8.3). The payload is read first — once the row is gone it
+ * is the only record of those URLs. A failed read never blocks the delete: the
+ * objects just stay (untidy, never broken).
+ */
 export async function deleteSnapshot(snapshotId: string): Promise<void> {
+  const { data: rows } = await supabase
+    .from('profile_snapshots')
+    .select('id, payload')
+    .eq('id', snapshotId);
+  const payload = (rows ?? []).find((r) => r.id === snapshotId)?.payload;
   const { error } = await supabase.from('profile_snapshots').delete().eq('id', snapshotId);
   if (error) throw error;
+  releaseSnapshotObjects(collectPublicUrls(payload));
 }
 
 /**
@@ -321,7 +356,11 @@ export async function restoreSnapshot(snapshotId: string, autoName = 'Before res
 
   // (a) Safety net FIRST — captured before we mutate anything. Auto is exempt
   // from quota and ring-buffered, so this can never itself fail on quota.
-  await captureSnapshot(pageId, autoName, 'auto');
+  // TL.STOR.8.3: the prune may drop the very auto snapshot being restored, and
+  // nothing live holds its images yet — so the pruned rows' objects are
+  // released only after the restored rows are written (end of this function).
+  const released: string[] = [];
+  await captureSnapshot(pageId, autoName, 'auto', released);
 
   // (b) Replace blocks/items under the page's existing modes, matched by type.
   const { data: modeRows, error: mErr } = await supabase
@@ -340,6 +379,9 @@ export async function restoreSnapshot(snapshotId: string, autoName = 'Before res
   if (bErr) throw bErr;
   const blockIds = (blockRows ?? []).map((b) => b.id);
   if (blockIds.length) {
+    // TL.STOR.8.3: the live items' storage objects are NOT removed here — the
+    // "Before restore" auto snapshot captured in (a) still references them, and
+    // the ring buffer releases them when that snapshot is pruned.
     const { error: diErr } = await supabase.from('block_items').delete().in('block_id', blockIds);
     if (diErr) throw diErr;
     const { error: dbErr } = await supabase.from('blocks').delete().in('id', blockIds);
@@ -404,4 +446,9 @@ export async function restoreSnapshot(snapshotId: string, autoName = 'Before res
     .update({ theme_json: payload.theme_json })
     .eq('id', pageId);
   if (tErr) throw tErr;
+
+  // (d) Only now, with the restored rows live, release what the prune in (a)
+  // dropped. A restore that failed above never gets here: those objects stay
+  // (untidy, never broken).
+  releaseSnapshotObjects(released);
 }

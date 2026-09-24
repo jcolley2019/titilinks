@@ -264,8 +264,8 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
 
   /** TL.EVNT.3c — the ONE delete path, both halves: the row, then its poster
    *  file (STOR.4 — user intent, best-effort, never blocks the caller's flow;
-   *  snapshots may still hold the URL, so a restore shows a broken poster
-   *  rather than resurrecting a deleted file). Save's delete-diff and the lazy
+   *  TL.STOR.8.3: the file goes only once no snapshot still holds the URL, so
+   *  a restore brings the poster back intact). Save's delete-diff and the lazy
    *  auto-cleanup both delete through HERE so they can never drift. */
   const deleteEventRow = async (item: { id: string; image_url: string | null }) => {
     const { error } = await supabase.from('block_items').delete().eq('id', item.id);
