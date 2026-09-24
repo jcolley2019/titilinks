@@ -28,7 +28,7 @@ const MAX_LINKS = 30;
 
 /** First path segments that belong to the app or to static files, never to a creator. */
 export const RESERVED_FIRST_SEGMENTS: readonly string[] = [
-  'login', 'onboarding', 'dashboard', 'billing', 'goodbye', 's', 'go',
+  'login', 'onboarding', 'dashboard', 'billing', 'goodbye', 's', 'go', 'es',
   'templates', 'terms', 'privacy', 'sitemap.xml', 'robots.txt', 'llms.txt',
   'index.html', 'app.html', 'assets', 'models', 'favicon.ico',
 ];

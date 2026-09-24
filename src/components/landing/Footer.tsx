@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Link2 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { isEsPath, marketingPath, type MarketingRoute } from '@/lib/seo-marketing-html';
 
 const GOLD = '#C9A55C';
 const BG = 'hsl(30 15% 6%)';
@@ -8,6 +9,9 @@ const BG = 'hsl(30 15% 6%)';
 export function Footer() {
   const { t } = useLanguage();
   const year = new Date().getFullYear();
+  // TL.SEO.I18N.1 — on a Spanish URL the marketing links stay Spanish.
+  const { pathname } = useLocation();
+  const pathFor = (route: MarketingRoute) => marketingPath(route, isEsPath(pathname) ? 'es' : 'en');
 
   return (
     <footer className="px-5 py-16" style={{ backgroundColor: BG, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -15,7 +19,7 @@ export function Footer() {
         <div className="flex flex-col items-center gap-8 text-center md:flex-row md:items-start md:justify-between md:text-left">
           {/* Brand */}
           <div className="max-w-xs">
-            <Link to="/" className="inline-flex items-center gap-2">
+            <Link to={pathFor('/')} className="inline-flex items-center gap-2">
               <div className="grid h-8 w-8 place-items-center rounded-lg" style={{ backgroundColor: `${GOLD}1a`, border: `1px solid ${GOLD}4d` }}>
                 <Link2 className="h-4 w-4" style={{ color: GOLD }} />
               </div>
@@ -33,10 +37,10 @@ export function Footer() {
           <nav className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
             <a href="#features" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.features')}</a>
             <a href="#pricing" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.pricing')}</a>
-            <Link to="/templates" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.templates')}</Link>
+            <Link to={pathFor('/templates')} className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.templates')}</Link>
             <Link to="/login" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.login')}</Link>
-            <Link to="/terms" className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.terms')}</Link>
-            <Link to="/privacy" className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.privacy')}</Link>
+            <Link to={pathFor('/terms')} className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.terms')}</Link>
+            <Link to={pathFor('/privacy')} className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.privacy')}</Link>
           </nav>
         </div>
 

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ReferralCapture } from "@/components/ReferralCapture";
+import { LanguageUrlSync } from "@/components/LanguageUrlSync";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import SlugRedirect from "./pages/SlugRedirect";
@@ -54,9 +55,13 @@ const App = () => (
         <BrowserRouter>
           {/* BILL.B3 — stashes ?ref=<code> on any route; renders nothing. */}
           <ReferralCapture />
+          {/* TL.SEO.I18N.1b — an /es URL reached by client navigation (back/forward, links) switches the UI to Spanish. */}
+          <LanguageUrlSync />
           <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Index />} />
+            {/* TL.SEO.I18N.1 — Spanish marketing twins; LanguageProvider reads the /es prefix. */}
+            <Route path="/es" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route
               path="/onboarding"
@@ -140,6 +145,9 @@ const App = () => (
             <Route path="/templates" element={<Templates />} />
             <Route path="/terms" element={<LegalPage doc="terms" />} />
             <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+            <Route path="/es/templates" element={<Templates />} />
+            <Route path="/es/terms" element={<LegalPage doc="terms" />} />
+            <Route path="/es/privacy" element={<LegalPage doc="privacy" />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

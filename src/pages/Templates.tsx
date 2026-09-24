@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '@/hooks/useLanguage';
+import { hreflangLinks, isEsPath, marketingUrl } from '@/lib/seo-marketing-html';
 import { PhoneCard, TEMPLATE_EXAMPLES, type Lang } from '@/components/PhoneMockup';
 import { TPL_CATEGORIES, type TplCategory } from '@/lib/tpl-presets';
 
@@ -29,6 +30,9 @@ export default function Templates() {
   const { t, language } = useLanguage();
   const lang: Lang = language === 'es' ? 'es' : 'en';
   const [active, setActive] = useState<TplCategory | 'all'>('all');
+  // TL.SEO.I18N.1 — canonical/og:url follow the URL's language, not the UI language.
+  const { pathname } = useLocation();
+  const canonical = marketingUrl('/templates', isEsPath(pathname) ? 'es' : 'en');
 
   const shown =
     active === 'all' ? TEMPLATE_EXAMPLES : TEMPLATE_EXAMPLES.filter((e) => e.category === active);
@@ -43,10 +47,13 @@ export default function Templates() {
       <Helmet>
         <title>{t('seo.templates.title')}</title>
         <meta name="description" content={t('seo.templates.desc')} />
-        <link rel="canonical" href="https://www.titilinks.com/templates" />
+        <link rel="canonical" href={canonical} />
+        {hreflangLinks('/templates').map((l) => (
+          <link key={l.hreflang} rel="alternate" hrefLang={l.hreflang} href={l.href} />
+        ))}
         <meta property="og:title" content={t('seo.templates.title')} />
         <meta property="og:description" content={t('seo.templates.desc')} />
-        <meta property="og:url" content="https://www.titilinks.com/templates" />
+        <meta property="og:url" content={canonical} />
       </Helmet>
       <Navbar />
 

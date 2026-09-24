@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link2, Menu, X } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLanguage } from '@/hooks/useLanguage';
+import { isEsPath, marketingPath, type MarketingRoute } from '@/lib/seo-marketing-html';
 
 const GOLD = '#C9A55C';
 const BG = 'hsl(30 15% 6%)';
@@ -23,6 +24,9 @@ export function Navbar() {
   const { t } = useLanguage();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // TL.SEO.I18N.1 — on a Spanish URL the marketing links stay Spanish.
+  const { pathname } = useLocation();
+  const pathFor = (route: MarketingRoute) => marketingPath(route, isEsPath(pathname) ? 'es' : 'en');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -44,7 +48,7 @@ export function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
+        <Link to={pathFor('/')} className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-lg" style={{ backgroundColor: `${GOLD}1a`, border: `1px solid ${GOLD}4d` }}>
             <Link2 className="h-4 w-4" style={{ color: GOLD }} />
           </div>
@@ -55,7 +59,7 @@ export function Navbar() {
         <div className="hidden items-center gap-8 md:flex">
           <a href="#features" className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.features')}</a>
           <a href="#pricing" className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.pricing')}</a>
-          <Link to="/templates" className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.templates')}</Link>
+          <Link to={pathFor('/templates')} className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.templates')}</Link>
         </div>
 
         {/* Desktop CTA */}
@@ -103,7 +107,7 @@ export function Navbar() {
               <nav className="flex flex-col gap-1 p-4">
                 <a href="#features" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.features')}</a>
                 <a href="#pricing" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.pricing')}</a>
-                <Link to="/templates" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.templates')}</Link>
+                <Link to={pathFor('/templates')} onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.templates')}</Link>
                 <div className="my-2 h-px bg-white/10" />
                 <Link to="/login" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.login')}</Link>
                 <Link

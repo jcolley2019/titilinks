@@ -5,6 +5,10 @@
     { "source": "/templates", "destination": "/templates.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/es", "destination": "/es/index.html" },
+    { "source": "/es/templates", "destination": "/es/templates.html" },
+    { "source": "/es/terms", "destination": "/es/terms.html" },
+    { "source": "/es/privacy", "destination": "/es/privacy.html" },
     { "source": "/(.*)", "destination": "/app.html" }
   ],
   "headers": [

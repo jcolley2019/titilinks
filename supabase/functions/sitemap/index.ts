@@ -16,7 +16,8 @@ import { serviceClient } from "../_shared/auth.ts";
 
 // Vercel redirects the apex to www (project domain setting) — list the canonical host.
 const SITE = "https://www.titilinks.com";
-const MARKETING = ["/", "/templates", "/terms", "/privacy"];
+// TL.SEO.I18N.1: the Spanish marketing twins have their own URLs.
+const MARKETING = ["/", "/templates", "/terms", "/privacy", "/es", "/es/templates", "/es/terms", "/es/privacy"];
 // TL.DOC.ROSTER.1 roster: joey2019pwtestbattery / +free / +onb are harness
 // accounts with real public pages — keep them out of the index.
 const EXCLUDED_HANDLE_PREFIX = "joey2019pwtest";

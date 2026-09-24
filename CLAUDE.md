@@ -60,3 +60,12 @@ Specs reach the battery through the project-level storageState (`tests/.auth/use
 
 ## Environment
 - Windows + PowerShell semantics for any commands suggested to the user; the agent shell is bash.
+
+## Final reply — REPORT format (Joey pastes this into the architect chat)
+Every task ends with a REPORT and nothing after it. Under ~60 lines. No file contents or diffs unless the task asked for specific files by name.
+1. One line: task/brick ID, what was done, and whether anything is committed or pushed.
+2. Departures from the spec, most important first, each with its reason — or "None".
+3. Verification table: check → result (lint/typecheck/guard, each test run with pass/fail counts, any live probes).
+4. `git status --short`; after a push, `git log -1 --oneline` and HEAD vs `origin/main`.
+5. "Worth knowing": at most three short notes (risks, follow-ups, what to check after deploy).
+Long explanations, walkthroughs of the code, and full diffs stay in the terminal — they are not part of the reply.

@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { useLanguage } from '@/hooks/useLanguage';
+import { hreflangLinks, isEsPath, marketingPath, marketingUrl } from '@/lib/seo-marketing-html';
 import termsEn from '../content/legal/terms-en.md?raw';
 import termsEs from '../content/legal/terms-es.md?raw';
 import privacyEn from '../content/legal/privacy-en.md?raw';
@@ -30,15 +31,20 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
 
   // Go back within the app when there is history; a direct visit (no in-app
   // entry) has location.key === 'default', so fall back to the landing page.
+  // TL.SEO.I18N.1 — the URL's language (/terms vs /es/terms) drives the
+  // canonical, og:url and the direct-visit back target; the UI language drives copy.
+  const urlLang = isEsPath(location.pathname) ? 'es' : 'en';
+  const route = doc === 'terms' ? '/terms' : '/privacy';
+
   const goBack = () => {
     if (location.key !== 'default') navigate(-1);
-    else navigate('/');
+    else navigate(marketingPath('/', urlLang));
   };
 
   // TL.SEO.HYG.1 — the <Helmet> below owns the tab title; the old effect that
   // copied the markdown heading into document.title raced it, so it is gone.
   const seoTitle = doc === 'terms' ? t('seo.terms.title') : t('seo.privacy.title');
-  const canonicalUrl = `https://www.titilinks.com/${doc === 'terms' ? 'terms' : 'privacy'}`;
+  const canonicalUrl = marketingUrl(route, urlLang);
 
   return (
     <div className="relative min-h-screen text-foreground" style={{ backgroundColor: 'hsl(30 15% 6%)' }}>
@@ -46,6 +52,9 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
         <title>{seoTitle}</title>
         <meta name="description" content={t('seo.legal.desc')} />
         <link rel="canonical" href={canonicalUrl} />
+        {hreflangLinks(route).map((l) => (
+          <link key={l.hreflang} rel="alternate" hrefLang={l.hreflang} href={l.href} />
+        ))}
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={t('seo.legal.desc')} />
         <meta property="og:url" content={canonicalUrl} />

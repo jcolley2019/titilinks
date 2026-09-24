@@ -713,6 +713,19 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.terms.title': 'Terms of Service | TitiLinks',
     'seo.privacy.title': 'Privacy Policy | TitiLinks',
     'seo.legal.desc': 'The legal terms and privacy practices for TitiLinks, the link-in-bio platform for creators.',
+    // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
+    'seo.faq.heading': 'FAQ',
+    'seo.faq.q.what': 'What is TitiLinks?',
+    'seo.faq.q.free': 'Is TitiLinks free?',
+    'seo.faq.q.pro': 'How much is Pro?',
+    'seo.faq.q.spanish': 'Is it available in Spanish?',
+    'seo.faq.q.start': 'How do I start?',
+    'seo.faq.yes': 'Yes.',
+    'seo.faq.a.start': 'Sign up free and claim titilinks.com/yourname. Setup in 2 min.',
+    'seo.faq.bilingual': 'Bilingual (English / Spanish), built for Latin creators, athletes, artists, musicians, small businesses and side-hustlers.',
+    'seo.price.year': '/year',
+    'seo.price.or': 'or',
+    'seo.price.list': 'list price',
     
     // Problem Section
     'problem.title': 'Sound',
@@ -2639,6 +2652,19 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.terms.title': 'Términos de servicio | TitiLinks',
     'seo.privacy.title': 'Política de privacidad | TitiLinks',
     'seo.legal.desc': 'Los términos legales y las prácticas de privacidad de TitiLinks, la plataforma de link en bio para creadores.',
+    // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
+    'seo.faq.heading': 'Preguntas frecuentes',
+    'seo.faq.q.what': '¿Qué es TitiLinks?',
+    'seo.faq.q.free': '¿TitiLinks es gratis?',
+    'seo.faq.q.pro': '¿Cuánto cuesta Pro?',
+    'seo.faq.q.spanish': '¿Está disponible en español?',
+    'seo.faq.q.start': '¿Cómo empiezo?',
+    'seo.faq.yes': 'Sí.',
+    'seo.faq.a.start': 'Regístrate gratis y reserva titilinks.com/tunombre. Configura en 2 min.',
+    'seo.faq.bilingual': 'Bilingüe (español / inglés), hecha para creadores latinos, atletas, artistas, músicos, pequeños negocios y emprendedores.',
+    'seo.price.year': '/año',
+    'seo.price.or': 'o',
+    'seo.price.list': 'precio de lista',
     
     // Problem Section
     'problem.title': '¿Te suena',
@@ -3875,6 +3901,12 @@ function detectBrowserLanguage(): Language {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
+    // TL.SEO.I18N.1 — an /es URL is Spanish, whatever was saved or the browser
+    // says. This provider sits outside BrowserRouter, so it reads the location
+    // directly. Mirrors isEsPath() in src/lib/seo-marketing-html.ts; importing
+    // it here would create an import cycle (that module imports `translations`).
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/es' || path.startsWith('/es/')) return 'es';
     const saved = localStorage.getItem('titilinks-language');
     if (saved === 'en' || saved === 'es') return saved;
     return detectBrowserLanguage();
@@ -3882,6 +3914,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem('titilinks-language', language);
+  }, [language]);
+
+  // TL.SEO.I18N.1 — <html lang> follows the UI language (screen readers, search engines).
+  useEffect(() => {
+    document.documentElement.lang = language;
   }, [language]);
 
   const setLanguage = (lang: Language) => {

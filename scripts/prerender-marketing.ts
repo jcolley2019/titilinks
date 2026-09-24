@@ -1,13 +1,18 @@
-// TL.SEO.PRERENDER.1 — build-time static HTML for /, /templates, /terms, /privacy.
+// TL.SEO.PRERENDER.1 + TL.SEO.I18N.1 — build-time static HTML for the marketing
+// routes, English and Spanish.
 //
 // Runs after `vite build` (package.json "build": "vite build && tsx scripts/prerender-marketing.ts"):
-//   dist/app.html        ← byte-identical copy of the pristine Vite shell. vercel.json's
-//                          catch-all rewrites every other route here, and middleware.ts
-//                          fetches it as the shell for creator pages.
-//   dist/index.html      ← buildMarketingHtml(shell, '/')   (served for / by the filesystem)
-//   dist/templates.html  ← '/templates'                     (vercel.json rewrite)
-//   dist/terms.html      ← '/terms'   + the terms intro paragraph
-//   dist/privacy.html    ← '/privacy' + the privacy intro paragraph
+//   dist/app.html            ← byte-identical copy of the pristine Vite shell. vercel.json's
+//                              catch-all rewrites every other route here, and middleware.ts
+//                              fetches it as the shell for creator pages.
+//   dist/index.html          ← buildMarketingHtml(shell, '/')   (served for / by the filesystem)
+//   dist/templates.html      ← '/templates'                     (vercel.json rewrite)
+//   dist/terms.html          ← '/terms'   + the terms intro paragraph
+//   dist/privacy.html        ← '/privacy' + the privacy intro paragraph
+//   dist/es/index.html       ← the same four in Spanish, from the same pristine shell,
+//   dist/es/templates.html     with Spanish legal intros (vercel.json rewrites /es,
+//   dist/es/terms.html         /es/templates, /es/terms, /es/privacy here)
+//   dist/es/privacy.html
 //
 // Fails LOUDLY (exit 1) on any missing input, missing translation, unparseable
 // price or broken output, so a bad prerender fails the Vercel build instead of
@@ -18,22 +23,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MARKETING_ROUTES, buildMarketingHtml, type MarketingRoute } from '@/lib/seo-marketing-html';
+import {
+  MARKETING_LANGS,
+  MARKETING_ROUTES,
+  buildMarketingHtml,
+  type MarketingLang,
+  type MarketingRoute,
+} from '@/lib/seo-marketing-html';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
 const rel = (p: string) => path.relative(ROOT, p).split(path.sep).join('/');
 
-const OUTPUT: Record<MarketingRoute, string> = {
+const FILE: Record<MarketingRoute, string> = {
   '/': 'index.html',
   '/templates': 'templates.html',
   '/terms': 'terms.html',
   '/privacy': 'privacy.html',
 };
-const LEGAL_SOURCE: Partial<Record<MarketingRoute, string>> = {
-  '/terms': 'src/content/legal/terms-en.md',
-  '/privacy': 'src/content/legal/privacy-en.md',
-};
+/** dist-relative output path: 'templates.html' in English, 'es/templates.html' in Spanish. */
+const outputOf = (route: MarketingRoute, lang: MarketingLang) => (lang === 'en' ? FILE[route] : `${lang}/${FILE[route]}`);
+const LEGAL_SOURCE: Partial<Record<MarketingRoute, string>> = { '/terms': 'terms', '/privacy': 'privacy' };
 
 function fail(message: string): never {
   console.error(`[prerender] FAILED: ${message}`);
@@ -58,8 +68,8 @@ function stripMarkdown(s: string): string {
 
 /**
  * The first prose paragraph: headings are skipped, and so is a paragraph that is
- * nothing but one bold label — both legal docs open with "**Effective date: …**",
- * which is metadata, not an introduction.
+ * nothing but one bold label — every legal doc opens with "**Effective date: …**"
+ * / "**Fecha de entrada en vigor: …**", which is metadata, not an introduction.
  */
 function legalIntro(markdown: string): string {
   for (const para of markdown.split(/\r?\n\s*\r?\n/)) {
@@ -85,39 +95,47 @@ function main(): void {
     shell = read(appPath);
     if (shell.includes('id="seo-summary"')) fail(`${rel(appPath)} is not a pristine shell — run vite build first`);
   }
-  for (const marker of ['<title>', '</head>', '<div id="root"></div>']) {
+  for (const marker of ['<title>', '</head>', '<div id="root"></div>', '<html lang="en"']) {
     if (!shell.includes(marker)) fail(`the shell has no ${marker}`);
   }
   const assets = assetTags(shell);
   if (!assets.some((tag) => tag.includes('type="module"'))) fail('the shell has no module script');
 
   fs.writeFileSync(appPath, shell);
+  fs.mkdirSync(path.join(DIST, 'es'), { recursive: true });
 
-  for (const route of MARKETING_ROUTES) {
-    const source = LEGAL_SOURCE[route];
-    let extras: { legalIntro?: string } | undefined;
-    if (source) {
-      const intro = legalIntro(read(path.join(ROOT, source)));
-      if (!intro) fail(`no intro paragraph in ${source}`);
-      extras = { legalIntro: intro };
-    }
+  const written: string[] = ['index.html', 'app.html'];
+  for (const lang of MARKETING_LANGS) {
+    for (const route of MARKETING_ROUTES) {
+      const out = outputOf(route, lang);
+      const doc = LEGAL_SOURCE[route];
+      let extras: { legalIntro?: string } | undefined;
+      if (doc) {
+        const source = `src/content/legal/${doc}-${lang}.md`;
+        const intro = legalIntro(read(path.join(ROOT, source)));
+        if (!intro) fail(`no intro paragraph in ${source}`);
+        extras = { legalIntro: intro };
+      }
 
-    const html = buildMarketingHtml(shell, route, extras);
-    const count = (re: RegExp) => (html.match(re) ?? []).length;
-    const out = OUTPUT[route];
-    if (count(/<title\b/g) !== 1) fail(`${out}: expected exactly one <title>`);
-    if (count(/rel="canonical"/g) !== 1) fail(`${out}: expected exactly one canonical`);
-    if (!html.includes('<div id="root"><main id="seo-summary"')) fail(`${out}: no summary inside #root`);
-    if (!html.includes('<script type="application/ld+json">')) fail(`${out}: no JSON-LD`);
-    for (const tag of assets) {
-      if (!html.includes(tag)) fail(`${out}: lost a shell tag: ${tag.slice(0, 120)}`);
+      const html = buildMarketingHtml(shell, route, extras, lang);
+      const count = (re: RegExp) => (html.match(re) ?? []).length;
+      if (count(/<title\b/g) !== 1) fail(`${out}: expected exactly one <title>`);
+      if (count(/rel="canonical"/g) !== 1) fail(`${out}: expected exactly one canonical`);
+      if (count(/<link rel="alternate" hreflang="/g) !== 3) fail(`${out}: expected the hreflang trio`);
+      if (!html.includes(`<html lang="${lang}"`)) fail(`${out}: expected <html lang="${lang}"`);
+      if (!html.includes('<div id="root"><main id="seo-summary"')) fail(`${out}: no summary inside #root`);
+      if (!html.includes('<script type="application/ld+json">')) fail(`${out}: no JSON-LD`);
+      for (const tag of assets) {
+        if (!html.includes(tag)) fail(`${out}: lost a shell tag: ${tag.slice(0, 120)}`);
+      }
+      fs.writeFileSync(path.join(DIST, out), html);
+      if (out !== 'index.html') written.push(out);
     }
-    fs.writeFileSync(path.join(DIST, out), html);
   }
 
-  for (const file of ['index.html', 'app.html', 'templates.html', 'terms.html', 'privacy.html']) {
+  for (const file of written) {
     const bytes = fs.statSync(path.join(DIST, file)).size;
-    console.log(`[prerender] dist/${file.padEnd(15)} ${String(bytes).padStart(7)} B`);
+    console.log(`[prerender] dist/${file.padEnd(18)} ${String(bytes).padStart(7)} B`);
   }
 }
 
