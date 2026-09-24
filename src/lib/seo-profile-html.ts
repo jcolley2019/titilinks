@@ -20,7 +20,7 @@
 import { HANDLE_PATTERN } from './handle-rules';
 import { isEffectivelyGated } from './adult-gate';
 
-const SITE = 'https://www.titilinks.com';
+export const SITE = 'https://www.titilinks.com';
 const PLACEHOLDER_IMAGE = `${SITE}/placeholder.svg`;
 const DEFAULT_DESCRIPTION = 'Check out my links, products, and more on TitiLinks.';
 const MAX_DESCRIPTION = 160;
@@ -30,7 +30,7 @@ const MAX_LINKS = 30;
 export const RESERVED_FIRST_SEGMENTS: readonly string[] = [
   'login', 'onboarding', 'dashboard', 'billing', 'goodbye', 's', 'go',
   'templates', 'terms', 'privacy', 'sitemap.xml', 'robots.txt', 'llms.txt',
-  'index.html', 'assets', 'models', 'favicon.ico',
+  'index.html', 'app.html', 'assets', 'models', 'favicon.ico',
 ];
 
 /**
@@ -118,14 +118,37 @@ const CANONICAL_RE = /<link\b[^>]*\brel="canonical"[^>]*>\s*/gi;
 // twitter:site (@TitiLinks) is not re-declared and stays.
 const SHARE_META_RE = /<meta\b[^>]*\b(?:property="og:[^"]*"|name="twitter:(?:card|title|description|image)")[^>]*>\s*/gi;
 
-function stripHelmetTags(shell: string): string {
+// ─── Shared with seo-marketing-html.ts (TL.SEO.PRERENDER.1) ───────────────────
+
+/** Remove the shell's <title>, every data-rh meta and every canonical. */
+export function stripHelmetTags(shell: string): string {
   return shell.replace(TITLE_RE, '').replace(HELMET_META_RE, '').replace(CANONICAL_RE, '');
 }
 
+/** Remove the shell's unmarked og:* and twitter card/title/description/image tags. */
+export function stripShareTags(html: string): string {
+  return html.replace(SHARE_META_RE, '');
+}
+
 /** Insert before </head>. A replacer function, so '$&' in user text stays literal. */
-function beforeHeadClose(html: string, block: string): string {
+export function beforeHeadClose(html: string, block: string): string {
   return html.replace('</head>', () => `${block}\n  </head>`);
 }
+
+/** Put `inner` inside the empty #root. A replacer function, for the same reason. */
+export function intoRoot(html: string, inner: string): string {
+  return html.replace('<div id="root"></div>', () => `<div id="root">${inner}</div>`);
+}
+
+/** A JSON-LD script tag; '<' is escaped so no value can close the script early. */
+export function jsonLdScript(data: unknown): string {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
+/** The no-JS summary's inline style. index.html hides #seo-summary once JS runs. */
+export const SUMMARY_STYLE =
+  'min-height:100vh;background:#0e0c09;color:#f5f0e6;' +
+  'font-family:system-ui,sans-serif;padding:32px 20px;max-width:640px;margin:0 auto';
 
 export function buildProfileHtml(shell: string, p: ProfileSeo): string {
   const handle = p.handle.toLowerCase();
@@ -143,12 +166,12 @@ export function buildProfileHtml(shell: string, p: ProfileSeo): string {
   if (bio) person.description = bio;
   if (avatar) person.image = avatar;
   if (sameAs.length) person.sameAs = sameAs;
-  const jsonLd = JSON.stringify({
+  const jsonLd = jsonLdScript({
     '@context': 'https://schema.org',
     '@type': 'ProfilePage',
     url: canonical,
     mainEntity: person,
-  }).replace(/</g, '\\u003c');
+  });
 
   const e = escapeHtml;
   const head = [
@@ -165,22 +188,20 @@ export function buildProfileHtml(shell: string, p: ProfileSeo): string {
     `<meta name="twitter:title" content="${e(title)}" data-rh="true" />`,
     `<meta name="twitter:description" content="${e(description)}" data-rh="true" />`,
     `<meta name="twitter:image" content="${e(image)}" data-rh="true" />`,
-    `<script type="application/ld+json">${jsonLd}</script>`,
+    jsonLd,
   ].map((t) => `    ${t}`).join('\n');
 
   const items = links
     .map((l) => `<li><a href="${e(l.url)}" rel="nofollow noopener">${e(l.label)}</a></li>`)
     .join('');
   const summary =
-    '<main id="seo-summary" style="min-height:100vh;background:#0e0c09;color:#f5f0e6;' +
-    'font-family:system-ui,sans-serif;padding:32px 20px;max-width:640px;margin:0 auto">' +
+    `<main id="seo-summary" style="${SUMMARY_STYLE}">` +
     `<h1>${e(name)}</h1>` +
     (bio ? `<p>${e(bio)}</p>` : '') +
     (items ? `<ul>${items}</ul>` : '') +
     '</main>';
 
-  const withHead = beforeHeadClose(stripHelmetTags(shell).replace(SHARE_META_RE, ''), head);
-  return withHead.replace('<div id="root"></div>', () => `<div id="root">${summary}</div>`);
+  return intoRoot(beforeHeadClose(stripShareTags(stripHelmetTags(shell)), head), summary);
 }
 
 /**

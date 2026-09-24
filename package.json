@@ -7,7 +7,7 @@
     "predev": "node scripts/kill-stale-dev.mjs 8085",
     "dev": "vite",
     "kill-stale": "node scripts/kill-stale-dev.mjs",
-    "build": "vite build",
+    "build": "vite build && tsx scripts/prerender-marketing.ts",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

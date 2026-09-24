@@ -1,8 +1,9 @@
 // TL.SEO.META.1 — Vercel Routing Middleware: server-side metadata for creator pages.
 //
 // What it does: for a GET of a handle-shaped path (/joeyc — one segment, no
-// dot, not an app route, matching HANDLE_PATTERN) it fetches the built
-// index.html shell and the page row, and answers with that same shell carrying
+// dot, not an app route, matching HANDLE_PATTERN) it fetches the pristine SPA
+// shell (dist/app.html — since TL.SEO.PRERENDER.1 dist/index.html is the
+// prerendered homepage) and the page row, and answers with that shell carrying
 // the creator's own <title>, description, canonical, Open Graph / Twitter card
 // and ProfilePage JSON-LD, plus a plain-HTML summary (name, bio, links) inside
 // #root. A handle with no page gets the shell with noindex and HTTP 404 instead
@@ -47,8 +48,8 @@ export default async function middleware(request: Request) {
   const H = { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' };
 
   try {
-    // Static file; the matcher skips it (it has a dot), so no recursion.
-    const shellRes = await fetch(new URL('/index.html', request.url));
+    // The pristine shell, a static file; the matcher skips it (it has a dot), so no recursion.
+    const shellRes = await fetch(new URL('/app.html', request.url));
     if (!shellRes.ok) return next();
     const shell = await shellRes.text();
 

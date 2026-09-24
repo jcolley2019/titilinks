@@ -1,7 +1,11 @@
 {
+  "buildCommand": "npm run build",
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "https://ohmvlypcbrfkuudcuqub.supabase.co/functions/v1/sitemap" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/templates", "destination": "/templates.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/(.*)", "destination": "/app.html" }
   ],
   "headers": [
     {
