@@ -13,3 +13,9 @@ verify_jwt = true
 
 [functions.ai-enhance]
 verify_jwt = true
+
+# TL.SEO.SITEMAP.1 — crawlers send no JWT. Recorded here so a plain
+# `supabase functions deploy sitemap` cannot 401 Googlebot; the deploy line
+# still passes --no-verify-jwt. The function is read-only and emits handles only.
+[functions.sitemap]
+verify_jwt = false
