@@ -247,7 +247,9 @@ test.describe('TL.SEO.META.1 — Part B: the LIVE middleware (green only after p
     try {
       const res = await crawler.get(`${WWW}/templates`);
       expect(res.status()).toBe(200);
-      expect(await res.text(), '/templates is not a handle').not.toContain('seo-summary');
+      const html = await res.text();
+      expect(html, '/templates is not treated as a handle').not.toContain('"@type":"ProfilePage"');
+      expect(html, '/templates is the prerendered marketing page').toContain('<link rel="canonical" href="https://www.titilinks.com/templates"');
     } finally {
       await crawler.dispose();
     }
