@@ -46,9 +46,11 @@ Options:
 | | Size (browser) | Maintained | Keypoints | Notes |
 |---|---|---|---|---|
 | face-api TinyFaceDetector (today) | ~1.3 MB JS + 190 KB model | ❌ archived | none | works; threshold set to 0.15 (very permissive) |
-| **MediaPipe Face Detector** (`@mediapipe/tasks-vision`, BlazeFace short-range) | ~300 KB WASM + ~230 KB model | ✅ Google | 6 (eyes, nose, mouth, tragions) | sync `detect(img)`; self-host WASM + model under `/public/models` (no CDN — CSP) |
+| **MediaPipe Face Detector** (`@mediapipe/tasks-vision`, BlazeFace short-range) | 11.76 MB WASM raw (measured; ~3.4 MB gzip) + 230 KB model | ✅ Google | 6 (eyes, nose, mouth, tragions) | sync `detect(img)`; self-host WASM + model under `/public/models` (no CDN — CSP) |
 | `@vladmandic/human` | ~2–3 MB | ✅ | many | heavier than needed |
 | Browser `FaceDetector` (Shape Detection API) | 0 | Chrome-only, flagged | — | not shippable |
+
+**Ruling 2026-09-24 (TL.FACE.MP.1, retired).** Built and measured, then reverted. `@mediapipe/tasks-vision` 1.0.1 ships one shared vision runtime: `vision_wasm_internal.wasm` is 11,756,954 B raw (~3.4 MB gzip, ~2.4 MB brotli), and no face-only runtime exists. The model (`blaze_face_short_range.tflite`) is 229,746 B. The first AI crop would download ~12.4 MB raw against ~1.5 MB today, and self-hosting the simd + nosimd runtimes puts 23 MB of binaries in git. Ruled out on size. face-api stays: archived but working, lazy, and public pages are unaffected. Revisit only if a face-only WASM build appears. The recommendation below is superseded.
 
 Recommendation (TL.FACE.MP.1): swap the *inside* of `detectFace()` for MediaPipe, keep its `{x,y,w,h}` contract, keep every line of the framing math. Use `minDetectionConfidence` 0.5 (the 0.15 threshold today is why a busy background can "find a face"). Optionally centre headshots on the eye midpoint rather than the box centre — a real framing improvement for tilted heads. Delete `public/models/tiny_face_detector*` and the dependency after. Gate on a spec that runs detection on a fixture with a known face position (none exists today — spec 13 stops before detection).
 
