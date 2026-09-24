@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -35,13 +35,21 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
     else navigate('/');
   };
 
-  useEffect(() => {
-    const heading = markdown.split('\n', 1)[0].replace(/^#\s*/, '').trim();
-    if (heading) document.title = heading;
-  }, [markdown]);
+  // TL.SEO.HYG.1 — the <Helmet> below owns the tab title; the old effect that
+  // copied the markdown heading into document.title raced it, so it is gone.
+  const seoTitle = doc === 'terms' ? t('seo.terms.title') : t('seo.privacy.title');
+  const canonicalUrl = `https://www.titilinks.com/${doc === 'terms' ? 'terms' : 'privacy'}`;
 
   return (
     <div className="relative min-h-screen text-foreground" style={{ backgroundColor: 'hsl(30 15% 6%)' }}>
+      <Helmet>
+        <title>{seoTitle}</title>
+        <meta name="description" content={t('seo.legal.desc')} />
+        <link rel="canonical" href={canonicalUrl} />
+        <meta property="og:title" content={seoTitle} />
+        <meta property="og:description" content={t('seo.legal.desc')} />
+        <meta property="og:url" content={canonicalUrl} />
+      </Helmet>
       <Navbar />
       <main className="mx-auto max-w-[70ch] px-5 pt-28 pb-24">
         <button

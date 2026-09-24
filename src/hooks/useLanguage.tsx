@@ -704,6 +704,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'hero.phone.link3sub': 'Spotify · Apple Music',
     'hero.phone.link4': 'Book a session',
     'hero.phone.link4sub': '3 slots left this week',
+
+    // SEO (TL.SEO.HYG.1) — per-route <Helmet> titles/descriptions
+    'seo.home.title': 'TitiLinks — Link in Bio Page Builder for Creators',
+    'seo.home.desc': 'One link for everything you are. TitiLinks is the bilingual (English/Spanish) link-in-bio platform built for Latin creators, artists, athletes and small businesses: a styled page for your links, products, videos, events and socials. Free to start.',
+    'seo.templates.title': 'Link-in-Bio Templates | TitiLinks',
+    'seo.templates.desc': 'Cinematic, designer-quality link-in-bio templates for creators. Pick a look, add your links and go live in minutes.',
+    'seo.terms.title': 'Terms of Service | TitiLinks',
+    'seo.privacy.title': 'Privacy Policy | TitiLinks',
+    'seo.legal.desc': 'The legal terms and privacy practices for TitiLinks, the link-in-bio platform for creators.',
     
     // Problem Section
     'problem.title': 'Sound',
@@ -2621,6 +2630,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'hero.phone.link3sub': 'Spotify · Apple Music',
     'hero.phone.link4': 'Reserva una sesión',
     'hero.phone.link4sub': 'Quedan 3 lugares esta semana',
+
+    // SEO (TL.SEO.HYG.1) — per-route <Helmet> titles/descriptions
+    'seo.home.title': 'TitiLinks — Crea tu página de link en bio',
+    'seo.home.desc': 'Un solo link para todo lo que eres. TitiLinks es la plataforma de link en bio bilingüe (español/inglés) hecha para creadores latinos, artistas, atletas y pequeños negocios: una página con estilo para tus links, productos, videos, eventos y redes. Gratis para empezar.',
+    'seo.templates.title': 'Plantillas de link en bio | TitiLinks',
+    'seo.templates.desc': 'Plantillas de link en bio con calidad de diseñador para creadores. Elige un estilo, agrega tus links y publica en minutos.',
+    'seo.terms.title': 'Términos de servicio | TitiLinks',
+    'seo.privacy.title': 'Política de privacidad | TitiLinks',
+    'seo.legal.desc': 'Los términos legales y las prácticas de privacidad de TitiLinks, la plataforma de link en bio para creadores.',
     
     // Problem Section
     'problem.title': '¿Te suena',

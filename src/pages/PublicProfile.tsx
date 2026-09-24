@@ -351,7 +351,7 @@ export default function PublicProfile() {
     return <NotFoundView handle={handle} />;
   }
 
-  const profileUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const profileUrl = handle ? `https://www.titilinks.com/${encodeURIComponent(handle.toLowerCase())}` : 'https://www.titilinks.com/';
 
   const handleSaveContact = () => {
     if (!page) return;
@@ -393,7 +393,7 @@ export default function PublicProfile() {
   const heroInheritPublic = (page?.theme_json as any)?.pages?.page2?.heroInherit === true;
   const ogImage = (selectedMode === 'page2' && !heroInheritPublic && page2AvatarUrl)
     ? page2AvatarUrl
-    : (page?.avatar_url || 'https://titilinks.lovable.app/placeholder.svg');
+    : (page?.avatar_url || 'https://www.titilinks.com/placeholder.svg');
   // PAGES.STYLE.1: the page in view renders its OWN effective style — the
   // visitor switching pages re-derives this, so a full-bleed Page 2 keeps its
   // transparent header even when Page 1 is hero.
@@ -421,6 +421,7 @@ export default function PublicProfile() {
         <meta property="og:description" content={ogDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:url" content={profileUrl} />
+        <link rel="canonical" href={profileUrl} />
         <meta name="theme-color" content="#0e0c09" />
         <meta property="og:type" content="profile" />
         <meta name="twitter:card" content="summary" />

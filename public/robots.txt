@@ -1,21 +1,46 @@
-User-agent: Googlebot
-Allow: /
-Disallow: /go/
-
-User-agent: Bingbot
-Allow: /
-Disallow: /go/
-
-User-agent: Twitterbot
-Allow: /
-Disallow: /go/
-
-User-agent: facebookexternalhit
-Allow: /
-Disallow: /go/
-
 User-agent: *
 Allow: /
 Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
+
+# AI crawlers are welcome to read the public site (see /llms.txt).
+User-agent: GPTBot
+Allow: /
+Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
+User-agent: ClaudeBot
+Allow: /
+Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
+User-agent: PerplexityBot
+Allow: /
+Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
+User-agent: Google-Extended
+Allow: /
+Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /go/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /onboarding
+Disallow: /billing
 
 Sitemap: https://www.titilinks.com/sitemap.xml

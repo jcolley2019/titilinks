@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
+import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PhoneCard, TEMPLATE_EXAMPLES, type Lang } from '@/components/PhoneMockup';
 import { TPL_CATEGORIES, type TplCategory } from '@/lib/tpl-presets';
@@ -39,6 +40,14 @@ export default function Templates() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>{t('seo.templates.title')}</title>
+        <meta name="description" content={t('seo.templates.desc')} />
+        <link rel="canonical" href="https://www.titilinks.com/templates" />
+        <meta property="og:title" content={t('seo.templates.title')} />
+        <meta property="og:description" content={t('seo.templates.desc')} />
+        <meta property="og:url" content="https://www.titilinks.com/templates" />
+      </Helmet>
       <Navbar />
 
       <main className="pt-24 pb-16">

@@ -1,0 +1,21 @@
+# TitiLinks
+
+> TitiLinks is a premium link-in-bio platform that makes an everyday creator's single link look like a celebrity's: a styled, hosted profile page that gathers their links, content, products and socials in one place. Bilingual (English / Spanish), built for Latin creators, athletes, artists, musicians, small businesses and side-hustlers.
+
+- Website: https://www.titilinks.com
+- Creator pages live at https://www.titilinks.com/<handle>
+- Templates: https://www.titilinks.com/templates
+- Made by Joey Colley (https://joeyc.ai), Nampa, Idaho
+
+## What it does
+
+- One shareable link for a bio (Instagram, TikTok, YouTube) that holds everything a creator is.
+- Cinematic, designer-quality page themes; "you don't have to be famous to look it".
+- Blocks for links, featured media, product cards, YouTube feeds, events and socials.
+- Short links, QR codes, analytics, and AI-assisted setup and link suggestions.
+- Pricing: Free forever, or Pro from $7/month billed annually ($9 month-to-month) at a locked founding price; the list price is $15/month.
+
+## Policies
+
+- Privacy: https://www.titilinks.com/privacy
+- Terms: https://www.titilinks.com/terms
