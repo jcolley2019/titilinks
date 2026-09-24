@@ -808,19 +808,6 @@ export function ProfileDashboard({
   }, [designOpen, open, onThemeDraftChange]);
   useEffect(() => () => { onThemeDraftChange?.(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Google Fonts for the Font tab's previews — loaded once, and only once the
-  // hub is opened (the dashboard itself is always mounted).
-  useEffect(() => {
-    if (!nameFxOpen) return;
-    const id = 'google-fonts-typo-hub';
-    if (document.getElementById(id)) return;
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap';
-    document.head.appendChild(link);
-  }, [nameFxOpen]);
-
   // Commit the whole hub in one write: display_name (only when it changed) plus a
   // single theme_json merge covering headerConfig and typography. Nothing else in
   // the hub touches Supabase — every control just moves the draft.

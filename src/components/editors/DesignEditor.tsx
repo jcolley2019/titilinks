@@ -91,18 +91,6 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   const [newPresetName, setNewPresetName] = useState('');
   const [savingPreset, setSavingPreset] = useState(false);
 
-  // Load Google Fonts in editor
-  useEffect(() => {
-    const id = 'google-fonts-design-editor';
-    if (!document.getElementById(id)) {
-      const link = document.createElement('link');
-      link.id = id;
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Bebas+Neue&family=Abril+Fatface&family=Pacifico&family=Orbitron:wght@400;700&family=Caveat:wght@400;700&family=Archivo+Black&family=Lora:wght@400;700&family=Patrick+Hand&family=Space+Grotesk:wght@400;700&display=swap';
-      document.head.appendChild(link);
-    }
-  }, []);
-
   // BRAND.1: the catalog now comes from the SHARED source (src/lib/fonts.ts)
   // — this tab previously carried a local duplicate of the same list.
 

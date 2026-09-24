@@ -4,7 +4,7 @@
 
 /* TitiLinks Design System - Luxurious dark theme with gold accents */
 
-/* Luxury font pairing: Playfair Display (headings) + DM Sans (body) - loaded from index.html (TL.FONT.1) */
+/* Luxury font pairing: Playfair Display (headings) + DM Sans (body) - self-hosted from src/lib/fonts.css, imported in src/main.tsx (TL.SEO.FONTS.1) */
 /* Landing "Make it yours" showcase faces */
 
 @layer base {

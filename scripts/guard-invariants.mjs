@@ -131,17 +131,19 @@ const checks = [
   // verification SELECT (grants_ok / proacl) is the backstop for that idiom —
   // re-run it after any migration that touches schema-wide privileges.
   { name:'COMP-NO-GRANT', compNoGrant:true },
-  // TL.FONT.1 (AUDIT_rev6 #1): the brand fonts (Playfair Display, DM Sans,
-  // Bebas Neue, Pacifico) are loaded by <link rel="stylesheet"> tags in
-  // index.html, NOT by @import in src/index.css. An @import placed after the
-  // @tailwind lines violates the CSS rule that @import precede every other
-  // statement, so PostCSS DROPS it at build ("@import must precede all other
-  // statements") and production ships with zero brand fonts on every page
-  // that does not inject its own <link> at runtime - the marketing site fell
-  // back to Georgia/system-ui. A <link> in <head> is immune to that rule and
-  // starts the download earlier. Any @import returning to index.css is the
-  // defect regrowing, whatever its position.
-  { name:'FONTS-IN-HEAD', fontsInHead:true },
+  // TL.FONT.1 (AUDIT_rev6 #1) → TL.SEO.FONTS.1: web fonts are SELF-HOSTED.
+  // src/lib/fonts.css declares every family with @font-face (woff2 from the
+  // Fontsource packages, emitted hashed under /assets/) and is imported by
+  // src/main.tsx BEFORE index.css. Three regressions fail this check:
+  //  - an @import in src/index.css, whatever its position: after the
+  //    @tailwind lines PostCSS DROPS it ("@import must precede all other
+  //    statements") and production ships with zero brand fonts — the original
+  //    TL.FONT.1 defect, when the marketing site fell back to Georgia/system-ui;
+  //  - any fonts.googleapis.com / fonts.gstatic.com reference in index.html or
+  //    src/ — a render-blocking cross-origin stylesheet, the thing FONTS.1 removed;
+  //  - fonts.css missing, not declaring the brand families, or not imported
+  //    ahead of index.css.
+  { name:'FONTS-SELF-HOSTED', fontsSelfHosted:true },
   // TL.MIG.1 (AUDIT_rev6 #4): prod is managed by hand in the SQL editor and
   // schema_migrations is empty, so this directory is a RECORD, not a ledger.
   // Nine files would resurrect deliberately dropped objects (short_links, the
@@ -358,25 +360,47 @@ for (const c of checks) {
     }
     continue;
   }
-  if (c.fontsInHead) {
-    const html = readFileSync('index.html', 'utf8');
-    const css = readFileSync(F('index.css'), 'utf8');
+  if (c.fontsSelfHosted) {
     const bad = [];
-    const links = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
-    const fontLinks = links.filter((t) => /rel=["']stylesheet["']/.test(t) && /href=["']https:\/\/fonts\.googleapis\.com\//.test(t));
-    if (!fontLinks.length) bad.push('index.html has no <link rel="stylesheet" href="https://fonts.googleapis.com/..."> in <head>');
-    css.split(/\r?\n/).forEach((line, i) => {
+    const GOOGLE = /fonts\.(googleapis|gstatic)\.com/;
+    // No Google Fonts anywhere the app ships from.
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.(tsx?|css|html)$/.test(p) ? [p] : [];
+    });
+    for (const p of ['index.html', ...walkSrc('src')]) {
+      readFileSync(p, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (GOOGLE.test(line)) bad.push(`${p}:${i + 1}  ${line.trim().slice(0, 110)}`);
+      });
+    }
+    // fonts.css declares the brand families and is imported ahead of index.css.
+    let faces = 0;
+    try {
+      const fonts = readFileSync(F('lib/fonts.css'), 'utf8');
+      faces = (fonts.match(/@font-face\s*\{/g) ?? []).length;
+      for (const family of ['Playfair Display', 'DM Sans']) {
+        if (!fonts.includes(`font-family: '${family}';`)) bad.push(`src/lib/fonts.css declares no @font-face for '${family}'`);
+      }
+    } catch {
+      bad.push('src/lib/fonts.css is missing');
+    }
+    const main = readFileSync(F('main.tsx'), 'utf8');
+    const iFonts = main.search(/import\s+["']\.\/lib\/fonts\.css["']/);
+    const iIndex = main.search(/import\s+["']\.\/index\.css["']/);
+    if (iFonts < 0) bad.push('src/main.tsx does not import "./lib/fonts.css"');
+    else if (iIndex >= 0 && iFonts > iIndex) bad.push('src/main.tsx imports "./lib/fonts.css" after "./index.css"');
+    // Never an @import in index.css (the TL.FONT.1 defect).
+    readFileSync(F('index.css'), 'utf8').split(/\r?\n/).forEach((line, i) => {
       if (/^\s*@import\b/.test(line)) bad.push(`src/index.css:${i + 1}  ${line.trim().slice(0, 110)}`);
     });
     if (bad.length) {
       failed++;
-      console.error(`x ${c.name} - brand fonts must load from index.html, never via @import`);
+      console.error(`x ${c.name} - web fonts are self-hosted from src/lib/fonts.css (TL.SEO.FONTS.1)`);
       bad.forEach((b) => console.error(`      ${b}`));
-      console.error(`      an @import after the @tailwind lines is dropped by PostCSS at build time`);
-      console.error(`      ("@import must precede all other statements"), so production ships with`);
-      console.error(`      no Playfair/DM Sans/Bebas/Pacifico. Put the URL in a <link> in index.html.`);
+      console.error(`      declare families with @font-face in src/lib/fonts.css (imported by main.tsx`);
+      console.error(`      before index.css); never a Google Fonts URL, never an @import in index.css.`);
     } else {
-      console.log(`ok ${c.name} (${fontLinks.length} font stylesheet link(s) in <head>, zero @import in index.css)`);
+      console.log(`ok ${c.name} (${faces} @font-face blocks in src/lib/fonts.css, imported before index.css; no Google Fonts; zero @import in index.css)`);
     }
     continue;
   }
