@@ -64,6 +64,33 @@ interface ProductCardsConfig {
   showBuy: boolean;
 }
 
+/** TL.PROD.ADD.3 — what isDirty compares: every persisted field, in order, plus
+ *  whether a new image is waiting to upload (the data-URL preview is derived). */
+function dirtyKey(items: ProductItem[], config: ProductCardsConfig): string {
+  return JSON.stringify({
+    config,
+    items: items.map(({ imageFile, imagePreview: _preview, ...rest }) => ({ ...rest, hasFile: !!imageFile })),
+  });
+}
+
+/** A block_items row as the editor holds it — used on load AND after save, so
+ *  a just-saved draft and a fresh load compare equal. */
+function toProductItem(item: BlockItem): ProductItem {
+  return {
+    id: item.id,
+    label: item.label || '',
+    url: item.url || '',
+    image_url: item.image_url || undefined,
+    subtitle: item.subtitle || '',
+    badge: item.badge || '',
+    is_adult: item.is_adult || false,
+    price: item.price,
+    compare_at_price: item.compare_at_price,
+    currency: item.currency || 'USD',
+    cta_label: item.cta_label || '',
+  };
+}
+
 interface ProductCardsEditorProps {
   blockId: string;
   open: boolean;
@@ -91,10 +118,26 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     showBuy: true,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // TL.PROD.ADD.3 — the state as loaded / last saved; Save is live only when
+  // the draft differs from it.
+  const [baseline, setBaseline] = useState<string | null>(null);
+  const isDirty = baseline !== null && dirtyKey(items, config) !== baseline;
+  // TL.PROD.ADD.3 — a JUST-ADDED product gets its fields scrolled into view and
+  // its Title focused; tapping an existing tile does not.
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const pendingFocusIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (open) fetchItems();
   }, [open, blockId]);
+
+  useEffect(() => {
+    if (!selectedId || pendingFocusIdRef.current !== selectedId) return;
+    pendingFocusIdRef.current = null;
+    fieldsRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    titleInputRef.current?.focus({ preventScroll: true });
+  }, [selectedId, items]);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -104,17 +147,19 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         .select('title')
         .eq('id', blockId)
         .maybeSingle();
+      let loadedConfig = config;
       try {
         const parsed = JSON.parse(blockRow?.title || '');
         if (parsed && typeof parsed === 'object') {
-          setConfig({
+          loadedConfig = {
             // Migrate the legacy stacked/split layouts onto the Gallery set.
             layout: parsed.layout === 'filmstrip' || parsed.layout === 'full' ? parsed.layout : 'grid',
             autoScroll: parsed.autoScroll !== false,
             speed: parsed.speed === 'fast' || parsed.speed === 'medium' ? parsed.speed : 'slow',
             showPrice: parsed.showPrice !== false,
             showBuy: parsed.showBuy !== false,
-          });
+          };
+          setConfig(loadedConfig);
         }
       } catch { /* plain title => defaults */ }
 
@@ -126,21 +171,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
-        (data || []).map((item) => ({
-          id: item.id,
-          label: item.label || '',
-          url: item.url || '',
-          image_url: item.image_url || undefined,
-          subtitle: item.subtitle || '',
-          badge: item.badge || '',
-          is_adult: item.is_adult || false,
-          price: item.price,
-          compare_at_price: item.compare_at_price,
-          currency: item.currency || 'USD',
-          cta_label: item.cta_label || '',
-        }))
-      );
+      const loaded = (data || []).map(toProductItem);
+      setItems(loaded);
+      setBaseline(dirtyKey(loaded, loadedConfig));
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error(t('productCardsEditor.failedToLoad'));
@@ -167,8 +200,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     const id = `new-${Date.now()}-${Math.random()}`;
     const reader = new FileReader();
     reader.onload = () => {
+      // TL.PROD.ADD.3 — newest first: the new product takes the slot right
+      // after the "+" tile; order_index follows array position on save.
       setItems((prev) => [
-        ...prev,
         {
           id,
           label: '',
@@ -183,7 +217,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           imageFile: file,
           imagePreview: reader.result as string,
         },
+        ...prev,
       ]);
+      pendingFocusIdRef.current = id;
       setSelectedId(id);
     };
     reader.readAsDataURL(file);
@@ -247,7 +283,10 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         removePublicObject('products', item.image_url);
       }
 
-      // Upsert kept items in display order.
+      // Upsert kept items in display order. TL.PROD.ADD.3 — every row as it now
+      // stands in the DB, so the draft can take real ids after the loop (a
+      // 'new-' id surviving the save is what inserted it twice on a re-save).
+      const savedRows: BlockItem[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         let imageUrl = item.image_url || null;
@@ -268,8 +307,13 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         };
 
         if (item.id.startsWith('new-')) {
-          const { error } = await supabase.from('block_items').insert({ block_id: blockId, ...itemData });
+          const { data: inserted, error } = await supabase
+            .from('block_items')
+            .insert({ block_id: blockId, ...itemData })
+            .select('*')
+            .single();
           if (error) throw error;
+          savedRows.push(inserted);
         } else {
           const { error } = await supabase.from('block_items').update(itemData).eq('id', item.id);
           if (error) throw error;
@@ -280,6 +324,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           if (prev?.image_url && prev.image_url !== itemData.image_url) {
             removePublicObject('products', prev.image_url);
           }
+          savedRows.push({ ...prev!, ...itemData });
         }
       }
 
@@ -288,6 +333,16 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
         .update({ title: JSON.stringify(config) })
         .eq('id', blockId);
       if (cfgError) throw cfgError;
+
+      // TL.PROD.ADD.3 — the draft becomes the saved shape: real ids, uploaded
+      // image_url, no pending files. existingItems and the dirty baseline come
+      // from the same rows, so a second Save neither re-inserts nor is enabled.
+      const saved = savedRows.map(toProductItem);
+      setExistingItems(savedRows);
+      setItems(saved);
+      setBaseline(dirtyKey(saved, config));
+      const selectedIndex = items.findIndex((i) => i.id === selectedId);
+      if (selectedIndex !== -1) setSelectedId(saved[selectedIndex].id);
 
       toast.success(t('productCardsEditor.saved'));
       onSave?.();
@@ -427,7 +482,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                         type="button"
                         onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
                         aria-label={t('productCardsEditor.removeProduct')}
-                        className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/60 text-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                        className="absolute top-1.5 right-1.5 z-[2] h-6 w-6 rounded-full bg-black/70 text-white/80 flex items-center justify-center transition-colors hover:bg-red-500 hover:text-white"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -444,10 +499,22 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
 
               {/* Selected product's fields. */}
               {selected && (
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
+                <div ref={fieldsRef} className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">{t('productCardsEditor.title')}</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs">{t('productCardsEditor.title')}</Label>
+                      <button
+                        type="button"
+                        onClick={() => deleteItem(selected.id)}
+                        aria-label={t('productCardsEditor.removeProduct')}
+                        title={t('productCardsEditor.removeProduct')}
+                        className="h-7 w-7 shrink-0 rounded-md text-white/60 flex items-center justify-center transition-colors hover:bg-red-500 hover:text-white"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                     <Input
+                      ref={titleInputRef}
                       value={selected.label}
                       onChange={(e) => updateItem(selected.id, { label: e.target.value })}
                       placeholder={t('productCardsEditor.productNamePlaceholder')}
@@ -555,7 +622,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (
