@@ -118,6 +118,35 @@ export interface LinkItem {
   style_json?: Record<string, any> | null;
 }
 
+/** A block_items row as the editor holds it — on load AND after a save, so a
+ *  just-saved card and a fresh load compare equal (TL.LINKS.ADD.1). */
+function toLinkItem(item: BlockItem): LinkItem {
+  return {
+    id: item.id,
+    label: item.label,
+    url: item.url,
+    subtitle: item.subtitle || '',
+    badge: item.badge || '',
+    is_adult: item.is_adult || false,
+    image_url: item.image_url || null,
+    size: parseSize(item.size),
+    bg_color: item.bg_color ?? null,
+    title_color: item.title_color ?? null,
+    style_json: (item.style_json as Record<string, any> | null) ?? null,
+  };
+}
+
+/** What a successful Save hands back to the detail panel: the rows as saved. */
+type SavedCards = { primary: LinkItem; partner: LinkItem | null };
+
+/** TL.LINKS.ADD.1 — what isDirty compares: both cards, every persisted field. */
+const dirtyKey = (a: LinkItem, b: LinkItem | null) => JSON.stringify({ a, b });
+
+type UnfurlMeta = { title?: string | null; image?: string | null; description?: string | null };
+
+/** TL.LINKS.ADD.1 — the most Add/Save will wait for an unfurl before saving. */
+const SAVE_UNFURL_CAP_MS = 4000;
+
 // Text input with a clear (X) button and an INSET focus ring. The shared Input's
 // default focus ring is outset (ring-2 + ring-offset-2 = 4px beyond the box),
 // which clips at the narrow slide-in panel's edges; ring-inset keeps the gold
@@ -258,7 +287,9 @@ function LinkDetailPanel({
   isNew: boolean;
   blockStyle: BlockStyleConfig;
   onBack: () => void;
-  onSave: (primary: LinkItem, partner: LinkItem | null) => void;
+  /** Resolves with the saved rows (null on a failed/aborted save), or returns
+   *  nothing for a save that only updates local state. */
+  onSave: (primary: LinkItem, partner: LinkItem | null) => Promise<SavedCards | null> | void;
   onDelete: (id: string) => void;
   onDraftChange?: (item: LinkItem | null) => void;
   panelMode?: boolean;
@@ -281,6 +312,11 @@ function LinkDetailPanel({
   const [colorOpen, setColorOpen] = useState(false);
   const [gradientStop, setGradientStop] = useState<'from' | 'to'>('from');
   const [unfurling, setUnfurling] = useState(false);
+  // TL.LINKS.ADD.1 — Save/Add is live only when the cards differ from what was
+  // loaded / last saved, and is locked while a save is in flight.
+  const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState(() => dirtyKey(item, partnerItem ?? null));
+  const isDirty = dirtyKey(cardA, cardB) !== baseline;
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Cards vs Buttons is DERIVED from the primary card's size — a single
@@ -301,6 +337,32 @@ function LinkDetailPanel({
     a: { lastUrl: normalizeUrl(item.url || ''), titleEdited: false, imageEdited: false },
     b: { lastUrl: normalizeUrl(partnerItem?.url || ''), titleEdited: false, imageEdited: false },
   });
+  // TL.LINKS.ADD.1 — the unfurl request per slot, keyed by URL, so Add/Save can
+  // await one the typing pause already started instead of firing a second.
+  const unfurlRequest = useRef<Record<'a' | 'b', { url: string; promise: Promise<UnfurlMeta | null> } | null>>({
+    a: null,
+    b: null,
+  });
+  const requestMeta = (slot: 'a' | 'b', normalized: string): Promise<UnfurlMeta | null> => {
+    const cached = unfurlRequest.current[slot];
+    if (cached && cached.url === normalized) return cached.promise;
+    const promise = supabase.functions
+      .invoke('unfurl', { body: { url: normalized } })
+      .then(({ data, error }) => (error || !data ? null : (data as UnfurlMeta)))
+      .catch(() => null);
+    unfurlRequest.current[slot] = { url: normalized, promise };
+    return promise;
+  };
+  // Auto-fill only fields the user hasn't touched. Once a field is edited
+  // (including cleared), it's frozen — so a deleted title stays deleted.
+  const applyMeta = (card: LinkItem, st: { titleEdited: boolean; imageEdited: boolean }, meta: UnfurlMeta | null): LinkItem => {
+    if (!meta) return card;
+    const next = { ...card };
+    if (!st.titleEdited && meta.title && meta.title.trim()) next.label = meta.title.trim();
+    if (!st.imageEdited && meta.image) next.image_url = meta.image;
+    // Subtitle is user-only — never auto-filled from the link's OG description (it's optional).
+    return next;
+  };
 
   const setActive = (updater: (prev: LinkItem) => LinkItem) => {
     if (activeIsB) setCardB(prev => (prev ? updater(prev) : prev));
@@ -361,6 +423,9 @@ function LinkDetailPanel({
     const t = unfurlState.current.a;
     unfurlState.current.a = unfurlState.current.b;
     unfurlState.current.b = t;
+    const r = unfurlRequest.current.a;
+    unfurlRequest.current.a = unfurlRequest.current.b;
+    unfurlRequest.current.b = r;
   };
 
   // Live-mirror the draft to the preview (single-card only). Pair mode suppresses
@@ -381,20 +446,9 @@ function LinkDetailPanel({
 
     setUnfurling(true);
     try {
-      const { data, error } = await supabase.functions.invoke('unfurl', {
-        body: { url: normalized },
-      });
-      if (error || !data) return;
-      const meta = data as { title?: string | null; image?: string | null; description?: string | null };
-      setActive(prev => {
-        const next = { ...prev };
-        // Auto-fill only fields the user hasn't touched. Once a field is edited
-        // (including cleared), it's frozen — so a deleted title stays deleted.
-        if (!st.titleEdited && meta.title && meta.title.trim()) next.label = meta.title.trim();
-        if (!st.imageEdited && meta.image) next.image_url = meta.image;
-        // Subtitle is user-only — never auto-filled from the link's OG description (it's optional).
-        return next;
-      });
+      const meta = await requestMeta(activeKey, normalized);
+      if (!meta) return;
+      setActive(prev => applyMeta(prev, st, meta));
     } catch {
       /* silent — autofill is best-effort, never blocks the user */
     } finally {
@@ -553,21 +607,80 @@ function LinkDetailPanel({
   // Save: a complete pair saves both. A half-filled pair (one card blank) asks
   // the user to fill the other or fall back to a single large card. Otherwise
   // it saves as one item.
-  const handleSave = () => {
-    if (isPair) {
-      const aHas = cardHasContent(cardA);
-      const bHas = cardHasContent(cardB);
-      if (aHas && bHas) { onSave(cardA, cardB as LinkItem); return; }
-      if (aHas !== bHas) { setConfirmRevert(true); return; }
+  // TL.LINKS.ADD.1 — Add/Save must not outrun the auto-unfurl (it only fires on
+  // a typing pause). If this card's URL is a web URL that has not been
+  // unfurled, or its unfurl is still in flight, wait for it — capped at 4 s —
+  // and fill the title/image the user has not touched. Best-effort: a timeout
+  // or error saves the card as it is.
+  const unfurlBeforeSave = async (slot: 'a' | 'b', card: LinkItem): Promise<LinkItem> => {
+    const st = unfurlState.current[slot];
+    const normalized = normalizeUrl(card.url);
+    if (!/^https?:\/\//i.test(normalized) || isWhatsAppUrl(normalized)) return card;
+    if (st.titleEdited && st.imageEdited) return card;
+    const inFlight = unfurlRequest.current[slot]?.url === normalized;
+    if (!inFlight && st.lastUrl === normalized) return card;   // already unfurled (or the saved URL)
+    st.lastUrl = normalized;
+    setUnfurling(true);
+    try {
+      const meta = await Promise.race([
+        requestMeta(slot, normalized),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), SAVE_UNFURL_CAP_MS)),
+      ]);
+      const filled = applyMeta(card, st, meta);
+      if (filled !== card) {
+        if (slot === 'b') setCardB(prev => (prev ? applyMeta(prev, st, meta) : prev));
+        else setCardA(prev => applyMeta(prev, st, meta));
+      }
+      return filled;
+    } finally {
+      setUnfurling(false);
     }
-    onSave(cardA, null);
+  };
+
+  // Run the parent's save and, when it hands back the saved rows, adopt them:
+  // real ids (so a second press updates instead of inserting again) and a new
+  // clean baseline (so Save goes back to disabled).
+  const commitSave = async (primary: LinkItem, partner: LinkItem | null) => {
+    const result = await onSave(primary, partner);
+    if (!result) return;
+    setCardA(result.primary);
+    setCardB(result.partner);
+    setBaseline(dirtyKey(result.primary, result.partner));
+  };
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (isPair) {
+        const aHas = cardHasContent(cardA);
+        const bHas = cardHasContent(cardB);
+        if (aHas && bHas) {
+          const a = await unfurlBeforeSave('a', cardA);
+          const b = await unfurlBeforeSave('b', cardB as LinkItem);
+          await commitSave(a, b);
+          return;
+        }
+        if (aHas !== bHas) { setConfirmRevert(true); return; }
+      }
+      await commitSave(await unfurlBeforeSave('a', cardA), null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Confirmed "save as large": persist the one filled card as a full-width Big.
-  const proceedRevert = () => {
+  const proceedRevert = async () => {
+    if (saving) return;
     setConfirmRevert(false);
-    const filled = cardHasContent(cardA) ? cardA : (cardB as LinkItem);
-    onSave({ ...filled, size: 'big' }, null);
+    setSaving(true);
+    try {
+      const slot: 'a' | 'b' = cardHasContent(cardA) ? 'a' : 'b';
+      const filled = await unfurlBeforeSave(slot, slot === 'a' ? cardA : (cardB as LinkItem));
+      await commitSave({ ...filled, size: 'big' }, null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1317,6 +1430,7 @@ function LinkDetailPanel({
           </Button>
           <Button
             onClick={handleSave}
+            disabled={saving || !isDirty}
             data-testid="link-detail-save"
             className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold"
           >
@@ -1420,19 +1534,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
       if (error) throw error;
 
       setExistingItems(data || []);
-      const mapped: LinkItem[] = (data || []).map((item) => ({
-        id: item.id,
-        label: item.label,
-        url: item.url,
-        subtitle: item.subtitle || '',
-        badge: item.badge || '',
-        is_adult: item.is_adult || false,
-        image_url: item.image_url || null,
-        size: parseSize(item.size),
-        bg_color: item.bg_color ?? null,
-        title_color: item.title_color ?? null,
-        style_json: (item.style_json as Record<string, any> | null) ?? null,
-      }));
+      const mapped: LinkItem[] = (data || []).map(toLinkItem);
       setItems(mapped);
 
       // Direct single-item entry (G1): jump straight to the detail panel.
@@ -1538,79 +1640,116 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // Direct single-item Save (G1): persist ONLY this item. New → insert
   // (append); existing → update preserving its order_index. Validates just
   // this item; does not touch block.title style or sibling rows.
-  const saveSingleItem = async (item: LinkItem) => {
+  const saveSingleItem = async (item: LinkItem): Promise<SavedCards | null> => {
     if (item.label.length > 100) {
       toast.error(t('linksEditor.titleTooLong'));
-      return;
+      return null;
     }
     const urlError = validateUrl(normalizeUrl(item.url));
     if (urlError) {
       toast.error(urlError);
-      return;
+      return null;
     }
 
     setSaving(true);
     try {
+      // TL.LINKS.ADD.1 — both writes return the row, so the open panel adopts
+      // the real id: a 'new-' id surviving the save is what inserted it twice
+      // on a second press (and left a phantom card in the preview whose X
+      // failed the uuid cast).
+      let saved: BlockItem;
       if (item.id.startsWith('new-')) {
         const payload = buildItemPayload(item, items.length);
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('block_items')
-          .insert({ block_id: blockId, ...payload });
+          .insert({ block_id: blockId, ...payload })
+          .select('*')
+          .single();
         if (error) throw error;
+        saved = data;
       } else {
         const existing = existingItems.find((ei) => ei.id === item.id);
         const orderIndex = existing ? existing.order_index : items.length;
         const payload = buildItemPayload(item, orderIndex);
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('block_items')
           .update(payload)
-          .eq('id', item.id);
+          .eq('id', item.id)
+          .select('*')
+          .single();
         if (error) throw error;
+        saved = data;
       }
+      await afterSave();
       toast.success(t('linksEditor.linkSaved'));
       onSave?.();
       onOpenChange(false);
+      return { primary: toLinkItem(saved), partner: null };
     } catch (error: any) {
       console.error('Error saving link:', error);
       toast.error(error.message || t('linksEditor.failedToSave'));
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
-  // Upsert one item row, returning its id (insert for new-, update for existing).
-  const upsertItem = async (item: LinkItem, fallbackOrder: number): Promise<string> => {
+  // TL.LINKS.ADD.1 — after a save the panel stays open (panelMode), so the rows
+  // it diffs against must be the rows as they now stand: order_index for the
+  // next update, and the item is no longer "new" (Add → Save, Delete shows).
+  const afterSave = async () => {
+    setIsNewItem(false);
+    const { data } = await supabase
+      .from('block_items')
+      .select('*')
+      .eq('block_id', blockId)
+      .order('order_index', { ascending: true });
+    if (data) {
+      setExistingItems(data);
+      setItems(data.map(toLinkItem));
+    }
+  };
+
+  // Upsert one item row, returning it as saved (insert for new-, update for existing).
+  const upsertItem = async (item: LinkItem, fallbackOrder: number): Promise<BlockItem> => {
     if (item.id.startsWith('new-')) {
       const payload = buildItemPayload(item, fallbackOrder);
       const { data, error } = await supabase
         .from('block_items')
         .insert({ block_id: blockId, ...payload })
-        .select('id')
+        .select('*')
         .single();
       if (error) throw error;
-      return (data as { id: string }).id;
+      return data;
     }
     const existing = existingItems.find((ei) => ei.id === item.id);
     const orderIndex = existing ? existing.order_index : fallbackOrder;
     const payload = buildItemPayload(item, orderIndex);
-    const { error } = await supabase.from('block_items').update(payload).eq('id', item.id);
+    const { data, error } = await supabase
+      .from('block_items')
+      .update(payload)
+      .eq('id', item.id)
+      .select('*')
+      .single();
     if (error) throw error;
-    return item.id;
+    return data;
   };
 
   // Small-pair Save: persist both cards (forced size 'small'), then rewrite the
   // block's item order so B sits immediately after A — consecutive Smalls pair
   // per the shared rule, and a swap in the panel persists as this reorder.
-  const saveSmallPair = async (a: LinkItem, b: LinkItem) => {
+  const saveSmallPair = async (a: LinkItem, b: LinkItem): Promise<SavedCards | null> => {
     for (const it of [a, b]) {
-      if (it.label.length > 100) { toast.error(t('linksEditor.titleTooLong')); return; }
+      if (it.label.length > 100) { toast.error(t('linksEditor.titleTooLong')); return null; }
       const urlError = validateUrl(normalizeUrl(it.url));
-      if (urlError) { toast.error(urlError); return; }
+      if (urlError) { toast.error(urlError); return null; }
     }
     setSaving(true);
     try {
-      const aId = await upsertItem({ ...a, size: 'small' }, items.length);
-      const bId = await upsertItem({ ...b, size: 'small' }, items.length + 1);
+      const aRow = await upsertItem({ ...a, size: 'small' }, items.length);
+      const bRow = await upsertItem({ ...b, size: 'small' }, items.length + 1);
+      const aId = aRow.id;
+      const bId = bRow.id;
 
       // Re-fetch current order, drop B, reinsert right after A, rewrite indices.
       const { data, error } = await supabase
@@ -1626,12 +1765,15 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
         await supabase.from('block_items').update({ order_index: i }).eq('id', ids[i]);
       }
 
+      await afterSave();
       toast.success(t('linksEditor.cardsSaved'));
       onSave?.();
       onOpenChange(false);
+      return { primary: toLinkItem(aRow), partner: toLinkItem(bRow) };
     } catch (error: any) {
       console.error('Error saving cards:', error);
       toast.error(error.message || t('linksEditor.failedToSave'));
+      return null;
     } finally {
       setSaving(false);
     }
@@ -1677,7 +1819,7 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
             ? () => onOpenChange(false)
             : () => { setView('list'); setEditingItem(null); }}
           onSave={directMode
-            ? (primary, partner) => { if (partner) saveSmallPair(primary, partner); else saveSingleItem(primary); }
+            ? (primary, partner) => (partner ? saveSmallPair(primary, partner) : saveSingleItem(primary))
             : (primary) => {
                 if (isNewItem) {
                   setItems(prev => [...prev, primary]);

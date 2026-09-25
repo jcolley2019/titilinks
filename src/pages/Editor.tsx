@@ -395,6 +395,15 @@ export default function Editor() {
   };
 
   const handleItemDelete = async (itemId: string) => {
+    // TL.LINKS.ADD.1: a 'new-' id is the open editor's UNSAVED draft, mirrored
+    // into the preview (previewBlocks appends it). It has no row, and sending it
+    // to block_items failed the uuid cast (22P02). Removing it = discarding the
+    // draft, which is what closing the panel does.
+    if (itemId.startsWith('new-')) {
+      handleProfileDashboardClose();
+      return;
+    }
+
     // Optimistic: strip the item from its block immediately.
     const prev = allBlocks;
 
@@ -422,9 +431,9 @@ export default function Editor() {
       } else {
         toast.success(t('editor.linkRemoved') || 'Link removed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting item:', error);
-      toast.error(t('editor.failedDelete') || 'Failed to remove link');
+      toast.error(error?.message || t('editor.failedDelete') || 'Failed to remove link');
       setAllBlocks(prev);
       fetchBlocks();
     }
