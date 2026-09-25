@@ -40,6 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Loader2, Calendar, Plus, Trash2, Pin, MapPin, ImagePlus, Archive, ArchiveRestore, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 import { removePublicObject } from '@/lib/storage-cleanup';
@@ -192,6 +193,23 @@ function composeEventRow(ev: EventDraft, orderIndex: number): EventRow {
   };
 }
 
+/**
+ * TL.EDIT.DIRTY.1 — what isDirty compares: exactly the rows Save would write
+ * (same prune, same composeEventRow, same order) plus the cleanup window. A
+ * staged poster counts as "a file is waiting" — its data-URL preview is left
+ * out, both because it is derived and because it is huge.
+ */
+function eventsDirtyKey(d: { events: EventDraft[]; cleanupDays: ArchiveCleanupDays | null }): string {
+  const kept = d.events.filter((ev) => eventHasContent(ev, !!(ev.posterUrl || ev.posterFile)));
+  return JSON.stringify({
+    cleanupDays: d.cleanupDays,
+    rows: kept.map((ev, i) => {
+      const { image_url: _preview, ends_at: _endsAt, ...row } = composeEventRow(ev, i);
+      return { ...row, poster: ev.posterUrl || null, hasFile: !!ev.posterFile };
+    }),
+  });
+}
+
 interface EventsEditorProps {
   blockId: string;
   open: boolean;
@@ -255,6 +273,9 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
   const [savedCleanup, setSavedCleanup] = useState<ArchiveCleanupDays | null>(null);
   const [cleanupDays, setCleanupDays] = useState<ArchiveCleanupDays | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  // TL.EDIT.DIRTY.1 — Save is live only when the draft differs from what was
+  // loaded / last saved (the post-save re-sync below re-baselines it).
+  const { isDirty, markClean } = useDirtyBaseline({ events, cleanupDays }, eventsDirtyKey);
 
   useEffect(() => {
     // Panel OPEN is the one moment lazy auto-cleanup may run (the 3c ruling —
@@ -342,7 +363,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
         ...archived,
       ];
 
-      setEvents(
+      const loadedEvents: EventDraft[] = (
         ordered.map((item) => {
           const flags = eventStyleOf(item.style_json);
           const { date, time } = decomposeStartsAt(item.starts_at);
@@ -365,8 +386,10 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
             archivedAt: item.archived_at ?? null,
             style_json: (item.style_json as Record<string, any> | null) ?? null,
           };
-        }),
+        })
       );
+      setEvents(loadedEvents);
+      markClean({ events: loadedEvents, cleanupDays: cleanup });
     } catch (error) {
       console.error('Error fetching events:', error);
       toast.error(t('eventsEditor.loadFailed'));
@@ -1034,7 +1057,7 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (

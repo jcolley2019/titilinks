@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, AlignLeft, AlignCenter, AlignRight, Bold } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { cn } from '@/lib/utils';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 import type { ElementStyle, TextAlign, TextSize } from '@/lib/text-block-config';
@@ -39,6 +40,12 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
   const [bioText, setBioText] = useState('');
   const [existingItem, setExistingItem] = useState<BlockItem | null>(null);
   const [style, setStyle] = useState<ElementStyle>(DEFAULT_STYLE);
+  // TL.EDIT.DIRTY.1 — Save is live only when the text (as saved: trimmed) or
+  // the style differs from what was loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { bioText, style },
+    (d) => JSON.stringify({ bio: d.bioText.trim(), style: d.style }),
+  );
 
   useEffect(() => {
     if (open) fetchBio();
@@ -91,6 +98,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
         }
       }
       setStyle(nextStyle);
+      markClean({ bioText: item?.label || '', style: nextStyle });
     } catch (error) {
       console.error('Error fetching bio:', error);
       toast.error(t('blockEditor.bioLoadError'));
@@ -109,7 +117,9 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
           .eq('id', existingItem.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // TL.EDIT.DIRTY.1 — keep the inserted row: the panel stays open, and a
+        // second Save must update it rather than insert another.
+        const { data: inserted, error } = await supabase
           .from('block_items')
           .insert({
             block_id: blockId,
@@ -117,8 +127,11 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
             url: '',
             image_url: '',
             order_index: 0,
-          });
+          })
+          .select('*')
+          .single();
         if (error) throw error;
+        setExistingItem(inserted);
       }
 
       const { error: styleError } = await supabase
@@ -127,6 +140,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
         .eq('id', blockId);
       if (styleError) throw styleError;
 
+      markClean({ bioText, style });
       toast.success(t('blockEditor.bioSaved'));
       onSave?.();
       onOpenChange(false);
@@ -259,7 +273,7 @@ export function BioEditor({ blockId, open, onOpenChange, onSave, panelMode, onTi
             <Button onClick={() => onOpenChange(false)} className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20">
               {t('blockEditor.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40">
+            <Button onClick={handleSave} disabled={saving || !isDirty} className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40">
               {saving ? (<><Loader2 className="h-4 w-4 animate-spin" />{t('blockEditor.saving')}</>) : t('blockEditor.save')}
             </Button>
           </div>

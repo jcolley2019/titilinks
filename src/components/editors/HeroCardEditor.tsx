@@ -24,6 +24,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { cn, randomUUID } from '@/lib/utils';
 import { validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
 
@@ -68,6 +69,12 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [config, setConfig] = useState<HeroCardConfig>(DEFAULT_CONFIG);
   const [existingItemId, setExistingItemId] = useState<string | null>(null);
+  // TL.EDIT.DIRTY.1 — Save is live only when the config, the saved image, or a
+  // pending upload differs from what was loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { config, imageUrl, hasFile: !!imageFile },
+    (d) => JSON.stringify(d),
+  );
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,10 +117,12 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
         parsedConfig.subheadline = data.subtitle || '';
         
         setConfig(parsedConfig);
+        markClean({ config: parsedConfig, imageUrl: data.image_url || null, hasFile: false });
       } else {
         setExistingItemId(null);
         setImageUrl(null);
         setConfig(DEFAULT_CONFIG);
+        markClean({ config: DEFAULT_CONFIG, imageUrl: null, hasFile: false });
       }
     } catch (error) {
       console.error('Error fetching hero card:', error);
@@ -205,12 +214,22 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
           .eq('id', existingItemId);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // TL.EDIT.DIRTY.1 — keep the inserted row's id: the panel stays open,
+        // and a second Save must update it rather than insert another.
+        const { data: inserted, error } = await supabase
           .from('block_items')
-          .insert(itemData);
+          .insert(itemData)
+          .select('id')
+          .single();
         if (error) throw error;
+        setExistingItemId(inserted.id);
       }
 
+      // TL.EDIT.DIRTY.1 — the uploaded file is now the saved image; drop the
+      // pending file so a second Save does not upload it again.
+      setImageUrl(finalImageUrl);
+      setImageFile(null);
+      markClean({ config, imageUrl: finalImageUrl, hasFile: false });
       toast.success(t('heroCardEditor.saved'));
       onSave?.();
       onOpenChange(false);
@@ -482,7 +501,7 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving || loading || !isDirty}
             className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
           >
             {saving ? (

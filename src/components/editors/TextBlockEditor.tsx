@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, AlignLeft, AlignCenter, AlignRight, Bold } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { cn } from '@/lib/utils';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 import {
@@ -42,6 +43,11 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<TextConfig>(defaultTextConfig());
   const [target, setTarget] = useState<Target>('heading');
+  // TL.EDIT.DIRTY.1 — Save is live only when the config (as saved: trimmed)
+  // differs from what was loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(config, (c) =>
+    JSON.stringify({ ...c, heading: c.heading.trim(), body: c.body.trim() }),
+  );
 
   useEffect(() => {
     if (open) fetchText();
@@ -64,7 +70,9 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
         .eq('id', blockId)
         .single();
       if (error) throw error;
-      setConfig(parseTextConfig(data?.title));
+      const loaded = parseTextConfig(data?.title);
+      setConfig(loaded);
+      markClean(loaded);
     } catch (error) {
       console.error('Error fetching text block:', error);
       toast.error(t('blockEditor.textLoadError'));
@@ -87,6 +95,7 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
         .eq('id', blockId);
       if (error) throw error;
 
+      markClean(clean);
       toast.success(t('blockEditor.textSaved'));
       onSave?.();
       onOpenChange(false);
@@ -267,7 +276,7 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
             <Button onClick={() => onOpenChange(false)} className="flex-1 h-12 rounded-xl bg-white/10 text-white border border-white/20 hover:bg-white/20">
               {t('blockEditor.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40">
+            <Button onClick={handleSave} disabled={saving || !isDirty} className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40">
               {saving ? (<><Loader2 className="h-4 w-4 animate-spin" />{t('blockEditor.saving')}</>) : t('blockEditor.save')}
             </Button>
           </div>

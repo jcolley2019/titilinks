@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import {
   Dialog,
   DialogContent,
@@ -164,6 +165,18 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
   // TL.GAL.3b door B — which photo the framing sheet is open on (null = closed).
   const [cropTargetId, setCropTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // TL.EDIT.DIRTY.1 — Save is live only when the photos (order, framing, staged
+  // files) or the layout config differ from what was loaded / last saved; the
+  // GAL.1b post-save re-sync re-baselines it. Data-URL previews are left out.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { photos, layout, autoScroll, speed },
+    (d) => JSON.stringify({
+      layout: d.layout,
+      autoScroll: d.autoScroll,
+      speed: d.speed,
+      photos: d.photos.map((p) => ({ id: p.id, image_url: p.image_url, style_json: p.style_json ?? null, hasFile: !!p.imageFile })),
+    }),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -184,12 +197,18 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
         .select('title')
         .eq('id', blockId)
         .maybeSingle();
+      let loadedCfg: { layout: typeof layout; autoScroll: boolean; speed: typeof speed } = { layout: 'full', autoScroll, speed };
       try {
         const parsed = JSON.parse(blockRow?.title || '');
-        setLayout(parsed?.layout === 'filmstrip' || parsed?.layout === 'grid' ? parsed.layout : 'full');
-        setAutoScroll(parsed?.autoScroll !== false);
-        setSpeed(parsed?.speed === 'fast' || parsed?.speed === 'medium' ? parsed.speed : 'slow');
-      } catch { setLayout('full'); }
+        loadedCfg = {
+          layout: parsed?.layout === 'filmstrip' || parsed?.layout === 'grid' ? parsed.layout : 'full',
+          autoScroll: parsed?.autoScroll !== false,
+          speed: parsed?.speed === 'fast' || parsed?.speed === 'medium' ? parsed.speed : 'slow',
+        };
+      } catch { /* plain title => layout 'full' */ }
+      setLayout(loadedCfg.layout);
+      setAutoScroll(loadedCfg.autoScroll);
+      setSpeed(loadedCfg.speed);
 
       const { data, error } = await supabase
         .from('block_items')
@@ -200,7 +219,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
       if (error) throw error;
 
       setExistingItems(data || []);
-      setPhotos(
+      const loadedPhotos: GalleryPhoto[] = (
         (data || []).map((item) => ({
           id: item.id,
           image_url: item.image_url || '',
@@ -210,6 +229,8 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
           style_json: (item.style_json as Record<string, any> | null) ?? null,
         }))
       );
+      setPhotos(loadedPhotos);
+      markClean({ photos: loadedPhotos, ...loadedCfg });
     } catch (error) {
       console.error('Error fetching gallery:', error);
       toast.error(t('galleryEditor.loadFailed'));
@@ -529,7 +550,7 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (

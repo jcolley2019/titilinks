@@ -44,6 +44,7 @@ import {
   Rows3,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
@@ -76,6 +77,15 @@ interface ContentItem {
   imageFile?: File;
   imagePreview?: string;
 }
+
+/** TL.EDIT.DIRTY.1 — a block_items row as the editor holds it (load + save). */
+const toContentItem = (item: BlockItem): ContentItem => ({
+  id: item.id,
+  title: item.label,
+  url: item.url,
+  image_url: item.image_url || undefined,
+  meta_left: item.subtitle || undefined,
+});
 
 interface SortableContentItemProps {
   item: ContentItem;
@@ -274,6 +284,20 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [config, setConfig] = useState<ContentSectionConfig>(DEFAULT_CONFIG);
+  // TL.EDIT.DIRTY.1 — Save is live only when the rows (in order, plus any
+  // image waiting to upload) or the section config differ from what was
+  // loaded / last saved. The data-URL preview is derived, so it is left out.
+  const { isDirty, markClean } = useDirtyBaseline({ items, config }, (d) =>
+    JSON.stringify({
+      config: d.config,
+      items: d.items.map(({ imageFile, imagePreview: _preview, ...rest }) => ({
+        ...rest,
+        image_url: rest.image_url || null,
+        meta_left: rest.meta_left || null,
+        hasFile: !!imageFile,
+      })),
+    }),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -296,13 +320,15 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
         .eq('id', blockId)
         .single();
 
+      let loadedConfig = config;
       if (blockData?.title) {
         try {
           const parsed = JSON.parse(blockData.title);
-          setConfig({ ...DEFAULT_CONFIG, ...parsed });
+          loadedConfig = { ...DEFAULT_CONFIG, ...parsed };
         } catch {
-          setConfig({ ...DEFAULT_CONFIG, section_title: blockData.title });
+          loadedConfig = { ...DEFAULT_CONFIG, section_title: blockData.title };
         }
+        setConfig(loadedConfig);
       }
 
       // Fetch items
@@ -315,15 +341,9 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
-        (data || []).map((item) => ({
-          id: item.id,
-          title: item.label,
-          url: item.url,
-          image_url: item.image_url || undefined,
-          meta_left: item.subtitle || undefined,
-        }))
-      );
+      const loaded = (data || []).map(toContentItem);
+      setItems(loaded);
+      markClean({ items: loaded, config: loadedConfig });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error(t('contentSectionEditor.loadFailed'));
@@ -457,7 +477,10 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
         await supabase.from('block_items').delete().eq('id', item.id);
       }
 
-      // Update or create items
+      // Update or create items. TL.EDIT.DIRTY.1 — collect every row as it now
+      // stands in the DB: the panel stays open after Save, so the draft must
+      // take the real ids or a second Save inserts the new rows again.
+      const savedRows: BlockItem[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const isNew = item.id.startsWith('new-');
@@ -469,28 +492,37 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
         }
 
         if (isNew) {
-          await supabase.from('block_items').insert({
+          const { data: inserted, error } = await supabase.from('block_items').insert({
             block_id: blockId,
             label: item.title,
             url: item.url,
             image_url: imageUrl || null,
             subtitle: item.meta_left || null,
             order_index: i,
-          });
+          }).select('*').single();
+          if (error) throw error;
+          savedRows.push(inserted);
         } else {
+          const rowData = {
+            label: item.title,
+            url: item.url,
+            image_url: imageUrl || null,
+            subtitle: item.meta_left || null,
+            order_index: i,
+          };
           await supabase
             .from('block_items')
-            .update({
-              label: item.title,
-              url: item.url,
-              image_url: imageUrl || null,
-              subtitle: item.meta_left || null,
-              order_index: i,
-            })
+            .update(rowData)
             .eq('id', item.id);
+          const prev = existingItems.find((ei) => ei.id === item.id);
+          savedRows.push({ ...prev!, ...rowData });
         }
       }
 
+      const saved = savedRows.map(toContentItem);
+      setExistingItems(savedRows);
+      setItems(saved);
+      markClean({ items: saved, config });
       toast.success(t('contentSectionEditor.saved'));
       onSave?.();
       onOpenChange(false);
@@ -639,7 +671,7 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || loading}
+                disabled={saving || loading || !isDirty}
                 className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
               >
                 {saving ? (

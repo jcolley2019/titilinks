@@ -488,6 +488,13 @@ test.describe('TL.GAL.6 — the gallery panel mirrors into the preview before Sa
 
       // TL.GAL.1b: the panel stays mounted after Save, so a second Save runs
       // against the re-synced list. A re-upload would mint a NEW uuid filename.
+      // TL.EDIT.DIRTY.1: with nothing changed, Save is disabled, so force a
+      // genuine re-save of every row through a layout round trip (Filmstrip,
+      // then back to Full, where this spec's door and preview live).
+      await expect(panelOf(page).getByRole('button', { name: T['blockEditor.save'], exact: true })).toBeDisabled();
+      await panelOf(page).getByRole('button', { name: T['galleryEditor.layoutFilmstrip'], exact: true }).click();
+      await doSave(page);
+      await panelOf(page).getByRole('button', { name: T['galleryEditor.layoutFull'], exact: true }).click();
       await doSave(page);
       const afterSecond = await galleryItems(page, blockId);
       expect(afterSecond, 'the second Save inserted nothing').toHaveLength(baseline.length + 1);

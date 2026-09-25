@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { translateContent } from '@/lib/content-i18n';
 import {
   Dialog,
@@ -57,6 +58,23 @@ interface MediaItem {
   imageFile?: File;
   imagePreview?: string;
 }
+
+/** TL.EDIT.DIRTY.1 — a block_items row as the editor holds it (load + save). */
+const toMediaItem = (item: BlockItem): MediaItem => ({
+  id: item.id,
+  label: item.label,
+  url: item.url,
+  image_url: item.image_url || undefined,
+});
+
+/** What isDirty compares: every persisted field, in order, plus whether a new
+ *  image is waiting to upload (the data-URL preview is derived). */
+const mediaKey = (items: MediaItem[]) =>
+  JSON.stringify(items.map(({ imageFile, imagePreview: _preview, ...rest }) => ({
+    ...rest,
+    image_url: rest.image_url || null,
+    hasFile: !!imageFile,
+  })));
 
 interface SortableMediaItemProps {
   item: MediaItem;
@@ -253,6 +271,9 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
   const [items, setItems] = useState<MediaItem[]>([]);
   const [existingItems, setExistingItems] = useState<BlockItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // TL.EDIT.DIRTY.1 — Save is live only when the rows differ from what was
+  // loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(items, mediaKey);
 
   const MAX_ITEMS = ITEM_CAPS.featured_media;
 
@@ -279,14 +300,9 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
-        (data || []).map((item) => ({
-          id: item.id,
-          label: item.label,
-          url: item.url,
-          image_url: item.image_url || undefined,
-        }))
-      );
+      const loaded = (data || []).map(toMediaItem);
+      setItems(loaded);
+      markClean(loaded);
     } catch (error) {
       console.error('Error fetching items:', error);
       toast.error(t('featuredMediaEditor.loadError'));
@@ -426,7 +442,11 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
         removePublicObject('products', item.image_url);
       }
 
-      // Update or create items
+      // Update or create items. TL.EDIT.DIRTY.1 — collect every row as it now
+      // stands in the DB: the panel stays open after Save, so the draft must
+      // take the real ids (and drop its uploaded files) or a second Save
+      // inserts the new rows and uploads the images again.
+      const savedRows: BlockItem[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const isNew = item.id.startsWith('new-');
@@ -438,23 +458,25 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
         }
 
         if (isNew) {
-          const { error } = await supabase.from('block_items').insert({
+          const { data: inserted, error } = await supabase.from('block_items').insert({
             block_id: blockId,
             label: item.label,
             url: item.url,
             image_url: imageUrl || null,
             order_index: i,
-          });
+          }).select('*').single();
           if (error) throw error;
+          savedRows.push(inserted);
         } else {
+          const rowData = {
+            label: item.label,
+            url: item.url,
+            image_url: imageUrl || null,
+            order_index: i,
+          };
           const { error } = await supabase
             .from('block_items')
-            .update({
-              label: item.label,
-              url: item.url,
-              image_url: imageUrl || null,
-              order_index: i,
-            })
+            .update(rowData)
             .eq('id', item.id);
           if (error) throw error;
           // TL.STOR.8.2 — image replaced or removed and the row write
@@ -465,9 +487,14 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
           if (prev?.image_url && prev.image_url !== (imageUrl || null)) {
             removePublicObject('products', prev.image_url);
           }
+          savedRows.push({ ...prev!, ...rowData });
         }
       }
 
+      const saved = savedRows.map(toMediaItem);
+      setExistingItems(savedRows);
+      setItems(saved);
+      markClean(saved);
       toast.success(t('featuredMediaEditor.saved'));
       onSave?.();
       onOpenChange(false);
@@ -557,7 +584,7 @@ export function FeaturedMediaEditor({ blockId, open, onOpenChange, onSave, panel
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !isDirty}
                 className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
               >
                 {saving ? (

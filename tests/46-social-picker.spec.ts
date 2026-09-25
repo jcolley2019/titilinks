@@ -303,6 +303,13 @@ test.describe('social save (TL.SOC.1 — defect B, live editor)', () => {
     await expect(page.getByTestId('social-row').filter({ hasText: 'Instagram' }))
       .toContainText('No URL set');
 
+    // TL.EDIT.DIRTY.1 — Save is live only when something changed, so edit the
+    // LINKED row; the URL-less row stays untouched, which is the point.
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    const tiktok = page.getByTestId('social-row').filter({ hasText: 'TikTok' });
+    await tiktok.locator('button:has(svg.lucide-chevron-down)').click();
+    await tiktok.getByPlaceholder('https://...').fill('https://www.tiktok.com/@titi2');
+
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     // The toast counts what still needs a link — it never says "skipped" again.
     await expect(page.getByText(/needs a link/i).first()).toBeVisible();

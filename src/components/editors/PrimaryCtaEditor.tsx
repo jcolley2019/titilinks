@@ -30,6 +30,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { DEFAULT_BLOCK_STYLE, type BlockStyleConfig } from '@/lib/theme-defaults';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useProUpsell } from '@/hooks/useProUpsell';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { isAnimationId } from '@/lib/animations';
 import { AnimationChipRow } from './AnimationChipRow';
 
@@ -119,6 +120,19 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
     },
   });
 
+  // TL.EDIT.DIRTY.1 — Save is live only when the form fields or the style
+  // config differ from what was loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { fields: form.watch(), style: styleConfig },
+    (d) => JSON.stringify({
+      label: d.fields.label ?? '',
+      url: d.fields.url ?? '',
+      subtitle: d.fields.subtitle ?? '',
+      badge: d.fields.badge ?? '',
+      style: d.style,
+    }),
+  );
+
   useEffect(() => {
     if (open) {
       fetchBlockItem();
@@ -138,16 +152,16 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
       if (blockError) throw blockError;
       
       // Parse style config from title
+      let loadedStyle: BlockStyleConfig = DEFAULT_BLOCK_STYLE;
       try {
         const parsed = JSON.parse(blockData?.title || '{}');
         if (parsed.style) {
-          setStyleConfig({ ...DEFAULT_BLOCK_STYLE, ...parsed.style });
-        } else {
-          setStyleConfig(DEFAULT_BLOCK_STYLE);
+          loadedStyle = { ...DEFAULT_BLOCK_STYLE, ...parsed.style };
         }
       } catch {
-        setStyleConfig(DEFAULT_BLOCK_STYLE);
+        // Plain title — keep the defaults.
       }
+      setStyleConfig(loadedStyle);
 
       const { data, error } = await supabase
         .from('block_items')
@@ -174,6 +188,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
           badge: '',
         });
       }
+      markClean({ fields: form.getValues(), style: loadedStyle });
     } catch (error) {
       console.error('Error fetching block item:', error);
       toast.error(t('primaryCtaEditor.loadFailed'));
@@ -215,8 +230,9 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
 
         if (error) throw error;
       } else {
-        // Create new item
-        const { error } = await supabase
+        // Create new item. TL.EDIT.DIRTY.1 — keep the inserted row: the panel
+        // stays open, and a second Save must update it rather than insert.
+        const { data: inserted, error } = await supabase
           .from('block_items')
           .insert({
             block_id: blockId,
@@ -225,11 +241,15 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
             subtitle: data.subtitle || null,
             badge: data.badge || null,
             order_index: 0,
-          });
+          })
+          .select('*')
+          .single();
 
         if (error) throw error;
+        setExistingItem(inserted);
       }
 
+      markClean({ fields: data, style: styleConfig });
       toast.success(t('primaryCtaEditor.saveSuccess'));
       onSave?.();
       onOpenChange(false);
@@ -466,7 +486,7 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
             </Button>
             <Button
               type="submit"
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (

@@ -42,6 +42,7 @@ import { DEFAULT_BLOCK_STYLE, DEFAULT_THEME, type BlockStyleConfig } from '@/lib
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useProUpsell } from '@/hooks/useProUpsell';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { isAnimationId } from '@/lib/animations';
 import { AnimationChipRow } from './AnimationChipRow';
 import {
@@ -315,8 +316,7 @@ function LinkDetailPanel({
   // TL.LINKS.ADD.1 — Save/Add is live only when the cards differ from what was
   // loaded / last saved, and is locked while a save is in flight.
   const [saving, setSaving] = useState(false);
-  const [baseline, setBaseline] = useState(() => dirtyKey(item, partnerItem ?? null));
-  const isDirty = dirtyKey(cardA, cardB) !== baseline;
+  const { isDirty, markClean } = useDirtyBaseline({ a: cardA, b: cardB }, (c) => dirtyKey(c.a, c.b));
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Cards vs Buttons is DERIVED from the primary card's size — a single
@@ -645,7 +645,7 @@ function LinkDetailPanel({
     if (!result) return;
     setCardA(result.primary);
     setCardB(result.partner);
-    setBaseline(dirtyKey(result.primary, result.partner));
+    markClean({ a: result.primary, b: result.partner });
   };
 
   const handleSave = async () => {

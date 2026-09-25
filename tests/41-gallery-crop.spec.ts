@@ -398,8 +398,15 @@ test.describe('TL.GAL.3b — gallery photo framing', () => {
       await shotPanel(page, `tests/screenshots/${tag}-gal3b-1-cropped.png`);
 
       // ── save #2: the TL.GAL.1b landmine. The panel stays mounted and re-syncs
-      // from the DB after save #1; if that mapper drops style_json, this save
-      // writes the crop straight back to null.
+      // from the DB after save #1; if that mapper drops style_json, the next
+      // save writes the crop straight back to null. TL.EDIT.DIRTY.1: with
+      // nothing changed, Save is disabled, so force a genuine re-save of every
+      // row through a layout round trip (Filmstrip, then back to Full — the
+      // layout the rest of this journey and pinFullLayout's door rely on).
+      await expect(panelOf(page).getByRole('button', { name: T['blockEditor.save'], exact: true })).toBeDisabled();
+      await panelOf(page).getByRole('button', { name: T['galleryEditor.layoutFilmstrip'], exact: true }).click();
+      await doSave(page);
+      await panelOf(page).getByRole('button', { name: T['galleryEditor.layoutFull'], exact: true }).click();
       await doSave(page);
       items = await galleryItems(page, blockId);
       expect(items.filter((i) => !baselineIds.has(i.id)), 'no duplicate insert').toHaveLength(1);

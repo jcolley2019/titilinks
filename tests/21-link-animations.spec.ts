@@ -408,6 +408,14 @@ test.describe('ANIM.2 — page-level animation', () => {
     await glowChip.click();
     await expect(glowChip).toHaveAttribute('aria-pressed', 'false');
 
+    // TL.EDIT.DIRTY.1 — the locked pick changed nothing, so Save is still
+    // disabled; make one real, non-animation change (move the outline off
+    // whatever it is now) so the save below can run.
+    await expect(page.getByRole('button', { name: 'Save', exact: true }).filter({ visible: true }).first()).toBeDisabled();
+    const outline = (name: string) => page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
+    const thickSelected = /border-\[#C9A55C\]/.test((await outline('Thick').getAttribute('class')) ?? '');
+    await outline(thickSelected ? 'Thin' : 'Thick').click();
+
     // Saving the theme strips the stored page-level animation (belt-and-
     // suspenders): the PATCH payload carries buttons WITHOUT the key.
     const themePatch = page.waitForRequest(

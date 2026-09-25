@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Loader2, Mail, Check, Lock } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { translateContent } from '@/lib/content-i18n';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +59,9 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<EmailSubscribeConfig>(DEFAULT_CONFIG);
   const [existingItemId, setExistingItemId] = useState<string | null>(null);
+  // TL.EDIT.DIRTY.1 — Save is live only when the config differs from what was
+  // loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(config, (c) => JSON.stringify(c));
 
   useEffect(() => {
     if (open) {
@@ -85,13 +89,18 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
           try {
             const parsed = JSON.parse(data.badge);
             setConfig({ ...DEFAULT_CONFIG, ...parsed });
+            markClean({ ...DEFAULT_CONFIG, ...parsed });
           } catch {
             setConfig(DEFAULT_CONFIG);
+            markClean(DEFAULT_CONFIG);
           }
+        } else {
+          markClean();
         }
       } else {
         setExistingItemId(null);
         setConfig(DEFAULT_CONFIG);
+        markClean(DEFAULT_CONFIG);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -120,12 +129,18 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
           .eq('id', existingItemId);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // TL.EDIT.DIRTY.1 — keep the inserted row's id: the panel stays open,
+        // and a second Save must update it rather than insert another.
+        const { data: inserted, error } = await supabase
           .from('block_items')
-          .insert(itemData);
+          .insert(itemData)
+          .select('id')
+          .single();
         if (error) throw error;
+        setExistingItemId(inserted.id);
       }
 
+      markClean(config);
       toast.success(t('emailSubscribeEditor.saveSuccess'));
       onSave?.();
       onOpenChange(false);
@@ -296,7 +311,7 @@ export function EmailSubscribeEditor({ blockId, open, onOpenChange, onSave, pane
         </Button>
         <Button
           onClick={handleSave}
-          disabled={saving || loading}
+          disabled={saving || loading || !isDirty}
           className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
         >
           {saving ? (

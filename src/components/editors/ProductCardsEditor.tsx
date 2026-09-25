@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import {
   Dialog,
   DialogContent,
@@ -120,8 +121,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
   const fileInputRef = useRef<HTMLInputElement>(null);
   // TL.PROD.ADD.3 — the state as loaded / last saved; Save is live only when
   // the draft differs from it.
-  const [baseline, setBaseline] = useState<string | null>(null);
-  const isDirty = baseline !== null && dirtyKey(items, config) !== baseline;
+  const { isDirty, markClean } = useDirtyBaseline({ items, config }, (d) => dirtyKey(d.items, d.config));
   // TL.PROD.ADD.3 — a JUST-ADDED product gets its fields scrolled into view and
   // its Title focused; tapping an existing tile does not.
   const fieldsRef = useRef<HTMLDivElement>(null);
@@ -173,7 +173,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       setExistingItems(data || []);
       const loaded = (data || []).map(toProductItem);
       setItems(loaded);
-      setBaseline(dirtyKey(loaded, loadedConfig));
+      markClean({ items: loaded, config: loadedConfig });
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error(t('productCardsEditor.failedToLoad'));
@@ -340,7 +340,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       const saved = savedRows.map(toProductItem);
       setExistingItems(savedRows);
       setItems(saved);
-      setBaseline(dirtyKey(saved, config));
+      markClean({ items: saved, config });
       const selectedIndex = items.findIndex((i) => i.id === selectedId);
       if (selectedIndex !== -1) setSelectedId(saved[selectedIndex].id);
 

@@ -40,6 +40,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { ThumbnailUpload } from './ThumbnailUpload';
@@ -93,6 +94,14 @@ interface SocialIconItem {
   url: string;
   image_url?: string | null;
 }
+
+/** TL.EDIT.DIRTY.1 — a block_items row as the editor holds it (load + save). */
+const toIconItem = (item: BlockItem): SocialIconItem => ({
+  id: item.id,
+  label: item.label,
+  url: item.url,
+  image_url: item.image_url || null,
+});
 
 interface SortableIconItemProps {
   item: SocialIconItem;
@@ -192,6 +201,14 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
   const [showPresets, setShowPresets] = useState(false);
   const [config, setConfig] = useState<IconRowConfig>(DEFAULT_CONFIG);
   const [blockTitle, setBlockTitle] = useState<string | null>(null);
+  // TL.EDIT.DIRTY.1 — Save is live only when the rows (in order) or the row
+  // config differ from what was loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline({ items, config }, (d) =>
+    JSON.stringify({
+      config: d.config,
+      items: d.items.map((it) => ({ ...it, image_url: it.image_url || null })),
+    }),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -217,10 +234,12 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
       if (blockError) throw blockError;
 
       // Parse config from title if it exists
+      let loadedConfig = config;
       if (blockData?.title) {
         try {
           const parsed = JSON.parse(blockData.title);
-          setConfig({ ...DEFAULT_CONFIG, ...parsed });
+          loadedConfig = { ...DEFAULT_CONFIG, ...parsed };
+          setConfig(loadedConfig);
         } catch {
           setBlockTitle(blockData.title);
         }
@@ -236,14 +255,9 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
-        (data || []).map((item) => ({
-          id: item.id,
-          label: item.label,
-          url: item.url,
-          image_url: item.image_url || null,
-        }))
-      );
+      const loaded = (data || []).map(toIconItem);
+      setItems(loaded);
+      markClean({ items: loaded, config: loadedConfig });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error(t('socialIconRowEditor.loadFailed'));
@@ -350,19 +364,24 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
         await supabase.from('block_items').delete().eq('id', item.id);
       }
 
-      // Update or create items
+      // Update or create items. TL.EDIT.DIRTY.1 — collect every row as it now
+      // stands in the DB: the panel stays open after Save, so the draft must
+      // take the real ids or a second Save inserts the new rows again.
+      const savedRows: BlockItem[] = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const isNew = item.id.startsWith('new-');
 
         if (isNew) {
-          await supabase.from('block_items').insert({
+          const { data: inserted, error } = await supabase.from('block_items').insert({
             block_id: blockId,
             label: item.label,
             url: item.url,
             image_url: item.image_url || null,
             order_index: i,
-          });
+          }).select('*').single();
+          if (error) throw error;
+          savedRows.push(inserted);
         } else {
           await supabase
             .from('block_items')
@@ -373,9 +392,15 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               order_index: i,
             })
             .eq('id', item.id);
+          const prev = existingItems.find((ei) => ei.id === item.id);
+          savedRows.push({ ...prev!, label: item.label, url: item.url, image_url: item.image_url || null, order_index: i });
         }
       }
 
+      const saved = savedRows.map(toIconItem);
+      setExistingItems(savedRows);
+      setItems(saved);
+      markClean({ items: saved, config });
       toast.success(t('socialIconRowEditor.saved'));
       onSave?.();
       onOpenChange(false);
@@ -617,7 +642,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || loading}
+                disabled={saving || loading || !isDirty}
                 className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
               >
                 {saving ? (

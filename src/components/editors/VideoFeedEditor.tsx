@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Youtube, Search } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 
 type FeedSource = 'channel' | 'playlist';
 
@@ -35,6 +36,17 @@ interface ResolvedFeed {
   videos: FeedVideo[];
 }
 
+/** TL.EDIT.DIRTY.1 — the resolved-feed fields Save persists (videos are not). */
+type FeedIdentity = Pick<ResolvedFeed, 'source' | 'channel_id' | 'playlist_id' | 'channel_title' | 'channel_avatar'>;
+
+const feedIdentity = (f: FeedIdentity): FeedIdentity => ({
+  source: f.source,
+  channel_id: f.channel_id ?? null,
+  playlist_id: f.playlist_id ?? null,
+  channel_title: f.channel_title ?? null,
+  channel_avatar: f.channel_avatar ?? null,
+});
+
 interface VideoFeedEditorProps {
   blockId: string;
   open: boolean;
@@ -55,6 +67,14 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
   const [saving, setSaving] = useState(false);
   const [resolved, setResolved] = useState<ResolvedFeed | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  // TL.EDIT.DIRTY.1 — the feed as loaded / last saved. Until a preview is
+  // resolved the draft compares against it, so re-resolving the saved feed
+  // with nothing else changed leaves Save disabled.
+  const [savedFeed, setSavedFeed] = useState<FeedIdentity | null>(null);
+  const { isDirty, markClean } = useDirtyBaseline(
+    { input, source, limit, feed: resolved ? feedIdentity(resolved) : savedFeed },
+    (d) => JSON.stringify({ ...d, input: d.input.trim() }),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -73,12 +93,14 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
         let savedInput = '';
         let savedSource: FeedSource = 'channel';
         let savedLimit = 6;
+        let loadedFeed: FeedIdentity | null = null;
         try {
           const parsed = JSON.parse(data?.title || '{}');
           if (parsed.feed) {
             savedInput = parsed.feed.input_url || parsed.feed.channel_handle || parsed.feed.channel_id || '';
             if (parsed.feed.source === 'playlist' || parsed.feed.source === 'channel') savedSource = parsed.feed.source;
             if (Number.isFinite(parsed.feed.limit)) savedLimit = parsed.feed.limit;
+            loadedFeed = feedIdentity({ ...parsed.feed, source: savedSource });
           }
         } catch {
           /* no config yet */
@@ -87,6 +109,8 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
           setInput(savedInput);
           setSource(savedSource);
           setLimit(savedLimit);
+          setSavedFeed(loadedFeed);
+          markClean({ input: savedInput, source: savedSource, limit: savedLimit, feed: loadedFeed });
         }
       } catch {
         if (!cancelled) toast.error(t('videoFeedEditor.loadError'));
@@ -161,6 +185,9 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
         .update({ title: JSON.stringify(configJson) })
         .eq('id', blockId);
       if (error) throw error;
+      const nowSaved = feedIdentity(resolved);
+      setSavedFeed(nowSaved);
+      markClean({ input, source, limit, feed: nowSaved });
       toast.success(t('videoFeedEditor.saved'));
       onSave?.();
       onOpenChange(false);
@@ -308,7 +335,7 @@ export function VideoFeedEditor({ blockId, open, onOpenChange, onSave, panelMode
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving || !resolved}
+              disabled={saving || !resolved || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (

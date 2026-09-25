@@ -15,6 +15,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useUserFonts } from '@/hooks/useUserFonts';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { FONT_OPTIONS, userFontOptions, resolveFontFamily, type FontOption } from '@/lib/fonts';
 import { applyBrandToPage, parseBrandJson, type BrandColors, type BrandKit } from '@/lib/brand';
 
@@ -41,6 +42,19 @@ export function BrandKitEditor({ pageId, onRefresh }: BrandKitEditorProps) {
   const [applying, setApplying] = useState(false);
   const [wheelFor, setWheelFor] = useState<keyof BrandColors | null>(null);
   const [pickerFor, setPickerFor] = useState<'heading' | 'body' | null>(null);
+  // TL.EDIT.DIRTY.1 — Save is live only when the kit (as persistKit writes it:
+  // empty = unset) differs from what was loaded / last saved. Apply stays live
+  // regardless — applying the saved kit to the page is an action, not a save.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { colors, headingFont, bodyFont },
+    (d) => JSON.stringify({
+      primary: d.colors.primary || null,
+      accent: d.colors.accent || null,
+      background: d.colors.background || null,
+      heading: d.headingFont || null,
+      body: d.bodyFont || null,
+    }),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +73,7 @@ export function BrandKitEditor({ pageId, onRefresh }: BrandKitEditorProps) {
         setColors(kit.colors ?? {});
         setHeadingFont(kit.heading_font ?? '');
         setBodyFont(kit.body_font ?? '');
+        markClean({ colors: kit.colors ?? {}, headingFont: kit.heading_font ?? '', bodyFont: kit.body_font ?? '' });
       }
       setLoading(false);
     };
@@ -102,6 +117,7 @@ export function BrandKitEditor({ pageId, onRefresh }: BrandKitEditorProps) {
       .update({ brand_json: next as unknown as Json })
       .eq('id', user.id);
     if (error) throw error;
+    markClean({ colors, headingFont, bodyFont });
   };
 
   const handleSave = async () => {
@@ -288,7 +304,7 @@ export function BrandKitEditor({ pageId, onRefresh }: BrandKitEditorProps) {
         <button
           type="button"
           data-testid="brand-save"
-          disabled={saving || applying}
+          disabled={saving || applying || !isDirty}
           onClick={handleSave}
           className="w-full py-2.5 text-sm font-semibold rounded-lg bg-white/10 text-white hover:bg-white/15 transition-colors disabled:opacity-50"
         >

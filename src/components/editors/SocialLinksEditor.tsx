@@ -45,6 +45,7 @@ import {
   X,
 } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { PLATFORM_CATALOG as PLATFORM_CATEGORIES, PICKER_CATALOG } from '@/lib/platform-catalog';
@@ -345,6 +346,20 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   const [localIconSize, setLocalIconSize] = useState<'small' | 'medium' | 'large'>(iconSize ?? 'medium');
   const [localIconColorMode, setLocalIconColorMode] = useState<'color' | 'black' | 'white'>(iconColorMode ?? 'color');
   const [localIconBgStyle, setLocalIconBgStyle] = useState<string>(iconBgStyle ?? 'default');
+  // TL.EDIT.DIRTY.1 — Save is live only when the rows (as Save would write
+  // them, in order) differ from what was loaded / last saved. The icon size /
+  // colour / background chips persist on tap and are not part of Save.
+  const { isDirty, markClean } = useDirtyBaseline(items, (list) =>
+    JSON.stringify(list.map((it) => ({
+      id: it.id,
+      label: it.label,
+      url: buildSocialUrl(it.label, it.url),
+      subtitle: it.subtitle || '',
+      badge: it.badge || '',
+      image_url: it.image_url || null,
+      is_adult: !!it.is_adult,
+    }))),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -371,7 +386,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
       if (error) throw error;
 
       setExistingItems(data || []);
-      setItems(
+      const loaded: SocialItem[] = (
         (data || []).map((item) => ({
           id: item.id,
           label: item.label,
@@ -386,6 +401,8 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
           is_adult: item.is_adult || isAdultPlatformLabel(item.label),
         }))
       );
+      setItems(loaded);
+      markClean(loaded);
     } catch (error) {
       console.error('Error fetching items:', error);
       toast.error(t('socialLinksEditor.loadFailed'));
@@ -917,7 +934,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (

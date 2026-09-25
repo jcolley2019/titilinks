@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 
 import { TemplateGallery } from './TemplateGallery';
 import { ButtonSurfaceControls } from './ButtonSurfaceControls';
@@ -69,6 +70,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   // profile (belt-and-suspenders with the Buttons-tab picker's own guard).
   const canAnimations = can('linkAnimations');
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
+  // TL.EDIT.DIRTY.1 — Save is live only when the theme draft differs from the
+  // saved theme (the themeJson prop, re-baselined whenever it changes).
+  const { isDirty, markClean } = useDirtyBaseline(theme, (th) => JSON.stringify(th));
   // PAGES.STYLE.1: what the MENUS render from — `theme` with pageStyle
   // resolved to the active page. The `theme` draft itself stays the raw write
   // vehicle: saveTheme persists it, and a resolved pageStyle written back would
@@ -166,7 +170,9 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
   };
 
   useEffect(() => {
-    setTheme(getThemeWithDefaults(themeJson));
+    const saved = getThemeWithDefaults(themeJson);
+    setTheme(saved);
+    markClean(saved);
   }, [themeJson]);
 
   const saveTheme = async (newTheme: ThemeJson) => {
@@ -186,6 +192,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
         .eq('id', pageId);
 
       if (error) throw error;
+      markClean(newTheme);
       toast.success(t('design.designSaved'));
       onUpdate();
     } catch (error) {
@@ -723,7 +730,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold tracking-wide disabled:opacity-40"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('blockEditor.save')}

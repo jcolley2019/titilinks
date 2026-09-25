@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, GalleryHorizontalEnd, Link as LinkChainIcon } from 'lucide-react';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -34,6 +35,36 @@ interface CarouselLink {
   label: string;
   image_url: string;
 }
+
+/** A block_items row as the editor holds it — used on load AND after save. */
+const toCarouselLink = (item: BlockItem): CarouselLink => ({
+  id: item.id,
+  url: item.url || '',
+  label: item.label || '',
+  image_url: item.image_url || '',
+});
+
+/** The cards Save writes: trimmed, fully-empty (URL-less) rows dropped. */
+const keptLinks = (links: CarouselLink[]) =>
+  links.map((l) => ({ ...l, url: l.url.trim(), label: l.label.trim() })).filter((l) => l.url);
+
+interface CarouselDraft {
+  links: CarouselLink[];
+  sectionTitle: string;
+  cardSize: 'big' | 'small';
+  autoScroll: boolean;
+  speed: 'slow' | 'medium' | 'fast';
+}
+
+/** TL.EDIT.DIRTY.1 — what isDirty compares: exactly what Save would write. */
+const carouselKey = (d: CarouselDraft) =>
+  JSON.stringify({
+    links: keptLinks(d.links),
+    sectionTitle: d.sectionTitle.trim(),
+    cardSize: d.cardSize,
+    autoScroll: d.autoScroll,
+    speed: d.speed,
+  });
 
 interface CarouselEditorProps {
   blockId: string;
@@ -63,6 +94,12 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
   const [cardSize, setCardSize] = useState<'big' | 'small'>('big');
   const [autoScroll, setAutoScroll] = useState(true);
   const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('medium');
+  // TL.EDIT.DIRTY.1 — Save is live only when the draft differs from what was
+  // loaded / last saved.
+  const { isDirty, markClean } = useDirtyBaseline(
+    { links, sectionTitle, cardSize, autoScroll, speed },
+    carouselKey,
+  );
 
   const selected = links.find((l) => l.id === selectedId) || null;
   // The top preview shows the card being edited, else the first card with data.
@@ -80,13 +117,20 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         .select('title')
         .eq('id', blockId)
         .maybeSingle();
+      let loadedCfg = { sectionTitle, cardSize, autoScroll, speed };
       try {
         const parsed = JSON.parse(blockRow?.title || '');
         if (parsed && typeof parsed === 'object') {
-          setSectionTitle(typeof parsed.section_title === 'string' ? parsed.section_title : '');
-          setCardSize(parsed.cardSize === 'small' ? 'small' : 'big');
-          setAutoScroll(parsed.autoScroll !== false);
-          setSpeed(parsed.speed === 'fast' || parsed.speed === 'slow' ? parsed.speed : 'medium');
+          loadedCfg = {
+            sectionTitle: typeof parsed.section_title === 'string' ? parsed.section_title : '',
+            cardSize: parsed.cardSize === 'small' ? 'small' : 'big',
+            autoScroll: parsed.autoScroll !== false,
+            speed: parsed.speed === 'fast' || parsed.speed === 'slow' ? parsed.speed : 'medium',
+          };
+          setSectionTitle(loadedCfg.sectionTitle);
+          setCardSize(loadedCfg.cardSize);
+          setAutoScroll(loadedCfg.autoScroll);
+          setSpeed(loadedCfg.speed);
         }
       } catch { /* plain title => defaults */ }
 
@@ -98,14 +142,9 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
       if (error) throw error;
 
       setExistingItems(data || []);
-      setLinks(
-        (data || []).map((item) => ({
-          id: item.id,
-          url: item.url || '',
-          label: item.label || '',
-          image_url: item.image_url || '',
-        }))
-      );
+      const loaded = (data || []).map(toCarouselLink);
+      setLinks(loaded);
+      markClean({ links: loaded, ...loadedCfg });
     } catch (error) {
       console.error('Error fetching carousel:', error);
       toast.error(t('carouselEditor.failedToLoad'));
@@ -137,7 +176,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
 
   const handleSave = async () => {
     // A card needs a destination — drop fully-empty rows, keep those with a URL.
-    const kept = links.map((l) => ({ ...l, url: l.url.trim(), label: l.label.trim() })).filter((l) => l.url);
+    const kept = keptLinks(links);
     setSaving(true);
     try {
       // Delete removed items.
@@ -148,24 +187,31 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         if (error) throw error;
       }
 
-      // Upsert kept items in display order.
+      // Upsert kept items in display order. TL.EDIT.DIRTY.1 — collect every
+      // row as it now stands in the DB: the panel stays open after Save, so the
+      // draft must take the real ids or a second Save inserts them again.
+      const savedRows: BlockItem[] = [];
       for (let i = 0; i < kept.length; i++) {
         const l = kept[i];
         if (l.id.startsWith('new-')) {
-          const { error } = await supabase.from('block_items').insert({
+          const { data: inserted, error } = await supabase.from('block_items').insert({
             block_id: blockId,
             url: l.url,
             label: l.label,
             image_url: l.image_url || null,
             order_index: i,
-          });
+          }).select('*').single();
           if (error) throw error;
+          savedRows.push(inserted);
         } else {
+          const rowData = { url: l.url, label: l.label, image_url: l.image_url || null, order_index: i };
           const { error } = await supabase
             .from('block_items')
-            .update({ url: l.url, label: l.label, image_url: l.image_url || null, order_index: i })
+            .update(rowData)
             .eq('id', l.id);
           if (error) throw error;
+          const prev = existingItems.find((ei) => ei.id === l.id);
+          savedRows.push({ ...prev!, ...rowData });
         }
       }
 
@@ -174,6 +220,15 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
         .update({ title: JSON.stringify({ section_title: sectionTitle.trim(), cardSize, autoScroll, speed }) })
         .eq('id', blockId);
       if (cfgError) throw cfgError;
+
+      // TL.EDIT.DIRTY.1 — the draft becomes the saved shape (real ids, empty
+      // cards dropped); the selection follows its card to its saved id.
+      const saved = savedRows.map(toCarouselLink);
+      setExistingItems(savedRows);
+      setLinks(saved);
+      markClean({ links: saved, sectionTitle, cardSize, autoScroll, speed });
+      const selectedIndex = kept.findIndex((l) => l.id === selectedId);
+      setSelectedId(selectedIndex !== -1 ? saved[selectedIndex].id : null);
 
       toast.success(t('carouselEditor.saved'));
       onSave?.();
@@ -428,7 +483,7 @@ export function CarouselEditor({ blockId, open, onOpenChange, onSave, panelMode 
             <Button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isDirty}
               className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-black font-semibold hover:bg-[#C9A55C]/90 disabled:opacity-40"
             >
               {saving ? (
