@@ -99,6 +99,7 @@ test.describe('Edit canvas hides disabled blocks (TL.SECT.1)', () => {
     await page.waitForLoadState('networkidle');
 
     const frame = page.getByTestId('device-frame');
+    await expect(frame).toBeVisible();
     await expect(frame.getByText(VISIBLE_CARD_LABEL)).toBeVisible();
 
     // The links card is the only canvas card (the text block vanished), so the

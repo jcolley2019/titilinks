@@ -37,7 +37,7 @@ const asJson = (route: Route, body: unknown, status = 200) =>
 
 /**
  * Reads pinned, writes swallowed. `writes` collects every mutating call to
- * `pages` so a spec can prove a slider drag previewed WITHOUT persisting.
+ * `pages` so a spec can prove a slider drag persists exactly once, debounced.
  */
 async function installMocks(page: Page, opts: { video?: boolean; style?: PageStyle } = {}) {
   const writes: string[] = [];
@@ -212,7 +212,7 @@ test.describe('FIX.MEDIA.1 — hero framing', () => {
   // equality trivially — and the comparison now runs at BOTH page styles,
   // because full_bleed is exactly where the editing canvas used to diverge.
   for (const style of ['hero', 'full_bleed'] as PageStyle[]) {
-    test(`a slider drag moves BOTH ${style} previews, and saves nothing`, async ({ page }, testInfo) => {
+    test(`a slider drag moves BOTH ${style} previews, and saves once, debounced`, async ({ page }, testInfo) => {
       const { writes } = await installMocks(page, { video: true, style });
       await primeVideoMetadata(page);
       await openVideoProfile(page);
@@ -254,9 +254,14 @@ test.describe('FIX.MEDIA.1 — hero framing', () => {
       expect(after[0]).not.toEqual(before[0]);
       expect(after[0]!.startsWith('1.80;'), `expected the dragged zoom, got ${after[0]}`).toBe(true);
 
-      // ...and it previewed without persisting. The debounced save is 400ms.
-      await page.waitForTimeout(150);
-      expect(writes).toEqual([]);
+      // ...and the drag persists as ONE debounced PATCH (ProfileDashboard
+      // persistVideoPos, 400ms after the last change) — never zero, never one
+      // per input. Wait out the whole window rather than racing it: asserting
+      // "nothing yet" at 150ms failed whenever a loaded machine took >400ms to
+      // reach the check (TL.BATTERY.TRIAGE.1).
+      await expect.poll(() => writes.length, { message: 'the debounced save lands' }).toBeGreaterThan(0);
+      await page.waitForTimeout(600);
+      expect(writes).toEqual(['PATCH']);
     });
   }
 

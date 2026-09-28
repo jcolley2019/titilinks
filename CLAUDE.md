@@ -58,6 +58,12 @@ Specs reach the battery through the project-level storageState (`tests/.auth/use
 - Only a listener that does not answer is stale, and only those get killed.
 - `node scripts/kill-stale-dev.mjs 8085 --force` restores the old kill-anything behaviour. Never use `--force` without Joey's word.
 
+## Battery
+- The full Playwright battery runs as four sequential quarters — desktop A, desktop B, mobile A, mobile B (A = specs `0*`–`3*`, B = `4*` onward) — via `scripts/battery.ps1`. Each quarter re-runs `setup`, so each starts with a fresh 60-min Supabase token.
+- Launch it OUTSIDE Claude Code, Chrome closed, dev server already up on 8085, with this one line:
+  `Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File scripts\battery.ps1' -WorkingDirectory 'C:\dev\titilinks' -WindowStyle Hidden`
+- Logs: `battery-<date>-<project>-<half>.log`; the count lines land in `battery-<date>-summary.log`. One quarter only: `-File scripts\battery.ps1 -Quarters mobile-A`.
+
 ## Environment
 - Windows + PowerShell semantics for any commands suggested to the user; the agent shell is bash.
 

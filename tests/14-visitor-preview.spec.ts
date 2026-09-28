@@ -182,6 +182,9 @@ test.describe('TL.PREV.HDR.1 — fade-in header in the phone preview', () => {
 
   for (const mode of ['edit', 'visitor'] as const) {
     test(`${mode} mode: header is transparent at the top and fades in by ${SCROLL_PX}px of frame scroll`, async ({ page }) => {
+      // Two WebKit element screenshots alone cost ~12 s on a loaded machine;
+      // 30 s left the visitor pass timing out mid-run (TL.BATTERY.TRIAGE.1).
+      test.slow();
       const frame = page.getByTestId('device-frame');
       if (mode === 'visitor') {
         await page.getByTestId('preview-mode-toggle').click();
