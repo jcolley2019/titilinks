@@ -600,6 +600,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      change_handle: { Args: { p_handle: string }; Returns: string }
       claim_referral: { Args: { p_code: string }; Returns: boolean }
       current_plan: { Args: never; Returns: string }
       generate_referral_code: { Args: never; Returns: string }

@@ -30,6 +30,8 @@ import {
   Camera,
   MonitorSmartphone,
   Brush,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { randomUUID } from '@/lib/utils';
@@ -77,6 +79,8 @@ import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
 import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
+import { validateHandle } from '@/lib/handle-rules';
+import { suggestHandles } from '@/lib/handle-suggest';
 // TL.SECT.2 — the Sections rail borrows TextBlocksPanel's row furniture (the
 // same Switch, the same text-block label derivation) rather than inventing a
 // second toggle control.
@@ -155,6 +159,8 @@ interface ProfileDashboardProps {
   onThemeDraftChange?: (draft: unknown) => void;
   themeJson: unknown;
   displayName?: string;
+  /** TL.HANDLE.2 — the page's current handle, seeds the hub's Username field. */
+  handle?: string;
   bio?: string;
   avatarUrl?: string;
 }
@@ -168,6 +174,8 @@ type TypoTab = 'name' | 'font' | 'color' | 'effects';
 // drafts are compared against it for the dirty flag and restored from it on Cancel.
 type HubSeed = {
   displayName: string;
+  // TL.HANDLE.2 — pages.handle; saved through the change_handle RPC.
+  handle: string;
   nameSize: number;
   handleSize: number;
   nameColor: string;
@@ -466,6 +474,7 @@ export function ProfileDashboard({
   onEventsDraftChange,
   themeJson,
   displayName,
+  handle,
   bio,
   avatarUrl,
   selectedMode,
@@ -503,6 +512,10 @@ export function ProfileDashboard({
   // themeJson refresh) so a save's onRefresh can't clobber in-progress edits.
   const [typoTab, setTypoTab] = useState<TypoTab>('name');
   const [nameDraft, setNameDraft] = useState('');
+  // TL.HANDLE.2 — Username draft + its availability, the onboarding check.
+  const [handleDraft, setHandleDraft] = useState('');
+  const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [handleSuggestions, setHandleSuggestions] = useState<string[]>([]);
   const [nameSizeDraft, setNameSizeDraft] = useState(28);
   const [handleSizeDraft, setHandleSizeDraft] = useState(14);
   const [nameColorDraft, setNameColorDraft] = useState('#ffffff');
@@ -720,6 +733,7 @@ export function ProfileDashboard({
   // Push a seed snapshot into the live drafts. Used on open and on Cancel.
   const applyHubSeed = (s: HubSeed) => {
     setNameDraft(s.displayName);
+    setHandleDraft(s.handle);
     setNameSizeDraft(s.nameSize);
     setHandleSizeDraft(s.handleSize);
     setNameColorDraft(s.nameColor);
@@ -740,6 +754,7 @@ export function ProfileDashboard({
     const typo = theme.typography || {};
     const seed: HubSeed = {
       displayName: displayName || '',
+      handle: handle || '',
       nameSize: typeof hc.nameSize === 'number' ? hc.nameSize : 28,
       handleSize: typeof hc.handleSize === 'number' ? hc.handleSize : 14,
       nameColor: hc.nameColor || '#ffffff',
@@ -759,6 +774,7 @@ export function ProfileDashboard({
   // Draft differs from the snapshot it was seeded from.
   const hubDirty = !!hubSeed && (
     nameDraft !== hubSeed.displayName ||
+    handleDraft !== hubSeed.handle ||
     nameSizeDraft !== hubSeed.nameSize ||
     handleSizeDraft !== hubSeed.handleSize ||
     nameColorDraft !== hubSeed.nameColor ||
@@ -769,6 +785,49 @@ export function ProfileDashboard({
     spacingHandleIconsDraft !== hubSeed.spacingHandleIcons ||
     spacingIconsContentDraft !== hubSeed.spacingIconsContent
   );
+
+  // TL.HANDLE.2 — the Username field. Same rules and query as onboarding
+  // (StepYourProfile): validateHandle first (format / reserved — the
+  // pages_handle_rules CHECK would reject the write anyway), then a debounced
+  // lookup that ignores the caller's own row. Only a CHANGED handle is checked;
+  // the seeded one is the caller's own and needs no round-trip.
+  const handleChanged = !!hubSeed && handleDraft !== hubSeed.handle;
+  const handleError = handleChanged ? validateHandle(handleDraft) : null;
+  useEffect(() => {
+    if (!handleChanged || handleError) { setHandleStatus('idle'); return; }
+    setHandleStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const { data: pageMatch } = await supabase
+          .from('pages').select('id').eq('handle', handleDraft).neq('user_id', user?.id ?? '').maybeSingle();
+        setHandleStatus(pageMatch ? 'taken' : 'available');
+      } catch {
+        setHandleStatus('idle');
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [handleDraft, handleChanged, handleError, user?.id]);
+
+  // TL.HANDLE.2b — when the wanted handle is taken, offer free alternatives:
+  // every candidate checked in ONE query, the ones that come back dropped.
+  useEffect(() => {
+    if (handleStatus !== 'taken') { setHandleSuggestions([]); return; }
+    const candidates = suggestHandles(handleDraft);
+    if (candidates.length === 0) { setHandleSuggestions([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('pages').select('handle').in('handle', candidates).neq('user_id', user?.id ?? '');
+      if (cancelled || error) return;
+      const used = new Set((data ?? []).map((r) => r.handle));
+      setHandleSuggestions(candidates.filter((c) => !used.has(c)));
+    })();
+    return () => { cancelled = true; };
+  }, [handleStatus, handleDraft, user?.id]);
+
+  // Keep waits while a changed handle is invalid, being checked, or taken. A
+  // failed lookup ('idle') does not block: change_handle is the authority.
+  const handleBlocksSave = handleChanged && (!!handleError || handleStatus === 'checking' || handleStatus === 'taken');
 
   // Live-mirror (L4): publish the whole draft whenever any hub value moves, so
   // the preview tracks every control without each one having to remember to.
@@ -812,8 +871,29 @@ export function ProfileDashboard({
   // single theme_json merge covering headerConfig and typography. Nothing else in
   // the hub touches Supabase — every control just moves the draft.
   const handleHubSave = async () => {
-    if (!hubSeed || !hubDirty || hubSaving) return;
+    if (!hubSeed || !hubDirty || hubSaving || handleBlocksSave) return;
     setHubSaving(true);
+    // TL.HANDLE.2 — a new handle goes FIRST, through change_handle (pages.handle
+    // and profiles.username in one transaction). If it fails nothing else is
+    // written, so the hub never half-saves.
+    let savedHandle = hubSeed.handle;
+    if (handleChanged) {
+      const { data, error: handleErr } = await supabase.rpc('change_handle', { p_handle: handleDraft });
+      if (handleErr) {
+        setHubSaving(false);
+        const msg = handleErr.message || '';
+        if (msg.includes('handle_taken')) {
+          setHandleStatus('taken');
+          toast.error(t('onboarding.handleTakenToast'));
+        } else if (msg.includes('handle_invalid')) {
+          toast.error(t('onboardingFlow.usernameFormat'));
+        } else {
+          toast.error(t('dashboard.couldNotSave'));
+        }
+        return;
+      }
+      savedHandle = data ?? handleDraft;
+    }
     const existingTheme = (themeJson as any) || {};
     const existingHeader = existingTheme.headerConfig || {};
     const existingTypo = existingTheme.typography || {};
@@ -839,11 +919,21 @@ export function ProfileDashboard({
     if (nextName !== hubSeed.displayName) update.display_name = nextName;
     const { error } = await supabase.from('pages').update(update).eq('id', pageId);
     setHubSaving(false);
-    if (error) { toast.error(t('dashboard.couldNotSave')); return; }
+    if (error) {
+      // A rename that already landed stays landed: move its baseline and show it.
+      if (savedHandle !== hubSeed.handle) {
+        setHubSeed({ ...hubSeed, handle: savedHandle });
+        onRefresh();
+      }
+      toast.error(t('dashboard.couldNotSave'));
+      return;
+    }
     // The saved values become the new baseline, so the form goes clean.
     setNameDraft(nextName);
+    setHandleDraft(savedHandle);
     setHubSeed({
       displayName: nextName,
+      handle: savedHandle,
       nameSize: nameSizeDraft,
       handleSize: handleSizeDraft,
       nameColor: nameColorDraft,
@@ -1897,6 +1987,62 @@ export function ProfileDashboard({
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
                         />
                       </div>
+                      {/* TL.HANDLE.2 — Username. Draft-only like every hub control;
+                          Keep commits it through change_handle. */}
+                      <div>
+                        <label className="text-white/40 text-[10px] block mb-1">{t('typoHub.username')}</label>
+                        <div
+                          className={`flex items-center w-full bg-white/5 border rounded-xl px-3 ${
+                            handleError || handleStatus === 'taken' ? 'border-red-500' : 'border-white/10 focus-within:border-[#C9A55C]/50'
+                          }`}
+                        >
+                          <span className="text-sm text-white/40 mr-0.5 shrink-0">@</span>
+                          <input
+                            type="text"
+                            data-testid="hub-username"
+                            value={handleDraft}
+                            maxLength={30}
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            onChange={(e) => setHandleDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30))}
+                            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-white placeholder:text-white/30 focus:outline-none truncate"
+                          />
+                        </div>
+                        {handleChanged && (
+                          <div className="mt-1.5 space-y-1">
+                            <p data-testid="hub-username-status" className="flex items-center gap-1.5 text-xs">
+                              {handleError === 'reserved' ? (
+                                <span className="flex items-center gap-1.5 text-red-400"><X className="w-3 h-3 shrink-0" />{t('onboardingFlow.usernameReserved')}</span>
+                              ) : handleError === 'format' ? (
+                                <span className="flex items-center gap-1.5 text-red-400"><X className="w-3 h-3 shrink-0" />{t('onboardingFlow.usernameFormat')}</span>
+                              ) : handleStatus === 'checking' ? (
+                                <span className="flex items-center gap-1.5 text-white/40"><Loader2 className="w-3 h-3 shrink-0 animate-spin" />{t('onboardingFlow.checkingAvailability')}</span>
+                              ) : handleStatus === 'available' ? (
+                                <span className="flex items-center gap-1.5 text-green-400"><Check className="w-3 h-3 shrink-0" />{t('onboardingFlow.available')}</span>
+                              ) : handleStatus === 'taken' ? (
+                                <span className="flex items-center gap-1.5 text-red-400"><X className="w-3 h-3 shrink-0" />{t('onboardingFlow.usernameTaken')}</span>
+                              ) : null}
+                            </p>
+                            {handleStatus === 'taken' && handleSuggestions.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {handleSuggestions.map((s) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    data-testid="hub-username-suggestion"
+                                    onClick={() => setHandleDraft(s)}
+                                    className="max-w-full truncate rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs text-white/80 hover:border-[#C9A55C]/50"
+                                  >
+                                    @{s}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-xs text-white/50">{t('typoHub.usernameWarn')}</p>
+                          </div>
+                        )}
+                      </div>
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-white/40 text-[10px]">{t('typoHub.nameSize')}</span>
@@ -2069,7 +2215,7 @@ export function ProfileDashboard({
                     </button>
                     <button
                       onClick={handleHubSave}
-                      disabled={!hubDirty || hubSaving}
+                      disabled={!hubDirty || hubSaving || handleBlocksSave}
                       className="flex-1 h-12 rounded-xl bg-[#C9A55C] text-[#0e0c09] hover:bg-[#C9A55C]/90 font-semibold text-sm disabled:opacity-40"
                     >
                       {t('typoHub.save')}

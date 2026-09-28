@@ -30,6 +30,10 @@
 // from that script rather than retyped, so the two halves cannot drift.
 //
 // ── CANONICAL STATE ──────────────────────────────────────────────────────────
+//   pages.handle / profiles.username = the battery handle → TL.HANDLE.2: spec
+//                         81 renames the account and renames it back; a run
+//                         that dies in between is repaired here, keyed by the
+//                         pinned user id (every other lookup below is by handle)
 //   profiles.plan       = 'pro'    → PRO entitlements (snapshots, animations…)
 //   profiles.show_badge = true     → "Made with TitiLinks" badge (PROMO.TOGGLE.1)
 //   profiles.comped_until = 'infinity' → TL.COMP.4: the Pro is a COMP, not a
@@ -355,6 +359,16 @@ declare
   v_mode2 uuid;
   v_block uuid;
 begin
+  -- ── 0a. HANDLE (TL.HANDLE.2) ─────────────────────────────────────────────
+  -- Spec 81 renames the battery through change_handle and back again. A run
+  -- that dies in between leaves the page on another handle, and the identity
+  -- pin below resolves the account BY handle — so put it back first, keyed by
+  -- the pinned user id and nothing else. A no-op when the handle is canonical.
+  update public.pages set handle = '${h}'
+  where user_id = '${BATTERY_USER_ID}'::uuid and handle <> '${h}';
+  update public.profiles set username = '${h}'
+  where id = '${BATTERY_USER_ID}'::uuid and username is distinct from '${h}';
+
   -- ── 0. IDENTITY PIN (TL.ISO.1, restated at the SQL layer) ─────────────────
   -- The whole point of ISO.1 is that a destructive restore can never land on a
   -- real page. The emitter refuses the personal handle in Node; this refuses it

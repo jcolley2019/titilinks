@@ -786,6 +786,7 @@ export default function Editor() {
     <DashboardLayout
       onAddContent={page ? () => setProfileDashboardOpen(true) : undefined}
       onViewLive={openLive}
+      handle={page.handle}
     >
       {/* ═══ DESKTOP: Blurred hero bg + phone frame — TL.ONB.STAGE.1: lifted into EditorStage ═══ */}
       <EditorStage
@@ -870,6 +871,7 @@ export default function Editor() {
         onEventsDraftChange={handleEventsDraftChange}
         themeJson={page.theme_json}
         displayName={page.display_name ?? undefined}
+        handle={page.handle}
         bio={page.bio ?? undefined}
         avatarUrl={page.avatar_url ?? undefined}
       />

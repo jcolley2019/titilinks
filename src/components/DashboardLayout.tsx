@@ -37,6 +37,10 @@ interface DashboardLayoutProps {
   /** TL.SOC.4: the editor owns the View Live gesture so it can warn about
    *  URL-less social rows first. Absent (any non-editor page) = plain open. */
   onViewLive?: () => void;
+  /** TL.HANDLE.2: the editor's live page handle. The layout's own read below
+   *  runs once per mount, so after a rename in the hub it would still name the
+   *  old URL; when the editor passes its refetched handle, that one wins. */
+  handle?: string;
 }
 
 interface ProfileCompletion {
@@ -108,7 +112,7 @@ const BOTTOM_NAV_PATHS = new Set([
   '/dashboard/settings',
 ]);
 
-export function DashboardLayout({ children, onAddContent, onViewLive }: DashboardLayoutProps) {
+export function DashboardLayout({ children, onAddContent, onViewLive, handle }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -117,7 +121,8 @@ export function DashboardLayout({ children, onAddContent, onViewLive }: Dashboar
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isEditorPage = location.pathname === '/dashboard/editor';
   const [hasPage, setHasPage] = useState<boolean | null>(null);
-  const [pageHandle, setPageHandle] = useState<string | null>(null);
+  const [fetchedHandle, setPageHandle] = useState<string | null>(null);
+  const pageHandle = handle ?? fetchedHandle;
   const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion | null>(null);
   const userPlan = entitlements.label as UserPlan;
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
