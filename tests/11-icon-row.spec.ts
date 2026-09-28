@@ -109,7 +109,7 @@ test.describe('icon row — circle background option', () => {
 // Enough distinct icons to overflow any viewport so the drift strip engages.
 const manyIcons = (blockId: string) =>
   Array.from({ length: 40 }, (_, i) =>
-    item(`ir-many-${i}`, `Ico${String(i).padStart(2, '0')}`, `https://example.com/i${i}`, i)
+    item(`ir-many-${i}`, `Ico${String(i).padStart(2, '0')}`, `https://fixture.titilinks.test/i${i}`, i)
   );
 
 const readScrollLeft = (page: Page) =>

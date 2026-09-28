@@ -186,7 +186,7 @@ const makeCarousel = (page: Page, modeId: string, label: string, order: number) 
       .select('id').single();
     if (error) throw new Error('carousel insert: ' + error.message);
     const items = [0, 1, 2, 3].map(i => ({
-      block_id: data.id, label: arg.label + '-' + i, url: 'https://example.com/tlm1/' + i, order_index: i,
+      block_id: data.id, label: arg.label + '-' + i, url: 'https://fixture.titilinks.test/tlm1/' + i, order_index: i,
     }));
     const { error: e2 } = await sb.from('block_items').insert(items);
     if (e2) throw new Error('carousel items: ' + e2.message);

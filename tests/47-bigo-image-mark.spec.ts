@@ -116,7 +116,7 @@ const seed = async (
       : null;
     const rows = [
         ...socials.map((label, i) =>
-          item({ id: `bigo-soc-${i}`, block_id: SOCIAL_BLOCK, label, url: `https://example.com/${i}`, order_index: i })),
+          item({ id: `bigo-soc-${i}`, block_id: SOCIAL_BLOCK, label, url: `https://fixture.titilinks.test/${i}`, order_index: i })),
         // The leading-icon slot at each of its three real sizes. `medium` and
         // `button` are CSS-sized (22 / 18px); only a `small` card with media
         // renders the icon at the raw 14px the prop asks for.

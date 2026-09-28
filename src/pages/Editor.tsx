@@ -22,6 +22,7 @@ import type { HeaderDraft } from '@/lib/header-draft';
 import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
 import { safeHref } from '@/lib/safe-url';
+import { stripSampleItems } from '@/lib/placeholder-item';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -558,9 +559,10 @@ export default function Editor() {
 
   // Visitor mode shows only ENABLED blocks — the public route filters is_enabled
   // at the query level and EditableProfileView's view branch does not, so mirror
-  // that here.
+  // that here. TL.PUB.SAMPLES.1: and, like the public route, no sample items —
+  // editBlocks keeps them so the canvas still shows what each block looks like.
   const visitorBlocks = useMemo(
-    () => previewBlocks.filter((b) => b.is_enabled),
+    () => stripSampleItems(previewBlocks.filter((b) => b.is_enabled)),
     [previewBlocks]
   );
 

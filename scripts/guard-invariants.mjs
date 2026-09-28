@@ -153,6 +153,14 @@ const checks = [
   // its first 10 lines, and supabase/migrations/README.md must list EVERY .sql
   // in the directory so a new file cannot arrive unclassified.
   { name:'MIG-HEADERS', migHeaders:true },
+  // TL.PUB.SAMPLES.1: one sample-item rule, two runtimes. The sitemap (Deno,
+  // supabase/functions/sitemap/rules.ts) lists a page only when it has a real
+  // destination; the app (src/lib/placeholder-item.ts) hides every item that
+  // lacks one from visitors. They cannot share a module, so isRealDestination
+  // and the two constants it reads are copied verbatim — if the copies drift, a
+  // page can be listed for content no visitor sees, or hidden content listed.
+  // Compared whitespace-normalised; change both or neither.
+  { name:'PLACEHOLDER-RULE-PARITY', placeholderParity:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -471,6 +479,46 @@ for (const c of checks) {
       console.error(`      REVOKE ALL from public AND those three roles, and nothing may GRANT it back.`);
     } else {
       console.log(`ok ${c.name} (${creators} function definition(s) locked, zero grants)`);
+    }
+    continue;
+  }
+  if (c.placeholderParity) {
+    const COPIES = ['src/lib/placeholder-item.ts', 'supabase/functions/sitemap/rules.ts'];
+    const norm = (s) => s.replace(/\s+/g, ' ').trim();
+    // The function runs from its signature to the first column-0 `}` after it
+    // (inner braces are indented), plus the one-line constants it reads.
+    const PARTS = {
+      'function isRealDestination': (src) => {
+        const start = src.indexOf('function isRealDestination(');
+        const end = start === -1 ? -1 : src.indexOf('\n}', start);
+        return end === -1 ? null : src.slice(start, end + 2);
+      },
+      'const PLACEHOLDER_HOST': (src) => src.match(/^const PLACEHOLDER_HOST = .*$/m)?.[0] ?? null,
+      'const WHATSAPP_HOSTS': (src) => src.match(/^const WHATSAPP_HOSTS = .*$/m)?.[0] ?? null,
+    };
+    const bad = [];
+    const srcs = COPIES.map((f) => {
+      try { return readFileSync(f, 'utf8'); }
+      catch { bad.push(`cannot read ${f}`); return null; }
+    });
+    if (!bad.length) {
+      for (const [part, extract] of Object.entries(PARTS)) {
+        const [a, b] = srcs.map(extract);
+        if (a === null || b === null) {
+          COPIES.forEach((f, i) => { if ((i ? b : a) === null) bad.push(`${f}: '${part}' not found`); });
+        } else if (norm(a) !== norm(b)) {
+          bad.push(`'${part}' differs between ${COPIES[0]} and ${COPIES[1]}`);
+        }
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - the sample-item rule has drifted between the app and the sitemap`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      isRealDestination and its constants are a verbatim copy: make the same change`);
+      console.error(`      in both files, or the sitemap and the public page disagree about samples.`);
+    } else {
+      console.log(`ok ${c.name} (isRealDestination + ${Object.keys(PARTS).length - 1} constants identical in app and sitemap)`);
     }
     continue;
   }

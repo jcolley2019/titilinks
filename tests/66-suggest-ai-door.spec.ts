@@ -100,7 +100,7 @@ const seed = async (page: Page): Promise<Captured> => {
       : f.startsWith('in.') ? f.slice(3).replace(/^\(|\)$/g, '').split(',').map((s) => s.replace(/^"|"$/g, ''))
       : null;
     const rows = [{
-      id: 'ai1-link-0', block_id: LINKS_BLOCK, label: 'My Website', url: 'https://example.com',
+      id: 'ai1-link-0', block_id: LINKS_BLOCK, label: 'My Website', url: 'https://fixture.titilinks.test',
       is_adult: false, order_index: 0, subtitle: 'Check out my website', badge: null, image_url: null,
       size: 'medium', style_json: null,
     }];

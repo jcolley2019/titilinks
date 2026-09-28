@@ -45,12 +45,12 @@ type Row = { id: string; label: string; url: string };
 // canvas AND the public row alike. Assertion (e) pins the fix: every circle in
 // the strip is as wide as it is tall, and as wide as the "+" (same class).
 const FOUR: Row[] = ['Instagram', 'TikTok', 'YouTube', 'Spotify'].map((label, i) => ({
-  id: `soc7-${i}`, label, url: `https://example.com/${i}`,
+  id: `soc7-${i}`, label, url: `https://fixture.titilinks.test/${i}`,
 }));
 const TWELVE: Row[] = [
   'Instagram', 'TikTok', 'YouTube', 'Facebook', 'X (Twitter)', 'Snapchat',
   'Threads', 'Pinterest', 'Bluesky', 'Reddit', 'Spotify', 'Twitch',
-].map((label, i) => ({ id: `soc7-${i}`, label, url: `https://example.com/${i}` }));
+].map((label, i) => ({ id: `soc7-${i}`, label, url: `https://fixture.titilinks.test/${i}` }));
 // (c): one URL-less row inside the overflowing strip.
 const TWELVE_ONE_EMPTY: Row[] = TWELVE.map((r) => (r.label === 'Twitch' ? { ...r, url: '' } : r));
 

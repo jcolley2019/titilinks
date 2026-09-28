@@ -8,11 +8,14 @@
 //
 // What is listed: the marketing pages plus one URL per creator page whose
 // owner has finished onboarding (pages has no published flag; every row is
-// publicly readable by handle, so onboarding_complete is the "live" signal).
+// publicly readable by handle, so onboarding_complete is the "live" signal)
+// AND that has content (TL.SEO.SITEMAP.3c, rules.ts): an unarchived item on an enabled block
+// whose url is a real http(s) link (not example.com, not a numberless wa.me) or that has an image.
 // Never listed: /go/ hops (robots disallows them), /s/ short links, dashboard
 // or auth routes, and the battery/test accounts (handle prefix below).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { serviceClient } from "../_shared/auth.ts";
+import { isContentItem } from "./rules.ts";
 
 // Vercel redirects the apex to www (project domain setting) — list the canonical host.
 const SITE = "https://www.titilinks.com";
@@ -21,6 +24,9 @@ const MARKETING = ["/", "/templates", "/terms", "/privacy", "/es", "/es/template
 // TL.DOC.ROSTER.1 roster: joey2019pwtestbattery / +free / +onb are harness
 // accounts with real public pages — keep them out of the index.
 const EXCLUDED_HANDLE_PREFIX = "joey2019pwtest";
+// The content query returns one row per item; hosted PostgREST caps a
+// response at max_rows (1000), so it is read in pages of this size.
+const ITEM_PAGE_SIZE = 1000;
 
 const escapeXml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -51,15 +57,38 @@ serve(async (req) => {
     if (pErr) throw pErr;
     const live = new Set((profiles ?? []).map((p: { id: string }) => p.id));
 
+    // Page ids with content: content items on enabled blocks, walked up to the page.
+    const withContent = new Set<string>();
+    for (let from = 0; ; from += ITEM_PAGE_SIZE) {
+      const { data: items, error: iErr } = await svc
+        .from("block_items")
+        .select("id, url, image_url, blocks!inner(is_enabled, modes!inner(page_id))")
+        .is("archived_at", null)
+        .eq("blocks.is_enabled", true)
+        .order("id", { ascending: true })
+        .range(from, from + ITEM_PAGE_SIZE - 1);
+      if (iErr) throw iErr;
+      for (const it of (items ?? []) as unknown as {
+        url: string | null;
+        image_url: string | null;
+        blocks: { modes: { page_id: string } | null } | null;
+      }[]) {
+        const pageId = it.blocks?.modes?.page_id;
+        if (pageId && isContentItem(it)) withContent.add(pageId);
+      }
+      if (!items || items.length < ITEM_PAGE_SIZE) break;
+    }
+
     const { data: pages, error: gErr } = await svc
       .from("pages")
-      .select("handle,user_id")
+      .select("id,handle,user_id")
       .order("handle", { ascending: true });
     if (gErr) throw gErr;
 
     const handles = (pages ?? [])
-      .filter((p: { handle: string; user_id: string }) =>
-        live.has(p.user_id) && p.handle && !p.handle.startsWith(EXCLUDED_HANDLE_PREFIX))
+      .filter((p: { id: string; handle: string; user_id: string }) =>
+        live.has(p.user_id) && withContent.has(p.id) && p.handle &&
+        !p.handle.startsWith(EXCLUDED_HANDLE_PREFIX))
       .map((p: { handle: string }) => p.handle);
 
     const body = req.method === "HEAD" ? null : buildSitemap(handles);

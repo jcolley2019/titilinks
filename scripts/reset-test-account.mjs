@@ -237,21 +237,21 @@ const PAGE1 = [
   },
   {
     type: 'primary_cta', title: 'Primary CTA', items: [
-      { label: 'Shop My Collection', url: 'https://example.com/shop', subtitle: 'New arrivals every week', badge: 'NEW' },
+      { label: 'Shop My Collection', url: 'https://fixture.titilinks.test/shop', subtitle: 'New arrivals every week', badge: 'NEW' },
     ],
   },
   {
     type: 'links', title: 'Links', items: [
-      { label: 'My Website', url: 'https://example.com', subtitle: 'Check out my website' },
-      { label: 'Latest Blog Post', url: 'https://example.com/blog', subtitle: 'Read my latest content' },
-      { label: 'Work With Me', url: 'https://example.com/contact', subtitle: 'Collaborations & partnerships', badge: 'OPEN' },
+      { label: 'My Website', url: 'https://fixture.titilinks.test', subtitle: 'Check out my website' },
+      { label: 'Latest Blog Post', url: 'https://fixture.titilinks.test/blog', subtitle: 'Read my latest content' },
+      { label: 'Work With Me', url: 'https://fixture.titilinks.test/contact', subtitle: 'Collaborations & partnerships', badge: 'OPEN' },
     ],
   },
   {
     type: 'product_cards', title: 'Products', items: [
-      { label: 'Product One', url: 'https://example.com/product-1', subtitle: 'Your best seller', badge: 'SALE' },
-      { label: 'Product Two', url: 'https://example.com/product-2', subtitle: 'New arrival' },
-      { label: 'Product Three', url: 'https://example.com/product-3', subtitle: 'Fan favorite' },
+      { label: 'Product One', url: 'https://fixture.titilinks.test/product-1', subtitle: 'Your best seller', badge: 'SALE' },
+      { label: 'Product Two', url: 'https://fixture.titilinks.test/product-2', subtitle: 'New arrival' },
+      { label: 'Product Three', url: 'https://fixture.titilinks.test/product-3', subtitle: 'Fan favorite' },
     ],
   },
   { type: 'gallery', title: GALLERY_CONFIG, items: galleryItems },

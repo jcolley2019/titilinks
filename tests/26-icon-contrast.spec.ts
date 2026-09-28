@@ -78,7 +78,7 @@ const seedIcons = async (
     await route.fulfill({
       json: labels.map((label, i) => ({
         id: `ic-${label.toLowerCase()}`, block_id: BLOCK_ID, label,
-        url: `https://example.com/${i}`, is_adult: false, order_index: i,
+        url: `https://fixture.titilinks.test/${i}`, is_adult: false, order_index: i,
         subtitle: null, badge: null, image_url: null,
       })),
     });

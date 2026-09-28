@@ -25,6 +25,7 @@
 
 import { next } from '@vercel/functions';
 import { candidateHandle, buildProfileHtml, buildNotFoundHtml } from './src/lib/seo-profile-html';
+import { isPlaceholderItem } from './src/lib/placeholder-item';
 
 // Edge runtime env. Declared locally rather than pulling @types/node in for
 // one property.
@@ -34,7 +35,7 @@ declare const process: { env: Record<string, string | undefined> };
 export const config = { matcher: ['/((?!assets/|models/|api/|.*\\..*).*)'] };
 
 type BlockRow = {
-  block_items?: { label: string; url: string; order_index: number; archived_at: string | null; is_adult: boolean | null }[];
+  block_items?: { label: string; url: string; image_url: string | null; order_index: number; archived_at: string | null; is_adult: boolean | null }[];
 };
 
 export default async function middleware(request: Request) {
@@ -82,8 +83,11 @@ export default async function middleware(request: Request) {
       // Page 1's enabled link-bearing blocks and their items, one embedded
       // query; any failure → no links, never no page. social_links is the
       // header social row — the creator's own profiles, the best sameAs source.
+      // TL.PUB.SAMPLES.1: sample items (placeholder destination, no image) are
+      // dropped, exactly as the live page drops them — crawlers never get an
+      // example.com link.
       const r = await fetch(
-        `${base}/rest/v1/blocks?select=id,type,order_index,block_items(label,url,order_index,archived_at,is_adult),modes!inner(page_id,type)` +
+        `${base}/rest/v1/blocks?select=id,type,order_index,block_items(label,url,image_url,order_index,archived_at,is_adult),modes!inner(page_id,type)` +
           `&modes.page_id=eq.${page.id}&modes.type=eq.page1&is_enabled=eq.true` +
           `&type=in.(links,social_links,social_icon_row,primary_cta)&order=order_index.asc`,
         { headers: H },
@@ -93,7 +97,7 @@ export default async function middleware(request: Request) {
         links = blocks
           .flatMap((b) =>
             (b.block_items || [])
-              .filter((i) => !i.archived_at && i.url)
+              .filter((i) => !i.archived_at && i.url && !isPlaceholderItem(i))
               .sort((a, c) => a.order_index - c.order_index)
               .map((i) => ({ label: i.label, url: i.url, isAdult: i.is_adult })),
           )

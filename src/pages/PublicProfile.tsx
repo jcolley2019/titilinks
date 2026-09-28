@@ -18,6 +18,7 @@ import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, resolveDesktopStageDeviceId, type ThemeJson } from '@/lib/theme-defaults';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
+import { isSampleItem, dropEmptyDestinationBlocks } from '@/lib/placeholder-item';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
@@ -303,13 +304,20 @@ export default function PublicProfile() {
 
       if (itemsError) throw itemsError;
 
+      // TL.PUB.SAMPLES.1: sample items (placeholder destination, no image) never
+      // reach a visitor. TL.PUB.SAMPLES.1b: a destination-type block left with
+      // none is dropped entirely so it leaves no empty flex slot.
       const groupForMode = (modeId: string | undefined): BlockWithItems[] =>
-        !modeId ? [] : allBlocks
-          .filter((b) => b.mode_id === modeId)
-          .map((block) => ({
-            ...block,
-            items: (itemsData || []).filter((item) => item.block_id === block.id),
-          }));
+        !modeId ? [] : dropEmptyDestinationBlocks(
+          allBlocks
+            .filter((b) => b.mode_id === modeId)
+            .map((block) => ({
+              ...block,
+              items: (itemsData || []).filter(
+                (item) => item.block_id === block.id && !isSampleItem(block.type, item),
+              ),
+            })),
+        );
 
       const grouped = {
         page1: groupForMode(shopMode?.id),

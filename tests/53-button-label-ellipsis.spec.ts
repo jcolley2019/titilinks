@@ -78,8 +78,8 @@ test.describe('TL.LINK.ICONFIX — button label ellipsis', () => {
 
     const ids = await sb<string[]>(page, `
       const { data, error } = await sb.from('block_items').insert([
-        { block_id: arg.blockId, label: arg.long,  url: 'https://example.com/iconfix-long',  size: 'button', order_index: 9001 },
-        { block_id: arg.blockId, label: arg.short, url: 'https://example.com/iconfix-short', size: 'button', order_index: 9002 },
+        { block_id: arg.blockId, label: arg.long,  url: 'https://fixture.titilinks.test/iconfix-long',  size: 'button', order_index: 9001 },
+        { block_id: arg.blockId, label: arg.short, url: 'https://fixture.titilinks.test/iconfix-short', size: 'button', order_index: 9002 },
       ]).select('id');
       if (error) throw new Error(error.message);
       return data.map(r => r.id);`, { blockId, long: LONG_LABEL, short: SHORT_LABEL });
