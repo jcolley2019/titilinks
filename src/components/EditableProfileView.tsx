@@ -97,6 +97,8 @@ import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
 import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
+import { countSampleItems } from '@/lib/placeholder-item';
+import { SampleTag } from '@/components/SampleTag';
 
 // TL.BUNDLE.1 (AUDIT_rev6 #13): face-api — TensorFlow inside, 1.3 MB minified —
 // is loaded on demand. It only serves the AI-crop path, and the static import
@@ -1341,6 +1343,7 @@ function SortablePreviewCard({
         <span className="flex-1 text-xs font-semibold uppercase tracking-wider" style={{ color: chrome.textMuted }}>
           {t(`blocks.${block.type}.title`) || block.type}
         </span>
+        {countSampleItems(block) > 0 && <SampleTag count={countSampleItems(block)} total={block.items.length} color={chrome.textMuted} />}
         {/* Toggle */}
         <button
           onClick={() => onToggle(!block.is_enabled)}

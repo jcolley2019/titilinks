@@ -15,6 +15,8 @@
 // 2. The public page, anonymous, with its blocks/block_items reads pinned to a
 //    fixture (spec 23's harness: reads pinned, writes swallowed).
 // 3. The editor's visitor toggle on the battery account, same fixture.
+// 4–5. TL.EDIT.SAMPLETAG.1: the edit canvas tags a block's control bar while
+//    it holds samples, and the tag leaves with the edit canvas.
 //
 // Writes: none. Every non-GET to the pinned tables is fulfilled locally; the
 // real pages/modes rows are only read. Desktop only: nothing here depends on
@@ -54,7 +56,7 @@ const FIXTURE_ITEMS = [
 // Pin the page's blocks and items to the fixture. The real pages/modes rows
 // load from the database (read only); the page1 mode id is captured so the
 // fixture blocks belong to the page being rendered. Writes are swallowed.
-const pinSampleFixture = async (page: Page) => {
+const pinSampleFixture = async (page: Page, items = FIXTURE_ITEMS) => {
   let modeId = '';
 
   await page.route('**/rest/v1/modes*', async (route) => {
@@ -88,7 +90,7 @@ const pinSampleFixture = async (page: Page) => {
     if (route.request().method() !== 'GET') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     }
-    return route.fulfill({ json: FIXTURE_ITEMS });
+    return route.fulfill({ json: items });
   });
 };
 
@@ -212,5 +214,62 @@ test.describe('TL.PUB.SAMPLES.1 — the editor keeps samples; its visitor previe
     await toggle.click();
     await expect(frame.getByTitle('New photo')).toBeVisible();
     await expectSamplesShown();
+  });
+});
+
+test.describe('TL.EDIT.SAMPLETAG.1 — the edit canvas tags blocks that still hold samples', () => {
+  // The tag sits right after the block's title in its control bar.
+  const tagAfter = (page: Page, title: string) =>
+    page.getByTestId('device-frame')
+      .locator('span', { hasText: new RegExp(`^${title}$`) })
+      .locator('xpath=following-sibling::*[@data-testid="sample-tag"]');
+
+  test.beforeEach(async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop', 'desktop only');
+    await page.setViewportSize(DESKTOP);
+  });
+
+  test('4. partial and all-sample blocks are tagged in edit; the visitor preview has no tag', async ({ page }) => {
+    await pinSampleFixture(page);
+    await page.goto('/dashboard/editor');
+    await page.waitForLoadState('networkidle');
+
+    const frame = page.getByTestId('device-frame');
+    const toggle = page.getByTestId('preview-mode-toggle');
+    const expectTags = async () => {
+      // links: one sample, one real — the count form, singular.
+      await expect(tagAfter(page, 'Featured Links')).toHaveText('1 sample');
+      // product_cards: every item a sample — the "all" form.
+      await expect(tagAfter(page, 'Products')).toHaveText('Sample');
+    };
+
+    await expect(frame.getByText(REAL_LABEL).first()).toBeVisible({ timeout: 15_000 });
+    await expectTags();
+    await expect(tagAfter(page, 'Featured Links')).toHaveAttribute('title', /Sample items show only here/);
+    await tagAfter(page, 'Products').scrollIntoViewIfNeeded();
+    await frame.screenshot({ path: 'tests/screenshots/sample-tag-editor.png' });
+
+    await toggle.click();
+    await expect(frame.getByTitle('New photo')).toHaveCount(0);
+    await expect(frame.locator(`a[href="${REAL_URL}"]`).first()).toBeVisible();
+    await expect(frame.getByTestId('sample-tag'), 'the visitor preview carries no sample tag').toHaveCount(0);
+
+    await toggle.click();
+    await expect(frame.getByTitle('New photo')).toBeVisible();
+    await expectTags();
+  });
+
+  test('5. a block with no samples has no tag', async ({ page }) => {
+    // The links block keeps only its real item; products stays all-sample so
+    // the tag demonstrably renders on this canvas.
+    await pinSampleFixture(page, FIXTURE_ITEMS.filter((i) => i.id !== 'pub1-link-sample'));
+    await page.goto('/dashboard/editor');
+    await page.waitForLoadState('networkidle');
+
+    const frame = page.getByTestId('device-frame');
+    await expect(frame.getByText(REAL_LABEL).first()).toBeVisible({ timeout: 15_000 });
+    await expect(tagAfter(page, 'Products')).toHaveText('Sample');
+    await expect(frame.locator('span', { hasText: /^Featured Links$/ })).toBeVisible();
+    await expect(tagAfter(page, 'Featured Links'), 'an all-real block has no tag').toHaveCount(0);
   });
 });

@@ -75,6 +75,11 @@ export function isSampleItem(blockType: string, item: ItemDestination): boolean 
   return SAMPLE_BEARING_TYPES.has(blockType) && isPlaceholderItem(item);
 }
 
+/** How many of this block's items are samples — the edit canvas tags a block while it holds any (TL.EDIT.SAMPLETAG.1). */
+export function countSampleItems(block: { type: string; items: ItemDestination[] }): number {
+  return block.items.filter((item) => isSampleItem(block.type, item)).length;
+}
+
 /**
  * A destination-type block (its items ARE the SAMPLE_BEARING_TYPES above) left
  * with zero items is dropped entirely rather than kept empty — an empty block
