@@ -5,15 +5,21 @@
 // example.com links, a '#' subscribe row and url-less social icons; the
 // tpl-presets compositions seed url '' / image_url '' and wa.me links with no
 // number), so "has an item" is true for everyone. An item only counts as
-// content when it points somewhere real or carries a picture.
+// content when it points somewhere real or carries a picture, and never when
+// it sits on a social / subscribe block (TL.SEO.SITEMAP.3d).
 
 // Placeholder hosts: example.com and every subdomain of it.
 const PLACEHOLDER_HOST = "example.com";
 // A WhatsApp deep link needs a number in the path; the bare host is a seed.
 const WHATSAPP_HOSTS = new Set(["wa.me", "api.whatsapp.com"]);
 
-/** True when the item points at a real destination or carries an image. */
-export function isContentItem(item: { url: string | null; image_url: string | null }): boolean {
+// TL.SEO.SITEMAP.3d (product ruling): social rows are not page content — a
+// page of nothing but social icons and a subscribe box is not worth indexing.
+export const SOCIAL_BLOCK_TYPES = new Set(["social_links", "social_icon_row", "email_subscribe"]);
+
+/** True when the item points at a real destination or carries an image, on a non-social block. */
+export function isContentItem(item: { url: string | null; image_url: string | null }, blockType: string): boolean {
+  if (SOCIAL_BLOCK_TYPES.has(blockType)) return false;
   return isRealDestination(item.url) || (item.image_url ?? "").trim() !== "";
 }
 

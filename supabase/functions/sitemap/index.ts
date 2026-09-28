@@ -9,8 +9,9 @@
 // What is listed: the marketing pages plus one URL per creator page whose
 // owner has finished onboarding (pages has no published flag; every row is
 // publicly readable by handle, so onboarding_complete is the "live" signal)
-// AND that has content (TL.SEO.SITEMAP.3c, rules.ts): an unarchived item on an enabled block
-// whose url is a real http(s) link (not example.com, not a numberless wa.me) or that has an image.
+// AND that has content (TL.SEO.SITEMAP.3c/3d, rules.ts): an unarchived item on an enabled,
+// non-social block (not social_links / social_icon_row / email_subscribe) whose url is a real
+// http(s) link (not example.com, not a numberless wa.me) or that has an image.
 // Never listed: /go/ hops (robots disallows them), /s/ short links, dashboard
 // or auth routes, and the battery/test accounts (handle prefix below).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -62,7 +63,7 @@ serve(async (req) => {
     for (let from = 0; ; from += ITEM_PAGE_SIZE) {
       const { data: items, error: iErr } = await svc
         .from("block_items")
-        .select("id, url, image_url, blocks!inner(is_enabled, modes!inner(page_id))")
+        .select("id, url, image_url, blocks!inner(type, is_enabled, modes!inner(page_id))")
         .is("archived_at", null)
         .eq("blocks.is_enabled", true)
         .order("id", { ascending: true })
@@ -71,10 +72,10 @@ serve(async (req) => {
       for (const it of (items ?? []) as unknown as {
         url: string | null;
         image_url: string | null;
-        blocks: { modes: { page_id: string } | null } | null;
+        blocks: { type: string; modes: { page_id: string } | null } | null;
       }[]) {
         const pageId = it.blocks?.modes?.page_id;
-        if (pageId && isContentItem(it)) withContent.add(pageId);
+        if (pageId && isContentItem(it, it.blocks?.type ?? "")) withContent.add(pageId);
       }
       if (!items || items.length < ITEM_PAGE_SIZE) break;
     }

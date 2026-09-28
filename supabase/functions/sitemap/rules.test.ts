@@ -2,7 +2,8 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { isContentItem } from "./rules.ts";
 
-const cases: { name: string; url: string | null; image_url: string | null; want: boolean }[] = [
+// `block` defaults to "links" — the url/image rule on an ordinary destination block.
+const cases: { name: string; url: string | null; image_url: string | null; block?: string; want: boolean }[] = [
   // Seeded placeholders (OnboardingFlow.tsx, tpl-presets.ts) — never content.
   { name: "empty url (preset / social seed)", url: "", image_url: null, want: false },
   { name: "null url, null image", url: null, image_url: null, want: false },
@@ -46,10 +47,34 @@ const cases: { name: string; url: string | null; image_url: string | null; want:
     want: true,
   },
   { name: "real image, placeholder url", url: "https://example.com", image_url: "https://cdn.x/a.jpg", want: true },
+
+  // TL.SEO.SITEMAP.3d: social rows are not page content, however real the link.
+  {
+    name: "real link on social_icon_row",
+    url: "https://instagram.com/titi",
+    image_url: null,
+    block: "social_icon_row",
+    want: false,
+  },
+  { name: "same real link on links", url: "https://instagram.com/titi", image_url: null, block: "links", want: true },
+  {
+    name: "real link on social_links",
+    url: "https://instagram.com/titi",
+    image_url: null,
+    block: "social_links",
+    want: false,
+  },
+  {
+    name: "image item on gallery",
+    url: "",
+    image_url: "https://ohmvlypcbrfkuudcuqub.supabase.co/storage/v1/object/public/gallery/a.jpg",
+    block: "gallery",
+    want: true,
+  },
 ];
 
 for (const c of cases) {
   Deno.test(`isContentItem: ${c.name} → ${c.want}`, () => {
-    assertEquals(isContentItem({ url: c.url, image_url: c.image_url }), c.want);
+    assertEquals(isContentItem({ url: c.url, image_url: c.image_url }, c.block ?? "links"), c.want);
   });
 }
