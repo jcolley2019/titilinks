@@ -133,7 +133,8 @@ create policy "Users can create their own snapshots"
 -- Two free-tier escapes closed in one BEFORE UPDATE trigger:
 --
 --   • brand_json.fonts[] — BRAND.1's gate is on ADDING a font. Already-uploaded
---     fonts must keep rendering after a downgrade (never break a live page), so
+--     fonts stay STORED after a downgrade (visitors see the default font in
+--     their place until a re-upgrade — TL.PLAN.ENFORCE.2, src/lib/plan-gate.ts), so
 --     this rejects only a write that GROWS the array on a plan without
 --     customFonts. Shrinking, reordering and the BRAND.2 colour keys stay free.
 --   • show_badge — the free tier's badge is the price of the free tier. Free may

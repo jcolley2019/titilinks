@@ -57,9 +57,10 @@ export interface PlanEntitlements {
    *  Link.me sells animations as a paid feature; matched here. `none` is always
    *  available to everyone, so a free profile still renders — it just can't move. */
   linkAnimations: boolean;
-  /** Upload custom brand fonts (BRAND.1). The gate is on ADDING a font —
-   *  already-uploaded fonts keep rendering after a downgrade (never break a
-   *  live page); the free tier just can't upload new ones. */
+  /** Upload custom brand fonts (BRAND.1) — and, since TL.PLAN.ENFORCE.2, show
+   *  them to visitors. After a downgrade, already-uploaded fonts stay stored
+   *  but visitors see the default font in their place (src/lib/plan-gate.ts);
+   *  re-upgrading brings them back. The free tier can't upload new ones. */
   customFonts: boolean;
   /** Hides the "Made with TitiLinks" chip on the public page (PRICE.TRUTH.1).
    *  Distinct from `whiteLabel`: this only drops the small footer credit;

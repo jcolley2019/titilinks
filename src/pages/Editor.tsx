@@ -23,6 +23,7 @@ import { planLinkLayout, type ItemSize } from '@/lib/link-layout';
 import { toast } from 'sonner';
 import { safeHref } from '@/lib/safe-url';
 import { stripSampleItems } from '@/lib/placeholder-item';
+import { gateBlocksForVisitor } from '@/lib/plan-gate';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -55,7 +56,7 @@ interface ThemeJson {
 export default function Editor() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { can, showBadge } = useEntitlements();
+  const { can, showBadge, plan } = useEntitlements();
   // PROMO.TOGGLE.1: free is always branded; paid tiers follow the owner's
   // profiles.show_badge toggle. Same rule the public page applies.
   const showBranding = !can('removeBranding') || showBadge;
@@ -561,9 +562,11 @@ export default function Editor() {
   // at the query level and EditableProfileView's view branch does not, so mirror
   // that here. TL.PUB.SAMPLES.1: and, like the public route, no sample items —
   // editBlocks keeps them so the canvas still shows what each block looks like.
+  // TL.PLAN.ENFORCE.2: and the owner's plan gates it FIRST, exactly as the
+  // public route does, so the preview shows what a visitor gets.
   const visitorBlocks = useMemo(
-    () => stripSampleItems(previewBlocks.filter((b) => b.is_enabled)),
-    [previewBlocks]
+    () => stripSampleItems(gateBlocksForVisitor(plan, previewBlocks.filter((b) => b.is_enabled))),
+    [previewBlocks, plan]
   );
 
   // TL.SECT.1: the edit canvas treats toggles honestly — a disabled block never
@@ -793,6 +796,7 @@ export default function Editor() {
         page={page}
         editBlocks={editBlocks}
         visitorBlocks={visitorBlocks}
+        visitorPlan={plan}
         headerDraft={headerDraft}
         themeDraft={themeDraft}
         showBranding={showBranding}

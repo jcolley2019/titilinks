@@ -16,7 +16,9 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { EditableProfileView } from '@/components/EditableProfileView';
 import { PublicHeader } from '@/components/PublicHeader';
 import { resolveEffectivePageStyle } from '@/lib/surface';
+import { visiblePageCount } from '@/lib/plan-gate';
 import { cn } from '@/lib/utils';
+import type { Plan } from '@/lib/entitlements';
 import type { BlockWithItems, ClickHandler } from '@/components/blocks/types';
 import type { HeaderDraft } from '@/lib/header-draft';
 import type { ThemeJson } from '@/lib/theme-defaults';
@@ -32,6 +34,9 @@ export interface EditorStageProps {
   page: Tables<'pages'>;
   editBlocks: BlockWithItems[];
   visitorBlocks: BlockWithItems[];
+  /** TL.PLAN.ENFORCE.2 — the page owner's plan. The visitor preview renders at
+   *  its tier (fonts, animation, page switcher); the edit view ignores it. */
+  visitorPlan?: Plan;
   headerDraft?: HeaderDraft | null;
   themeDraft?: ThemeJson | null;
   showBranding: boolean;
@@ -74,6 +79,7 @@ export function EditorStage({
   page,
   editBlocks,
   visitorBlocks,
+  visitorPlan,
   headerDraft = null,
   themeDraft = null,
   showBranding,
@@ -125,6 +131,15 @@ export function EditorStage({
   // a read-only surface. The device selector stays live in both modes.
   const [previewMode, setPreviewMode] = useState<'edit' | 'visitor'>(initialMode);
   const isVisitor = previewMode === 'visitor';
+
+  // TL.PLAN.ENFORCE.2: a visitor of a one-page plan is always served page 1, so
+  // the visitor preview shows page 1 too (the editor holds only the selected
+  // page's blocks, so it switches pages rather than borrowing another's).
+  useEffect(() => {
+    if (isVisitor && visitorPlan && selectedMode === 'page2' && visiblePageCount(visitorPlan, 2) < 2) {
+      onModeChange('page1');
+    }
+  }, [isVisitor, visitorPlan, selectedMode, onModeChange]);
 
   useEffect(() => {
     try { localStorage.setItem(devicePrefKey, deviceId); } catch { /* storage disabled */ }
@@ -335,6 +350,7 @@ export function EditorStage({
             themeDraft={themeDraft}
             editMode={!isVisitor}
             showBranding={showBranding}
+            visitorPlan={isVisitor ? visitorPlan : undefined}
             onOutboundClick={isVisitor ? onVisitorOutbound : undefined}
             onBlockEdit={onBlockEdit}
             onBlockToggle={onBlockToggle}

@@ -50,6 +50,14 @@
 //   page2 mode          = the born-complete set from ensureSecondPage, NO items
 //                         (so `liveGallery`'s "the gallery whose photos are on
 //                         screen" discriminator can never pick the wrong block)
+//   TL.PLAN.ENFORCE.2: spec 82 adds a carousel on page1 and a page2 mode + links
+//                         card for the length of its run and sweeps them in
+//                         afterAll (markers: title "s82":true, item URLs under
+//                         https://fixture.titilinks.test/s82/). A run that dies
+//                         in between is healed here with no extra SQL: the
+//                         tear-down deletes every block and item, and a
+//                         leftover page2 mode is re-seeded as the canonical
+//                         page2 above (the spec reuses one if present).
 //
 // What this deliberately does NOT touch: pages.theme_json, pages.avatar_url /
 // avatar_original_url, profiles.brand_json, snapshots, short links. The hero

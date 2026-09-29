@@ -98,6 +98,8 @@ import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
 import { countSampleItems } from '@/lib/placeholder-item';
+import type { Plan } from '@/lib/entitlements';
+import { gateFontForVisitor, gateThemeForVisitor, visiblePageCount } from '@/lib/plan-gate';
 import { SampleTag } from '@/components/SampleTag';
 
 // TL.BUNDLE.1 (AUDIT_rev6 #13): face-api — TensorFlow inside, 1.3 MB minified —
@@ -175,6 +177,11 @@ interface EditableProfileViewProps {
   // below, which is what every photo outside an open draft still gets.
   onGalleryStagedDelete?: (itemId: string) => boolean;
   stickyTop?: number | string;
+  /** TL.PLAN.ENFORCE.2: the PAGE OWNER's plan, passed only by visitor surfaces
+   *  (the public page, the editor's visitor preview). When present, fonts, the
+   *  page-level animation and the page switcher render at that plan's tier
+   *  (src/lib/plan-gate.ts). Absent — the owner's edit canvas — nothing is gated. */
+  visitorPlan?: Plan;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -385,6 +392,7 @@ function BlockRenderer({
   onItemAdd,
   onSuggestAi,
   onItemsReorder,
+  visitorPlan,
 }: ThemedBlockProps & {
   pageId?: string;
   editMode?: boolean;
@@ -393,6 +401,7 @@ function BlockRenderer({
   onItemAdd?: () => void;
   onSuggestAi?: () => void;
   onItemsReorder?: (orderedItemIds: string[]) => void;
+  visitorPlan?: Plan;
 }) {
   const blockProps = { block, onOutboundClick, theme, editMode };
 
@@ -420,7 +429,7 @@ function BlockRenderer({
     case 'video_feed':
       return <VideoFeedBlock {...blockProps} />;
     case 'text':
-      return <TextBlock {...blockProps} />;
+      return <TextBlock {...blockProps} visitorPlan={visitorPlan} />;
     case 'hero_card':
       return <HeroCardBlock block={block} />;
     case 'social_icon_row':
@@ -436,13 +445,13 @@ function BlockRenderer({
     case 'events':
       return <EventsBlock {...blockProps} />;
     case 'bio':
-      return <BioBlock block={block} theme={theme} />;
+      return <BioBlock block={block} theme={theme} visitorPlan={visitorPlan} />;
     default:
       return null;
   }
 }
 
-function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
+function BioBlock({ block, theme, visitorPlan }: Omit<ThemedBlockProps, 'onOutboundClick'> & { visitorPlan?: Plan }) {
   const bioText = block.items[0]?.label || '';
   if (!bioText) return null;
 
@@ -464,7 +473,7 @@ function BioBlock({ block, theme }: Omit<ThemedBlockProps, 'onOutboundClick'>) {
   const alignClass =
     cfg.align === 'left' ? 'text-left' : cfg.align === 'right' ? 'text-right' : 'text-center';
   const sizeClass = cfg.size === 'sm' ? 'text-sm' : cfg.size === 'lg' ? 'text-lg' : 'text-base';
-  const fontFamily = resolveFontFamily(cfg.font);
+  const fontFamily = resolveFontFamily(visitorPlan ? gateFontForVisitor(visitorPlan, cfg.font) : cfg.font);
 
   return (
     <div className={cn('px-1 py-1', alignClass)} style={fontFamily ? { fontFamily } : undefined}>
@@ -1656,6 +1665,7 @@ export function EditableProfileView({
   themeDraft,
   onGalleryStagedDelete,
   stickyTop = 0,
+  visitorPlan,
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -2568,10 +2578,14 @@ export function EditableProfileView({
   // follow the edited page with no id threaded through the tree. Resolved from
   // the SAVED raw json on purpose: per-page style lives under `pages`, a key
   // getThemeWithDefaults drops and the theme editor never drafts.
-  const theme = withEffectivePageStyle(contrastTheme, page.theme_json, selectedMode);
+  // TL.PLAN.ENFORCE.2: a visitor surface renders the theme at the owner's tier
+  // (page font + page-level animation); the edit canvas passes no plan.
+  const styledTheme = withEffectivePageStyle(contrastTheme, page.theme_json, selectedMode);
+  const theme = visitorPlan ? gateThemeForVisitor(visitorPlan, styledTheme) : styledTheme;
   // An in-progress hub font draft (L4) wins; resolveFontFamily returns undefined
   // for an absent draft, so the saved font is the fallback.
-  const fontFamily = resolveFontFamily(headerDraft?.font) ?? getFontFamily(theme);
+  const draftFont = visitorPlan ? gateFontForVisitor(visitorPlan, headerDraft?.font) : headerDraft?.font;
+  const fontFamily = resolveFontFamily(draftFont) ?? getFontFamily(theme);
   const chrome = getChromeTokens(theme);
 
   const saveHeaderConfig = async (config: Record<string, unknown>) => {
@@ -2703,6 +2717,8 @@ export function EditableProfileView({
   const pagesEnabled: boolean = themePages?.enabled === true;
   const renderPageSwitcher = () => {
     if (!pagesEnabled) return null;
+    // TL.PLAN.ENFORCE.2: a visitor sees no switcher when the owner's plan shows one page.
+    if (visitorPlan && visiblePageCount(visitorPlan, 2) < 2) return null;
     return (
       <div className="flex justify-center mt-4">
         <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 max-w-full">
@@ -3680,7 +3696,7 @@ export function EditableProfileView({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <BlockRenderer block={block} onOutboundClick={viewModeClick} theme={theme} pageId={page.id} />
+                  <BlockRenderer block={block} onOutboundClick={viewModeClick} theme={theme} pageId={page.id} visitorPlan={visitorPlan} />
                 </motion.section>
               ))
             )}

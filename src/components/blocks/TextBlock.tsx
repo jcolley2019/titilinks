@@ -6,6 +6,8 @@
 import { cn } from '@/lib/utils';
 import { resolveFontFamily } from '@/lib/fonts';
 import { parseTextConfig, type ElementStyle } from '@/lib/text-block-config';
+import { gateFontForVisitor } from '@/lib/plan-gate';
+import type { Plan } from '@/lib/entitlements';
 import type { ThemedBlockProps } from './types';
 
 const SIZE_CLASS: Record<ElementStyle['size'], string> = {
@@ -20,20 +22,22 @@ const HEADING_SIZE_CLASS: Record<ElementStyle['size'], string> = {
   lg: 'text-2xl',
 };
 
-function elementClasses(s: ElementStyle, isHeading: boolean): { className: string; fontFamily?: string } {
+function elementClasses(s: ElementStyle, isHeading: boolean, visitorPlan?: Plan): { className: string; fontFamily?: string } {
   const align = s.align === 'center' ? 'text-center' : s.align === 'right' ? 'text-right' : 'text-left';
   const sizeMap = isHeading ? HEADING_SIZE_CLASS : SIZE_CLASS;
   const size = sizeMap[s.size] ?? sizeMap.base;
   const weight = s.bold ? 'font-bold' : 'font-normal';
-  return { className: cn(align, size, weight), fontFamily: resolveFontFamily(s.font) };
+  // TL.PLAN.ENFORCE.2: on a visitor surface a custom font renders at the owner's tier.
+  const font = visitorPlan ? gateFontForVisitor(visitorPlan, s.font) : s.font;
+  return { className: cn(align, size, weight), fontFamily: resolveFontFamily(font) };
 }
 
-export function TextBlock({ block, theme }: ThemedBlockProps) {
+export function TextBlock({ block, theme, visitorPlan }: ThemedBlockProps & { visitorPlan?: Plan }) {
   const cfg = parseTextConfig(block.title);
   if (!cfg.heading && !cfg.body) return null;
 
-  const h = elementClasses(cfg.headingStyle, true);
-  const b = elementClasses(cfg.bodyStyle, false);
+  const h = elementClasses(cfg.headingStyle, true, visitorPlan);
+  const b = elementClasses(cfg.bodyStyle, false, visitorPlan);
 
   return (
     <div className="px-1 py-2">

@@ -18,7 +18,8 @@ import { AdultGateModal } from '@/components/AdultGateModal';
 import { getThemeWithDefaults, applyAutoContrast, resolveDesktopStageDeviceId, type ThemeJson } from '@/lib/theme-defaults';
 import { resolveEffectivePageStyle } from '@/lib/surface';
 import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
-import { isSampleItem, dropEmptyDestinationBlocks } from '@/lib/placeholder-item';
+import { stripSampleItems } from '@/lib/placeholder-item';
+import { gateBlocksForVisitor, visiblePageCount } from '@/lib/plan-gate';
 import { PageBackground } from '@/components/PageBackground';
 import { StickyCtaBar } from '@/components/StickyCtaBar';
 import { cn } from '@/lib/utils';
@@ -90,9 +91,22 @@ export default function PublicProfile() {
     ga4: null,
   });
   const [stickyCtaByMode, setStickyCtaByMode] = useState<{ page1: boolean; page2: boolean }>({ page1: false, page2: false });
-  const [selectedMode, setSelectedMode] = useState<'page1' | 'page2'>('page1');
+  // The page the URL or the visitor switcher asks for; `selectedMode` is the one that renders.
+  const [requestedMode, setRequestedMode] = useState<'page1' | 'page2'>('page1');
+  // The owner's page count: page 1 plus an optional page2 mode.
+  const [pageCount, setPageCount] = useState(1);
+  // TL.PLAN.ENFORCE.2: when the owner's plan shows one page, every request —
+  // ?page=2 included — renders page 1.
+  const selectedMode: 'page1' | 'page2' =
+    visiblePageCount(ownerBranding.plan, pageCount) < 2 ? 'page1' : requestedMode;
   // Visitor switcher flips selectedMode → derive the active page's blocks + sticky CTA (no refetch).
-  const blocks = blocksByMode[selectedMode] ?? [];
+  // TL.PLAN.ENFORCE.2 → TL.PUB.SAMPLES.1, in that order: gate to the owner's plan
+  // FIRST, then drop sample items and the destination blocks they leave empty —
+  // a carousel rendered as links that holds only samples still vanishes.
+  const blocks = useMemo(
+    () => stripSampleItems(gateBlocksForVisitor(ownerBranding.plan, blocksByMode[selectedMode] ?? [])),
+    [ownerBranding.plan, blocksByMode, selectedMode],
+  );
   const stickyCtaEnabled = stickyCtaByMode[selectedMode] ?? false;
 
   // Scroll-to-top visibility
@@ -140,9 +154,9 @@ export default function PublicProfile() {
   const { mode: detectedMode, reason: routingReason } = useMemo(() => detectMode(searchParams), [searchParams]);
   const { trackPageLoad, trackOutboundClick } = useEventTracking(page?.id || null, detectedMode);
 
-  // Sync selectedMode with detected mode from URL
+  // Sync the requested page with detected mode from URL
   useEffect(() => {
-    setSelectedMode(detectedMode as 'page1' | 'page2');
+    setRequestedMode(detectedMode as 'page1' | 'page2');
   }, [detectedMode]);
 
   // Handle outbound click with adult content check
@@ -275,6 +289,7 @@ export default function PublicProfile() {
         page1: shopMode?.sticky_cta_enabled ?? false,
         page2: page2Mode?.sticky_cta_enabled ?? false,
       });
+      setPageCount(page2Mode ? 2 : 1);
 
       const modeIds = (modesData || []).map((m) => m.id);
       if (modeIds.length === 0) {
@@ -304,20 +319,17 @@ export default function PublicProfile() {
 
       if (itemsError) throw itemsError;
 
-      // TL.PUB.SAMPLES.1: sample items (placeholder destination, no image) never
-      // reach a visitor. TL.PUB.SAMPLES.1b: a destination-type block left with
-      // none is dropped entirely so it leaves no empty flex slot.
+      // Every item, samples included: the plan gate and then the sample filter
+      // (TL.PUB.SAMPLES.1/1b) run at render on the page being shown — see
+      // `blocks` above — because the gate needs the owner's plan, which lands
+      // separately (usePublicPageBranding).
       const groupForMode = (modeId: string | undefined): BlockWithItems[] =>
-        !modeId ? [] : dropEmptyDestinationBlocks(
-          allBlocks
-            .filter((b) => b.mode_id === modeId)
-            .map((block) => ({
-              ...block,
-              items: (itemsData || []).filter(
-                (item) => item.block_id === block.id && !isSampleItem(block.type, item),
-              ),
-            })),
-        );
+        !modeId ? [] : allBlocks
+          .filter((b) => b.mode_id === modeId)
+          .map((block) => ({
+            ...block,
+            items: (itemsData || []).filter((item) => item.block_id === block.id),
+          }));
 
       const grouped = {
         page1: groupForMode(shopMode?.id),
@@ -357,6 +369,13 @@ export default function PublicProfile() {
 
   if (notFound || !page) {
     return <NotFoundView handle={handle} />;
+  }
+
+  // TL.PLAN.ENFORCE.2: every Pro feature below renders at the owner's plan, so
+  // hold the skeleton until that plan is known — never paint the placeholder
+  // 'free' and then pop Pro in (or the reverse).
+  if (!ownerBranding.loaded) {
+    return <PublicProfileSkeleton />;
   }
 
   const profileUrl = handle ? `https://www.titilinks.com/${encodeURIComponent(handle.toLowerCase())}` : 'https://www.titilinks.com/';
@@ -565,8 +584,9 @@ export default function PublicProfile() {
           onBlockReorder={() => {}}
           onRefresh={() => {}}
           selectedMode={selectedMode}
-          onModeChange={setSelectedMode}
+          onModeChange={setRequestedMode}
           onOutboundClick={handleOutboundClick}
+          visitorPlan={ownerBranding.plan}
         />
         <AdultGateModal
           open={!!pendingAdultLink}

@@ -19,9 +19,10 @@ export type AddFontError = 'invalidType' | 'tooLarge' | 'notAllowed' | 'uploadFa
  *
  * Fetches on mount and registers @font-face for every entry, so any editor
  * surface that mounts a picker can preview/resolve the `custom:` keys.
- * Uploading is PRO-gated (entitlements.customFonts) at add time only —
- * already-uploaded fonts keep loading (and rendering) on a downgrade, they
- * just can't be added to.
+ * Uploading is PRO-gated (entitlements.customFonts) at add time. After a
+ * downgrade, already-uploaded fonts stay stored and listed here for the owner,
+ * but visitors see the default font in their place (TL.PLAN.ENFORCE.2,
+ * src/lib/plan-gate.ts) until the owner re-upgrades; they just can't be added to.
  *
  * brand_json writes are read-modify-write over the FRESH row so the BRAND.2
  * keys (colors, heading/body font) survive a fonts update, and vice versa.

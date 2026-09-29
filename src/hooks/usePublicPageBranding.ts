@@ -28,9 +28,15 @@ const FAIL_OPEN: PublicPageBranding = { plan: 'free', show_badge: true, referral
  * (function missing pre-migration, network error, no row). Fail toward the free
  * tier's constraints — the badge SHOWS — never toward silently hiding a
  * paid-but-not-opted-out badge.
+ *
+ * TL.PLAN.ENFORCE.2: `loaded` is true once the answer (or the fail-open
+ * fallback) for THIS pageId has landed. The public page gates every Pro feature
+ * on `plan`, so it holds its skeleton until then — the placeholder 'free' above
+ * must never paint as the owner's real tier.
  */
-export function usePublicPageBranding(pageId: string | undefined): PublicPageBranding {
+export function usePublicPageBranding(pageId: string | undefined): PublicPageBranding & { loaded: boolean } {
   const [branding, setBranding] = useState<PublicPageBranding>(FAIL_OPEN);
+  const [loadedFor, setLoadedFor] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!pageId) {
@@ -48,6 +54,7 @@ export function usePublicPageBranding(pageId: string | undefined): PublicPageBra
         const row = Array.isArray(data) ? data[0] : data;
         if (error || !row) {
           setBranding(FAIL_OPEN);
+          setLoadedFor(pageId);
           return;
         }
         setBranding({
@@ -58,8 +65,12 @@ export function usePublicPageBranding(pageId: string | undefined): PublicPageBra
           // href falls back to the generic /?ref=badge link.
           referral_code: typeof row.referral_code === 'string' ? row.referral_code : null,
         });
+        setLoadedFor(pageId);
       } catch {
-        if (!cancelled) setBranding(FAIL_OPEN);
+        if (!cancelled) {
+          setBranding(FAIL_OPEN);
+          setLoadedFor(pageId);
+        }
       }
     })();
 
@@ -68,5 +79,5 @@ export function usePublicPageBranding(pageId: string | undefined): PublicPageBra
     };
   }, [pageId]);
 
-  return branding;
+  return { ...branding, loaded: !!pageId && loadedFor === pageId };
 }
