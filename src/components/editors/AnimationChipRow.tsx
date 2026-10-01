@@ -9,11 +9,17 @@
 // Per-item pickers pass `showInherit` to lead with an Inherit chip (ANIM.2
 // default: absent value = inherit the page-level effect). When the page has a
 // paintable value, the Inherit chip names it and previews it.
+//
+// TL.PLAN.ENFORCE.3: when the SAVED value is a paintable effect the owner's
+// plan can't use, the row still shows it selected (with its lock) and adds the
+// note saying what visitors get — one home for all three pickers.
 
 import { Lock } from 'lucide-react';
 import { ANIMATIONS, animationClass, isAnimationId, type AnimationId } from '@/lib/animations';
 import { useLanguage } from '@/hooks/useLanguage';
 import { cn } from '@/lib/utils';
+import { usePlanLock } from '@/hooks/usePlanLock';
+import { PlanLockNote } from '@/components/PlanLock';
 
 export interface AnimationChipRowProps {
   /** Current selection: 'inherit' | 'none' | an effect id. */
@@ -40,6 +46,7 @@ export function AnimationChipRow({
   inheritedValue,
 }: AnimationChipRowProps) {
   const { t } = useLanguage();
+  const planLock = usePlanLock();
 
   const inheritedOpt = isAnimationId(inheritedValue)
     ? ANIMATIONS.find((a) => a.id === inheritedValue)
@@ -60,31 +67,36 @@ export function AnimationChipRow({
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {chips.map(({ id, label, previewId }) => {
-        const selected = value === id;
-        // Inherit and 'none' are always free; only paintable effects lock.
-        const locked = !canAnimations && id !== 'none' && id !== 'inherit';
-        return (
-          <button
-            key={id}
-            type="button"
-            data-testid={`${testIdPrefix}-${id}`}
-            aria-pressed={selected}
-            onClick={() => onPick(id)}
-            className={cn(
-              'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
-              animationClass(previewId),
-              selected
-                ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                : 'border-border text-muted-foreground',
-            )}
-          >
-            {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
-            {label}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        {chips.map(({ id, label, previewId }) => {
+          const selected = value === id;
+          // Inherit and 'none' are always free; only paintable effects lock.
+          const locked = !canAnimations && id !== 'none' && id !== 'inherit';
+          return (
+            <button
+              key={id}
+              type="button"
+              data-testid={`${testIdPrefix}-${id}`}
+              aria-pressed={selected}
+              onClick={() => onPick(id)}
+              className={cn(
+                'relative py-2 text-xs font-semibold rounded-lg border-2 transition-all',
+                animationClass(previewId),
+                selected
+                  ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
+                  : 'border-border text-muted-foreground',
+              )}
+            >
+              {locked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-[#C9A55C]/70" />}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {planLock.animationLocked(value) && (
+        <PlanLockNote hint={planLock.hint('linkAnimations')} testId={`${testIdPrefix}-locked`} />
+      )}
+    </>
   );
 }

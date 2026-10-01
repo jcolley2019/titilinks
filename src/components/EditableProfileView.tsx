@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useProUpsell } from '@/hooks/useProUpsell';
+import { usePlanLock } from '@/hooks/usePlanLock';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
@@ -55,6 +56,7 @@ import {
   VolumeX,
   Play,
   Plus,
+  Lock,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -101,6 +103,7 @@ import { countSampleItems } from '@/lib/placeholder-item';
 import type { Plan } from '@/lib/entitlements';
 import { gateFontForVisitor, gateThemeForVisitor, visiblePageCount } from '@/lib/plan-gate';
 import { SampleTag } from '@/components/SampleTag';
+import { PlanLockTag } from '@/components/PlanLock';
 
 // TL.BUNDLE.1 (AUDIT_rev6 #13): face-api — TensorFlow inside, 1.3 MB minified —
 // is loaded on demand. It only serves the AI-crop path, and the static import
@@ -1305,6 +1308,7 @@ function SortablePreviewCard({
   onItemsReorder,
   isDragActive,
   theme,
+  lockHint,
 }: {
   block: BlockWithItems;
   onEdit: () => void;
@@ -1317,6 +1321,9 @@ function SortablePreviewCard({
   onItemsReorder?: (orderedItemIds: string[]) => void;
   isDragActive: boolean;
   theme: ThemeJson;
+  /** TL.PLAN.ENFORCE.3: set = the owner's plan locks this block — the caller
+   *  has pointed onEdit at the upsell; the card dims and carries the PRO pill. */
+  lockHint?: string;
 }) {
   const { t } = useLanguage();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -1352,6 +1359,7 @@ function SortablePreviewCard({
         <span className="flex-1 text-xs font-semibold uppercase tracking-wider" style={{ color: chrome.textMuted }}>
           {t(`blocks.${block.type}.title`) || block.type}
         </span>
+        {lockHint && <PlanLockTag hint={lockHint} />}
         {countSampleItems(block) > 0 && <SampleTag count={countSampleItems(block)} total={block.items.length} color={chrome.textMuted} />}
         {/* Toggle */}
         <button
@@ -1386,8 +1394,10 @@ function SortablePreviewCard({
         className={cn(
           'overflow-hidden transition-all duration-200 ease-out',
           block.type !== 'links' && 'cursor-pointer',
-          isDragActive ? 'max-h-0' : 'max-h-[2000px]'
+          isDragActive ? 'max-h-0' : 'max-h-[2000px]',
+          lockHint && 'opacity-50'
         )}
+        title={lockHint}
         onClick={block.type !== 'links' && !isDragActive ? onEdit : undefined}
       >
         <div className="p-3">
@@ -1672,6 +1682,9 @@ export function EditableProfileView({
   // TL.EDGE.2 — AI photo enhance is Pro-only (server: ai-enhance → plan_allows('aiTools')).
   const { entitlements } = useEntitlements();
   const showUpsell = useProUpsell();
+  // TL.PLAN.ENFORCE.3: the OWNER's plan locks saved Pro items on the edit
+  // canvas (separate from visitorPlan, which only visitor surfaces pass).
+  const planLock = usePlanLock();
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoOriginalFile, setPhotoOriginalFile] = useState<File | null>(null);
@@ -2719,6 +2732,9 @@ export function EditableProfileView({
     if (!pagesEnabled) return null;
     // TL.PLAN.ENFORCE.2: a visitor sees no switcher when the owner's plan shows one page.
     if (visitorPlan && visiblePageCount(visitorPlan, 2) < 2) return null;
+    // TL.PLAN.ENFORCE.3: on the edit canvas the owner keeps the page-2 tab,
+    // locked — a tap raises the upsell and the selected page does not change.
+    const page2Locked = editMode && planLock.pagesLocked(2);
     return (
       <div className="flex justify-center mt-4">
         <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5 max-w-full">
@@ -2732,13 +2748,21 @@ export function EditableProfileView({
             {page1Label}
           </button>
           <button
-            onClick={() => onModeChange('page2')}
+            onClick={() => (page2Locked ? planLock.upsell('page2') : onModeChange('page2'))}
+            title={page2Locked ? planLock.hint('page2') : undefined}
+            data-testid={page2Locked ? 'page2-tab-locked' : undefined}
             className={cn(
               'px-4 py-1 rounded-full text-xs font-medium transition-colors truncate max-w-[45vw]',
-              selectedMode === 'page2' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white'
+              selectedMode === 'page2' ? 'bg-[#C9A55C] text-[#0e0c09]' : 'text-white/60 hover:text-white',
+              page2Locked && 'inline-flex items-center gap-1'
             )}
           >
-            {page2Label}
+            {page2Locked ? (
+              <>
+                <Lock className="h-3 w-3 flex-shrink-0 text-[#C9A55C]" />
+                <span className="min-w-0 truncate">{page2Label}</span>
+              </>
+            ) : page2Label}
           </button>
         </div>
       </div>
@@ -3659,11 +3683,16 @@ export function EditableProfileView({
                 {allSortableItems.map((itemId) => {
                   const block = displayBlocks.find(b => b.id === itemId);
                   if (!block) return null;
+                  // TL.PLAN.ENFORCE.3: a saved Pro block the owner's plan lacks
+                  // stays on the canvas, locked — opening it raises the upsell
+                  // instead of its editor; drag and the on/off toggle still work.
+                  const lockFeature = planLock.blockLock(block.type);
                   return (
                     <SortablePreviewCard
                       key={block.id}
                       block={block}
-                      onEdit={() => onBlockEdit(block.id)}
+                      lockHint={lockFeature ? planLock.hint(lockFeature) : undefined}
+                      onEdit={lockFeature ? () => planLock.upsell(lockFeature) : () => onBlockEdit(block.id)}
                       onToggle={(enabled) => onBlockToggle(block.id, enabled)}
                       onGalleryDelete={handleGalleryDelete}
                       onItemEdit={onItemEdit}

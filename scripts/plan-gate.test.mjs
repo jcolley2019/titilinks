@@ -8,6 +8,9 @@ import {
   gateBlocksForVisitor,
   gateFontForVisitor,
   gateThemeForVisitor,
+  isAnimationLocked,
+  isFontLocked,
+  lockedBlockFeature,
   visiblePageCount,
 } from '../src/lib/plan-gate';
 import { ENTITLEMENTS, PLAN_ORDER } from '../src/lib/entitlements';
@@ -140,5 +143,40 @@ ok('every tier follows its ENTITLEMENTS flags');
   assert.equal(gateThemeForVisitor('free', plain), plain, "catalog font + 'none' animation: same theme back");
   ok('free: a theme with nothing gated comes back untouched');
 }
+
+// ── 5. Owner side (TL.PLAN.ENFORCE.3) — what the editor shows locked ───────
+assert.equal(lockedBlockFeature('free', 'carousel'), 'carousel');
+assert.equal(lockedBlockFeature('free', 'email_subscribe'), 'emailSubscribe');
+assert.equal(lockedBlockFeature(null, 'carousel'), 'carousel', 'null plan is free');
+for (const type of ['links', 'bio', 'primary_cta', 'gallery', 'text', 'events']) {
+  assert.equal(lockedBlockFeature('free', type), null, `free: ${type} never locks`);
+}
+assert.equal(lockedBlockFeature('pro', 'carousel'), null);
+assert.equal(lockedBlockFeature('business', 'email_subscribe'), null);
+ok('lockedBlockFeature: carousel + email_subscribe lock on free only');
+
+assert.equal(isFontLocked('free', 'custom:Brand Sans'), true);
+assert.equal(isFontLocked('pro', 'custom:Brand Sans'), false);
+for (const key of ['playfair', 'inter', '', undefined, null]) {
+  assert.equal(isFontLocked('free', key), false, `free: ${String(key)} never locks`);
+}
+assert.equal(isAnimationLocked('free', 'pulse'), true);
+assert.equal(isAnimationLocked('pro', 'pulse'), false);
+for (const v of ['none', 'inherit', undefined, null, 'bogus']) {
+  assert.equal(isAnimationLocked('free', v), false, `free: ${String(v)} never locks`);
+}
+ok('isFontLocked / isAnimationLocked: only custom: keys and paintable ids lock, on free only');
+
+// The owner's lock and the visitor's gate are the SAME rule, per tier: an item
+// is locked for the owner exactly when the visitor gets the Free render of it.
+for (const plan of PLAN_ORDER) {
+  const visitorBlocks = gateBlocksForVisitor(plan, fixture());
+  const gotCarousel = visitorBlocks.some((b) => b.type === 'carousel');
+  const gotEmail = visitorBlocks.some((b) => b.type === 'email_subscribe');
+  assert.equal(lockedBlockFeature(plan, 'carousel') !== null, !gotCarousel, `${plan}: carousel`);
+  assert.equal(lockedBlockFeature(plan, 'email_subscribe') !== null, !gotEmail, `${plan}: email`);
+  assert.equal(isFontLocked(plan, 'custom:X'), gateFontForVisitor(plan, 'custom:X') !== 'custom:X', `${plan}: font`);
+}
+ok('owner lock == visitor gate on every tier');
 
 console.log('\nAll ' + passed + ' checks passed.');

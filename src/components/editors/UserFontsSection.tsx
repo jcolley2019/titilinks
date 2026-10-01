@@ -5,6 +5,10 @@
 // upload (PRO-gated), list uploaded families previewed in their own face,
 // select one (`custom:<family>` key via onSelect), remove. Panel-width
 // single-column by design — this renders in the narrow slide-in panel.
+//
+// TL.PLAN.ENFORCE.3: when the selected page font is an uploaded one the owner's
+// plan can't use, it leads the section as the current value, locked, with the
+// note that visitors see the default font. The saved key is never swapped.
 
 import { useRef } from 'react';
 import { Lock, Upload, X } from 'lucide-react';
@@ -12,7 +16,9 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useProUpsell } from '@/hooks/useProUpsell';
 import { useUserFonts } from '@/hooks/useUserFonts';
-import { customFontKey, resolveFontFamily } from '@/lib/fonts';
+import { customFontFamily, customFontKey, resolveFontFamily } from '@/lib/fonts';
+import { usePlanLock } from '@/hooks/usePlanLock';
+import { PlanLockNote, PlanLockTag } from '@/components/PlanLock';
 
 interface UserFontsSectionProps {
   selectedKey?: string;
@@ -23,6 +29,7 @@ export function UserFontsSection({ selectedKey, onSelect }: UserFontsSectionProp
   const { t } = useLanguage();
   const { fonts, busy, canUpload, addFont, removeFont } = useUserFonts();
   const showUpsell = useProUpsell();
+  const planLock = usePlanLock();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File | null) => {
@@ -43,6 +50,28 @@ export function UserFontsSection({ selectedKey, onSelect }: UserFontsSectionProp
 
   return (
     <div className="space-y-2">
+      {selectedKey && planLock.fontLocked(selectedKey) && (
+        <button
+          type="button"
+          data-testid="locked-font"
+          onClick={() => planLock.upsell('customFonts')}
+          className="w-full space-y-1.5 rounded-xl border-2 border-[#C9A55C]/40 bg-black/30 px-3 py-2.5 text-left"
+        >
+          <span className="block text-white/60 text-[11px] font-semibold uppercase tracking-wide">
+            {t('editor.planLock.currentFont')}
+          </span>
+          <span className="flex items-center gap-2">
+            <span
+              className="min-w-0 flex-1 truncate text-base text-white"
+              style={{ fontFamily: resolveFontFamily(selectedKey) }}
+            >
+              {customFontFamily(selectedKey)}
+            </span>
+            <PlanLockTag hint={planLock.hint('customFonts')} />
+          </span>
+          <PlanLockNote hint={planLock.hint('customFonts')} />
+        </button>
+      )}
       {canUpload ? (
         <>
           <input

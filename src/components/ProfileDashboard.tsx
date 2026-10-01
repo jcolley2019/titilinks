@@ -86,6 +86,8 @@ import { suggestHandles } from '@/lib/handle-suggest';
 // second toggle control.
 import { Switch } from '@/components/ui/switch';
 import { parseTextConfig } from '@/lib/text-block-config';
+import { usePlanLock } from '@/hooks/usePlanLock';
+import { PlanLockTag } from '@/components/PlanLock';
 
 export interface EditingBlockTarget {
   id: string;
@@ -486,6 +488,9 @@ export function ProfileDashboard({
   // UPGRADE.1: every Pro gate below raises the SAME toast, now carrying a
   // "See Pro" action that lands on /dashboard/upgrade.
   const showUpsell = useProUpsell();
+  // TL.PLAN.ENFORCE.3: a saved Pro block the owner's plan lacks is locked —
+  // the rail's row opens the upsell instead of the editor, as the canvas does.
+  const planLock = usePlanLock();
   // Two pages (Page 2) is a Pro feature; Free is capped at one page.
   const canTwoPages = entitlements.maxPages >= 2;
   // PIXELS.1: tracking pixels have their own dedicated tap-gate branch below.
@@ -1486,6 +1491,7 @@ export function ProfileDashboard({
             // block, both page styles — which only matters once Page 2 exists.
             let status = block.is_enabled ? t('sections.statusShown') : t('sections.statusHidden');
             if (block.type === 'events' && pagesEnabled) status = `${status} · ${t('sections.bothPages')}`;
+            const lockFeature = planLock.blockLock(block.type);
             return (
               <div
                 key={block.id}
@@ -1495,7 +1501,7 @@ export function ProfileDashboard({
               >
                 <button
                   type="button"
-                  onClick={() => openSectionEditor(block)}
+                  onClick={() => (lockFeature ? planLock.upsell(lockFeature) : openSectionEditor(block))}
                   className="flex flex-1 min-w-0 items-center gap-2.5 text-left"
                 >
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
@@ -1504,9 +1510,16 @@ export function ProfileDashboard({
                   {/* min-w-0 is what lets both lines truncate instead of pushing
                       the toggle off the panel's right edge. */}
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[13px] font-semibold leading-tight ${block.is_enabled ? 'text-white' : 'text-white/40'}`}>
-                      {label}
-                    </p>
+                    {lockFeature ? (
+                      <p className={`flex items-center gap-1.5 text-[13px] font-semibold leading-tight ${block.is_enabled ? 'text-white' : 'text-white/40'}`}>
+                        <span className="min-w-0 truncate">{label}</span>
+                        <PlanLockTag hint={planLock.hint(lockFeature)} />
+                      </p>
+                    ) : (
+                      <p className={`truncate text-[13px] font-semibold leading-tight ${block.is_enabled ? 'text-white' : 'text-white/40'}`}>
+                        {label}
+                      </p>
+                    )}
                     <p className="truncate text-[11px] leading-tight text-white/40">{status}</p>
                   </div>
                   <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-white/20" />

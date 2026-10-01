@@ -13,7 +13,9 @@ import { Loader2, AlignLeft, AlignCenter, AlignRight, Bold } from 'lucide-react'
 import { useLanguage } from '@/hooks/useLanguage';
 import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import { cn } from '@/lib/utils';
-import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
+import { FONT_OPTIONS, customFontFamily, isCustomFontKey, resolveFontFamily } from '@/lib/fonts';
+import { usePlanLock } from '@/hooks/usePlanLock';
+import { PlanLockNote } from '@/components/PlanLock';
 import {
   parseTextConfig,
   defaultTextConfig,
@@ -39,6 +41,7 @@ interface TextBlockEditorProps {
 
 export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode, onTitleDraftChange }: TextBlockEditorProps) {
   const { t } = useLanguage();
+  const planLock = usePlanLock();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<TextConfig>(defaultTextConfig());
@@ -199,12 +202,20 @@ export function TextBlockEditor({ blockId, open, onOpenChange, onSave, panelMode
                 style={{ fontFamily: resolveFontFamily(activeStyle.font) || undefined }}
               >
                 <option value="" style={{ fontFamily: 'inherit', color: '#111', backgroundColor: '#fff' }}>{t('blockEditor.defaultFont')}</option>
+                {/* TL.PLAN.ENFORCE.3: a saved uploaded font is not in the catalog —
+                    list it so the picker shows the saved value, never a swap. */}
+                {isCustomFontKey(activeStyle.font) && (
+                  <option value={activeStyle.font} style={{ fontFamily: resolveFontFamily(activeStyle.font), color: '#111', backgroundColor: '#fff' }}>
+                    {customFontFamily(activeStyle.font)}{planLock.fontLocked(activeStyle.font) ? ' · PRO' : ''}
+                  </option>
+                )}
                 {FONT_OPTIONS.map((f) => (
                   <option key={f.value} value={f.value} style={{ fontFamily: f.fontFamily, color: '#111', backgroundColor: '#fff' }}>
                     {f.label}
                   </option>
                 ))}
               </select>
+              {planLock.fontLocked(activeStyle.font) && <PlanLockNote hint={planLock.hint('customFonts')} />}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

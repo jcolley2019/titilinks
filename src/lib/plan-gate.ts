@@ -126,3 +126,32 @@ export function gateThemeForVisitor(plan: PlanLike, theme: ThemeJson): ThemeJson
     buttons: dropAnimation ? { ...theme.buttons, animation: undefined } : theme.buttons,
   };
 }
+
+// ── Owner side (TL.PLAN.ENFORCE.3) ──────────────────────────────────────────
+// The editor's half of the same ruling: Pro data a Free owner has saved is
+// shown in place, LOCKED — never opened, never edited, never rewritten — until
+// they upgrade. These predicates say WHICH saved things are locked, on the same
+// entitlements and shapes as the visitor gates above, so an item is locked for
+// the owner exactly when a visitor is being served the Free render of it. The
+// lock's UI (pill, dimmed card, upsell) is src/hooks/usePlanLock.ts's callers.
+
+/** The Pro block types a plan can lack — the edit canvas locks these. */
+export type LockedBlockFeature = 'carousel' | 'emailSubscribe';
+
+/** The feature a saved block of `blockType` needs that the plan lacks, or null. */
+export function lockedBlockFeature(plan: PlanLike, blockType: string): LockedBlockFeature | null {
+  if (blockType === 'carousel' && !can(plan, 'carousel')) return 'carousel';
+  if (blockType === 'email_subscribe' && !can(plan, 'emailSubscribe')) return 'emailSubscribe';
+  return null;
+}
+
+/** A saved font key visitors don't get: a `custom:` key without customFonts. */
+export function isFontLocked(plan: PlanLike, fontKey: string | null | undefined): boolean {
+  return isCustomFontKey(fontKey) && !can(plan, 'customFonts');
+}
+
+/** A saved animation visitors don't get: a paintable id without linkAnimations
+ *  ('none', 'inherit' and absent are always free). */
+export function isAnimationLocked(plan: PlanLike, value: unknown): boolean {
+  return isAnimationId(value) && !can(plan, 'linkAnimations');
+}
