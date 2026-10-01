@@ -597,7 +597,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pages_public: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          goal_primary_offer_item_id: string | null
+          goal_secondary_item_id: string | null
+          handle: string
+          id: string
+          theme_json: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       change_handle: { Args: { p_handle: string }; Returns: string }

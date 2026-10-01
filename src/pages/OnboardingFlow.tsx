@@ -133,7 +133,7 @@ export default function OnboardingFlow() {
       // Check username uniqueness against both profiles and pages
       const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
         supabase.from('profiles').select('id').eq('username', state.username).neq('id', user.id).maybeSingle(),
-        supabase.from('pages').select('id').eq('handle', state.username).neq('user_id', user.id).maybeSingle(),
+        supabase.from('pages_public').select('id').eq('handle', state.username).neq('user_id', user.id).maybeSingle(),
       ]);
 
       if (profileMatch || pageMatch) {

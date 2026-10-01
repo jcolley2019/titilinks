@@ -55,7 +55,7 @@ export default async function middleware(request: Request) {
     const shell = await shellRes.text();
 
     const pageRes = await fetch(
-      `${base}/rest/v1/pages?handle=eq.${encodeURIComponent(handle)}&select=id,handle,display_name,bio,avatar_url&limit=1`,
+      `${base}/rest/v1/pages_public?handle=eq.${encodeURIComponent(handle)}&select=id,handle,display_name,bio,avatar_url&limit=1`,
       { headers: H },
     );
     if (!pageRes.ok) return next(); // a failed lookup is not "no such page"

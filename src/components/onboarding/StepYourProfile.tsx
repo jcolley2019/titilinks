@@ -162,7 +162,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       try {
         const [{ data: profileMatch }, { data: pageMatch }] = await Promise.all([
           supabase.from('profiles').select('id').eq('username', state.username).neq('id', user?.id ?? '').maybeSingle(),
-          supabase.from('pages').select('id').eq('handle', state.username).neq('user_id', user?.id ?? '').maybeSingle(),
+          supabase.from('pages_public').select('id').eq('handle', state.username).neq('user_id', user?.id ?? '').maybeSingle(),
         ]);
         const taken = Boolean(profileMatch || pageMatch);
         if (!taken) lastAvailableHandle = state.username;

@@ -804,7 +804,7 @@ export function ProfileDashboard({
     const timer = setTimeout(async () => {
       try {
         const { data: pageMatch } = await supabase
-          .from('pages').select('id').eq('handle', handleDraft).neq('user_id', user?.id ?? '').maybeSingle();
+          .from('pages_public').select('id').eq('handle', handleDraft).neq('user_id', user?.id ?? '').maybeSingle();
         setHandleStatus(pageMatch ? 'taken' : 'available');
       } catch {
         setHandleStatus('idle');
@@ -822,7 +822,7 @@ export function ProfileDashboard({
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
-        .from('pages').select('handle').in('handle', candidates).neq('user_id', user?.id ?? '');
+        .from('pages_public').select('handle').in('handle', candidates).neq('user_id', user?.id ?? '');
       if (cancelled || error) return;
       const used = new Set((data ?? []).map((r) => r.handle));
       setHandleSuggestions(candidates.filter((c) => !used.has(c)));

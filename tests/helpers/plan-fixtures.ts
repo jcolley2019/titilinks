@@ -152,12 +152,13 @@ export function planFixtures(tag: string) {
 
   /**
    * Wire-patch the battery's page row: a two-page switcher, a page-level
-   * animation, a custom page font. Matches the public page's read (by handle)
-   * and the editor's (by owner); rows read without theme_json pass untouched.
+   * animation, a custom page font. Matches the public page's read (by handle,
+   * through the `pages_public` view since MEDIA.LEAK.1) and the editor's (by
+   * owner, on `pages`); rows read without theme_json pass untouched.
    */
   async function patchPageRow(page: Page) {
     await page.route(
-      (url) => url.pathname.endsWith('/rest/v1/pages')
+      (url) => /\/rest\/v1\/pages(?:_public)?$/.test(url.pathname)
         && (url.searchParams.get('handle') === `eq.${TEST_HANDLE}`
           || url.searchParams.get('user_id') === `eq.${PINNED_TEST_USER_ID}`),
       async (route) => {

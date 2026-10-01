@@ -84,8 +84,10 @@ export async function isReferenced(
     let items = supabase.from('block_items').select('id').eq('image_url', url).limit(1);
     if (opts.excludeItemId) items = items.neq('id', opts.excludeItemId);
 
+    // MEDIA.LEAK.1: `pages_public`, not `pages` — every account's row, as
+    // before; `pages` itself is owner-only once step 3 lands.
     const pages = supabase
-      .from('pages')
+      .from('pages_public')
       .select('id')
       .eq('theme_json->background->>image_url', url)
       .limit(1);

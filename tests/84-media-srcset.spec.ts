@@ -23,9 +23,10 @@ import { TEST_HANDLE } from './helpers/auth';
  *      for more than the 1x desktop — and a 4K monitor does NOT get a bigger
  *      hero than its phone-shaped stage column needs (the stage pins the column
  *      to the device preset's width, so a 1x 4K requests what a 1x desktop does);
- *   5. the anonymous `pages` read of the visitor route does not carry
- *      `avatar_original_url` — neither in its `select` nor in its payload — and
- *      replaying that exact request with no session returns rows without it.
+ *   5. the visitor route's anonymous page read goes to the `pages_public` view
+ *      (MEDIA.LEAK.1), whose payload carries neither `avatar_original_url` nor
+ *      `theme_json.avatar_original_url_page2` — and replaying that exact
+ *      request with no session returns rows without them.
  *
  * Writes: none. Reads only, in fresh anonymous contexts (the same thing a
  * visitor's browser sends), so no write guard is needed and none is bypassed.
@@ -97,7 +98,7 @@ async function visit(
   const pagesRequests: { url: string; headers: Record<string, string>; body: string }[] = [];
   page.on('response', async (res) => {
     const req = res.request();
-    if (req.method() === 'GET' && new URL(res.url()).pathname.endsWith('/rest/v1/pages')) {
+    if (req.method() === 'GET' && new URL(res.url()).pathname.endsWith('/rest/v1/pages_public')) {
       try {
         pagesRequests.push({ url: res.url(), headers: req.headers(), body: await res.text() });
       } catch {
@@ -245,25 +246,30 @@ test.describe('MEDIA.PHOTO.1 — responsive creator images', () => {
     expect(chosen.fourK2x).toBeGreaterThan(chosen.fourK1x);
   });
 
-  test('the visitor route reads pages without avatar_original_url', async ({ browser, baseURL }) => {
+  test('the visitor route reads pages_public, which has no avatar_original_url', async ({ browser, baseURL }) => {
     const v = await visit(browser, baseURL!, SCREENS.desktop1x);
     try {
-      expect(v.pagesRequests.length, 'the page issued an anonymous pages read').toBeGreaterThanOrEqual(1);
+      expect(v.pagesRequests.length, 'the page issued an anonymous pages_public read').toBeGreaterThanOrEqual(1);
       const mine = v.pagesRequests.find((r) => new URL(r.url).searchParams.get('handle')?.includes(TEST_HANDLE));
-      expect(mine, 'the pages read for the battery handle').toBeTruthy();
+      expect(mine, 'the pages_public read for the battery handle').toBeTruthy();
 
+      // MEDIA.LEAK.1: the view omits the column, so the client asks for `*`;
+      // what matters is that the column is not named and not delivered.
       const select = new URL(mine!.url).searchParams.get('select') ?? '';
-      expect(select, 'explicit columns, not select=*').not.toBe('*');
       expect(select.split(',')).not.toContain('avatar_original_url');
-      // ...and the columns the page does need are all still there.
-      for (const col of ['id', 'handle', 'display_name', 'avatar_url', 'theme_json', 'user_id']) {
-        expect(select.split(','), `select carries ${col}`).toContain(col);
-      }
 
       const rows = JSON.parse(mine!.body);
       const row = Array.isArray(rows) ? rows[0] : rows;
       expect(row?.handle).toBe(TEST_HANDLE);
       expect(Object.keys(row), 'the payload the visitor received').not.toContain('avatar_original_url');
+      expect(
+        Object.keys(row.theme_json ?? {}),
+        'the visitor theme_json carries no page-2 original',
+      ).not.toContain('avatar_original_url_page2');
+      // ...and the columns the page does need are all still there.
+      for (const col of ['id', 'handle', 'display_name', 'avatar_url', 'theme_json', 'user_id']) {
+        expect(Object.keys(row), `payload carries ${col}`).toContain(col);
+      }
       expect(row.avatar_url, 'the display copy is still delivered').toBeTruthy();
 
       // No-JS replay: the same request, no cookies, no session, no browser.
@@ -274,6 +280,7 @@ test.describe('MEDIA.PHOTO.1 — responsive creator images', () => {
       const replayed = await replay.json();
       const replayRow = Array.isArray(replayed) ? replayed[0] : replayed;
       expect(Object.keys(replayRow)).not.toContain('avatar_original_url');
+      expect(Object.keys(replayRow.theme_json ?? {})).not.toContain('avatar_original_url_page2');
       expect(replayRow.handle).toBe(TEST_HANDLE);
     } finally {
       await v.close();

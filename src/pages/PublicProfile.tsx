@@ -34,9 +34,6 @@ import { transformUrl } from '@/lib/media-url';
 import { HERO_MAX_PX } from '@/lib/crop';
 
 type Page = Tables<'pages'>;
-// Every `pages` column EXCEPT avatar_original_url (MEDIA.PHOTO.1 — see fetchPageData).
-const PUBLIC_PAGE_COLUMNS =
-  'id,user_id,handle,display_name,bio,avatar_url,theme_json,goal_primary_offer_item_id,goal_secondary_item_id,created_at,updated_at' as const;
 type Mode = Tables<'modes'>;
 type Block = Tables<'blocks'>;
 type BlockItem = Tables<'block_items'>;
@@ -230,12 +227,14 @@ export default function PublicProfile() {
     setLoading(true);
     try {
       // Fetch page by handle
-      // MEDIA.PHOTO.1: explicit columns, NOT select('*') — the visitor route must
-      // not receive `avatar_original_url`, the creator's raw un-recropped upload
-      // (EXIF/GPS intact) in a public bucket. The editor/owner path still reads it.
+      // MEDIA.LEAK.1: the visitor reads the `pages_public` view, never `pages`
+      // (owner-only once step 3 lands). The view has no `avatar_original_url`
+      // and strips `theme_json.avatar_original_url_page2` — the creator's raw
+      // un-recropped uploads (EXIF/GPS intact) — so `*` here is safe by
+      // construction. The editor/owner path still reads `pages` directly.
       const { data: pageData, error: pageError } = await supabase
-        .from('pages')
-        .select(PUBLIC_PAGE_COLUMNS)
+        .from('pages_public')
+        .select('*')
         .eq('handle', handle.toLowerCase())
         .maybeSingle();
 
