@@ -94,7 +94,7 @@ ok('a plan with every gated feature returns its input untouched');
   assert.equal(links.items[3], blocks[1].items[3], 'animation-free item is the same object');
   assert.equal(links.title, 'Links', 'non-JSON title untouched');
   assert.equal(out.find((b) => b.id === 'b-bio').title, 'not json');
-  ok('free: paintable animations stripped from style_json and title .style — the save-strip shape');
+  ok('free: paintable animations stripped from style_json and title .style at render (saved rows untouched)');
 }
 
 // Order rule: gate FIRST, then samples. A carousel holding only samples, turned

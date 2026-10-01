@@ -26,10 +26,8 @@ import { toast } from 'sonner';
 import { getThemeWithDefaults, THEME_PRESETS, type ThemeJson, type ThemeTypography, type PageId } from '@/lib/theme-defaults';
 import { captureSnapshot } from '@/lib/snapshots';
 import { withEffectivePageStyle } from '@/lib/surface';
-import { isAnimationId } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { useEntitlements } from '@/hooks/useEntitlements';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 
@@ -65,10 +63,6 @@ interface DesignEditorProps {
 export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, avatarUrl, onThemeDraftChange, onClose, activePageId = 'page1' }: DesignEditorProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { can } = useEntitlements();
-  // ANIM.2: saveTheme strips the page-level animation for a non-entitled
-  // profile (belt-and-suspenders with the Buttons-tab picker's own guard).
-  const canAnimations = can('linkAnimations');
   const [theme, setTheme] = useState<ThemeJson>(() => getThemeWithDefaults(themeJson));
   // TL.EDIT.DIRTY.1 — Save is live only when the theme draft differs from the
   // saved theme (the themeJson prop, re-baselined whenever it changes).
@@ -177,18 +171,16 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   const saveTheme = async (newTheme: ThemeJson) => {
     try {
-      // ANIM.2: a free profile can never PERSIST a page-level motion effect —
-      // strip it at save (the JSON round-trip below erases the undefined),
-      // exactly like the per-item editors gate style_json.animation.
-      const safeTheme = !canAnimations && isAnimationId(newTheme.buttons.animation)
-        ? { ...newTheme, buttons: { ...newTheme.buttons, animation: undefined } }
-        : newTheme;
+      // TL.PLAN.ENFORCE.4: a save writes back whatever the creator saved,
+      // page-level buttons.animation included, on every plan — the plan never
+      // edits or deletes it. Visitors are gated at render (src/lib/plan-gate.ts,
+      // gateThemeForVisitor); the owner sees it locked (usePlanLock).
       // Merge over the existing raw json so keys the theme editor doesn't
       // manage (headerConfig, headerCardOrder, avatar_url_page2, pages) survive.
       const extras = (themeJson && typeof themeJson === 'object') ? (themeJson as Record<string, unknown>) : {};
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...extras, ...JSON.parse(JSON.stringify(safeTheme)) } })
+        .update({ theme_json: { ...extras, ...JSON.parse(JSON.stringify(newTheme)) } })
         .eq('id', pageId);
 
       if (error) throw error;

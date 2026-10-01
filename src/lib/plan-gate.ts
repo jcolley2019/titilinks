@@ -40,12 +40,14 @@ export function visiblePageCount(plan: PlanLike, pageCount: number): number {
 }
 
 // ── linkAnimations ──────────────────────────────────────────────────────────
-// The SAME shape the save-time strip removes (ANIM.1/ANIM.2), read back at
-// render: a PAINTABLE `animation` value (isAnimationId — 'none' and absent are
-// always free) in the three places it is stored —
+// A PAINTABLE `animation` value (isAnimationId — 'none' and absent are always
+// free) in the three places it is stored —
 //   • theme_json.buttons.animation          DesignEditor.saveTheme
 //   • block_items.style_json.animation      LinksEditor.buildItemPayload
 //   • blocks.title JSON `.style.animation`  PrimaryCtaEditor.onSubmit
+// TL.PLAN.ENFORCE.4: those three saves no longer strip it (ANIM.1/ANIM.2 did).
+// A Free owner's saved effect stays in the row; this module is the ONLY place
+// the plan hides it — at render for visitors, and locked in the editor.
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);

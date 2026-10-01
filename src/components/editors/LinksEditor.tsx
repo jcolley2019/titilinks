@@ -1473,8 +1473,6 @@ interface LinksEditorProps {
 
 export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, directItemId, directNew, onDraftChange, avatarUrl, pageAnimation }: LinksEditorProps) {
   const { t } = useLanguage();
-  const { can } = useEntitlements();
-  const canAnimations = can('linkAnimations');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<LinkItem[]>([]);
@@ -1601,17 +1599,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
   // Shared payload shape for a single block_items row (used by the direct
   // single-item Save).
   const buildItemPayload = (item: LinkItem, orderIndex: number) => {
-    // ANIM.1/ANIM.2: gate the animation appearance key at SAVE, not just in the
-    // UI — a free profile can never persist a motion effect (belt-and-suspenders
-    // with the picker's own guard). Only PAINTABLE effects strip: an explicit
-    // 'none' (hold this card still against a page value) and absent (inherit)
-    // are always free.
-    let styleJson = item.style_json as Record<string, unknown> | null;
-    if (styleJson && !canAnimations && isAnimationId(styleJson.animation)) {
-      styleJson = { ...styleJson };
-      delete styleJson.animation;
-      if (Object.keys(styleJson).length === 0) styleJson = null;
-    }
+    // TL.PLAN.ENFORCE.4: style_json — animation included — is saved exactly as
+    // the creator left it, on every plan; the plan never edits or deletes it.
+    // Visitors are gated at render (src/lib/plan-gate.ts, gateBlocksForVisitor);
+    // the owner sees a saved Pro effect locked (usePlanLock). The picker's own
+    // can() check is what stops a Free owner SETTING a new one.
+    const styleJson = item.style_json as Record<string, unknown> | null;
     return {
       // Image cards (cover thumbnails) may have NO title — the image carries the
       // meaning, so a deleted title stays deleted. Only fall back to the hostname

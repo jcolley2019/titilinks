@@ -97,7 +97,8 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   // page-level effect (ANIM.2 default); an explicit 'none' holds the CTA still
   // against a page value. Inherit/'none' are free; paintable effects are PRO —
   // a free profile sees the picker but a locked pick raises the upsell instead
-  // of writing (onSubmit strips it too). Stored on styleConfig.animation.
+  // of writing. A SAVED effect is never stripped — plan-gate.ts gates it at
+  // render (TL.PLAN.ENFORCE.4). Stored on styleConfig.animation.
   const currentAnimation: string =
     styleConfig.animation === 'none' || isAnimationId(styleConfig.animation)
       ? styleConfig.animation
@@ -200,15 +201,12 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
   const onSubmit = async (data: FormData) => {
     setSaving(true);
     try {
-      // Save style config to block title. ANIM.1/ANIM.2: strip the animation
-      // key at SAVE for a non-entitled profile (belt-and-suspenders with the
-      // picker). Only PAINTABLE effects strip — an explicit 'none' (hold still
-      // against a page value) and absent (inherit) are always free.
-      const safeStyle =
-        canAnimations || !isAnimationId(styleConfig.animation)
-          ? styleConfig
-          : { ...styleConfig, animation: undefined };
-      const configJson: CtaBlockConfig = { style: safeStyle };
+      // Save style config to block title. TL.PLAN.ENFORCE.4: the style —
+      // animation included — is saved exactly as the creator left it, on every
+      // plan; the plan never edits or deletes it. Visitors are gated at render
+      // (src/lib/plan-gate.ts, gateBlocksForVisitor); the owner sees a saved Pro
+      // effect locked (usePlanLock).
+      const configJson: CtaBlockConfig = { style: styleConfig };
       const { error: blockError } = await supabase
         .from('blocks')
         .update({ title: JSON.stringify(configJson) })

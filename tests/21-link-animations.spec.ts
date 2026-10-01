@@ -398,7 +398,7 @@ test.describe('ANIM.2 — page-level animation', () => {
     await expect(inherit).toContainText('Glow');
   });
 
-  test('free plan: locked page picker + strip-at-save on the page-level path', async ({ page }) => {
+  test('free plan: locked page picker + a save KEEPS the saved page-level animation', async ({ page }) => {
     await installAnim2Mocks(page, { plan: 'free', pageAnimation: 'pulse' });
     await openButtonsTab(page);
 
@@ -416,15 +416,16 @@ test.describe('ANIM.2 — page-level animation', () => {
     const thickSelected = /border-\[#C9A55C\]/.test((await outline('Thick').getAttribute('class')) ?? '');
     await outline(thickSelected ? 'Thin' : 'Thick').click();
 
-    // Saving the theme strips the stored page-level animation (belt-and-
-    // suspenders): the PATCH payload carries buttons WITHOUT the key.
+    // TL.PLAN.ENFORCE.4: a save never edits what the creator saved — plan-gate.ts
+    // hides it from visitors at render, the editor shows it locked. The PATCH
+    // payload round-trips the stored page-level animation unchanged.
     const themePatch = page.waitForRequest(
       (r) => r.url().includes('/rest/v1/pages') && r.method() === 'PATCH',
     );
     await page.getByRole('button', { name: 'Save', exact: true }).filter({ visible: true }).first().click();
     const body = (await themePatch).postDataJSON();
-    expect(body.theme_json.buttons).toBeTruthy();          // control: buttons written
-    expect(body.theme_json.buttons.animation).toBeUndefined(); // stripped for free
+    expect(body.theme_json.buttons).toBeTruthy();                 // control: buttons written
+    expect(body.theme_json.buttons.animation).toBe('pulse');      // kept for free
   });
 
   test('the links-editor animation section carries the standard row rhythm', async ({ page }) => {
