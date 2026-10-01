@@ -97,7 +97,8 @@ export function SocialIconRowBlock({ block, onOutboundClick, theme, editMode }: 
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
-            <ThumbnailImage src={item.image_url} alt={tc(item.label)} />
+            // MEDIA.PHOTO.1: a custom icon image in a circle of at most 56px.
+            <ThumbnailImage src={item.image_url} alt={tc(item.label)} cssWidth={56} sizes={{ px: 56 }} aspect={1} />
           ) : (
             <SocialSvgIcon label={tc(item.label)} size={getIconSize()} />
           )}

@@ -90,6 +90,10 @@ export function FeaturedMediaBlock({ block, onOutboundClick, theme, editMode }: 
                     src={item.image_url}
                     alt={item.label}
                     className="group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
+                    // MEDIA.PHOTO.1: a 16:9 card at the content column's full width.
+                    cssWidth={370}
+                    sizes={{ column: 1, insetPx: 32 }}
+                    aspect={16 / 9}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {item.is_adult && (

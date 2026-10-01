@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useResponsiveSrc, type ResponsiveSpec } from '@/hooks/useResponsiveSrc';
 
-interface SmoothImageProps {
+interface SmoothImageProps extends ResponsiveSpec {
   src: string;
   alt?: string;
   className?: string;
@@ -29,8 +30,15 @@ export function SmoothImage({
   aspectRatio = 'auto',
   fallback,
   imgStyle,
+  cssWidth,
+  sizes,
+  maxWidth,
+  aspect,
+  densities,
 }: SmoothImageProps) {
   const { t } = useLanguage();
+  // MEDIA.PHOTO.1: renditions via srcset; `src` below stays the master.
+  const responsive = useResponsiveSrc(src, { cssWidth, sizes, maxWidth, aspect, densities });
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -89,6 +97,8 @@ export function SmoothImage({
       {/* Actual image with fade-in */}
       <img
         src={src}
+        srcSet={responsive.srcSet}
+        sizes={responsive.sizes}
         alt={alt}
         onLoad={handleLoad}
         onError={handleError}

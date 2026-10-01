@@ -18,6 +18,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import type { ThemedBlockProps, BlockItem } from './types';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 import { glidePxPerSec } from '@/lib/glide';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
 
 /** The icon "from the link": platform brand glyph, or a generic link chain. */
 function DerivedIcon({ url, size, color }: { url: string | null | undefined; size: number; color?: string }) {
@@ -130,11 +131,17 @@ export function CarouselBlock({ block, onOutboundClick, theme, editMode }: Theme
           >
             {item.image_url ? (
               <>
-                <img
+                {/* MEDIA.PHOTO.1: the card is `widthClass` of the strip (the content
+                    column minus its 32px gutters), centred object-cover at the
+                    card's aspect — so the rendition is cropped to exactly it. */}
+                <ResponsiveImg
                   src={item.image_url}
                   alt={item.label || ''}
                   className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
+                  cssWidth={cardSize === 'small' ? 163 : 289}
+                  sizes={{ column: cardSize === 'small' ? 0.44 : 0.78, insetPx: 32 }}
+                  aspect={cardSize === 'small' ? 1 : 3 / 4}
                 />
                 {/* Platform badge (top-left), like a Featured Links image card. */}
                 <span

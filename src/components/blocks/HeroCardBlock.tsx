@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { BlockWithItems } from './types';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
 
 interface HeroCardBlockProps {
   block: BlockWithItems;
@@ -68,11 +69,15 @@ export function HeroCardBlock({ block }: HeroCardBlockProps) {
       style={{ borderRadius: getRadius() }}
     >
       <div className="aspect-square relative">
-        <img
+        {/* MEDIA.PHOTO.1: a square at the content column's full width. */}
+        <ResponsiveImg
           src={item.image_url}
           alt={item.label || 'Hero'}
           className="w-full h-full object-cover"
           loading="eager"
+          cssWidth={370}
+          sizes={{ column: 1, insetPx: 32 }}
+          aspect={1}
         />
 
         <div

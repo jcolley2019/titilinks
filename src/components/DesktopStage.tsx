@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 import type { ThemeJson } from '@/lib/theme-defaults';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
+import { MediaStageContext } from '@/hooks/useResponsiveSrc';
 
 /**
  * DESK.STAGE.1 — the public page renders the phone on a desktop viewport.
@@ -182,8 +184,13 @@ export function DesktopStage({ backdropImage, theme, deviceId, onScrollHost, chi
         className="fixed inset-0 z-0 overflow-hidden bg-[#0e0c09]"
       >
         {backdropImage ? (
-          <img
+          // MEDIA.PHOTO.1: a 56px blur needs ~nothing, not the 4800×2700 decode
+          // of the full hero — a 128/256 px rendition is already past the blur.
+          <ResponsiveImg
             src={backdropImage}
+            cssWidth={128}
+            densities={[1, 2]}
+            sizes="256px"
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
             style={{ transform: 'scale(1.25)', filter: 'blur(56px) saturate(1.25)' }}
@@ -241,7 +248,9 @@ export function DesktopStage({ backdropImage, theme, deviceId, onScrollHost, chi
             className="absolute inset-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&_.min-h-screen]:min-h-full"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as CSSProperties}
           >
-            {children}
+            {/* MEDIA.PHOTO.1: tells every responsive image inside how wide the
+                column really is — the window says nothing here. */}
+            <MediaStageContext.Provider value={size.width}>{children}</MediaStageContext.Provider>
           </div>
         </div>
       </div>

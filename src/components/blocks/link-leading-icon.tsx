@@ -14,6 +14,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { Mail, Phone, Link as LinkChainIcon } from 'lucide-react';
 import { platformFromUrl } from '@/lib/platform-from-url';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
 
 /** Per-link leading-icon source, stored on block_items.style_json.icon_source.
  *  Undefined / 'platform' = the default auto-detected icon. */
@@ -55,21 +56,29 @@ export function leadingIconFor({
     if (iconSource === 'none') return null;
     if (iconImage) {
       return (
-        <img
+        // MEDIA.PHOTO.1: the leading icon box is at most 48px (24–28px in the
+        // big/small badge), whatever the size of the file behind it.
+        <ResponsiveImg
           src={iconImage}
           alt=""
           aria-hidden="true"
           className="h-full w-full rounded-full object-cover"
+          cssWidth={48}
+          sizes={{ px: 48 }}
+          aspect={1}
         />
       );
     }
     if (iconSource === 'avatar' && avatarUrl) {
       return (
-        <img
+        <ResponsiveImg
           src={avatarUrl}
           alt=""
           aria-hidden="true"
           className="h-full w-full rounded-full object-cover"
+          cssWidth={48}
+          sizes={{ px: 48 }}
+          aspect={1}
         />
       );
     }

@@ -6,8 +6,8 @@ import { useProUpsell } from '@/hooks/useProUpsell';
 import { usePlanLock } from '@/hooks/usePlanLock';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, type Area as CropArea } from '@/lib/crop';
-import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
+import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, HERO_MAX_PX, type Area as CropArea } from '@/lib/crop';
+import { canonicalHeroAspect, canonicalFullBleedAspect, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 // FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
 // this file resolves through it; nothing here may hardcode object-fit again.
 import {
@@ -95,7 +95,9 @@ import { CarouselBlock } from '@/components/blocks/CarouselBlock';
 import { EventsBlock } from '@/components/blocks/EventsBlock';
 import { resolveFontFamily } from '@/lib/fonts';
 import { removePublicObject } from '@/lib/storage-cleanup';
-import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
+import { resolveGalleryCrop, resolveGalleryMediaStyle } from '@/lib/gallery-framing';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
+import { coverOverflow, scaleBox, transformUrl, type SizesBox } from '@/lib/media-url';
 import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
 import { createPortal } from 'react-dom';
@@ -557,6 +559,15 @@ function PhotoDeleteConfirm({
   );
 }
 
+/** MEDIA.PHOTO.1 — the tile a gallery photo paints into, at the 402px reference
+ *  phone (370px content column): its nominal CSS width and its `sizes` box. */
+type GalleryTileBox = { cssWidth: number; sizes: SizesBox };
+const GALLERY_TILE_BOX = {
+  full: { cssWidth: 370, sizes: { column: 1, insetPx: 32 } },
+  filmstrip: { cssWidth: 266, sizes: { column: 0.72, insetPx: 32 } },
+  grid: { cssWidth: 181, sizes: { column: 0.5, insetPx: 40 } },
+} as const satisfies Record<string, GalleryTileBox>;
+
 /** TL.GAL.3a — the photo inside a gallery tile, for all three layouts.
  *
  *  Framing has ONE definition (src/lib/gallery-framing.ts), the way hero media
@@ -569,15 +580,27 @@ function PhotoDeleteConfirm({
  *  geometry, and leaving those classes on would fight it. `object-cover` stays
  *  in both paths. A crop can never leave the tile showing (TL.GAL.3b.1's fill
  *  floor), so no matte of any colour is ever behind the photo. */
-function GalleryPhoto({ src, label, styleJson }: { src: string; label: string | null; styleJson: unknown }) {
+function GalleryPhoto({ src, label, styleJson, box }: { src: string; label: string | null; styleJson: unknown; box: GalleryTileBox }) {
   const crop = resolveGalleryMediaStyle(styleJson);
+  // MEDIA.PHOTO.1: the renditions come off the one stored master. `src` stays
+  // that master (the specs locate tiles by it); srcset/sizes carry the sizes.
+  //  - Unframed: a centred cover into a square tile, so the rendition is cropped
+  //    server-side to exactly the tile (a landscape photo would otherwise be
+  //    scaled up to cover, and a width-only candidate would come out soft).
+  //  - Framed: the crop is percentages of the WHOLE source and the image is
+  //    painted 100/crop.w times the tile, so the candidates are that much wider
+  //    and aspect-preserving — a server-side crop would move the maths under it.
+  const zoom = crop ? Math.min(4, 100 / (resolveGalleryCrop(styleJson)?.w ?? 100)) : 1;
   return (
-    <img
+    <ResponsiveImg
       src={src}
       alt={label || 'Gallery photo'}
       className={crop ? 'absolute object-cover' : 'absolute inset-0 w-full h-full object-cover'}
       style={crop ?? undefined}
       loading="lazy"
+      cssWidth={Math.round(box.cssWidth * zoom)}
+      sizes={scaleBox(box.sizes, zoom)}
+      aspect={crop ? undefined : 1}
     />
   );
 }
@@ -892,7 +915,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
-                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} box={GALLERY_TILE_BOX.filmstrip} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
@@ -933,7 +956,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
               style={{ aspectRatio: '1/1', backgroundColor: `${theme.buttons.fill_color}10` }}
             >
               {item.image_url ? (
-                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} box={GALLERY_TILE_BOX.grid} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-6 w-6 opacity-30" style={{ color: theme.typography.text_color }} />
@@ -991,7 +1014,7 @@ function GalleryBlock({ block, theme, onEdit, onDelete }: Omit<ThemedBlockProps,
                 // GalleryEditor panel's tiles. The old object-contain + black
                 // matte letterboxed every non-square photo. This is also the
                 // default framing that TL.GAL.3's per-photo zoom/pan sits on.
-                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} />
+                <GalleryPhoto src={item.image_url} label={item.label} styleJson={item.style_json} box={GALLERY_TILE_BOX.full} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="h-8 w-8 opacity-30" style={{ color: theme.typography.text_color }} />
@@ -1060,6 +1083,14 @@ const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam
 const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
 const CARDS_LIFT = 85;      // px the link cards ride UP under the icons, closing the gap the header lift leaves behind. Bigger = cards higher / smaller gap; smaller = bigger gap.
 const HERO_EXTRA = 60;       // px added to hero height; gradient follows down with it. Dial on a REAL phone until the hero fills ~half the screen. 6px ~ 1/16 in.
+
+// MEDIA.PHOTO.1 — the boxes the hero paints into, for srcset/sizes (visitor path).
+// The page column is the default device preset wide (402px); the hero fills it. The
+// full-bleed layer is viewport-sized and covered across by HEIGHT, so for the canonical
+// hero aspect (~0.81 in a ~0.46 viewport) the photo ends up ~1.8x the viewport width.
+const HERO_REF_WIDTH = resolveDevicePreset(DEFAULT_DEVICE_ID).width;
+const HERO_FULL_BLEED_CSS_WIDTH = 480; // 480 / 960 / 1440 — the 3x step is the master (HERO_MAX_PX)
+const HERO_FULL_BLEED_COVER_SCALE = 1.8;
 
 function NameHandleCard({
   page,
@@ -2629,6 +2660,17 @@ export function EditableProfileView({
   const heroImage = selectedMode === 'page2'
     ? (heroInherit ? page1HeroImage : (localHeroImages.page2 || page2AvatarUrl || ''))
     : page1HeroImage;
+  // MEDIA.PHOTO.1 — hero renditions, VISITOR path only. The owner's editor keeps
+  // the master URL everywhere: crop/pan maths reads natural pixels. On the
+  // public page (and the visitor preview) the master is NOT what the screen
+  // needs, so every non-display read of it — the aspect probe, the luminance
+  // sample, the logo check, the blurred Fit backdrop — takes a small rendition
+  // instead of pulling a second full-size copy next to the <img>'s own srcset.
+  //   480 wide: aspect to <0.1% (the framing maths is aspect-exact), and 32px
+  //   downsamples read the same pixels either way.
+  const heroAnalysisUrl = editMode ? heroImage : transformUrl(heroImage, { width: 480, maxWidth: HERO_MAX_PX });
+  //   96 wide: it sits under a 28px blur.
+  const heroBlurUrl = editMode ? heroImage : transformUrl(heroImage, { width: 96, maxWidth: HERO_MAX_PX });
   // TL.POLISH.1a: is the band the name sits over LIGHT? White text over a
   // white logo hero is unreadable (/mecivietnam), so the public name/handle
   // get a legibility scrim only when this is true. Public path only; edit
@@ -2637,12 +2679,12 @@ export function EditableProfileView({
   useEffect(() => {
     if (editMode || !heroImage) { setHeroIsLight(false); return; }
     let cancelled = false;
-    sampleHeroBand(heroImage).then((lum) => {
+    sampleHeroBand(heroAnalysisUrl).then((lum) => {
       if (cancelled) return;
       setHeroIsLight(lum != null && needsNameScrim(lum));
     });
     return () => { cancelled = true; };
-  }, [heroImage, editMode]);
+  }, [heroImage, heroAnalysisUrl, editMode]);
   // TL.POLISH.1b: auto-Fit for LOGO-like heroes on pages that NEVER chose a
   // display mode. resolveHeroConfig merges HERO_DEFAULTS in and loses that
   // distinction, so "never chose" is read off the RAW theme_json slot the
@@ -2655,12 +2697,12 @@ export function EditableProfileView({
   useEffect(() => {
     if (!neverChoseFit || !heroImage) { setHeroAutoFit(false); return; }
     let cancelled = false;
-    analyzeImageForLogo(heroImage).then((isLogo) => {
+    analyzeImageForLogo(heroAnalysisUrl).then((isLogo) => {
       if (cancelled) return;
       setHeroAutoFit(isLogo === true);
     });
     return () => { cancelled = true; };
-  }, [heroImage, neverChoseFit]);
+  }, [heroImage, heroAnalysisUrl, neverChoseFit]);
   // The editor's Fill/Fit control shows the EFFECTIVE mode: while auto-fit is
   // on, the draft sits on Fit. Every save path writes `fit: heroFitDraft`
   // explicitly (handleHeroDisplaySave + the photo save), so flipping the
@@ -2710,18 +2752,28 @@ export function EditableProfileView({
   const fullBleedAspect = useElementAspect(fullBleedRef);
   // Hero photo aspect — known only once decoded; until then the resolver covers.
   // Decoded here rather than via an onLoad prop because the hero photo renders
-  // through SmoothImage, which owns its own onLoad. The browser serves this from
-  // cache (same URL the <img> requests), so it costs no extra fetch.
+  // through SmoothImage, which owns its own onLoad. In the editor the browser
+  // serves this from cache (same URL the <img> requests), so it costs no extra
+  // fetch; for a visitor it reads the small analysis rendition (aspect is
+  // preserved), since the <img> itself picks a srcset candidate.
   const [heroPhotoAspect, setHeroPhotoAspect] = useState<number | null>(null);
   useEffect(() => {
     setHeroPhotoAspect(null);
-    if (!heroImage) return;
+    if (!heroAnalysisUrl) return;
     let live = true;
     const probe = new Image();
     probe.onload = () => { if (live) setHeroPhotoAspect(imageAspect(probe)); };
-    probe.src = heroImage;
+    probe.src = heroAnalysisUrl;
     return () => { live = false; };
-  }, [heroImage]);
+  }, [heroAnalysisUrl]);
+  // MEDIA.PHOTO.1 — how many times wider than its box the hero photo PAINTS.
+  // Cover pins the photo by whichever axis would leave a gap, so a photo wider
+  // than its box (a square one in the portrait hero window) overflows sideways
+  // and needs that many more pixels than the column is wide. The canonical hero
+  // aspect gives 1; until the aspects are measured the srcset assumes that (the
+  // full-bleed layer, which is almost always height-pinned, assumes its typical).
+  const heroCoverScale = heroFitEffective === 'fit' ? 1 : coverOverflow(heroPhotoAspect, heroContainerAspect);
+  const fullBleedCoverScale = coverOverflow(heroPhotoAspect, fullBleedAspect, HERO_FULL_BLEED_COVER_SCALE);
 
   // Page labels + two-page switcher (shown in both editor preview and live page).
   const themePages = (page.theme_json as any)?.pages;
@@ -2888,9 +2940,16 @@ export function EditableProfileView({
           ) : (
             // Full-bleed backgrounds are always cover — the Fill/Fit toggle is
             // hero-only, so pin fit here rather than inherit the image's.
-            <img
+            // MEDIA.PHOTO.1 (visitor path): the layer is viewport-sized and the
+            // hero is covered across it, so on a phone the photo is scaled until
+            // its HEIGHT fills — roughly 1.8x the viewport width for the canonical
+            // hero aspect. Candidates run up to the master (HERO_MAX_PX).
+            <ResponsiveImg
               src={heroImage}
               alt=""
+              cssWidth={editMode ? undefined : HERO_FULL_BLEED_CSS_WIDTH}
+              sizes={{ fullBleed: true, scale: fullBleedCoverScale }}
+              maxWidth={HERO_MAX_PX}
               style={resolveHeroMediaStyle({
                 mediaAspect: heroPhotoAspect,
                 containerAspect: fullBleedAspect,
@@ -2918,7 +2977,7 @@ export function EditableProfileView({
           <HeroVideo
             src={heroVideo}
             fit={heroFitEffective}
-            blurImage={heroImage}
+            blurImage={heroBlurUrl}
             framing={heroVideoFraming}
             containerAspect={heroContainerAspect}
             playbackMode={heroPlayback}
@@ -2932,7 +2991,7 @@ export function EditableProfileView({
                 aria-hidden="true"
                 className="absolute inset-0"
                 style={{
-                  backgroundImage: `url(${heroImage})`,
+                  backgroundImage: `url(${heroBlurUrl})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   filter: 'blur(28px) brightness(0.7)',
@@ -2951,6 +3010,13 @@ export function EditableProfileView({
               <SmoothImage
                 src={heroImage}
                 alt={page.display_name || page.handle}
+                // MEDIA.PHOTO.1: visitor path only — the editor's crop maths reads
+                // the master's pixels. The hero fills the page column (times how
+                // far cover overflows it); the master is at most HERO_MAX_PX wide,
+                // so no candidate asks for more.
+                cssWidth={editMode ? undefined : Math.round(HERO_REF_WIDTH * heroCoverScale)}
+                sizes={{ column: heroCoverScale }}
+                maxWidth={HERO_MAX_PX}
                 className="brightness-110"
                 imgStyle={resolveHeroMediaStyle({
                   mediaAspect: heroPhotoAspect,

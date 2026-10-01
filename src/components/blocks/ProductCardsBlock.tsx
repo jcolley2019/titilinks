@@ -14,6 +14,16 @@ import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { animationClass, resolveAnimation } from '@/lib/animations';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 import { glidePxPerSec } from '@/lib/glide';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
+
+// MEDIA.PHOTO.1: the box a product tile paints into, per layout, at the 402px
+// reference phone (370px content column). Centred object-cover → the rendition
+// is cropped server-side to exactly the tile.
+const TILE_IMG = {
+  filmstrip: { cssWidth: 266, sizes: { column: 0.72, insetPx: 32 }, aspect: 1 },
+  full: { cssWidth: 370, sizes: { column: 1, insetPx: 32 }, aspect: 3 / 4 },
+  grid: { cssWidth: 179, sizes: { column: 0.5, insetPx: 44 }, aspect: 1 },
+} as const;
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -127,11 +137,12 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
         }}
       >
         {item.image_url ? (
-          <img
+          <ResponsiveImg
             src={item.image_url}
             alt={item.label || ''}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
             loading="lazy"
+            {...(cfg.layout === 'filmstrip' ? TILE_IMG.filmstrip : cfg.layout === 'full' ? TILE_IMG.full : TILE_IMG.grid)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

@@ -39,7 +39,8 @@ import { cardSurface, isFullBleedTheme } from '@/lib/surface';
 import { coerceLegibleText } from '@/lib/contrast';
 import { animationClass, resolveAnimation } from '@/lib/animations';
 import { safeHref } from '@/lib/safe-url';
-import { resolveGalleryMediaStyle } from '@/lib/gallery-framing';
+import { resolveGalleryCrop, resolveGalleryMediaStyle } from '@/lib/gallery-framing';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
 import {
   EVENT_POSTER_ASPECT,
   eventCtaState,
@@ -183,6 +184,12 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
         // null here, and the whole-file render below stays byte-identical.
         // The lightbox NEVER sees this: it always shows the full original.
         const posterCropStyle = resolveGalleryMediaStyle(item.style_json);
+        // MEDIA.PHOTO.1: a framed poster paints the WHOLE file blown up by
+        // 100/crop.w inside the card (percentages of the source — see
+        // gallery-framing), so the rendition must be that much wider, and must
+        // keep the full frame (contain, never a server-side crop).
+        const posterZoom = Math.min(4, 100 / (resolveGalleryCrop(item.style_json)?.w ?? 100));
+        const posterBox = { column: posterZoom, insetPx: 32 } as const;
 
         const label = (
           <span
@@ -244,20 +251,27 @@ export function EventsBlock({ block, onOutboundClick, theme, editMode }: ThemedB
                     className="relative w-full overflow-hidden"
                     style={{ aspectRatio: `${EVENT_POSTER_ASPECT}` }}
                   >
-                    <img
+                    <ResponsiveImg
                       src={item.image_url}
                       alt={tc(item.label)}
                       loading="lazy"
                       className="object-cover"
                       style={posterCropStyle}
+                      cssWidth={Math.round(370 * posterZoom)}
+                      sizes={posterBox}
                     />
                   </div>
                 ) : (
-                  <img
+                  // `w-auto` makes the file's own pixel size drive the layout, which
+                  // a srcset would hijack (the browser divides natural size by the
+                  // declared density) — so this one swaps in a SINGLE rendition at
+                  // 3x the card instead. A smaller master comes back unscaled.
+                  <ResponsiveImg
                     src={item.image_url}
                     alt={tc(item.label)}
                     loading="lazy"
                     className="mx-auto max-h-[480px] w-auto max-w-full"
+                    renditionWidth={1110}
                   />
                 )}
               </button>

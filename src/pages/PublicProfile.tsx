@@ -30,8 +30,13 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ensureUserFontFaces, fontsFromBrandJson } from '@/lib/user-fonts';
 import { usePublicPageBranding } from '@/hooks/usePublicPageBranding';
 import { can } from '@/lib/entitlements';
+import { transformUrl } from '@/lib/media-url';
+import { HERO_MAX_PX } from '@/lib/crop';
 
 type Page = Tables<'pages'>;
+// Every `pages` column EXCEPT avatar_original_url (MEDIA.PHOTO.1 — see fetchPageData).
+const PUBLIC_PAGE_COLUMNS =
+  'id,user_id,handle,display_name,bio,avatar_url,theme_json,goal_primary_offer_item_id,goal_secondary_item_id,created_at,updated_at' as const;
 type Mode = Tables<'modes'>;
 type Block = Tables<'blocks'>;
 type BlockItem = Tables<'block_items'>;
@@ -225,9 +230,12 @@ export default function PublicProfile() {
     setLoading(true);
     try {
       // Fetch page by handle
+      // MEDIA.PHOTO.1: explicit columns, NOT select('*') — the visitor route must
+      // not receive `avatar_original_url`, the creator's raw un-recropped upload
+      // (EXIF/GPS intact) in a public bucket. The editor/owner path still reads it.
       const { data: pageData, error: pageError } = await supabase
         .from('pages')
-        .select('*')
+        .select(PUBLIC_PAGE_COLUMNS)
         .eq('handle', handle.toLowerCase())
         .maybeSingle();
 
@@ -239,7 +247,9 @@ export default function PublicProfile() {
         return;
       }
 
-      setPage(pageData);
+      // `Page` still carries the column for the shared EditableProfileView prop
+      // type; a visitor's copy holds null, never the URL.
+      setPage({ ...pageData, avatar_original_url: null });
 
       // PIXELS.1: best-effort read of the owner's tracking pixels via the
       // public security-definer RPC. Isolated try/catch so a pixels failure
@@ -498,7 +508,8 @@ export default function PublicProfile() {
                   <>
                     <div className="flex flex-col items-center text-center">
                       <Avatar className="h-16 w-16 mb-3">
-                        <AvatarImage src={page?.avatar_url || ''} alt={page?.display_name || ''} />
+                        {/* MEDIA.PHOTO.1: a 64px circle (192px at 3x), not the whole hero master. */}
+                        <AvatarImage src={transformUrl(page?.avatar_url || '', { width: 192, maxWidth: HERO_MAX_PX })} alt={page?.display_name || ''} />
                         <AvatarFallback className="bg-[#C9A55C] text-[#0e0c09] font-semibold">
                           {(page?.display_name || page?.handle || '?').charAt(0).toUpperCase()}
                         </AvatarFallback>

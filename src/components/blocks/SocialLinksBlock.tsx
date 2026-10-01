@@ -40,7 +40,8 @@ export function SocialLinksBlock({ block, onOutboundClick, theme: _theme, editMo
           onClick={(e) => handleClick(e, item)}
         >
           {item.image_url ? (
-            <ThumbnailImage src={item.image_url} alt={item.label} />
+            // MEDIA.PHOTO.1: a custom icon image in a 48px circle.
+            <ThumbnailImage src={item.image_url} alt={item.label} cssWidth={48} sizes={{ px: 48 }} aspect={1} />
           ) : (
             <SocialSvgIcon label={item.label} size={26} />
           )}

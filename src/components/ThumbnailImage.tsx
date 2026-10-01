@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useResponsiveSrc, type ResponsiveSpec } from '@/hooks/useResponsiveSrc';
 
-interface ThumbnailImageProps {
+interface ThumbnailImageProps extends ResponsiveSpec {
   src: string;
   alt?: string;
   className?: string;
@@ -14,7 +15,14 @@ export function ThumbnailImage({
   alt = '',
   className,
   containerClassName,
+  cssWidth,
+  sizes,
+  maxWidth,
+  aspect,
+  densities,
 }: ThumbnailImageProps) {
+  // MEDIA.PHOTO.1: renditions via srcset; `src` below stays the master.
+  const responsive = useResponsiveSrc(src, { cssWidth, sizes, maxWidth, aspect, densities });
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -53,6 +61,8 @@ export function ThumbnailImage({
       {/* Actual image with fade-in */}
       <img
         src={src}
+        srcSet={responsive.srcSet}
+        sizes={responsive.sizes}
         alt={alt}
         onLoad={handleLoad}
         onError={handleError}

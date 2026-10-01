@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import type { BlockItem, ThemedBlockProps } from './types';
 import { gatedHref, isGated, isAdultUrl, configHopId, stashHopDestination } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
 
 export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }: ThemedBlockProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -112,11 +113,17 @@ export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }:
           style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
         >
           {item.image_url ? (
-            <img
+            // MEDIA.PHOTO.1: a carousel card is a fixed 200px; a grid card is
+            // half the block's inner width (content gutters 32 + block px-4 32 +
+            // the 12px gap). Both paint a centred cover at 4:3.
+            <ResponsiveImg
               src={item.image_url}
               alt={item.label}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transform-none"
               loading="lazy"
+              cssWidth={isCarousel ? 200 : 163}
+              sizes={isCarousel ? { px: 200 } : { column: 0.5, insetPx: 76 }}
+              aspect={4 / 3}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -259,11 +266,14 @@ export function ContentSectionBlock({ block, onOutboundClick, theme, editMode }:
                   style={{ backgroundColor: `${theme.buttons.fill_color}10` }}
                 >
                   {item.image_url ? (
-                    <img
+                    <ResponsiveImg
                       src={item.image_url}
                       alt={item.label}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      cssWidth={64}
+                      sizes={{ px: 64 }}
+                      aspect={4 / 3}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

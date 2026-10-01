@@ -1,4 +1,6 @@
 import React from 'react';
+import { ResponsiveImg } from '@/components/ResponsiveImg';
+import type { MediaThumbBox } from '@/lib/link-thumb-box';
 
 type Media = { kind: 'image' | 'video'; src?: string; poster?: string; youtubeId?: string };
 
@@ -6,6 +8,8 @@ interface MediaThumbProps {
   media?: Media | null;
   fallbackIcon?: React.ReactNode;
   className?: string;
+  /** MEDIA.PHOTO.1: when given, an uploaded image is served as right-sized renditions. */
+  box?: MediaThumbBox;
 }
 
 function LinkGlyph() {
@@ -25,7 +29,7 @@ function PlayGlyph() {
   );
 }
 
-export function MediaThumb({ media, fallbackIcon, className = '' }: MediaThumbProps) {
+export function MediaThumb({ media, fallbackIcon, className = '', box }: MediaThumbProps) {
   if (!media) {
     return (
       <span className={`lb-thumb ${className}`.trim()} aria-hidden="true">
@@ -59,7 +63,7 @@ export function MediaThumb({ media, fallbackIcon, className = '' }: MediaThumbPr
 
   return (
     <span className={`lb-thumb ${className}`.trim()} aria-hidden="true">
-      <img src={media.src} alt="" />
+      <ResponsiveImg src={media.src} alt="" {...box} />
     </span>
   );
 }

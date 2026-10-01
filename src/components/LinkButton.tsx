@@ -7,6 +7,7 @@ import { animationClass, resolveAnimation } from '@/lib/animations';
 import { safeHref } from '@/lib/safe-url';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
+import { linkThumbBox } from '@/lib/link-thumb-box';
 
 type Media = { kind: 'image' | 'video'; src?: string; poster?: string; youtubeId?: string };
 
@@ -260,7 +261,7 @@ export function LinkButton(props: LinkButtonProps) {
   const content = (
     <>
       {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && (
-        <MediaThumb media={effectiveMedia} className="lb-cover" />
+        <MediaThumb media={effectiveMedia} className="lb-cover" box={linkThumbBox(effectiveSize, span)} />
       )}
       {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && socialIcon && (
         <span
@@ -274,7 +275,7 @@ export function LinkButton(props: LinkButtonProps) {
       )}
 
       {effectiveSize !== 'big' && effectiveSize !== 'small' && effectiveMedia && (
-        <MediaThumb media={effectiveMedia} />
+        <MediaThumb media={effectiveMedia} box={linkThumbBox(effectiveSize, span)} />
       )}
       {effectiveSize !== 'big' && !effectiveMedia && socialIcon && (
         <span className="lb-social" aria-hidden="true" style={{ color: variant === 'filled' ? safeTextColor : fillColor }}>
