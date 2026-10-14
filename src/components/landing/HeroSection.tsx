@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { signupPathFor } from '@/lib/seo-marketing-html';
 import { useLanguage } from '@/hooks/useLanguage';
 import {
   PhoneCard,
@@ -90,6 +91,7 @@ function useIsDesktop() {
 
 export function HeroSection() {
   const { t, language } = useLanguage();
+  const { pathname } = useLocation();
   const lang: Lang = language === 'es' ? 'es' : 'en';
   const isDesktop = useIsDesktop();
 
@@ -154,7 +156,7 @@ export function HeroSection() {
                 placeholder={t('hero.handlePlaceholder')}
                 className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-white/30 sm:text-base"
               />
-              <Link to="/login?mode=signup" className="shrink-0">
+              <Link to={signupPathFor(pathname)} className="shrink-0">
                 <button
                   className="rounded-full px-6 py-2.5 text-sm font-semibold transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
                   style={{ backgroundColor: '#C9A55C', color: BG }}

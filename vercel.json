@@ -9,6 +9,8 @@
     { "source": "/es/templates", "destination": "/es/templates.html" },
     { "source": "/es/terms", "destination": "/es/terms.html" },
     { "source": "/es/privacy", "destination": "/es/privacy.html" },
+    { "source": "/signup", "destination": "/signup.html" },
+    { "source": "/es/registro", "destination": "/es/registro.html" },
     { "source": "/(.*)", "destination": "/app.html" }
   ],
   "headers": [

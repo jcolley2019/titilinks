@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { signupPathFor } from '@/lib/seo-marketing-html';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export function CTASection() {
   const { t } = useLanguage();
+  const { pathname } = useLocation();
 
   return (
     <section className="py-32 px-4 relative" style={{ background: 'hsl(30 12% 10%)' }}>
@@ -45,7 +47,7 @@ export function CTASection() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="gradient-gold text-primary-foreground text-lg px-8 h-14 rounded-full shadow-lg shadow-primary/20">
-                <Link to="/login?mode=signup">
+                <Link to={signupPathFor(pathname)}>
                   {t('cta.button')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>

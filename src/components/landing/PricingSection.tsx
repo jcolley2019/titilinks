@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Check, Crown, Loader2, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { signupPathFor } from '@/lib/seo-marketing-html';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
 import { startCheckout, stashPendingCheckout } from '@/lib/billing';
@@ -73,6 +74,7 @@ function ProScreenMock() {
 
 export function PricingSection() {
   const { language } = useLanguage();
+  const { pathname } = useLocation();
   const reduce = useReducedMotion();
   const { user } = useAuth();
   const tx = (en: string, es: string) => (language === 'es' ? es : en);
@@ -312,7 +314,7 @@ export function PricingSection() {
                     </button>
                   ) : (
                     <Link
-                      to="/login?mode=signup"
+                      to={signupPathFor(pathname)}
                       onClick={plan.id === 'pro' ? () => stashPendingCheckout(interval) : undefined}
                       data-testid={`pricing-cta-${plan.id}`}
                       data-billing-interval={plan.id === 'pro' ? interval : undefined}

@@ -21,7 +21,11 @@ import { isContentItem } from "./rules.ts";
 // Vercel redirects the apex to www (project domain setting) — list the canonical host.
 const SITE = "https://www.titilinks.com";
 // TL.SEO.I18N.1: the Spanish marketing twins have their own URLs.
-const MARKETING = ["/", "/templates", "/terms", "/privacy", "/es", "/es/templates", "/es/terms", "/es/privacy"];
+// SEO.TITILINKS.MONEYPAGE.1: the signup money pages, /signup and its Spanish slug /es/registro.
+const MARKETING = [
+  "/", "/templates", "/terms", "/privacy", "/signup",
+  "/es", "/es/templates", "/es/terms", "/es/privacy", "/es/registro",
+];
 // TL.DOC.ROSTER.1 roster: joey2019pwtestbattery / +free / +onb are harness
 // accounts with real public pages — keep them out of the index.
 const EXCLUDED_HANDLE_PREFIX = "joey2019pwtest";

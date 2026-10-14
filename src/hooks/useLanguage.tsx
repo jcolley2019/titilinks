@@ -713,6 +713,17 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.terms.title': 'Terms of Service | TitiLinks',
     'seo.privacy.title': 'Privacy Policy | TitiLinks',
     'seo.legal.desc': 'The legal terms and privacy practices for TitiLinks, the link-in-bio platform for creators.',
+    // SEO.TITILINKS.MONEYPAGE.1 — the /signup money page. Every claim below is
+    // backed by shipped copy: pricing.free + pricing.free.period, how.step1.desc
+    // (no credit card), seo.home.desc (bilingual English/Spanish).
+    'seo.signup.title': 'Create your link in bio — free | TitiLinks',
+    'seo.signup.desc': 'Sign up free and build your link in bio page — links, products, videos and socials, in English and Spanish. No credit card needed.',
+    'seo.signup.h1': 'Create your link in bio — free, in English and Spanish',
+    'seo.signup.sub': 'One page for all your links, products, videos and socials. Sign up with email or Google.',
+    'seo.signup.cta': 'Create my link in bio',
+    'seo.signup.trust.free': 'Free plan, forever',
+    'seo.signup.trust.bilingual': 'Pages in English and Spanish',
+    'seo.signup.trust.noCard': 'No credit card required',
     // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
     'seo.faq.heading': 'FAQ',
     'seo.faq.q.what': 'What is TitiLinks?',
@@ -2665,6 +2676,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.terms.title': 'Términos de servicio | TitiLinks',
     'seo.privacy.title': 'Política de privacidad | TitiLinks',
     'seo.legal.desc': 'Los términos legales y las prácticas de privacidad de TitiLinks, la plataforma de link en bio para creadores.',
+    // SEO.TITILINKS.MONEYPAGE.1 — la página /es/registro (gemela de /signup).
+    'seo.signup.title': 'Crea tu link en bio gratis | TitiLinks',
+    'seo.signup.desc': 'Regístrate gratis y crea tu página de link en bio: links, productos, videos y redes, en español e inglés. Sin tarjeta de crédito.',
+    'seo.signup.h1': 'Crea tu link en bio gratis, en español e inglés',
+    'seo.signup.sub': 'Una página para todos tus links, productos, videos y redes. Regístrate con email o Google.',
+    'seo.signup.cta': 'Crear mi link en bio',
+    'seo.signup.trust.free': 'Plan gratis, para siempre',
+    'seo.signup.trust.bilingual': 'Páginas en español e inglés',
+    'seo.signup.trust.noCard': 'Sin tarjeta de crédito',
     // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
     'seo.faq.heading': 'Preguntas frecuentes',
     'seo.faq.q.what': '¿Qué es TitiLinks?',

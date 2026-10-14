@@ -39,10 +39,15 @@ import {
   stripShareTags,
 } from '@/lib/seo-profile-html';
 
-export type MarketingRoute = '/' | '/templates' | '/terms' | '/privacy';
+export type MarketingRoute = '/' | '/templates' | '/terms' | '/privacy' | '/signup';
 export type MarketingLang = 'en' | 'es';
 
-export const MARKETING_ROUTES: readonly MarketingRoute[] = ['/', '/templates', '/terms', '/privacy'];
+export const MARKETING_ROUTES: readonly MarketingRoute[] = ['/', '/templates', '/terms', '/privacy', '/signup'];
+
+// SEO.TITILINKS.MONEYPAGE.1 — the signup money page is the one route whose
+// Spanish twin is not the English path under /es: /signup ↔ /es/registro, so
+// each language has a URL in its own words. /login?mode=signup stays as an alias.
+const ES_SLUG: Partial<Record<MarketingRoute, string>> = { '/signup': '/registro' };
 export const MARKETING_LANGS: readonly MarketingLang[] = ['en', 'es'];
 
 // ─── URL scheme ─────────────────────────────────────────────────────────────
@@ -50,12 +55,21 @@ export const MARKETING_LANGS: readonly MarketingLang[] = ['en', 'es'];
 /** The path of a marketing route in a language: '/templates' + 'es' → '/es/templates', '/' + 'es' → '/es'. */
 export function marketingPath(route: MarketingRoute, lang: MarketingLang): string {
   if (lang === 'en') return route;
-  return route === '/' ? '/es' : `/es${route}`;
+  return route === '/' ? '/es' : `/es${ES_SLUG[route] ?? route}`;
 }
 
 /** The absolute URL on the canonical host: marketingUrl('/', 'en') → 'https://www.titilinks.com/'. */
 export function marketingUrl(route: MarketingRoute, lang: MarketingLang): string {
   return `${SITE}${marketingPath(route, lang)}`;
+}
+
+/**
+ * SEO.TITILINKS.MONEYPAGE.1 — where a signup CTA points from the current URL:
+ * '/es/…' → '/es/registro', anywhere else → '/signup'. One helper for the
+ * navbar, the landing CTAs and the templates gallery.
+ */
+export function signupPathFor(pathname: string): string {
+  return marketingPath('/signup', isEsPath(pathname) ? 'es' : 'en');
 }
 
 /** True for '/es' and anything under '/es/'. React Router matches case-insensitively, so this does too. */
@@ -69,6 +83,10 @@ export function routeFromPath(pathname: string): MarketingRoute | null {
   const lower = pathname.toLowerCase();
   const trimmed = lower.length > 1 ? lower.replace(/\/+$/, '') || '/' : lower;
   const bare = trimmed === '/es' ? '/' : trimmed.startsWith('/es/') ? trimmed.slice(3) : trimmed;
+  if (trimmed.startsWith('/es/')) {
+    const slugged = MARKETING_ROUTES.find((r) => ES_SLUG[r] === bare);
+    if (slugged) return slugged;
+  }
   return (MARKETING_ROUTES as readonly string[]).includes(bare) ? (bare as MarketingRoute) : null;
 }
 
@@ -120,6 +138,8 @@ function metaFor(route: MarketingRoute, lang: MarketingLang, t: T): Meta {
       return { title: t('seo.terms.title'), description: t('seo.legal.desc'), canonical };
     case '/privacy':
       return { title: t('seo.privacy.title'), description: t('seo.legal.desc'), canonical };
+    case '/signup':
+      return { title: t('seo.signup.title'), description: t('seo.signup.desc'), canonical };
     default:
       throw new Error(`seo-marketing-html: not a marketing route "${String(route)}"`);
   }
@@ -282,8 +302,27 @@ export function buildMarketingHtml(
       `<p>${e(t('templates.subtitle'))}</p>` +
       `<p>${e(t('seo.templates.desc'))}</p>` +
       nav([
-        ['/login', t('nav.signup')],
+        [path('/signup'), t('nav.signup')],
         [path('/'), 'TitiLinks'],
+      ]);
+  } else if (route === '/signup') {
+    // SEO.TITILINKS.MONEYPAGE.1 — the money page: promise h1, the three trust
+    // claims the code backs, and the one CTA (anchor text = the dictionary key
+    // every post must use, docs/SEO.md). Readers with no JS get a link into the
+    // page itself; React mounts the form over this summary.
+    jsonLd = webPage(m);
+    body =
+      `<h1>${e(t('seo.signup.h1'))}</h1>` +
+      `<p>${e(t('seo.signup.sub'))}</p>` +
+      `<ul>` +
+      `<li>${e(t('seo.signup.trust.free'))}</li>` +
+      `<li>${e(t('seo.signup.trust.bilingual'))}</li>` +
+      `<li>${e(t('seo.signup.trust.noCard'))}</li>` +
+      `</ul>` +
+      `<p>${link(path('/signup'), t('seo.signup.cta'))}</p>` +
+      nav([
+        [path('/'), 'TitiLinks'],
+        ['/login', t('nav.login')],
       ]);
   } else {
     jsonLd = webPage(m);

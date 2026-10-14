@@ -42,6 +42,8 @@ const ROUTES = [
   { path: '/templates', title: 'Link-in-Bio Templates | TitiLinks', canonical: `${WWW}/templates` },
   { path: '/terms', title: 'Terms of Service | TitiLinks', canonical: `${WWW}/terms` },
   { path: '/privacy', title: 'Privacy Policy | TitiLinks', canonical: `${WWW}/privacy` },
+  // SEO.TITILINKS.MONEYPAGE.1 — the signup money page (Spanish twin: /es/registro).
+  { path: '/signup', title: 'Create your link in bio — free | TitiLinks', canonical: `${WWW}/signup` },
 ];
 
 const bootEnglish = (page: Page) =>

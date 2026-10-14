@@ -5,7 +5,7 @@ import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '@/hooks/useLanguage';
-import { hreflangLinks, isEsPath, marketingUrl } from '@/lib/seo-marketing-html';
+import { hreflangLinks, isEsPath, marketingUrl, signupPathFor } from '@/lib/seo-marketing-html';
 import { PhoneCard, TEMPLATE_EXAMPLES, type Lang } from '@/components/PhoneMockup';
 import { TPL_CATEGORIES, type TplCategory } from '@/lib/tpl-presets';
 
@@ -122,7 +122,7 @@ export default function Templates() {
                 <PhoneCard example={ex} lang={lang} displayWidth={CARD_WIDTH} />
                 <p className="mt-5 text-base font-semibold text-foreground">{ex.name}</p>
                 <Link
-                  to={`/login?mode=signup&template=${ex.presetId}`}
+                  to={`${signupPathFor(pathname)}?template=${ex.presetId}`}
                   className="mt-3 w-full"
                 >
                   <button

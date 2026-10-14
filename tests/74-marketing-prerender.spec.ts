@@ -30,13 +30,17 @@ const H1: Record<string, string> = {
   '/templates': 'Find your perfect template',
   '/terms': 'Terms of Service',
   '/privacy': 'Privacy Policy',
+  '/signup': 'Create your link in bio — free, in English and Spanish',
 };
 const TITLE: Record<string, string> = {
   '/': 'TitiLinks — Link in Bio Page Builder for Creators',
   '/templates': 'Link-in-Bio Templates | TitiLinks',
   '/terms': 'Terms of Service | TitiLinks',
   '/privacy': 'Privacy Policy | TitiLinks',
+  '/signup': 'Create your link in bio — free | TitiLinks',
 };
+// SEO.TITILINKS.MONEYPAGE.1 added /signup (Spanish twin /es/registro, spec 75).
+const ROUTES = ['/', '/templates', '/terms', '/privacy', '/signup'];
 
 // Mimics dist/index.html as built: the JS-hide script/style, the data-rh tags
 // Helmet owns, the unmarked homepage share tags, the asset tags, empty #root.
@@ -98,19 +102,19 @@ test.describe('TL.SEO.PRERENDER.1 — Part A: the pure builder (dev server)', ()
 
   test('1. every marketing route gets its own head, JSON-LD and summary, and keeps the shell booting', async ({ page }) => {
     const built: Built = await page.evaluate(
-      async ({ shell, intro }) => {
+      async ({ shell, intro, routes }) => {
         // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
         const m = await import('/src/lib/seo-marketing-html.ts');
         const out: Record<string, string> = {};
-        for (const route of ['/', '/templates', '/terms', '/privacy']) {
+        for (const route of routes) {
           out[route] = m.buildMarketingHtml(shell, route, route === '/terms' ? { legalIntro: intro } : undefined);
         }
         return out;
       },
-      { shell: FIXTURE_SHELL, intro: LEGAL_INTRO },
+      { shell: FIXTURE_SHELL, intro: LEGAL_INTRO, routes: ROUTES },
     );
 
-    for (const route of ['/', '/templates', '/terms', '/privacy']) {
+    for (const route of ROUTES) {
       const html = built[route];
       const canonical = route === '/' ? `${WWW}/` : `${WWW}${route}`;
 
@@ -170,10 +174,10 @@ test.describe('TL.SEO.PRERENDER.1 — Part B: the LIVE deployment (green only af
     test.setTimeout(60_000);
   });
 
-  test('2. the four marketing routes are prerendered — no JavaScript needed', async ({ playwright }) => {
+  test('2. the marketing routes are prerendered — no JavaScript needed', async ({ playwright }) => {
     const crawler = await playwright.request.newContext();
     try {
-      for (const route of ['/', '/templates', '/terms', '/privacy']) {
+      for (const route of ROUTES) {
         const res = await crawler.get(`${WWW}${route}`);
         const html = await res.text();
         expect(res.status(), `${route} must be 200`).toBe(200);

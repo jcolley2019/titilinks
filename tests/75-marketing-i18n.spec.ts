@@ -24,16 +24,19 @@ import { test, expect } from './fixtures';
 
 const WWW = 'https://www.titilinks.com';
 const BATTERY_HANDLE = 'joey2019pwtestbattery';
-const ROUTES = ['/', '/templates', '/terms', '/privacy'] as const;
+// SEO.TITILINKS.MONEYPAGE.1 — /signup's Spanish twin has its own slug, /es/registro.
+const ROUTES = ['/', '/templates', '/terms', '/privacy', '/signup'] as const;
 type Route = (typeof ROUTES)[number];
 const TITLE_KEY: Record<Route, string> = {
   '/': 'seo.home.title',
   '/templates': 'seo.templates.title',
   '/terms': 'seo.terms.title',
   '/privacy': 'seo.privacy.title',
+  '/signup': 'seo.signup.title',
 };
+const ES_SLUG: Partial<Record<Route, string>> = { '/signup': '/registro' };
 const enUrl = (r: Route) => `${WWW}${r}`;
-const esUrl = (r: Route) => (r === '/' ? `${WWW}/es` : `${WWW}/es${r}`);
+const esUrl = (r: Route) => (r === '/' ? `${WWW}/es` : `${WWW}/es${ES_SLUG[r] ?? r}`);
 // Spec 74's English FAQ, unchanged by the move to dictionary keys.
 const EN_FAQ = [
   'What is TitiLinks?',
@@ -86,20 +89,20 @@ test.describe('TL.SEO.I18N.1 — Part A: the language-aware builder (dev server)
   });
 
   test('1. every route has a Spanish twin with its own lang, title, canonical, hreflang and locale', async ({ page }) => {
-    const { built, dict } = await page.evaluate(async (shell) => {
+    const { built, dict } = await page.evaluate(async ({ shell, routes }) => {
       // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const m = await import('/src/lib/seo-marketing-html.ts');
       // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const l = await import('/src/hooks/useLanguage.tsx');
       const built: Record<string, string> = {};
       for (const lang of ['en', 'es']) {
-        for (const route of ['/', '/templates', '/terms', '/privacy']) {
+        for (const route of routes) {
           const extras = route === '/terms' || route === '/privacy' ? { legalIntro: `Intro ${lang}.` } : undefined;
           built[`${lang} ${route}`] = m.buildMarketingHtml(shell, route, extras, lang);
         }
       }
       return { built, dict: l.translations as Dict };
-    }, FIXTURE_SHELL);
+    }, { shell: FIXTURE_SHELL, routes: ROUTES });
 
     for (const route of ROUTES) {
       const trio = { en: enUrl(route), es: esUrl(route), 'x-default': enUrl(route) };

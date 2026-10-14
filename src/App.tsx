@@ -63,6 +63,10 @@ const App = () => (
             {/* TL.SEO.I18N.1 — Spanish marketing twins; LanguageProvider reads the /es prefix. */}
             <Route path="/es" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            {/* SEO.TITILINKS.MONEYPAGE.1 — the signup money pages, one URL per language.
+                /login?mode=signup keeps working as an alias. */}
+            <Route path="/signup" element={<Login page="signup" />} />
+            <Route path="/es/registro" element={<Login page="signup" />} />
             <Route
               path="/onboarding"
               element={

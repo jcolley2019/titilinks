@@ -27,6 +27,7 @@ import {
   MARKETING_LANGS,
   MARKETING_ROUTES,
   buildMarketingHtml,
+  marketingPath,
   type MarketingLang,
   type MarketingRoute,
 } from '@/lib/seo-marketing-html';
@@ -35,14 +36,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
 const rel = (p: string) => path.relative(ROOT, p).split(path.sep).join('/');
 
-const FILE: Record<MarketingRoute, string> = {
-  '/': 'index.html',
-  '/templates': 'templates.html',
-  '/terms': 'terms.html',
-  '/privacy': 'privacy.html',
+/**
+ * dist-relative output path, derived from the public path so the two can never
+ * drift: '/templates' → 'templates.html', '/es/templates' → 'es/templates.html',
+ * '/' → 'index.html', '/es' → 'es/index.html', '/es/registro' → 'es/registro.html'
+ * (SEO.TITILINKS.MONEYPAGE.1 — the signup twin has its own Spanish slug).
+ * vercel.json rewrites each public path to its file.
+ */
+const outputOf = (route: MarketingRoute, lang: MarketingLang) => {
+  const p = marketingPath(route, lang);
+  if (p === '/') return 'index.html';
+  if (p === '/es') return 'es/index.html';
+  return `${p.slice(1)}.html`;
 };
-/** dist-relative output path: 'templates.html' in English, 'es/templates.html' in Spanish. */
-const outputOf = (route: MarketingRoute, lang: MarketingLang) => (lang === 'en' ? FILE[route] : `${lang}/${FILE[route]}`);
 const LEGAL_SOURCE: Partial<Record<MarketingRoute, string>> = { '/terms': 'terms', '/privacy': 'privacy' };
 
 function fail(message: string): never {

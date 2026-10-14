@@ -9,9 +9,10 @@ import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
+import { marketingPath } from '@/lib/seo-marketing-html';
 
 export default function Goodbye() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -36,7 +37,7 @@ export default function Goodbye() {
             <Link to="/">{t('goodbye.home')}</Link>
           </Button>
           <Button asChild className="gradient-primary text-primary-foreground">
-            <Link to="/login?mode=signup">{t('goodbye.startOver')}</Link>
+            <Link to={marketingPath('/signup', language === 'es' ? 'es' : 'en')}>{t('goodbye.startOver')}</Link>
           </Button>
         </div>
       </motion.div>

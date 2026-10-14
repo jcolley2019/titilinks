@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
+import { LanguageToggle } from '@/components/LanguageToggle';
+import { hreflangLinks, isEsPath, marketingUrl } from '@/lib/seo-marketing-html';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -14,13 +17,31 @@ import { consumePendingCheckout, startCheckout } from '@/lib/billing';
 import { claimPendingReferral } from '@/lib/referrals';
 import { z } from 'zod';
 
-export default function Login() {
+/**
+ * `page="signup"` (SEO.TITILINKS.MONEYPAGE.1) renders the signup MONEY page at
+ * /signup (English) and /es/registro (Spanish): its own title, description,
+ * canonical, h1 and single CTA, with the UI language pinned to the URL's
+ * language so Google can serve each page on its own. Without the prop this is
+ * the plain /login page, and /login?mode=signup keeps working as an alias.
+ */
+export default function Login({ page }: { page?: 'signup' } = {}) {
   const navigate = useNavigate();
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const { onboardingComplete, isLoading: onboardingLoading } = useOnboardingStatus();
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(searchParams.get('mode') === 'signup' ? 'signup' : 'signin');
+  const { pathname } = useLocation();
+  const moneyPage = page === 'signup';
+  const pageLang = isEsPath(pathname) ? 'es' : 'en';
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(
+    moneyPage || searchParams.get('mode') === 'signup' ? 'signup' : 'signin',
+  );
+
+  // The money page's copy is the URL's language, not the saved preference:
+  // /signup is English and /es/registro is Spanish, each for its own index entry.
+  useEffect(() => {
+    if (moneyPage && language !== pageLang) setLanguage(pageLang);
+  }, [moneyPage, pageLang, language, setLanguage]);
   const [showPassword, setShowPassword] = useState(false);
   const [offerSignup, setOfferSignup] = useState(false);
   const [email, setEmail] = useState('');
@@ -189,32 +210,60 @@ export default function Login() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t('login.backToHome')}
-        </Link>
+        {moneyPage && (
+          <Helmet>
+            <html lang={pageLang} />
+            <title>{t('seo.signup.title')}</title>
+            <meta name="description" content={t('seo.signup.desc')} />
+            <link rel="canonical" href={marketingUrl('/signup', pageLang)} />
+            {hreflangLinks('/signup').map((l) => (
+              <link key={l.hreflang} rel="alternate" hrefLang={l.hreflang} href={l.href} />
+            ))}
+            <meta property="og:title" content={t('seo.signup.title')} />
+            <meta property="og:description" content={t('seo.signup.desc')} />
+            <meta property="og:url" content={marketingUrl('/signup', pageLang)} />
+          </Helmet>
+        )}
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <Link
+            to={moneyPage && pageLang === 'es' ? '/es' : '/'}
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t('login.backToHome')}
+          </Link>
+          {moneyPage && <LanguageToggle />}
+        </div>
+
+        {moneyPage && (
+          <header className="mb-6 text-center">
+            <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+              {t('seo.signup.h1')}
+            </h1>
+            <p className="mt-3 text-base text-muted-foreground">{t('seo.signup.sub')}</p>
+          </header>
+        )}
 
         <Card className="border-border bg-card">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold gradient-text">
-              {mode === 'forgot'
-                ? t('login.resetPassword')
-                : mode === 'signup'
-                  ? t('login.createAccount')
-                  : t('login.welcomeBack')}
-            </CardTitle>
-            <CardDescription>
-              {mode === 'forgot'
-                ? t('login.resetSubtitle')
-                : mode === 'signup'
-                  ? t('login.signUpSubtitle')
-                  : t('login.signInSubtitle')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {!moneyPage && (
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold gradient-text">
+                {mode === 'forgot'
+                  ? t('login.resetPassword')
+                  : mode === 'signup'
+                    ? t('login.createAccount')
+                    : t('login.welcomeBack')}
+              </CardTitle>
+              <CardDescription>
+                {mode === 'forgot'
+                  ? t('login.resetSubtitle')
+                  : mode === 'signup'
+                    ? t('login.signUpSubtitle')
+                    : t('login.signInSubtitle')}
+              </CardDescription>
+            </CardHeader>
+          )}
+          <CardContent className={moneyPage ? 'pt-6' : undefined}>
             {confirmationSent ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -249,8 +298,10 @@ export default function Login() {
                     variant="ghost"
                     onClick={() => {
                       setConfirmationSent(false);
-                      setMode('signin');
                       setError(null);
+                      // The money page never shows a sign-in form under its h1.
+                      if (moneyPage) navigate('/login');
+                      else setMode('signin');
                     }}
                   >
                     {t('login.backToSignIn')}
@@ -423,11 +474,24 @@ export default function Login() {
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : mode === 'signup' ? (
-                      t('login.createAccount')
+                      moneyPage ? t('seo.signup.cta') : t('login.createAccount')
                     ) : (
                       t('login.signIn')
                     )}
                   </Button>
+
+                  {moneyPage && (
+                    // Trust strip: three claims the code backs (free tier in
+                    // pricing.ts, no card at signup, bilingual pages). No stats.
+                    <ul className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4">
+                      {(['seo.signup.trust.free', 'seo.signup.trust.noCard', 'seo.signup.trust.bilingual'] as const).map((key) => (
+                        <li key={key} className="inline-flex items-center gap-1.5">
+                          <CheckCircle className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                          {t(key)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
                   {mode === 'signup' && (
                     <p className="text-center text-xs text-muted-foreground">
@@ -443,19 +507,23 @@ export default function Login() {
                   )}
                 </form>
 
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
+                {!moneyPage && (
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">{t('login.orContinueWith')}</span>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">{t('login.orContinueWith')}</span>
-                  </div>
-                </div>
+                )}
 
+                {/* On the money page the one primary CTA is the submit button
+                    above; Google becomes a text link (variant="link"). */}
                 <Button
                   type="button"
-                  variant="outline"
-                  className="w-full"
+                  variant={moneyPage ? 'link' : 'outline'}
+                  className={moneyPage ? 'mt-4 w-full text-foreground hover:text-primary' : 'w-full'}
                   onClick={handleGoogleSignIn}
                   disabled={loading || googleLoading}
                 >
@@ -492,7 +560,7 @@ export default function Login() {
                       {t('login.alreadyHaveAccount')}{' '}
                       <button
                         type="button"
-                        onClick={() => setMode('signin')}
+                        onClick={() => (moneyPage ? navigate('/login') : setMode('signin'))}
                         className="text-primary hover:underline font-medium"
                       >
                         {t('login.signIn')}

@@ -104,7 +104,8 @@ test.describe('TPL.PAGE.1/2 — Templates gallery', () => {
     await bootLang(page, 'en');
     await page.goto('/templates');
     for (const [key, preset] of Object.entries(PERSONA_PRESET)) {
-      const link = page.locator(`a[href="/login?mode=signup&template=${preset}"]`, {
+      // SEO.TITILINKS.MONEYPAGE.1 — the CTA lands on the /signup money page (English URL here).
+      const link = page.locator(`a[href="/signup?template=${preset}"]`, {
         has: page.getByTestId(`tpl-start-${key}`),
       });
       await expect(link).toHaveCount(1);
