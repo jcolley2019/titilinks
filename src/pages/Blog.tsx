@@ -40,6 +40,9 @@ const PROSE = `
   [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
   [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6
   [&_li]:leading-relaxed [&_li]:text-white/65
+  [&_table]:mb-6 [&_table]:w-full [&_table]:text-sm
+  [&_th]:border-b [&_th]:border-white/20 [&_th]:px-2 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-white
+  [&_td]:border-b [&_td]:border-white/10 [&_td]:px-2 [&_td]:py-2 [&_td]:align-top [&_td]:text-white/65
 `;
 
 /** Internal markdown links navigate in-app; anything else is a plain link. */

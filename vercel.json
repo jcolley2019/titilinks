@@ -14,6 +14,7 @@
     { "source": "/blog", "destination": "/blog.html" },
     { "source": "/es/blog", "destination": "/es/blog.html" },
     { "source": "/es/blog/link-en-bio-para-creadores", "destination": "/es/blog/link-en-bio-para-creadores.html" },
+    { "source": "/es/blog/alternativa-a-linktree-en-espanol", "destination": "/es/blog/alternativa-a-linktree-en-espanol.html" },
     { "source": "/(.*)", "destination": "/app.html" }
   ],
   "headers": [
