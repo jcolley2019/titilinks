@@ -11,6 +11,9 @@
     { "source": "/es/privacy", "destination": "/es/privacy.html" },
     { "source": "/signup", "destination": "/signup.html" },
     { "source": "/es/registro", "destination": "/es/registro.html" },
+    { "source": "/blog", "destination": "/blog.html" },
+    { "source": "/es/blog", "destination": "/es/blog.html" },
+    { "source": "/es/blog/link-en-bio-para-creadores", "destination": "/es/blog/link-en-bio-para-creadores.html" },
     { "source": "/(.*)", "destination": "/app.html" }
   ],
   "headers": [

@@ -3,6 +3,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Globe } from 'lucide-react';
 import { marketingPath, routeFromPath } from '@/lib/seo-marketing-html';
+import { postFromPath } from '@/lib/blog';
 
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguage();
@@ -18,6 +19,12 @@ export function LanguageToggle() {
     const route = routeFromPath(location.pathname);
     if (route) {
       navigate({ pathname: marketingPath(route, next), search: location.search, hash: location.hash });
+    } else if (postFromPath(location.pathname)) {
+      // SEO.TITILINKS.BLOG.1 — a blog post's other-language version is whatever
+      // its hreflang names (the post data lives in the blog's lazy chunk, the
+      // head is already here). A post with no twin goes to the other blog index.
+      const twin = document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${next}"]`);
+      navigate(twin ? new URL(twin.href).pathname : marketingPath('/blog', next));
     }
   };
 

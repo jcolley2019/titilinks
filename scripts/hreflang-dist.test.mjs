@@ -22,6 +22,13 @@
 //   (g) agree with the sitemap string-for-string: a <url> whose <loc> is the
 //       canonical, carrying the same alternates
 // and every sitemap entry that carries alternates must be a dist page.
+//
+// SEO.TITILINKS.BLOG.1 — one exception, for blog posts (/blog/<slug>,
+// /es/blog/<slug>) only: a post with NO other-language alternate is a post
+// without a twin, and must carry exactly two links instead — its own language
+// and x-default, both its own URL ((a), (c), (f) read that way; (d) has no twin
+// to ask). A post that does name a twin gets every twin check above, unchanged,
+// and so does every page that is not a post.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +39,7 @@ const DIST = path.join(ROOT, 'dist');
 const SITE = 'https://www.titilinks.com';
 const URL_RE = /^https:\/\/www\.titilinks\.com(?:\/|(?:\/[A-Za-z0-9._~%-]+)+)$/;
 const LANGS = ['en', 'es'];
+const POST_RE = /^(?:\/es)?\/blog\/[^/]+$/;
 // The money pages (docs/SEO.md): a dist without them is not a full build.
 const MUST_HAVE = ['/signup', '/es/registro'];
 
@@ -106,26 +114,50 @@ for (const route of order) {
   const twin = twinRoute ? pages.get(twinRoute) : undefined;
   const urls = [...p.canonicals, ...p.alts.map(([, h]) => h)];
   const sm = sitemap.get(own);
-  const check = {
-    a: ['en', 'es', 'x-default'].every((l) => p.alts.filter(([h]) => h === l).length === 1) && p.alts.length === 3,
-    b: urls.length > 0 && urls.every((u) => typeof u === 'string' && URL_RE.test(u)),
-    c: LANGS.includes(p.lang) && map[p.lang] === own && !!twinUrl && twinUrl !== own,
-    d: !!twin && setKey(twin.alts) === setKey(p.alts),
-    e: p.canonicals.length === 1 && p.canonicals[0] === own && p.canonicals[0] !== twinUrl,
-    f: !!map.en && map['x-default'] === map.en,
-    g: !!sm && setKey(sm) === setKey(p.alts) && (!twinUrl || sitemap.has(twinUrl)),
-  };
+  const once = (langs) => langs.every((l) => p.alts.filter(([h]) => h === l).length === 1) && p.alts.length === langs.length;
+  // A blog post naming no other-language version is a post without a twin.
+  const solo = POST_RE.test(route) && LANGS.includes(p.lang) && !twinUrl;
+  const check = solo
+    ? {
+        a: once([p.lang, 'x-default']),
+        b: urls.length > 0 && urls.every((u) => typeof u === 'string' && URL_RE.test(u)),
+        c: map[p.lang] === own,
+        d: true, // no twin to list it back; (a) already forbids any other alternate
+        e: p.canonicals.length === 1 && p.canonicals[0] === own,
+        f: map['x-default'] === own,
+        g: !!sm && setKey(sm) === setKey(p.alts),
+      }
+    : {
+        a: once(['en', 'es', 'x-default']),
+        b: urls.length > 0 && urls.every((u) => typeof u === 'string' && URL_RE.test(u)),
+        c: LANGS.includes(p.lang) && map[p.lang] === own && !!twinUrl && twinUrl !== own,
+        d: !!twin && setKey(twin.alts) === setKey(p.alts),
+        e: p.canonicals.length === 1 && p.canonicals[0] === own && p.canonicals[0] !== twinUrl,
+        f: !!map.en && map['x-default'] === map.en,
+        g: !!sm && setKey(sm) === setKey(p.alts) && (!twinUrl || sitemap.has(twinUrl)),
+      };
   const why = {
-    a: `hreflang set is ${JSON.stringify(p.alts.map(([l]) => l))}, want exactly en, es, x-default`,
+    a: solo
+      ? `post without a twin has hreflang set ${JSON.stringify(p.alts.map(([l]) => l))}, want exactly ${p.lang}, x-default`
+      : `hreflang set is ${JSON.stringify(p.alts.map(([l]) => l))}, want exactly en, es, x-default`,
     b: `a URL is not absolute on ${SITE} (or has a trailing slash/query): ${JSON.stringify(urls)}`,
-    c: `<html lang="${p.lang}"> page must list itself (${own}) under hreflang="${p.lang}" and its twin under the other language`,
+    c: solo
+      ? `post without a twin must list itself (${own}) under hreflang="${p.lang}"`
+      : `<html lang="${p.lang}"> page must list itself (${own}) under hreflang="${p.lang}" and its twin under the other language`,
     d: twin ? `twin ${twinRoute} lists a different set back` : `twin ${twinUrl} is not a prerendered dist page`,
     e: `canonical(s) ${JSON.stringify(p.canonicals)}, want exactly [${own}]`,
-    f: `x-default ${map['x-default']} must equal the English page ${map.en}`,
+    f: solo
+      ? `post without a twin must point x-default at itself (${own}), got ${map['x-default']}`
+      : `x-default ${map['x-default']} must equal the English page ${map.en}`,
     g: sm ? `sitemap alternates for ${own} differ from the page's: ${JSON.stringify(sm)}` : `sitemap has no <url> with <loc>${own}</loc>`,
   };
   for (const [k, okay] of Object.entries(check)) if (!okay) errors.push(`${route} (${p.file}) (${k}): ${why[k]}`);
-  rows.push({ page: route, lang: p.lang, ...Object.fromEntries(Object.entries(check).map(([k, v]) => [k, v ? 'pass' : 'FAIL'])) });
+  rows.push({
+    page: route,
+    lang: p.lang,
+    shape: solo ? 'solo post' : 'twin',
+    ...Object.fromEntries(Object.entries(check).map(([k, v]) => [k, v ? 'pass' : 'FAIL'])),
+  });
 }
 for (const [loc, alts] of sitemap) {
   if (alts.length && !pages.has(new URL(loc).pathname)) errors.push(`sitemap lists ${loc} with alternates, but it is not a prerendered dist page`);
@@ -136,4 +168,8 @@ if (errors.length) {
   errors.forEach((e) => console.error(`FAIL - ${e}`));
   process.exit(1);
 }
-console.log(`ok - ${rows.length} prerendered pages: reciprocal hreflang en/es/x-default, own canonical on ${SITE}, sitemap agrees`);
+const solos = rows.filter((r) => r.shape === 'solo post').length;
+console.log(
+  `ok - ${rows.length} prerendered pages: ${rows.length - solos} twins with reciprocal en/es/x-default, ` +
+    `${solos} post(s) without a twin listing only themselves; own canonical on ${SITE}, sitemap agrees`,
+);

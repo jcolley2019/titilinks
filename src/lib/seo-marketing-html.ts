@@ -28,6 +28,7 @@
 
 import { translations } from '@/hooks/useLanguage';
 import { PRO_ANCHOR_PRICE, PRO_PRICE, proFeatures, proFoundingLabel } from '@/lib/pricing';
+import { blogPostPath, formatPostDate, newestFirst, withInlineCta, type BlogPost } from '@/lib/blog';
 import {
   SITE,
   SUMMARY_STYLE,
@@ -39,10 +40,13 @@ import {
   stripShareTags,
 } from '@/lib/seo-profile-html';
 
-export type MarketingRoute = '/' | '/templates' | '/terms' | '/privacy' | '/signup';
+export type MarketingRoute = '/' | '/templates' | '/terms' | '/privacy' | '/signup' | '/blog';
 export type MarketingLang = 'en' | 'es';
 
-export const MARKETING_ROUTES: readonly MarketingRoute[] = ['/', '/templates', '/terms', '/privacy', '/signup'];
+// SEO.TITILINKS.BLOG.1 — /blog and /es/blog are the per-language post indexes;
+// the posts themselves (/blog/<slug>, /es/blog/<slug>) are built by
+// buildBlogPostHtml below from content/blog/<lang>/<slug>.md.
+export const MARKETING_ROUTES: readonly MarketingRoute[] = ['/', '/templates', '/terms', '/privacy', '/signup', '/blog'];
 
 // SEO.TITILINKS.MONEYPAGE.1 — the signup money page is the one route whose
 // Spanish twin is not the English path under /es: /signup ↔ /es/registro, so
@@ -101,6 +105,46 @@ export function hreflangLinks(route: MarketingRoute): HreflangLink[] {
   ];
 }
 
+/** The absolute URL of a post on the canonical host. */
+export function blogPostUrl(lang: MarketingLang, slug: string): string {
+  return `${SITE}${blogPostPath(lang, slug)}`;
+}
+
+/**
+ * SEO.TITILINKS.BLOG.1 — a post with a twin carries the same trio as the
+ * marketing twins (x-default = the English post). A post without one lists only
+ * itself: its own language plus x-default, both pointing at its own URL.
+ */
+export function blogHreflangLinks(post: Pick<BlogPost, 'lang' | 'slug' | 'twin'>): HreflangLink[] {
+  const own = blogPostUrl(post.lang, post.slug);
+  if (!post.twin) return [{ hreflang: post.lang, href: own }, { hreflang: 'x-default', href: own }];
+  const other = blogPostUrl(post.lang === 'en' ? 'es' : 'en', post.twin);
+  const en = post.lang === 'en' ? own : other;
+  const es = post.lang === 'es' ? own : other;
+  return [
+    { hreflang: 'en', href: en },
+    { hreflang: 'es', href: es },
+    { hreflang: 'x-default', href: en },
+  ];
+}
+
+/** A post's <title>: the post title plus ' | TitiLinks' while that fits in 60 characters, else the title alone. */
+export function blogPostTitle(post: Pick<BlogPost, 'title'>): string {
+  const full = `${post.title}${SUFFIX}`;
+  return full.length <= 60 ? full : post.title;
+}
+
+/**
+ * The post body with the in-body money-page link the template owns (posts never
+ * write their own CTA): the language's signup page, anchor text exactly
+ * seo.signup.cta (docs/SEO.md), placed within the first third by withInlineCta.
+ */
+export function blogBodyWithCta(post: Pick<BlogPost, 'lang' | 'body'>): string {
+  const t = reader(post.lang);
+  const cta = `**[${t('seo.signup.cta')}](${marketingPath('/signup', post.lang)})**${t('blog.cta.inlineAfter')}`;
+  return withInlineCta(post.body, cta);
+}
+
 // ─── Builder ────────────────────────────────────────────────────────────────
 
 const OG_IMAGE = `${SITE}/og-image.png`;
@@ -140,6 +184,8 @@ function metaFor(route: MarketingRoute, lang: MarketingLang, t: T): Meta {
       return { title: t('seo.privacy.title'), description: t('seo.legal.desc'), canonical };
     case '/signup':
       return { title: t('seo.signup.title'), description: t('seo.signup.desc'), canonical };
+    case '/blog':
+      return { title: t('seo.blog.title'), description: t('seo.blog.desc'), canonical };
     default:
       throw new Error(`seo-marketing-html: not a marketing route "${String(route)}"`);
   }
@@ -194,19 +240,25 @@ function faq(t: T, proTerms: string): { q: string; a: string }[] {
   ];
 }
 
-function headBlock(m: Meta, route: MarketingRoute, lang: MarketingLang, jsonLd: unknown): string {
+function headBlock(
+  m: Meta,
+  links: HreflangLink[],
+  lang: MarketingLang,
+  jsonLd: unknown,
+  ogType: 'website' | 'article' = 'website',
+): string {
   const e = escapeHtml;
   return [
     `<title>${e(m.title)}</title>`,
     `<meta name="description" content="${e(m.description)}" data-rh="true" />`,
     `<link rel="canonical" href="${e(m.canonical)}" data-rh="true" />`,
-    ...hreflangLinks(route).map(
+    ...links.map(
       (l) => `<link rel="alternate" hreflang="${l.hreflang}" href="${e(l.href)}" data-rh="true" />`,
     ),
     `<meta property="og:title" content="${e(m.title)}" data-rh="true" />`,
     `<meta property="og:description" content="${e(m.description)}" data-rh="true" />`,
     `<meta property="og:url" content="${e(m.canonical)}" data-rh="true" />`,
-    `<meta property="og:type" content="website" data-rh="true" />`,
+    `<meta property="og:type" content="${ogType}" data-rh="true" />`,
     `<meta property="og:site_name" content="TitiLinks" data-rh="true" />`,
     `<meta property="og:locale" content="${OG_LOCALE[lang]}" data-rh="true" />`,
     `<meta property="og:image" content="${OG_IMAGE}" data-rh="true" />`,
@@ -237,12 +289,13 @@ const summary = (inner: string) => `<main id="seo-summary" style="${SUMMARY_STYL
  * The prerendered HTML for one marketing route in one language. `extras.legalIntro`
  * is the first prose paragraph of the legal document in that language (the build
  * script reads it from src/content/legal/*-{en,es}.md — `?raw` imports are
- * Vite-only); omitted, the paragraph is simply left out.
+ * Vite-only); omitted, the paragraph is simply left out. `extras.posts` feeds
+ * the /blog index: the posts of every language (only `lang`'s are listed).
  */
 export function buildMarketingHtml(
   shell: string,
   route: MarketingRoute,
-  extras?: { legalIntro?: string },
+  extras?: { legalIntro?: string; posts?: readonly BlogPost[] },
   lang: MarketingLang = 'en',
 ): string {
   const e = escapeHtml;
@@ -324,6 +377,42 @@ export function buildMarketingHtml(
         [path('/'), 'TitiLinks'],
         ['/login', t('nav.login')],
       ]);
+  } else if (route === '/blog') {
+    // SEO.TITILINKS.BLOG.1 — the language's posts, newest first. A language
+    // with no posts yet points at the other language's blog instead.
+    const posts = newestFirst((extras?.posts ?? []).filter((p) => p.lang === lang));
+    const other: MarketingLang = lang === 'en' ? 'es' : 'en';
+    jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Blog',
+      name: m.title,
+      description: m.description,
+      url: m.canonical,
+      inLanguage: lang,
+      blogPost: posts.map((p) => ({
+        '@type': 'BlogPosting',
+        headline: p.title,
+        url: blogPostUrl(p.lang, p.slug),
+        datePublished: p.date,
+      })),
+    };
+    body =
+      `<h1>${e(t('blog.h1'))}</h1>` +
+      `<p>${e(m.description)}</p>` +
+      (posts.length
+        ? posts
+            .map(
+              (p) =>
+                `<article><h2>${link(blogPostPath(p.lang, p.slug), p.title)}</h2>` +
+                `<p><time datetime="${e(p.date)}">${e(formatPostDate(p.date, p.lang))}</time></p>` +
+                `<p>${e(p.description)}</p></article>`,
+            )
+            .join('')
+        : `<p>${e(t('blog.empty'))} ${link(marketingPath('/blog', other), t('blog.otherLang'))}</p>`) +
+      nav([
+        [path('/'), 'TitiLinks'],
+        [path('/signup'), t('nav.signup')],
+      ]);
   } else {
     jsonLd = webPage(m);
     const intro = (extras?.legalIntro ?? '').trim();
@@ -334,7 +423,71 @@ export function buildMarketingHtml(
       nav([[path('/'), 'TitiLinks']]);
   }
 
+  return assemble(shell, lang, headBlock(m, hreflangLinks(route), lang, jsonLd), body);
+}
+
+/** The shell in `lang`, its head tags swapped for `head`, `body` as the no-JS summary. */
+function assemble(shell: string, lang: MarketingLang, head: string, body: string): string {
   const localized = lang === 'en' ? shell : shell.replace('<html lang="en"', () => `<html lang="${lang}"`);
-  const html = beforeHeadClose(stripShareTags(stripHelmetTags(localized)), headBlock(m, route, lang, jsonLd));
+  const html = beforeHeadClose(stripShareTags(stripHelmetTags(localized)), head);
   return intoRoot(html, summary(body));
+}
+
+/**
+ * SEO.TITILINKS.BLOG.1 — the prerendered HTML for one post. `bodyHtml` is
+ * blogBodyWithCta(post) rendered from markdown by the build script
+ * (src/lib/blog-html.ts — react-dom/server stays out of this module, which the
+ * app bundle imports). The template owns everything around it: the title as
+ * h1, the date, the visible FAQ that backs the FAQPage JSON-LD, and the
+ * end-of-post CTA block with the same anchor text as the in-body link.
+ */
+export function buildBlogPostHtml(shell: string, post: BlogPost, bodyHtml: string): string {
+  const e = escapeHtml;
+  const t = reader(post.lang);
+  const canonical = blogPostUrl(post.lang, post.slug);
+  const m: Meta = { title: blogPostTitle(post), description: post.description, canonical };
+  const organization = { '@type': 'Organization', name: 'TitiLinks', url: `${SITE}/`, logo: OG_IMAGE };
+  const graph: unknown[] = [
+    {
+      '@type': 'Article',
+      headline: post.title,
+      description: post.description,
+      datePublished: post.date,
+      dateModified: post.date,
+      inLanguage: post.lang,
+      url: canonical,
+      mainEntityOfPage: canonical,
+      image: OG_IMAGE,
+      author: organization,
+      publisher: organization,
+    },
+  ];
+  if (post.faq.length) {
+    graph.push({
+      '@type': 'FAQPage',
+      mainEntity: post.faq.map(({ q, a }) => ({
+        '@type': 'Question',
+        name: q,
+        acceptedAnswer: { '@type': 'Answer', text: a },
+      })),
+    });
+  }
+  const signup = marketingPath('/signup', post.lang);
+  const body =
+    `<article>` +
+    `<h1>${e(post.title)}</h1>` +
+    `<p><time datetime="${e(post.date)}">${e(formatPostDate(post.date, post.lang))}</time></p>` +
+    bodyHtml +
+    (post.faq.length
+      ? `<h2>${e(t('seo.faq.heading'))}</h2>` + post.faq.map(({ q, a }) => `<h3>${e(q)}</h3><p>${e(a)}</p>`).join('')
+      : '') +
+    `<section><h2>${e(t('blog.cta.heading'))}</h2><p>${e(t('seo.signup.sub'))}</p>` +
+    `<p>${link(signup, t('seo.signup.cta'))}</p></section>` +
+    `</article>` +
+    nav([
+      [marketingPath('/blog', post.lang), t('nav.blog')],
+      [marketingPath('/', post.lang), 'TitiLinks'],
+    ]);
+  const jsonLd = { '@context': 'https://schema.org', '@graph': graph };
+  return assemble(shell, post.lang, headBlock(m, blogHreflangLinks(post), post.lang, jsonLd, 'article'), body);
 }

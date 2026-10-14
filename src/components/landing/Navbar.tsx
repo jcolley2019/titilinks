@@ -60,6 +60,7 @@ export function Navbar() {
           <a href="#features" className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.features')}</a>
           <a href="#pricing" className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.pricing')}</a>
           <Link to={pathFor('/templates')} className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.templates')}</Link>
+          <Link to={pathFor('/blog')} className="text-sm text-white/65 transition-colors hover:text-white">{t('nav.blog')}</Link>
         </div>
 
         {/* Desktop CTA */}
@@ -108,6 +109,7 @@ export function Navbar() {
                 <a href="#features" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.features')}</a>
                 <a href="#pricing" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.pricing')}</a>
                 <Link to={pathFor('/templates')} onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.templates')}</Link>
+                <Link to={pathFor('/blog')} onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.blog')}</Link>
                 <div className="my-2 h-px bg-white/10" />
                 <Link to="/login" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-3 text-white/70 transition-colors hover:bg-white/5 hover:text-white">{t('nav.login')}</Link>
                 <Link

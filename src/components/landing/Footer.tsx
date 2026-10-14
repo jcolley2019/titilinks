@@ -38,6 +38,7 @@ export function Footer() {
             <a href="#features" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.features')}</a>
             <a href="#pricing" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.pricing')}</a>
             <Link to={pathFor('/templates')} className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.templates')}</Link>
+            <Link to={pathFor('/blog')} className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.blog')}</Link>
             <Link to="/login" className="text-sm text-white/55 transition-colors hover:text-white">{t('nav.login')}</Link>
             <Link to={pathFor('/terms')} className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.terms')}</Link>
             <Link to={pathFor('/privacy')} className="text-sm text-white/55 transition-colors hover:text-white">{t('footer.privacy')}</Link>

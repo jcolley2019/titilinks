@@ -91,7 +91,8 @@ test.describe('TL.SEO.META.1 — Part A: the pure builders (dev server)', () => 
 
   test('1. candidateHandle takes exactly one handle-shaped segment', async ({ page }) => {
     // '/signup' — SEO.TITILINKS.MONEYPAGE.1: the money page is reserved, never a handle lookup.
-    const cases = ['/joeyc', '/Joey-C/', '/', '/templates', '/dashboard', '/signup', '/a.b', '/x/y', '/-bad'];
+    // '/blog' — SEO.TITILINKS.BLOG.1: the English blog index, same reason.
+    const cases = ['/joeyc', '/Joey-C/', '/', '/templates', '/dashboard', '/signup', '/blog', '/a.b', '/x/y', '/-bad'];
     const got = await page.evaluate(async (paths) => {
       // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const m = (await import('/src/lib/seo-profile-html.ts')) as Mod;
@@ -104,6 +105,7 @@ test.describe('TL.SEO.META.1 — Part A: the pure builders (dev server)', () => 
       '/templates': null,
       '/dashboard': null,
       '/signup': null,
+      '/blog': null,
       '/a.b': null,
       '/x/y': null,
       '/-bad': null,

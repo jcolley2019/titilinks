@@ -13,6 +13,10 @@
 //   dist/es/templates.html     with Spanish legal intros (vercel.json rewrites /es,
 //   dist/es/terms.html         /es/templates, /es/terms, /es/privacy here)
 //   dist/es/privacy.html
+//   dist/signup.html, dist/es/registro.html   ← the signup money pages (SEO.TITILINKS.MONEYPAGE.1)
+//   dist/blog.html, dist/es/blog.html         ← the blog indexes (SEO.TITILINKS.BLOG.1), listing
+//   dist/blog/<slug>.html,                       every content/blog/<lang>/<slug>.md, and one
+//   dist/es/blog/<slug>.html                     page per post (buildBlogPostHtml)
 //
 // Fails LOUDLY (exit 1) on any missing input, missing translation, unparseable
 // price or broken output, so a bad prerender fails the Vercel build instead of
@@ -26,11 +30,15 @@ import { fileURLToPath } from 'node:url';
 import {
   MARKETING_LANGS,
   MARKETING_ROUTES,
+  blogBodyWithCta,
+  buildBlogPostHtml,
   buildMarketingHtml,
   marketingPath,
   type MarketingLang,
   type MarketingRoute,
 } from '@/lib/seo-marketing-html';
+import { blogPostPath, parsePost, type BlogPost } from '@/lib/blog';
+import { renderMarkdown } from '@/lib/blog-html';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
@@ -87,6 +95,31 @@ function legalIntro(markdown: string): string {
   return '';
 }
 
+/**
+ * SEO.TITILINKS.BLOG.1 — every content/blog/<lang>/<slug>.md, parsed and
+ * validated (parsePost throws on bad front matter or a slug/lang that disagrees
+ * with the path). A twin must exist in the other language and name this post back.
+ */
+function readPosts(): BlogPost[] {
+  const posts: BlogPost[] = [];
+  for (const lang of MARKETING_LANGS) {
+    const dir = path.join(ROOT, 'content', 'blog', lang);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort()) {
+      const file = `content/blog/${lang}/${name}`;
+      posts.push(parsePost(read(path.join(ROOT, file)), file));
+    }
+  }
+  for (const p of posts) {
+    if (!p.twin) continue;
+    const other = p.lang === 'en' ? 'es' : 'en';
+    const twin = posts.find((q) => q.lang === other && q.slug === p.twin);
+    if (!twin) fail(`content/blog/${p.lang}/${p.slug}.md names twin "${p.twin}", but content/blog/${other}/${p.twin}.md does not exist`);
+    if (twin.twin !== p.slug) fail(`content/blog/${other}/${p.twin}.md must name "${p.slug}" back as its twin`);
+  }
+  return posts;
+}
+
 /** Tags of the shell that must reach every output unchanged: scripts, modulepreloads, stylesheets. */
 function assetTags(html: string): string[] {
   return html.match(/<script\b[^>]*>[\s\S]*?<\/script>|<link\b[^>]*rel="(?:modulepreload|stylesheet)"[^>]*>/g) ?? [];
@@ -111,32 +144,44 @@ function main(): void {
   fs.mkdirSync(path.join(DIST, 'es'), { recursive: true });
 
   const written: string[] = ['index.html', 'app.html'];
+  /** Check one output and write it. `hreflangs` is 3 (a twin's trio) or 2 (a post with no twin). */
+  const emit = (out: string, html: string, lang: MarketingLang, hreflangs: 2 | 3) => {
+    const count = (re: RegExp) => (html.match(re) ?? []).length;
+    if (count(/<title\b/g) !== 1) fail(`${out}: expected exactly one <title>`);
+    if (count(/rel="canonical"/g) !== 1) fail(`${out}: expected exactly one canonical`);
+    if (count(/<link rel="alternate" hreflang="/g) !== hreflangs) fail(`${out}: expected ${hreflangs} hreflang links`);
+    if (!html.includes(`<html lang="${lang}"`)) fail(`${out}: expected <html lang="${lang}"`);
+    if (!html.includes('<div id="root"><main id="seo-summary"')) fail(`${out}: no summary inside #root`);
+    if (!html.includes('<script type="application/ld+json">')) fail(`${out}: no JSON-LD`);
+    for (const tag of assets) {
+      if (!html.includes(tag)) fail(`${out}: lost a shell tag: ${tag.slice(0, 120)}`);
+    }
+    fs.mkdirSync(path.dirname(path.join(DIST, out)), { recursive: true });
+    fs.writeFileSync(path.join(DIST, out), html);
+    if (out !== 'index.html') written.push(out);
+  };
+
+  const posts = readPosts();
   for (const lang of MARKETING_LANGS) {
     for (const route of MARKETING_ROUTES) {
-      const out = outputOf(route, lang);
       const doc = LEGAL_SOURCE[route];
-      let extras: { legalIntro?: string } | undefined;
+      let extras: { legalIntro?: string; posts?: readonly BlogPost[] } | undefined;
       if (doc) {
         const source = `src/content/legal/${doc}-${lang}.md`;
         const intro = legalIntro(read(path.join(ROOT, source)));
         if (!intro) fail(`no intro paragraph in ${source}`);
         extras = { legalIntro: intro };
       }
-
-      const html = buildMarketingHtml(shell, route, extras, lang);
-      const count = (re: RegExp) => (html.match(re) ?? []).length;
-      if (count(/<title\b/g) !== 1) fail(`${out}: expected exactly one <title>`);
-      if (count(/rel="canonical"/g) !== 1) fail(`${out}: expected exactly one canonical`);
-      if (count(/<link rel="alternate" hreflang="/g) !== 3) fail(`${out}: expected the hreflang trio`);
-      if (!html.includes(`<html lang="${lang}"`)) fail(`${out}: expected <html lang="${lang}"`);
-      if (!html.includes('<div id="root"><main id="seo-summary"')) fail(`${out}: no summary inside #root`);
-      if (!html.includes('<script type="application/ld+json">')) fail(`${out}: no JSON-LD`);
-      for (const tag of assets) {
-        if (!html.includes(tag)) fail(`${out}: lost a shell tag: ${tag.slice(0, 120)}`);
-      }
-      fs.writeFileSync(path.join(DIST, out), html);
-      if (out !== 'index.html') written.push(out);
+      if (route === '/blog') extras = { posts };
+      emit(outputOf(route, lang), buildMarketingHtml(shell, route, extras, lang), lang, 3);
     }
+  }
+
+  // SEO.TITILINKS.BLOG.1 — one page per post, its markdown rendered with the
+  // template's in-body CTA already placed.
+  for (const post of posts) {
+    const html = buildBlogPostHtml(shell, post, renderMarkdown(blogBodyWithCta(post)));
+    emit(`${blogPostPath(post.lang, post.slug).slice(1)}.html`, html, post.lang, post.twin ? 3 : 2);
   }
 
   for (const file of written) {

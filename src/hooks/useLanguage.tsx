@@ -674,6 +674,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'nav.features': 'Features',
     'nav.login': 'Log in',
     'nav.signup': 'Sign up free',
+    'nav.blog': 'Blog',
     
     // Hero
     'hero.badge': 'Link in bio, elevated',
@@ -724,6 +725,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.signup.trust.free': 'Free plan, forever',
     'seo.signup.trust.bilingual': 'Pages in English and Spanish',
     'seo.signup.trust.noCard': 'No credit card required',
+    // SEO.TITILINKS.BLOG.1 — /blog index + the template around every post.
+    'seo.blog.title': 'Blog — link in bio guides for creators | TitiLinks',
+    'seo.blog.desc': 'Guides for creators: how to build your link in bio page, what to put on it first and how to get more out of it.',
+    'blog.h1': 'The TitiLinks blog',
+    'blog.empty': 'No posts in English yet.',
+    'blog.otherLang': 'Read the Spanish blog',
+    'blog.back': 'All posts',
+    'blog.cta.heading': 'Ready to build yours?',
+    'blog.cta.inlineAfter': ' — free, no credit card needed.',
     // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
     'seo.faq.heading': 'FAQ',
     'seo.faq.q.what': 'What is TitiLinks?',
@@ -2637,6 +2647,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'nav.features': 'Funciones',
     'nav.login': 'Iniciar sesión',
     'nav.signup': 'Regístrate gratis',
+    'nav.blog': 'Blog',
     
     // Hero
     'hero.badge': 'Tu bio, a otro nivel',
@@ -2685,6 +2696,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'seo.signup.trust.free': 'Plan gratis, para siempre',
     'seo.signup.trust.bilingual': 'Páginas en español e inglés',
     'seo.signup.trust.noCard': 'Sin tarjeta de crédito',
+    // SEO.TITILINKS.BLOG.1 — índice /es/blog + la plantilla de cada artículo.
+    'seo.blog.title': 'Blog — guías de link en bio para creadores | TitiLinks',
+    'seo.blog.desc': 'Guías para creadores: cómo crear tu página de link en bio, qué poner primero y cómo sacarle más provecho.',
+    'blog.h1': 'El blog de TitiLinks',
+    'blog.empty': 'Todavía no hay artículos en español.',
+    'blog.otherLang': 'Lee el blog en inglés',
+    'blog.back': 'Todos los artículos',
+    'blog.cta.heading': '¿Listo para crear el tuyo?',
+    'blog.cta.inlineAfter': ' — es gratis y no pide tarjeta de crédito.',
     // TL.SEO.I18N.1 — prerendered FAQ + pricing glue (seo-marketing-html.ts)
     'seo.faq.heading': 'Preguntas frecuentes',
     'seo.faq.q.what': '¿Qué es TitiLinks?',

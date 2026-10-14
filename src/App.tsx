@@ -36,6 +36,7 @@ const Upgrade = lazy(() => import("./pages/Upgrade"));
 const OnboardingFlow = lazy(() => import("./pages/OnboardingFlow"));
 const Templates = lazy(() => import("./pages/Templates"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
+const Blog = lazy(() => import("./pages/Blog"));
 
 // Suspense fallback while a lazy route's chunk downloads: a neutral full-height
 // block — no spinner, nothing to shift. It never shows on the public page or
@@ -152,6 +153,11 @@ const App = () => (
             <Route path="/es/templates" element={<Templates />} />
             <Route path="/es/terms" element={<LegalPage doc="terms" />} />
             <Route path="/es/privacy" element={<LegalPage doc="privacy" />} />
+            {/* SEO.TITILINKS.BLOG.1 — per-language index + posts from content/blog/<lang>/<slug>.md */}
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<Blog />} />
+            <Route path="/es/blog" element={<Blog />} />
+            <Route path="/es/blog/:slug" element={<Blog />} />
             <Route path="/:handle" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
