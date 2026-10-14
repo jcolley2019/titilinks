@@ -123,7 +123,11 @@ const insertPage = (page: Page, t: Target, handle: string) =>
     return { code: error ? (error.code ?? 'no-code') : null, id: data?.id ?? null };`,
     { ...t, handle });
 
-/** Does a page with this handle exist at all? Uses the public read policy. */
+/**
+ * Does the battery own a page with this handle? `pages` SELECT is owner-only
+ * since migration #51 (MEDIA.LEAK.1), so this sees the battery's own rows and
+ * nothing else — enough here, because every page this spec writes is the battery's.
+ */
 const handleExists = (page: Page, handle: string) => sb<boolean>(page, `
   const { data } = await sb.from('pages').select('id').eq('handle', arg.h).maybeSingle();
   return !!data?.id;`, { h: handle });

@@ -83,7 +83,7 @@ Prod status is the audit's verdict: **MATCH** (prod holds what the file says), *
 | 50 | `20261001120000_media_leak1_pages_public_view.sql` | MEDIA.LEAK.1 step 1 — `public.pages_public`, every `pages` column except `avatar_original_url`, with `theme_json - 'avatar_original_url_page2'`. Plain view (NOT `security_invoker`), owned by postgres so it reads past `pages` RLS by design — Supabase's linter flags it as a security-definer view, expected. `revoke all` from public/anon/authenticated/service_role first (default privileges would otherwise hand anon UPDATE/DELETE on an auto-updatable view that bypasses RLS), then `grant select` to anon/authenticated/service_role. Additive: safe to run before the code that reads it deploys | RE-RUNNABLE | MATCH — applied 2026-10-01 |
 | 51 | `20261001120100_media_leak1_pages_owner_only.sql` | MEDIA.LEAK.1 step 3 — drops `pages."Public can view pages by handle"` (`USING (true)`), restates `"Users can view their own pages"` (`auth.uid() = user_id`). Two fail-closed checks raise and roll back the whole paste: before, that the `pages_public` owner bypasses `pages` RLS (else every public page would go blank); after, that no other SELECT/ALL policy on `pages` survives. Run ONLY after the #50 reader code is live on www.titilinks.com | RE-RUNNABLE | MATCH — applied 2026-10-13 |
 
-Counts: 24 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 9 DRIFT, 10 DROPPED/SUPERSEDED.
+Counts: 33 MATCH (#8 missing trigger, #30 grant drift, #29/#40 superseded bodies are the caveats), 8 DRIFT, 10 DROPPED/SUPERSEDED.
 
 ## Prod-only objects (live in prod, no file behind them)
 

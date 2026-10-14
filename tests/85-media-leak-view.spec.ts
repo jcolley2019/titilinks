@@ -15,10 +15,10 @@
 // `fetch`, exactly the headers a visitor's browser sends — `apikey` plus
 // `Authorization: Bearer <anon key>`):
 //   a. GET pages_public for the battery handle → 200, one row, neither key;
-//   b. GET pages for the battery handle        → 200 [] — ONLY when
-//      MEDIA_LEAK_STEP3=1. Between Joey running step 1 and step 3 the public
-//      policy is still live and anon still gets the row, so the battery stays
-//      green across the gap; set the flag once step 3 is applied;
+//   b. GET pages for the battery handle        → 200 []. Step 3 was applied
+//      2026-10-13, so the owner's policy is the only SELECT left on `pages`
+//      and a stranger matches nothing — any row means a public read policy
+//      is back;
 //   c. the view is read-only to anon: a PATCH aimed at a row that cannot exist
 //      is refused for privilege (42501) — no row is matched, so even a broken
 //      grant could not touch data.
@@ -48,7 +48,6 @@ function viteEnv(name: string): string {
 const BASE = () => viteEnv('VITE_SUPABASE_URL');
 const KEY = () => viteEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
 const anonHeaders = () => ({ apikey: KEY(), Authorization: `Bearer ${KEY()}`, Accept: 'application/json' });
-const STEP3 = process.env.MEDIA_LEAK_STEP3 === '1';
 
 test.describe('MEDIA.LEAK.1 — originals never reach a non-owner', () => {
   test.beforeEach(() => {
@@ -83,15 +82,7 @@ test.describe('MEDIA.LEAK.1 — originals never reach a non-owner', () => {
     expect(res.status).toBe(200);
     const rows = await res.json();
     expect(Array.isArray(rows)).toBe(true);
-    if (STEP3) {
-      expect(rows, 'pages is owner-only: anon gets no row').toEqual([]);
-    } else {
-      // Pre-step-3 the public USING (true) policy still answers. Recorded, not asserted.
-      test.info().annotations.push({
-        type: 'MEDIA_LEAK_STEP3 unset',
-        description: `anon pages read returned ${rows.length} row(s); set MEDIA_LEAK_STEP3=1 after step 3 to assert []`,
-      });
-    }
+    expect(rows, 'pages is owner-only: anon gets no row').toEqual([]);
   });
 
   test('c. anon cannot write through pages_public', async () => {
