@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "lb-anim-bounce",
+        "createdAt": "2026-10-14T19:08:46.799Z",
+        "reason": "Agent: ANIM.1 (0ef8f02) user-selectable 'Bounce' link animation; the bounce is the feature, keyframes use ease-in-out"
+      }
+    ]
+  }
+}
