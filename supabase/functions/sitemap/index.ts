@@ -14,40 +14,19 @@
 // http(s) link (not example.com, not a numberless wa.me) or that has an image.
 // Never listed: /go/ hops (robots disallows them), /s/ short links, dashboard
 // or auth routes, and the battery/test accounts (handle prefix below).
+// The XML itself — marketing twins with their hreflang alternates
+// (SEO.TITILINKS.HREFLANG.1), then the creator handles — is built in xml.ts.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { serviceClient } from "../_shared/auth.ts";
 import { isContentItem } from "./rules.ts";
+import { buildSitemap } from "./xml.ts";
 
-// Vercel redirects the apex to www (project domain setting) — list the canonical host.
-const SITE = "https://www.titilinks.com";
-// TL.SEO.I18N.1: the Spanish marketing twins have their own URLs.
-// SEO.TITILINKS.MONEYPAGE.1: the signup money pages, /signup and its Spanish slug /es/registro.
-const MARKETING = [
-  "/", "/templates", "/terms", "/privacy", "/signup",
-  "/es", "/es/templates", "/es/terms", "/es/privacy", "/es/registro",
-];
 // TL.DOC.ROSTER.1 roster: joey2019pwtestbattery / +free / +onb are harness
 // accounts with real public pages — keep them out of the index.
 const EXCLUDED_HANDLE_PREFIX = "joey2019pwtest";
 // The content query returns one row per item; hosted PostgREST caps a
 // response at max_rows (1000), so it is read in pages of this size.
 const ITEM_PAGE_SIZE = 1000;
-
-const escapeXml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-
-export const buildSitemap = (handles: string[]): string => {
-  const urls = [
-    ...MARKETING.map((p) => `${SITE}${p}`),
-    ...handles.map((h) => `${SITE}/${encodeURIComponent(h)}`),
-  ];
-  return (
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.map((u) => `  <url><loc>${escapeXml(u)}</loc></url>`).join("\n") +
-    `\n</urlset>\n`
-  );
-};
 
 serve(async (req) => {
   if (req.method !== "GET" && req.method !== "HEAD") {

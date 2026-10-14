@@ -26,7 +26,8 @@
 // What the listing must never carry: /go/ hops (robots disallows them), /s/
 // short links, dashboard or auth routes, and the joey2019pwtest harness
 // accounts. No real creator handle is named here — the positive assertions
-// are the four marketing pages only.
+// are the marketing pages only (and, since SEO.TITILINKS.HREFLANG.1, their
+// hreflang alternates).
 //
 // Writes: none. Pure HTTP through a Playwright APIRequestContext — no page,
 // no session, nothing for the TL.ISO.2 write guard to rule on.
@@ -101,6 +102,25 @@ async function expectSitemap(
   expect(locs.length, `${label} carries at least the four marketing pages`).toBeGreaterThanOrEqual(4);
   for (const loc of locs) {
     expect(loc.startsWith(`${SITE}/`), `${label} <loc> ${loc} is on ${SITE}/`).toBe(true);
+  }
+
+  // SEO.TITILINKS.HREFLANG.1 — each marketing twin carries the same hreflang
+  // trio as its page's <head> (en, es, x-default = the English page), so the
+  // sitemap and the pages agree. scripts/hreflang-dist.test.mjs holds the
+  // pages to the same trio at build time.
+  expect(text, `${label} declares the xhtml namespace`).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
+  const alternates = new Map(
+    [...text.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, body]) => [
+      /<loc>([^<]*)<\/loc>/.exec(body)?.[1],
+      [...body.matchAll(/<xhtml:link rel="alternate" hreflang="([^"]+)" href="([^"]+)"\/>/g)].map((m) => `${m[1]} ${m[2]}`),
+    ]),
+  );
+  const twins = [['/', '/es'], ['/templates', '/es/templates'], ['/terms', '/es/terms'], ['/privacy', '/es/privacy'], ['/signup', '/es/registro']];
+  for (const [en, es] of twins) {
+    const trio = [`en ${SITE}${en}`, `es ${SITE}${es}`, `x-default ${SITE}${en}`];
+    for (const own of [en, es]) {
+      expect(alternates.get(`${SITE}${own}`), `${label} ${own}: hreflang alternates`).toEqual(trio);
+    }
   }
 }
 

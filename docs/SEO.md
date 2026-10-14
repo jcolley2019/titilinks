@@ -26,4 +26,4 @@ Both URLs are listed by the `sitemap` edge function (`supabase/functions/sitemap
 
 Free plan forever (`src/lib/pricing.ts`) · No credit card required (email/Google signup, checkout later) · Pages in English and Spanish.
 
-hreflang between the two pages: the prerender already emits the en/es/x-default trio; a dedicated review is the next brick.
+hreflang (SEO.TITILINKS.HREFLANG.1): every marketing twin carries en/es/x-default (x-default = EN) on https://www.titilinks.com, the sitemap repeats them as `xhtml:link` alternates, and `scripts/hreflang-dist.test.mjs` fails `npm run build` when a prerendered page breaks that.
