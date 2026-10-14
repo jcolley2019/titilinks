@@ -86,10 +86,17 @@ export const ALLOWED_IMAGE_TYPES = [
 
 export const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'] as const;
 
+// MEDIA.PHOTO.2 — HEIC/HEIF are admitted ONLY through validateImageFile's
+// `allowHeic` (prepare-image.ts turns it on off-iOS, where it decodes them).
+// Android often reports an empty MIME for HEIC, so the extension is the real tell.
+const HEIC_TYPES = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'] as const;
+const HEIC_EXTENSIONS = ['heic', 'heif'] as const;
+
+// MEDIA.PHOTO.2 — every re-encoded image is bounded in PIXELS by
+// prepare-image.ts (INPUT_MAX_BYTES gates the pick). The one byte cap left is
+// the GIF's, because a GIF is uploaded as picked to keep its animation.
 export const IMAGE_SIZE_LIMITS = {
-  avatar: 2 * 1024 * 1024, // 2MB
-  product: 5 * 1024 * 1024, // 5MB
-  media: 5 * 1024 * 1024, // 5MB
+  gif: 5 * 1024 * 1024, // 5MB
 } as const;
 
 export interface ImageValidationResult {
@@ -97,9 +104,15 @@ export interface ImageValidationResult {
   error?: string;
 }
 
+export interface ImageValidationOptions {
+  /** Admit .heic/.heif (by MIME or extension). Off by default; never on iOS. */
+  allowHeic?: boolean;
+}
+
 export function validateImageFile(
   file: File,
-  maxSize: number = IMAGE_SIZE_LIMITS.product
+  maxSize: number,
+  opts: ImageValidationOptions = {},
 ): ImageValidationResult {
   // Check file size
   if (file.size > maxSize) {
@@ -107,20 +120,29 @@ export function validateImageFile(
     return { valid: false, error: `Image must be less than ${sizeMB}MB` };
   }
 
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  const heicByType = HEIC_TYPES.includes(file.type as typeof HEIC_TYPES[number]);
+  const heicByExt = !!ext && HEIC_EXTENSIONS.includes(ext as typeof HEIC_EXTENSIONS[number]);
+  if (opts.allowHeic && (heicByType || heicByExt)) {
+    return { valid: true };
+  }
+
+  const allowedTypesMsg = opts.allowHeic
+    ? 'Only JPEG, PNG, GIF, WebP, and HEIC images are allowed'
+    : 'Only JPEG, PNG, GIF, and WebP images are allowed';
+
   // Check file type
   if (!ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])) {
-    return { 
-      valid: false, 
-      error: 'Only JPEG, PNG, GIF, and WebP images are allowed' 
-    };
+    return { valid: false, error: allowedTypesMsg };
   }
 
   // Check file extension as backup
-  const ext = file.name.split('.').pop()?.toLowerCase();
   if (!ext || !ALLOWED_IMAGE_EXTENSIONS.includes(ext as typeof ALLOWED_IMAGE_EXTENSIONS[number])) {
-    return { 
-      valid: false, 
-      error: 'Invalid file extension. Use .jpg, .png, .gif, or .webp' 
+    return {
+      valid: false,
+      error: opts.allowHeic
+        ? 'Invalid file extension. Use .jpg, .png, .gif, .webp, or .heic'
+        : 'Invalid file extension. Use .jpg, .png, .gif, or .webp',
     };
   }
 

@@ -7,7 +7,7 @@ import { validateHandle } from '@/lib/handle-rules';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
-import { planOriginal } from '@/lib/onboarding-photo';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { beginAvatarUpload } from '@/lib/onboarding-upload';
 
 interface Props {
@@ -66,43 +66,18 @@ function compressImage(file: File): Promise<File> {
   });
 }
 
-// TL.ONB.PHOTO.1 — what onboarding keeps as the ORIGINAL. Under the cap the
-// bytes are untouched (editor parity); over it, a 2400px "large original". The
-// decision lives in src/lib/onboarding-photo.ts (unit-tested); this is the
-// canvas that carries it out. Never throws into the caller: any failure
-// falls back to the raw file so the original is never silently dropped.
-function prepareOriginal(file: File): Promise<File> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    const bail = () => { URL.revokeObjectURL(url); resolve(file); };
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const plan = planOriginal({ bytes: file.size, width: img.naturalWidth, height: img.naturalHeight });
-      if (plan.keepBytes !== false) { resolve(file); return; }
-      const target = plan;
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = target.width;
-        canvas.height = target.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(file); return; }
-        ctx.drawImage(img, 0, 0, target.width, target.height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(file); return; }
-            resolve(new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
-          },
-          'image/jpeg',
-          target.quality
-        );
-      } catch {
-        resolve(file);
-      }
-    };
-    img.onerror = bail;
-    img.src = url;
-  });
+// TL.ONB.PHOTO.1 / MEDIA.PHOTO.2 — what onboarding keeps as the ORIGINAL: the
+// shared prepared master (src/lib/prepare-image.ts — WebP ≤ 4096 px, EXIF/GPS
+// gone), exactly what the editor's hero pick uploads. Never throws into the
+// caller: a failure falls back to the raw file so the original is never
+// silently dropped (the display copy still ships either way).
+async function prepareOriginal(file: File): Promise<File> {
+  try {
+    return (await prepareImage(file)).file;
+  } catch (err) {
+    console.error('[MEDIA.PHOTO.2] onboarding original prepare failed (keeping the pick):', err);
+    return file;
+  }
 }
 
 export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, uploading = false }: Props) {
@@ -178,9 +153,10 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      alert(t('onboardingFlow.invalidImageType'));
+    // MEDIA.PHOTO.2 — the shared gate (type + 40 MB input cap, HEIC off-iOS).
+    const gate = validateImageInput(file);
+    if (!gate.valid) {
+      alert(gate.error || t('onboardingFlow.invalidImageType'));
       return;
     }
     const reader = new FileReader();
@@ -226,13 +202,15 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
     setCompressing(true);
     setModalStep('none');
     try {
-      let processedFile = rawFile;
-      if (rawFile.size > 1 * 1024 * 1024) {
-        processedFile = await compressImage(rawFile);
+      // TL.ONB.PHOTO.1 / MEDIA.PHOTO.2 — the ORIGINAL is the prepared master;
+      // the display copy is derived from it (never from the raw bytes, which
+      // used to ship untouched under 1 MB — EXIF/GPS included, audit §1 #5).
+      const originalFile = await prepareOriginal(rawFile);
+      let processedFile = originalFile;
+      if (originalFile.size > 1 * 1024 * 1024) {
+        processedFile = await compressImage(originalFile);
       }
       updateField('avatarFile', processedFile);
-      // TL.ONB.PHOTO.1 — keep the raw pick (or its 2400px large-original) too.
-      const originalFile = await prepareOriginal(rawFile);
       updateField('avatarOriginalFile', originalFile);
       kickOffUpload(processedFile, originalFile);
       const reader = new FileReader();

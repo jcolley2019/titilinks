@@ -7,6 +7,7 @@ import { usePlanLock } from '@/hooks/usePlanLock';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, HERO_MAX_PX, type Area as CropArea } from '@/lib/crop';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { canonicalHeroAspect, canonicalFullBleedAspect, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 // FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
 // this file resolves through it; nothing here may hardcode object-fit again.
@@ -1089,7 +1090,7 @@ const HERO_EXTRA = 60;       // px added to hero height; gradient follows down w
 // full-bleed layer is viewport-sized and covered across by HEIGHT, so for the canonical
 // hero aspect (~0.81 in a ~0.46 viewport) the photo ends up ~1.8x the viewport width.
 const HERO_REF_WIDTH = resolveDevicePreset(DEFAULT_DEVICE_ID).width;
-const HERO_FULL_BLEED_CSS_WIDTH = 480; // 480 / 960 / 1440 — the 3x step is the master (HERO_MAX_PX)
+const HERO_FULL_BLEED_CSS_WIDTH = 480; // 480 / 960 / 1440 — all under the master (HERO_MAX_PX 2500, MEDIA.PHOTO.2)
 const HERO_FULL_BLEED_COVER_SCALE = 1.8;
 
 function NameHandleCard({
@@ -1965,7 +1966,7 @@ export function EditableProfileView({
     onRefresh();
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type.startsWith('video/')) {
@@ -1973,19 +1974,38 @@ export function EditableProfileView({
       e.target.value = '';
       return;
     }
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    // MEDIA.PHOTO.2 — the hero pick had no gate at all (audit gap #7): any
+    // type, any size, raw to a public bucket. Same gate as every other site.
+    const gate = validateImageInput(file);
+    if (!gate.valid) {
+      toast.error(gate.error || t('editor.photo.uploadFailed'));
+      return;
+    }
+    // One prepare step: decode with EXIF orientation baked in, bound to the
+    // master size, re-encode WebP — EXIF/GPS gone by construction. The result
+    // is BOTH the ORIGINAL that uploads for re-crop and the source the crop
+    // pipeline (photoPreview) reads. GIFs pass through as picked.
+    let prepared: File;
+    try {
+      prepared = (await prepareImage(file)).file;
+    } catch (err) {
+      console.error('[MEDIA.PHOTO.2] hero prepare failed:', err);
+      toast.error((err as Error)?.message || t('editor.photo.uploadFailed'));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setPhotoPreview(reader.result as string);
-      setPhotoFile(file);
-      setPhotoOriginalFile(file);
+      setPhotoFile(prepared);
+      setPhotoOriginalFile(prepared);
       setPhotoStep('choose');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
       setCropZoom(1);
       setCropPosition({ x: 0, y: 0 });
     };
-    reader.readAsDataURL(file);
-    if (photoInputRef.current) photoInputRef.current.value = '';
+    reader.readAsDataURL(prepared);
   };
 
   // Compute crop frame size (fixed 3:4 aspect, fits within container with padding)
@@ -2170,9 +2190,11 @@ export function EditableProfileView({
     try {
       const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
+      // MEDIA.PHOTO.2 (audit gap #8): object names are fresh UUIDs, never
+      // reused, so the object is immutable — cache it for a year, not an hour.
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, fileToUpload, { upsert: true });
+        .upload(fileName, fileToUpload, { upsert: true, cacheControl: '31536000' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage
         .from('avatars')
@@ -2182,13 +2204,15 @@ export function EditableProfileView({
       // original full-size photo so they can re-crop later with full
       // flexibility. Skipped only on re-crop (photoOriginalFile is null).
       // Page 1 stores it in the avatar_original_url column; Page 2 in theme_json.
+      // MEDIA.PHOTO.2: photoOriginalFile is the PREPARED master (WebP ≤ 4096 px,
+      // EXIF-free) from handlePhotoSelect — never the raw pick.
       let originalUrl: string | null = null;
       if (photoOriginalFile) {
         const origExt = photoOriginalFile.name.split('.').pop() || 'jpg';
         const origFileName = `${user.id}/${randomUUID()}-original.${origExt}`;
         const { error: origUploadError } = await supabase.storage
           .from('avatars')
-          .upload(origFileName, photoOriginalFile, { upsert: true });
+          .upload(origFileName, photoOriginalFile, { upsert: true, cacheControl: '31536000' });
         if (origUploadError) {
           console.error('Original photo upload failed (non-fatal):', origUploadError);
         } else {
@@ -3017,6 +3041,9 @@ export function EditableProfileView({
                 cssWidth={editMode ? undefined : Math.round(HERO_REF_WIDTH * heroCoverScale)}
                 sizes={{ column: heroCoverScale }}
                 maxWidth={HERO_MAX_PX}
+                // MEDIA.PHOTO.2 (audit gap #2): the hero is above the fold —
+                // eager + fetchpriority=high here, and only here.
+                priority
                 className="brightness-110"
                 imgStyle={resolveHeroMediaStyle({
                   mediaAspect: heroPhotoAspect,

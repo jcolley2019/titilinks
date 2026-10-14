@@ -34,7 +34,8 @@ import { Loader2, Plus, Trash2, ShoppingBag, ImagePlus, ShieldAlert } from 'luci
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
-import { validateImageFile, IMAGE_SIZE_LIMITS, ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { ITEM_CAPS, validateUrl } from '@/lib/validation';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { removePublicObject } from '@/lib/storage-cleanup';
 
 const MAX_ITEMS = ITEM_CAPS.product_cards;
@@ -192,7 +193,8 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       toast.error(t('productCardsEditor.maxProducts').replace('{max}', String(MAX_ITEMS)));
       return;
     }
-    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+    // MEDIA.PHOTO.2 — shared gate; the master is bounded in pixels at upload.
+    const validation = validateImageInput(file);
     if (!validation.valid) {
       toast.error(validation.error);
       return;
@@ -235,7 +237,7 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
   };
 
   const replaceImage = (id: string, file: File) => {
-    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.product);
+    const validation = validateImageInput(file);
     if (!validation.valid) {
       toast.error(validation.error);
       return;
@@ -245,11 +247,14 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     reader.readAsDataURL(file);
   };
 
-  const uploadImage = async (file: File): Promise<string> => {
+  const uploadImage = async (picked: File): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
+    // MEDIA.PHOTO.2 — ONE prepare step before Storage (WebP ≤ 4096 px, EXIF/GPS
+    // gone; GIF passes through); fresh-UUID names are immutable → 1-year cache.
+    const { file } = await prepareImage(picked);
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/${randomUUID()}.${fileExt}`;
-    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true });
+    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true, cacheControl: '31536000' });
     if (error) throw error;
     const { data } = supabase.storage.from('products').getPublicUrl(filePath);
     return data.publicUrl;

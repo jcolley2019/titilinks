@@ -543,8 +543,15 @@ for (const c of checks) {
   if (c.bundleSplit) {
     const OUT = 'dist';
     const CAP = 1_200_000;           // bytes raw, every app chunk
-    const FACE_CAP = 1400000;       // bytes raw, the lazy face-api chunk (one pre-minified module)
+    const FACE_CAP = 1400000;       // bytes raw, a lazy pre-minified library chunk
     const FACE_KEY = '@vladmandic/face-api';
+    // The named lazy exceptions: single pre-minified modules that cannot be
+    // split further, each behind a dynamic import so /:handle never loads them.
+    //   @vladmandic/face-api — TensorFlow inside (TL.BUNDLE.1), loadFaceApi()
+    //   heic2any             — libheif WASM inlined (MEDIA.PHOTO.2), imported
+    //                          lazily by src/lib/prepare-image.ts for non-iOS
+    //                          HEIC picks only
+    const LAZY_LIBS = [FACE_KEY, 'heic2any'];
     const MODEL_MARK = /tiny_face_detector_model|ssd_mobilenetv1_model|face_landmark_68_model/;
     const vite = join(dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin', 'vite.js');
     const bad = [];
@@ -572,21 +579,26 @@ for (const c of checks) {
         };
         Object.entries(manifest).filter(([, m]) => m.isEntry).forEach(([k]) => walk(k));
         const entry = Object.values(manifest).find((m) => m.isEntry && m.file.endsWith('.js'));
-        const faceFiles = new Set(Object.keys(manifest).filter((k) => k.includes(FACE_KEY)).map((k) => manifest[k].file));
+        // chunk file → the lazy library it belongs to
+        const lazyFiles = new Map();
+        for (const lib of LAZY_LIBS) {
+          const files = Object.keys(manifest).filter((k) => k.includes(lib)).map((k) => manifest[k].file);
+          if (!files.length) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
+          for (const f of files) lazyFiles.set(f, lib);
+        }
         if (js.length < 4) bad.push(`assets/ holds ${js.length} JS chunk(s); route-level splitting should produce at least 4`);
-        if (!faceFiles.size) bad.push(`no chunk for ${FACE_KEY} in the manifest - the library is no longer a separate lazy chunk`);
-        for (const f of faceFiles) if (eager.has(f)) bad.push(`${f} (face-api) is in the entry's static import closure - /:handle would download it`);
+        for (const [f, lib] of lazyFiles) if (eager.has(f)) bad.push(`${f} (${lib}) is in the entry's static import closure - /:handle would download it`);
         for (const f of eager) {
           if (f.endsWith('.js') && MODEL_MARK.test(readFileSync(`${OUT}/${f}`, 'utf8'))) bad.push(`${f} is eager and carries face-api model strings`);
         }
         for (const n of js) {
-          const isFace = faceFiles.has(`assets/${n}`);
-          const cap = isFace ? FACE_CAP : CAP;
+          const lib = lazyFiles.get(`assets/${n}`);
+          const cap = lib ? FACE_CAP : CAP;
           const b = size(n);
-          if (b > cap) bad.push(`assets/${n} is ${b.toLocaleString('en-US')} B raw, over the ${cap.toLocaleString('en-US')} B ${isFace ? 'face-api' : 'chunk'} cap`);
+          if (b > cap) bad.push(`assets/${n} is ${b.toLocaleString('en-US')} B raw, over the ${cap.toLocaleString('en-US')} B ${lib ?? 'chunk'} cap`);
         }
         const entryBytes = entry ? statSync(`${OUT}/${entry.file}`).size : 0;
-        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, face-api lazy`;
+        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, ${LAZY_LIBS.length} lazy libs (face-api, heic2any)`;
       }
     }
     if (bad.length) {
@@ -595,7 +607,8 @@ for (const c of checks) {
       bad.forEach((b) => console.error(`      ${b}`));
       console.error(`      one chunk serving every route is the AUDIT_rev6 #13 defect: /:handle visitors`);
       console.error(`      download the editor, the dashboard and a face detector. Keep the routes in`);
-      console.error(`      App.tsx lazy and face-api behind loadFaceApi(); never re-add a static import.`);
+      console.error(`      App.tsx lazy, face-api behind loadFaceApi() and heic2any behind prepareImage();`);
+      console.error(`      never re-add a static import.`);
     } else {
       console.log(`ok ${c.name} (${summary})`);
     }

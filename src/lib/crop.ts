@@ -22,8 +22,11 @@ export const cropErrorCauseKey = (err: unknown): string => {
 /** TL.CROP.QUAL.1 — the hero's longest edge after crop. The hero paints at
  *  full viewport width × 50 vh with object-fit: cover; on a 390 px @3× phone
  *  that is ~1170 × 1266 device pixels, so the old 800 px cap was upscaled
- *  ~1.5× on screen. 1440 covers 3× with headroom. */
-export const HERO_MAX_PX = 1440;
+ *  ~1.5× on screen. MEDIA.PHOTO.2: 1440 → 2500 — the Supabase transform
+ *  ceiling per side (media-url.ts MAX_TRANSFORM_PX); the srcset ladder reads
+ *  this as the master width, and a 3× phone (402 × 3 = 1206, full-bleed up to
+ *  1491) now has real headroom instead of landing a hair under the master. */
+export const HERO_MAX_PX = 2500;
 
 /** Load + decode an image for canvas work. crossOrigin BEFORE src
  *  (FIX.MEDIA.1); real decode() wait with an onload fallback (CROP.3a). */

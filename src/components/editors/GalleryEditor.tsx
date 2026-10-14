@@ -33,7 +33,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Loader2, Image as ImageIcon, Plus, Trash2, GripVertical } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
-import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
+import { ITEM_CAPS } from '@/lib/validation';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { removePublicObject } from '@/lib/storage-cleanup';
 import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from '@/lib/gallery-framing';
 import { PhotoCropSheet } from './PhotoCropSheet';
@@ -252,7 +253,9 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
     const filesToAdd = Array.from(files).slice(0, remaining);
 
     filesToAdd.forEach((file) => {
-      const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
+      // MEDIA.PHOTO.2 — the shared gate (type + 40 MB input cap); the 5 MB
+      // per-site cap is gone, the master is bounded in pixels at upload.
+      const validation = validateImageInput(file);
       if (!validation.valid) {
         toast.error(`${file.name}: ${validation.error}`);
         return;
@@ -336,15 +339,19 @@ export function GalleryEditor({ blockId, open, onOpenChange, onSave, panelMode, 
     }));
   };
 
-  const uploadImage = async (file: File): Promise<string> => {
+  const uploadImage = async (picked: File): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
 
+    // MEDIA.PHOTO.2 — ONE prepare step before Storage: WebP ≤ 4096 px with
+    // EXIF/GPS gone by construction (GIF passes through). The object takes the
+    // prepared file's extension, and a fresh-UUID name is immutable → 1-year cache.
+    const { file } = await prepareImage(picked);
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}/${randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('products')
-      .upload(fileName, file, { upsert: true });
+      .upload(fileName, file, { upsert: true, cacheControl: '31536000' });
 
     if (uploadError) throw uploadError;
 

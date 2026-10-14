@@ -46,7 +46,8 @@ export function startAvatarUpload(
   const promise = (async (): Promise<AvatarUploadResult> => {
     const ext = avatarFile.name.split('.').pop();
     const filePath = `${userId}/${randomUUID()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile);
+    // MEDIA.PHOTO.2 (audit gap #8): fresh UUID names are immutable — cache a year.
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { cacheControl: '31536000' });
     if (uploadError) throw uploadError;
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
@@ -59,7 +60,7 @@ export function startAvatarUpload(
     if (avatarOriginalFile) {
       try {
         const origPath = originalObjectName(userId, randomUUID(), avatarOriginalFile.name);
-        const { error: origError } = await supabase.storage.from('avatars').upload(origPath, avatarOriginalFile);
+        const { error: origError } = await supabase.storage.from('avatars').upload(origPath, avatarOriginalFile, { cacheControl: '31536000' });
         if (origError) throw origError;
         avatarOriginalUrl = supabase.storage.from('avatars').getPublicUrl(origPath).data.publicUrl;
       } catch (origErr) {

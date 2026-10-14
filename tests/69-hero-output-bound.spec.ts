@@ -1,7 +1,9 @@
 import { test, expect, type Page } from './fixtures';
 
-// TL.CROP.QUAL.1 — the hero output path caps at HERO_MAX_PX (1440) and encodes
-// WebP 0.85 with a JPEG 0.85 fallback. Audit docs/CROP-AI-AUDIT-2026-09.md
+// TL.CROP.QUAL.1 — the hero output path caps at HERO_MAX_PX and encodes
+// WebP 0.85 with a JPEG 0.85 fallback. MEDIA.PHOTO.2 raised the cap 1440 → 2500
+// (the Supabase transform ceiling per side; a 3× phone's full-bleed hero needs
+// 1,491 px). Audit docs/CROP-AI-AUDIT-2026-09.md
 // §A.2.1 / finding #2: the old 800 px JPEG cap was upscaled ~1.5× on a 3× phone
 // hero (full viewport width × 50 vh, object-fit: cover ≈ 1170 × 1266 device
 // pixels). getCroppedImage is the one output path for every crop surface;
@@ -86,18 +88,19 @@ const expectNameMatchesType = (r: Probe) => {
 };
 
 test.describe('Hero output bound (TL.CROP.QUAL.1)', () => {
-  test('1. a 3000px full-frame crop lands at 1440px, typed and named consistently, under 600 KB', async ({ page }) => {
+  test('1. a 3000px full-frame crop lands at 2500px, typed and named consistently, under 1 MB', async ({ page }) => {
     await page.goto('/');
     const r = await probeInPage(page, {
       w: 3000, h: 3000, from: '#ff0055', to: '#0066ff',
       mode: 'crop', crop: { x: 0, y: 0, width: 3000, height: 3000 },
     });
 
-    expect(r.heroMaxPx).toBe(1440);
-    expect(r.naturalWidth).toBe(1440);
-    expect(r.naturalHeight).toBe(1440);
+    expect(r.heroMaxPx).toBe(2500);
+    expect(r.naturalWidth).toBe(2500);
+    expect(r.naturalHeight).toBe(2500);
     expectNameMatchesType(r);
-    expect(r.size).toBeLessThan(600 * 1024);
+    // 600 KB was the 1440² figure; 2500² is ~3× the pixels of a gradient.
+    expect(r.size).toBeLessThan(1024 * 1024);
   });
 
   test('2. boundHeroImage bounds a non-square source on its longest edge, aspect kept', async ({ page }) => {
@@ -106,8 +109,8 @@ test.describe('Hero output bound (TL.CROP.QUAL.1)', () => {
       w: 3000, h: 2000, from: '#112233', to: '#ffcc00', mode: 'bound',
     });
 
-    expect(r.naturalWidth).toBe(1440);
-    expect(r.naturalHeight).toBe(960); // 2000 × 1440 / 3000
+    expect(r.naturalWidth).toBe(2500);
+    expect(r.naturalHeight).toBe(1667); // round(2000 × 2500 / 3000)
     expectNameMatchesType(r);
   });
 

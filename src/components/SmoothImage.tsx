@@ -13,6 +13,12 @@ interface SmoothImageProps extends ResponsiveSpec {
   aspectRatio?: 'video' | 'square' | 'banner' | 'auto';
   fallback?: React.ReactNode;
   imgStyle?: React.CSSProperties;
+  /**
+   * MEDIA.PHOTO.2 (audit gap #2) — true for the ONE above-the-fold image (the
+   * hero): `loading="eager"` + `fetchpriority="high"` so it is requested with
+   * the document instead of waiting on layout. Everything else stays lazy.
+   */
+  priority?: boolean;
 }
 
 /**
@@ -35,6 +41,7 @@ export function SmoothImage({
   maxWidth,
   aspect,
   densities,
+  priority = false,
 }: SmoothImageProps) {
   const { t } = useLanguage();
   // MEDIA.PHOTO.1: renditions via srcset; `src` below stays the master.
@@ -102,7 +109,8 @@ export function SmoothImage({
         alt={alt}
         onLoad={handleLoad}
         onError={handleError}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         decoding="async"
         style={imgStyle}
         className={cn(

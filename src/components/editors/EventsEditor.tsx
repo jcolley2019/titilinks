@@ -42,7 +42,8 @@ import { Loader2, Calendar, Plus, Trash2, Pin, MapPin, ImagePlus, Archive, Archi
 import { useLanguage } from '@/hooks/useLanguage';
 import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
 import type { Tables } from '@/integrations/supabase/types';
-import { ITEM_CAPS, validateImageFile, IMAGE_SIZE_LIMITS } from '@/lib/validation';
+import { ITEM_CAPS } from '@/lib/validation';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { removePublicObject } from '@/lib/storage-cleanup';
 import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from '@/lib/gallery-framing';
 import { PhotoCropSheet } from './PhotoCropSheet';
@@ -484,7 +485,8 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
   /** Stage a picked poster file — validation now, storage only on Save. */
   const handlePosterPick = (id: string, file: File | null | undefined) => {
     if (!file) return;
-    const validation = validateImageFile(file, IMAGE_SIZE_LIMITS.media);
+    // MEDIA.PHOTO.2 — shared gate; the master is bounded in pixels at upload.
+    const validation = validateImageInput(file);
     if (!validation.valid) {
       toast.error(validation.error);
       return;
@@ -512,11 +514,14 @@ export function EventsEditor({ blockId, open, onOpenChange, onSave, panelMode, o
 
   /** Upload to the products bucket under the events/ prefix. The first path
    *  segment must stay the user id — that folder IS the bucket's RLS check. */
-  const uploadPoster = async (file: File): Promise<string> => {
+  const uploadPoster = async (picked: File): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
+    // MEDIA.PHOTO.2 — ONE prepare step before Storage (WebP ≤ 4096 px, EXIF/GPS
+    // gone; GIF passes through); fresh-UUID names are immutable → 1-year cache.
+    const { file } = await prepareImage(picked);
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/events/${randomUUID()}.${fileExt}`;
-    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true });
+    const { error } = await supabase.storage.from('products').upload(filePath, file, { upsert: true, cacheControl: '31536000' });
     if (error) throw error;
     const { data } = supabase.storage.from('products').getPublicUrl(filePath);
     return data.publicUrl;

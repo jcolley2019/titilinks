@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
+import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 
 interface ThumbnailUploadProps {
   value?: string | null;
@@ -36,27 +37,25 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file size (2MB max for thumbnails)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error(t('thumbnailUpload.imageTooLarge'));
-      return;
-    }
-
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error(t('thumbnailUpload.invalidType'));
+    // MEDIA.PHOTO.2 — the shared gate replaces the 2 MB thumbnail cap: the
+    // input is bounded at 40 MB, the stored master in pixels (below).
+    const gate = validateImageInput(file);
+    if (!gate.valid) {
+      toast.error(gate.error || t('thumbnailUpload.invalidType'));
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      // ONE prepare step before Storage (WebP ≤ 4096 px, EXIF/GPS gone; GIF
+      // passes through); the name is unique per upload → 1-year cache.
+      const { file: prepared } = await prepareImage(file);
+      const fileExt = prepared.name.split('.').pop();
       const fileName = `${user.id}/thumb-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('page-assets')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, prepared, { upsert: true, cacheControl: '31536000' });
 
       if (uploadError) throw uploadError;
 
