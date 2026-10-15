@@ -25,11 +25,11 @@ The usual fixes have costs of their own. Writing every link twice doubles the pa
 
 ## What "bilingual" means on TitiLinks
 
-Your page carries two kinds of text. The first is what TitiLinks puts there: buttons, labels, form placeholders and the "Made with TitiLinks" credit. That text follows the visitor's browser language, the same way TitiLinks' own signup pages do. A fan whose phone is set to Spanish sees the default ticket button on your events as "Comprar entradas" and a sold-out show marked "Agotado"; a fan set to English sees "Get tickets" and "Sold out." The second kind is everything you write: link titles, subtitles and your bio. TitiLinks shows those exactly as you typed them, with no translation. The interface adapts by itself, and the words on your links come from you, in English, in Spanish or in the mix your audience already speaks. The editor runs in English or Spanish too, whichever you prefer.
+Your page carries two kinds of text. The first is what TitiLinks puts there: buttons, labels, form placeholders and the "Made with TitiLinks" credit. That text follows the visitor's browser language, the same way TitiLinks' own signup pages do. A fan whose phone is set to Spanish sees the default ticket button on your events as "Comprar entradas" and a sold-out show marked "Agotado"; a fan set to English sees "Get tickets" and "Sold out." The second kind is everything you write: link titles and your bio. TitiLinks shows those exactly as you typed them, with no translation. The interface adapts by itself, and the words on your links come from you, in English, in Spanish or in the mix your audience already speaks. The editor runs in English or Spanish too, whichever you prefer.
 
 ## Five tactics for a link in bio for Latin creators
 
-1. Write link titles both ways, or in natural Spanglish. "Nuevo video / New video" is longer than one language but still reads at a glance, and fans of either language spot their link. If a title gets too long, put the second language in the link's subtitle. Where your audience already code-switches, write the way you talk in your videos; "Merch nuevo" can be enough.
+1. Write link titles both ways, or in natural Spanglish. "Nuevo video / New video" is longer than one language but still reads at a glance if you keep both halves short, and fans of either language spot their link. Where your audience already code-switches, write the way you talk in your videos; "Merch nuevo" can be enough.
 2. Order links for the platform your traffic comes from. If most visitors arrive from TikTok, put what TikTok viewers asked for at the top, in the language you use there. If Instagram sends more, lead with that audience. A page can't reorder itself for each visitor, so pick the order that fits your bigger source and revisit it when that changes.
 3. Keep one page, not two accounts. One URL in every bio is easier for fans to remember and easier for you to keep current, and all your clicks land in one place. If you do want separate English and Spanish pages, Pro adds a second page to the same account, opened by adding ?page=2 to your URL.
 4. Name buttons by outcome. "Mi curso / My course" tells people what they get, and "Click here" doesn't, in either language. Start each title with the thing or the action, as in "Escúchalo en Spotify / Listen on Spotify" or "Escríbeme / Message me."
@@ -58,7 +58,6 @@ Give the page a month before you change much. What you can see depends on your p
 | Clicks on each short link you create | Short links | Free (3 links) |
 | Which sites your clicks go to | Analytics, top destinations | Pro |
 | Where visitors come from: TikTok, Instagram or other | Analytics, traffic sources | Pro |
-| Clicks on a link you set as a goal | Analytics, goals | Pro |
 
 On the free plan, short links give you a rough split by platform. Make one short link for your TikTok bio and one for your Instagram bio, point both at your page, and compare their clicks after a few weeks. On Pro, the traffic sources card shows that split directly.
 
