@@ -31,6 +31,7 @@ export const MARKETING_TWINS: readonly (readonly [string, string])[] = [
 export const BLOG_POSTS: readonly { lang: "en" | "es"; path: string; twin?: string }[] = [
   { lang: "es", path: "/es/blog/link-en-bio-para-creadores" },
   { lang: "es", path: "/es/blog/alternativa-a-linktree-en-espanol" },
+  { lang: "es", path: "/es/blog/como-poner-varios-links-en-instagram" },
   { lang: "en", path: "/blog/link-in-bio-for-latin-creators" },
 ];
 
