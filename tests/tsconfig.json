@@ -4,9 +4,13 @@
   // transform strips types without checking them and tsconfig.app.json is
   // src/ only, so this is the only compiler that ever reads tests/. Same
   // strictness as the app config, nothing looser.
+  // vite/client (EMAIL.DRIP.1): specs import `translations` from
+  // src/hooks/useLanguage.tsx, whose LanguageProvider lazily imports the
+  // Supabase client, which reads import.meta.env — the app gets those types
+  // from src/vite-env.d.ts, which this include does not reach.
   "extends": "../tsconfig.app.json",
   "compilerOptions": {
-    "types": ["node", "@playwright/test"]
+    "types": ["node", "@playwright/test", "vite/client"]
   },
   "include": ["**/*.ts"]
 }

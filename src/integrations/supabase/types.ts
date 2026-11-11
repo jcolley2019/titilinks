@@ -503,6 +503,7 @@ export type Database = {
           email: string
           ga4_id: string | null
           id: string
+          language: string | null
           meta_pixel_id: string | null
           onboarding_complete: boolean | null
           page_style: string | null
@@ -525,6 +526,7 @@ export type Database = {
           email: string
           ga4_id?: string | null
           id: string
+          language?: string | null
           meta_pixel_id?: string | null
           onboarding_complete?: boolean | null
           page_style?: string | null
@@ -547,6 +549,7 @@ export type Database = {
           email?: string
           ga4_id?: string | null
           id?: string
+          language?: string | null
           meta_pixel_id?: string | null
           onboarding_complete?: boolean | null
           page_style?: string | null
@@ -650,6 +653,7 @@ export type Database = {
         Returns: number
       }
       resolve_short_link_by_slug: { Args: { p_slug: string }; Returns: string }
+      set_my_language: { Args: { p_language: string }; Returns: undefined }
       subscribe_to_page: {
         Args: { p_email: string; p_name?: string; p_page_id: string }
         Returns: Json

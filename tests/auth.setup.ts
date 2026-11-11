@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { test as setup } from '@playwright/test';
+import { test as setup, type Page } from '@playwright/test';
 import {
   FREE_TEST_USER_ID,
   loginAsFreeUser,
@@ -18,11 +18,24 @@ const authFile = 'tests/.auth/user.json';
 // default-deny write guard. Gitignored for the same reason as user.json.
 const freeAuthFile = 'tests/.auth/free.json';
 
+/**
+ * EMAIL.DRIP.1 — setup signs in through the real app and runs WITHOUT the
+ * TL.ISO.2 write guard (it imports from @playwright/test, not ./fixtures). The
+ * app's LanguageProvider stores a signed-in user's UI language through the
+ * set_my_language RPC, so left alone every setup run would write the FREE
+ * account's profile — which nothing may change — and the battery's. Refuse
+ * that one call: minting a session changes no account data.
+ */
+async function refuseLanguageWrite(page: Page): Promise<void> {
+  await page.route(/\/rest\/v1\/rpc\/set_my_language/, (route) => route.abort('accessdenied'));
+}
+
 setup('authenticate', async ({ page }) => {
   // TL.ISO.1 — a stale session from an earlier mint must not survive a failed
   // identity check below, so drop it before logging in.
   if (fs.existsSync(authFile)) fs.unlinkSync(authFile);
 
+  await refuseLanguageWrite(page);
   await loginAsTestUser(page);
 
   // TL.ISO.1 identity pin — verify WHO we just authed as before persisting the
@@ -77,6 +90,7 @@ setup('authenticate-free', async ({ page }) => {
   // check below, so drop it before logging in.
   if (fs.existsSync(freeAuthFile)) fs.unlinkSync(freeAuthFile);
 
+  await refuseLanguageWrite(page);
   await loginAsFreeUser(page);
 
   const identity = await page.evaluate(() => {

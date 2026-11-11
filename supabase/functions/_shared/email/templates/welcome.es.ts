@@ -1,17 +1,21 @@
-// EMAIL.INFRA.1 — welcome, Spanish.
-//
-// ⚠️ DRAFT COPY — placeholder that proves the pipe end to end. Three lines, no
-// feature claims. DRIP.1 replaces it with the real welcome.
+// EMAIL.DRIP.1 — welcome · día 0 · gate always · español (neutro, de tú).
+// Se envía cuando el onboarding terminó (email_queue_due lo retiene hasta que
+// la página existe). Tokens: ver render.ts.
 
 import type { EmailTemplate } from "../render.ts";
 
-export const DRAFT = true;
-
 export const welcomeEs: EmailTemplate = {
-  subject: "Te damos la bienvenida a TitiLinks",
+  subject: "Tu página de TitiLinks ya está lista",
   lines: [
-    "Gracias por registrarte en TitiLinks.",
-    "Tu página te espera cuando quieras.",
-    "Si necesitas algo, responde a este correo.",
+    "¡Hola, {{name}}!",
+    "Este es tu link: {{page_url}}",
+    "Tres cosas para empezar:",
   ],
+  bullets: [
+    "Agrega tus primeros links. Los de muestra que ves en el editor solo están ahí de ejemplo, y tus visitantes no los ven.",
+    "Revisa que tu foto y tu nombre se vean bien.",
+    "Pega tu link en la bio de Instagram y de TikTok.",
+  ],
+  button: { label: "Abrir mi editor", href: "editor_url" },
+  closing: ["¿Tienes dudas? Responde a este correo."],
 };

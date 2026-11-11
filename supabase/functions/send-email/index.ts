@@ -20,12 +20,19 @@
 // logged (row id, user id, template, subject, header names — never the address
 // or the unsubscribe token) and its lease is released.
 //
+// EMAIL_POSTAL_ADDRESS (EMAIL.DRIP.1) — the physical mailing address every
+// news email's footer carries. Unset, blank or still a {{…}} placeholder → no
+// news email goes out: each leased news row records a failed attempt with
+// reason `no_postal_address` (the usual three-attempt rule, so setting the
+// secret within two runs rescues it). Transactional mail is not held back.
+//
 // Deploy — JWT verification STAYS ON:
 //   npx supabase functions deploy send-email --project-ref ohmvlypcbrfkuudcuqub
 
 import { serviceClient } from "../_shared/auth.ts";
 import { corsHeaders, fail, json } from "../_shared/cors.ts";
 import { buildMessage, toLang, type ResendMessage, type Stream } from "../_shared/email/render.ts";
+import { resolvePostalAddress } from "../_shared/email/layout.ts";
 import { constantTimeEquals } from "../_shared/email/svix.ts";
 
 const RESEND_URL = "https://api.resend.com/emails";
@@ -46,6 +53,10 @@ interface DueRow {
   stream: string | null;
   attempts: number;
   unsubscribe_token: string | null;
+  /** EMAIL.DRIP.1: the page's (else the profile's) display name. */
+  display_name: string | null;
+  /** EMAIL.DRIP.1: the page handle — the /<handle> URL the email links. */
+  username: string | null;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -96,6 +107,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("RESEND_API_KEY") ?? "";
   // Checked BEFORE the queue is leased, so a missing key consumes nothing.
   if (!dryRun && !apiKey) return fail("RESEND_API_KEY is not set", 500);
+  const postalAddress = resolvePostalAddress(Deno.env.get("EMAIL_POSTAL_ADDRESS"));
 
   let batch = DEFAULT_BATCH;
   try {
@@ -120,6 +132,22 @@ Deno.serve(async (req) => {
     const row = rows[i];
     const stream: Stream = row.stream === "mail" ? "mail" : "news";
 
+    // A news email never goes out with a blank or placeholder address.
+    if (stream === "news" && !postalAddress) {
+      if (dryRun) {
+        console.log(
+          "[send-email] DRY RUN — would refuse: no_postal_address",
+          JSON.stringify({ queue_id: row.id, template_key: row.template_key }),
+        );
+        await release(svc, [row.id]);
+        summary.released++;
+        continue;
+      }
+      const status = await recordFailure(svc, row, "no_postal_address");
+      summary[status === "failed" ? "failed" : "retry"]++;
+      continue;
+    }
+
     let message: ResendMessage;
     try {
       message = buildMessage({
@@ -127,6 +155,9 @@ Deno.serve(async (req) => {
         lang: toLang(row.lang),
         stream,
         unsubscribeToken: row.unsubscribe_token,
+        displayName: row.display_name,
+        username: row.username,
+        postalAddress,
         to: row.email,
       });
     } catch (e) {

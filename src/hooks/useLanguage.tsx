@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 
 type Language = 'en' | 'es';
 
@@ -3986,6 +3986,70 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  // EMAIL.DRIP.1 — keep the signed-in creator's UI language on their own
+  // profiles row, so onboarding email goes out in it (email_queue_due reads
+  // profiles.language when the email is SENT). Best-effort and silent: a failed
+  // read or write never reaches the UI and is retried on the next page load.
+  //  - The Supabase client is imported lazily: scripts/prerender-marketing.ts
+  //    loads this module in Node at build time (via `translations`), where the
+  //    client cannot be constructed.
+  //  - The write is set_my_language(), a SECURITY INVOKER RPC — the caller's own
+  //    RLS policy and the profiles guard triggers still apply. Its own URL keeps
+  //    it apart from the profiles PATCHes some Playwright specs open on purpose.
+  //  - No `language` key on the row (the migration has not run, or a test
+  //    mock answered) means nothing to compare against, so nothing is written.
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const languageRef = useRef(language);
+  languageRef.current = language;
+  const storedLanguage = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    import('@/integrations/supabase/client')
+      .then(({ supabase }) => {
+        if (!active) return;
+        // Every new subscriber gets INITIAL_SESSION, then each sign-in / sign-out.
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSessionUserId(session?.user?.id ?? null);
+        });
+        unsubscribe = () => data.subscription.unsubscribe();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionUserId) return;
+    const key = `${sessionUserId}:${language}`;
+    if (storedLanguage.current === key) return;
+    const userId = sessionUserId;
+    const wanted = language;
+    (async () => {
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('language')
+          .eq('id', userId)
+          .maybeSingle();
+        if (error || !data || !('language' in data)) return;
+        // Switched again while this was in flight: the newer run owns the write.
+        if (languageRef.current !== wanted) return;
+        if (data.language !== wanted) {
+          const { error: rpcError } = await supabase.rpc('set_my_language', { p_language: wanted });
+          if (rpcError) return;
+        }
+        storedLanguage.current = key;
+      } catch {
+        /* best-effort */
+      }
+    })();
+  }, [sessionUserId, language]);
 
   const setLanguage = (lang: Language) => {
     console.log('[useLanguage] switching language:', language, '→', lang);

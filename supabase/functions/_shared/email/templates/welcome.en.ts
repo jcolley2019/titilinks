@@ -1,17 +1,21 @@
-// EMAIL.INFRA.1 — welcome, English.
-//
-// ⚠️ DRAFT COPY — placeholder that proves the pipe end to end. Three lines, no
-// feature claims. DRIP.1 replaces it with the real welcome.
+// EMAIL.DRIP.1 — welcome · day 0 · gate always · English.
+// Sent once onboarding has finished (email_queue_due holds it until the page is
+// live). Tokens: see render.ts.
 
 import type { EmailTemplate } from "../render.ts";
 
-export const DRAFT = true;
-
 export const welcomeEn: EmailTemplate = {
-  subject: "Welcome to TitiLinks",
+  subject: "Your TitiLinks page is live",
   lines: [
-    "Thanks for signing up for TitiLinks.",
-    "Your page is waiting for you whenever you are ready.",
-    "If you need anything, just reply to this email.",
+    "Hi {{name}},",
+    "Here's your link: {{page_url}}",
+    "Three things to do first:",
   ],
+  bullets: [
+    "Add your first links. The sample links in your editor only show you the layout, and visitors never see them.",
+    "Check that your photo and your name look right.",
+    "Paste your link in your Instagram and TikTok bio.",
+  ],
+  button: { label: "Open my page editor", href: "editor_url" },
+  closing: ["Questions? Just reply to this email."],
 };
