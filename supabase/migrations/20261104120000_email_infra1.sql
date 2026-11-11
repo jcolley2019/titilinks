@@ -257,3 +257,6 @@ grant execute on function public.email_queue_due(int) to service_role;
 --   has_function_privilege('authenticated', 'public.email_queue_due(int)', 'execute') as authed_exec,  -- false
 --   has_function_privilege('service_role', 'public.email_queue_due(int)', 'execute')  as service_exec, -- true
 --   has_table_privilege('anon', 'public.email_queue', 'select')                as anon_queue_read;  -- false
+
+-- Applied alongside this migration on 2026-11-11 (EMAIL.INFRA.1b): hold the welcome sequence off until copy/send is enabled.
+update public.email_sequence set enabled = false where template_key = 'welcome';
