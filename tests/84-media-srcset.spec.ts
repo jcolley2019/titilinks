@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page } from './fixtures';
+import { test, expect, installAnalyticsStub, type Browser, type Page } from './fixtures';
 import { TEST_HANDLE } from './helpers/auth';
 
 /**
@@ -30,6 +30,9 @@ import { TEST_HANDLE } from './helpers/auth';
  *
  * Writes: none. Reads only, in fresh anonymous contexts (the same thing a
  * visitor's browser sends), so no write guard is needed and none is bypassed.
+ * A hand-rolled context carries no fixture routes, so each one installs the
+ * fixtures' track_event stub — without it every visit minted real page-view
+ * rows (~24 per battery run).
  * Fixtures: whatever the battery account already holds (hero + gallery); no rows
  * are created. Runs on both projects: each launches its own engine for the
  * scenario matrix (desktop = Chromium, mobile = WebKit).
@@ -94,6 +97,7 @@ async function visit(
     viewport: { width: screen.width, height: screen.height },
     deviceScaleFactor: screen.dpr,
   });
+  await installAnalyticsStub(context);
   const page = await context.newPage();
   const pagesRequests: { url: string; headers: Record<string, string>; body: string }[] = [];
   page.on('response', async (res) => {

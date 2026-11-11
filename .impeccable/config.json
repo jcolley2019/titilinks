@@ -8,6 +8,33 @@
         "value": "lb-anim-bounce",
         "createdAt": "2026-10-14T19:08:46.799Z",
         "reason": "Agent: ANIM.1 (0ef8f02) user-selectable 'Bounce' link animation; the bounce is the feature, keyframes use ease-in-out"
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "supabase/functions/_shared/email/layout.ts"
+        ],
+        "createdAt": "2026-11-11T07:35:27.561Z",
+        "reason": "model decided: email HTML and the edge-served unsubscribe page cannot load web fonts; Arial/Helvetica is the email-safe system stack"
+      },
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "files": [
+          "supabase/functions/_shared/email/unsubscribe-page.ts"
+        ],
+        "createdAt": "2026-11-11T07:35:27.729Z",
+        "reason": "model decided: email HTML and the edge-served unsubscribe page cannot load web fonts; Arial/Helvetica is the email-safe system stack"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "tests/84-media-srcset.spec.ts"
+        ],
+        "createdAt": "2026-11-11T16:23:56.188Z",
+        "reason": "model decided: '<img>' is prose inside a Playwright test title string in a spec file, not rendered markup"
       }
     ]
   }

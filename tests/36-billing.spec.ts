@@ -95,8 +95,10 @@ test.describe('pricing CTA — signed out', () => {
     await expect(cta).toHaveAttribute('data-billing-interval', 'year');
 
     await cta.click();
-    await page.waitForURL(/\/login/);
-    expect(new URL(page.url()).searchParams.get('mode')).toBe('signup');
+    // MONEYPAGE.1: the signed-out CTA is signupPathFor('/') — the /signup money
+    // page (it would be /es/registro from an /es/… path; this suite opens '/').
+    await page.waitForURL(/\/signup$/);
+    expect(new URL(page.url()).pathname).toBe('/signup');
 
     const stashed = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key) || 'null'),
@@ -115,7 +117,7 @@ test.describe('pricing CTA — signed out', () => {
     await expect(cta).toHaveAttribute('data-billing-interval', 'month');
 
     await cta.click();
-    await page.waitForURL(/\/login/);
+    await page.waitForURL(/\/signup$/);
     const stashed = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key) || 'null'),
       PENDING_CHECKOUT_KEY,
@@ -128,7 +130,7 @@ test.describe('pricing CTA — signed out', () => {
     await openPricing(page);
 
     await page.getByTestId('pricing-cta-free').click();
-    await page.waitForURL(/\/login/);
+    await page.waitForURL(/\/signup$/);
 
     const stashed = await page.evaluate(
       (key) => localStorage.getItem(key),

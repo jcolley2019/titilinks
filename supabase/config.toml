@@ -19,3 +19,18 @@ verify_jwt = true
 # still passes --no-verify-jwt. The function is read-only and emits handles only.
 [functions.sitemap]
 verify_jwt = false
+
+# EMAIL.INFRA.1 — send-email is called only by pg_cron/pg_net, which sends the
+# anon key as its JWT plus x-email-cron-secret; the gateway check stays on.
+[functions.send-email]
+verify_jwt = true
+
+# EMAIL.INFRA.1 — mailbox providers (RFC 8058 one-click POST) and readers
+# clicking the footer link send no JWT. The unsubscribe token is the credential.
+[functions.email-unsubscribe]
+verify_jwt = false
+
+# EMAIL.INFRA.1 — Resend cannot send a Supabase JWT; the Svix signature
+# (RESEND_WEBHOOK_SECRET) is the credential.
+[functions.resend-webhook]
+verify_jwt = false

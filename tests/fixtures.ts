@@ -161,11 +161,21 @@ async function installWriteGuard(context: BrowserContext): Promise<string[]> {
   });
 
   // track_event stub — no spec mints real analytics rows.
+  await installAnalyticsStub(context);
+
+  return denied;
+}
+
+/**
+ * The track_event stub on its own (see the RULING in the header). Every
+ * guarded context gets it through installWriteGuard(); a spec that hand-rolls
+ * a signed-out visitor context with browser.newContext() — which carries no
+ * fixture routes — calls this so its page views mint no real event rows.
+ */
+export async function installAnalyticsStub(context: BrowserContext): Promise<void> {
   await context.route(/\/rest\/v1\/rpc\/track_event/, (route) =>
     route.fulfill({ status: 200, body: '' })
   );
-
-  return denied;
 }
 
 export const test = base.extend({

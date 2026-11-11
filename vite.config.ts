@@ -1,10 +1,15 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // EMAIL.INFRA.1: /u/<token> is the email-unsubscribe edge function in prod
+  // (vercel.json rewrite). The dev server mirrors that rewrite so the link and
+  // spec 88 work on 8085; without the env var there is simply no proxy.
+  const supabaseUrl = loadEnv(mode, process.cwd(), "VITE_").VITE_SUPABASE_URL;
+  return {
   server: {
     host: "::",
     // HOUSE.1: titilinks lives on 8085 (titiactriz keeps 8080) so both dev
@@ -20,6 +25,22 @@ export default defineConfig(({ mode }) => ({
     watch: {
       ignored: ['**/tests/results/**', '**/playwright-report/**', '**/test-results/**'],
     },
+    proxy: supabaseUrl
+      ? {
+          "^/u/[^/]+/?$": {
+            target: supabaseUrl,
+            changeOrigin: true,
+            rewrite: (p: string) => `/functions/v1/email-unsubscribe${p}`,
+            // The Supabase gateway serves function GETs as text/plain; vercel.json
+            // pins the type in prod, this pins it in dev.
+            configure: (proxy) => {
+              proxy.on("proxyRes", (proxyRes, req) => {
+                if (req.method === "GET") proxyRes.headers["content-type"] = "text/html; charset=utf-8";
+              });
+            },
+          },
+        }
+      : undefined,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   // TL.BUNDLE.1 (AUDIT_rev6 #13): the eager vendor libraries get their own
@@ -56,4 +77,5 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom"],
   },
-}));
+};
+});
