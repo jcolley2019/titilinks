@@ -2,10 +2,16 @@
 
 ## Editing discipline
 - File contents on disk always win over memory/index/observations. Never edit from recall — always read the target region immediately before editing.
-- One file per task unless explicitly told otherwise. Apply exact FIND/REPLACE edits; if an anchor doesn't match or is ambiguous, STOP and flag it — never improvise.
+- Stay inside the files the task names; when it names none, touch only the files the change needs. When a brief gives an exact FIND/REPLACE and its anchor doesn't match or is ambiguous, re-read the file to find the intended target; if it is still unclear, stop and flag it rather than guess — a wrong guess lands an edit the architect never specified.
 - Never refactor, rename, or "improve" code outside the requested change.
 - Architect the right home for a feature up front. Don't drop a control into a convenient-but-wrong surface meaning to relocate it later — that breeds duplicates and rework. Decide where it belongs and build it there once.
 - Reuse what already exists. Before adding any UI, find the component, pattern, and sizing the app already uses for that thing and match it. Don't reinvent a control that already ships.
+
+## Working through a task
+- Finish the whole task. Do not stop to ask whether to continue while work remains that does not need Joey's answer. Work through ordinary errors; stop only for a real blocker or before a risky or destructive action.
+- Stop when the requested work is done and checked. Do not add unrequested features, tests, docs or refactors; mention useful extras at the end instead.
+- On long runs, give a one-line status update every few tool calls.
+- Before reporting done, run a real check (tests, typecheck, build, or the changed command). Say plainly what you could not verify.
 
 ## Layout & fit — verify BEFORE handing off any UI change
 This is the #1 source of rework. Editors and menus in this app render in TWO widths:
@@ -19,9 +25,9 @@ Rules:
 - Mentally render the change at panel width before writing it. If the right edge would clip, it's wrong — fix it first, don't ship it for the user to discover.
 
 ## Checks
-- Run on every task: `npm run guard && npx tsc -p tsconfig.app.json --noEmit`
-  (bare `tsc --noEmit` is a false pass — the root config checks zero files).
-- End every task with that check + `git diff --stat`, then STOP. The user reviews the diff and commits — the agent never commits.
+- Run on every task that changes code, tests, scripts or config: `npm run guard && npx tsc -p tsconfig.app.json --noEmit`
+  (bare `tsc --noEmit` is a false pass — the root config checks zero files). A docs-only task may skip it; say so in the report.
+- End every task with that check + `git diff --stat`. The user reviews the diff and commits, unless the task says to commit (see Git).
 
 ## Git
 - NEVER `git add -A` or `git add .` — untracked screenshots/docs must stay untracked. Use `git add -u` plus explicitly named new files.
