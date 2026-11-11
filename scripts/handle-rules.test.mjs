@@ -20,6 +20,21 @@ import {
   validateHandle,
 } from '../src/lib/handle-rules';
 import { RESERVED_SLUGS } from '../src/lib/reserved-slugs';
+import { RESERVED_FIRST_SEGMENTS } from '../src/lib/seo-profile-html';
+
+/** The migration that carries the CURRENT constraint definitions. */
+const CURRENT_MIGRATION = '20261111130000_email_handle1_reserved_email.sql';
+/** The first one (#43, 54 words), superseded by CURRENT_MIGRATION. */
+const FIRST_MIGRATION = '20260904130000_handle1_reserved_and_format.sql';
+/** RESERVED_HANDLES.size as of EMAIL.HANDLE.1 — bump it with the SQL. */
+const RESERVED_COUNT = 58;
+
+/** The `reserved text[] := array[ … ]::text[]` words of a migration, in order. */
+const sqlReservedArray = (sql) => {
+  const m = /reserved text\[\] := array\[([\s\S]*?)\]::text\[\]/.exec(sql);
+  assert.ok(m, 'the migration declares `reserved text[] := array[…]::text[]`');
+  return [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]);
+};
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -116,7 +131,27 @@ const ok = (m) => { passed++; console.log(`ok ${m}`); };
     'the exported list has no duplicates');
   assert.deepEqual([...RESERVED_HANDLE_LIST], [...RESERVED_HANDLE_LIST].sort(),
     'the exported list is sorted, so the generated SQL is stable');
+  assert.equal(RESERVED_HANDLES.size, RESERVED_COUNT,
+    `the reserved set has ${RESERVED_COUNT} words (bump RESERVED_COUNT with a new migration)`);
   ok(`reserved set: ${RESERVED_HANDLES.size} words, superset of the ${RESERVED_SLUGS.size} slug words`);
+}
+
+// ── every handle-shaped first path segment is a reserved handle ──────────────
+{
+  // EMAIL.HANDLE.1: 'email' was in RESERVED_FIRST_SEGMENTS (so middleware never
+  // treated /email as a creator page) but not in RESERVED_HANDLES, so a creator
+  // could still claim a handle whose page the server would never serve. A
+  // segment that HANDLE_PATTERN already refuses ('es', 'u', 'sitemap.xml')
+  // needs no entry; every other one must be reserved.
+  const handleShaped = RESERVED_FIRST_SEGMENTS.filter((s) => HANDLE_PATTERN.test(s));
+  for (const s of handleShaped) {
+    assert.equal(isReservedHandle(s), true,
+      `first segment "${s}" is handle-shaped, so it must be a reserved handle`);
+  }
+  for (const w of ['email', 'goodbye', 'assets', 'models']) {
+    assert.equal(validateHandle(w), 'reserved', `"${w}" is reserved (EMAIL.HANDLE.1)`);
+  }
+  ok(`all ${handleShaped.length} handle-shaped RESERVED_FIRST_SEGMENTS entries are reserved handles`);
 }
 
 // ── every prod row still passes (STEP 0b SELECT, 2026-09-04) ─────────────────
@@ -140,27 +175,30 @@ const ok = (m) => { passed++; console.log(`ok ${m}`); };
     assert.ok(RESERVED_SQL_ARRAY.includes(`'${w}'`), `"${w}" is in the SQL literal`);
   }
 
-  // The shipped migration must carry the SAME regex and the SAME words. This is
-  // the anti-drift check: edit the module without regenerating the SQL and the
-  // guard fails here rather than in production with a bare 23514.
-  const sql = readFileSync(
-    new URL('../supabase/migrations/20260904130000_handle1_reserved_and_format.sql', import.meta.url),
-    'utf8');
-  assert.ok(sql.includes(HANDLE_PATTERN.source),
-    'the migration embeds the module regex verbatim');
-  for (const w of RESERVED_HANDLE_LIST) {
-    assert.ok(sql.includes(`'${w}'`), `the migration lists "${w}"`);
-  }
-  // …and nothing the module does not know about.
-  const inSql = [...sql.matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1])
-    .filter((w) => !w.includes('_') && w !== 'text');
-  for (const w of inSql) {
-    if (RESERVED_HANDLES.has(w)) continue;
-    assert.fail(`the migration lists "${w}", which is not in RESERVED_HANDLES`);
-  }
+  // The CURRENT migration must carry the SAME regex and the SAME words, in the
+  // same sorted order. This is the anti-drift check: edit the module without
+  // regenerating the SQL and the guard fails here rather than in production
+  // with a bare 23514.
+  const read = (name) =>
+    readFileSync(new URL(`../supabase/migrations/${name}`, import.meta.url), 'utf8');
+  const sql = read(CURRENT_MIGRATION);
+  assert.equal(sql.split(HANDLE_PATTERN.source).length - 1, 2,
+    'the migration embeds the module regex verbatim, once per constraint');
+  assert.deepEqual(sqlReservedArray(sql), [...RESERVED_HANDLE_LIST],
+    'the migration array is exactly RESERVED_HANDLE_LIST, nothing missing and nothing extra');
+  assert.ok(sql.includes('pages_handle_rules') && sql.includes('profiles_username_rules'),
+    'the migration restates both constraints');
   assert.equal(sql.split('\n')[0].startsWith('-- RE-RUNNABLE'), true,
     'the migration declares its class on line 1 (MIG-HEADERS)');
-  ok('the shipped migration carries the same regex and exactly the same 54 words');
+
+  // #43 stays as the record of what was pasted on 2026-09-04. Every word it
+  // reserved is still reserved, so the restated constraints only ever tighten.
+  const first = sqlReservedArray(read(FIRST_MIGRATION));
+  assert.equal(first.length, 54, '#43 recorded 54 words');
+  for (const w of first) {
+    assert.ok(RESERVED_HANDLES.has(w), `#43 reserved "${w}", and it is still reserved`);
+  }
+  ok(`${CURRENT_MIGRATION} carries the same regex and exactly the same ${RESERVED_COUNT} words; #43's 54 are all kept`);
 }
 
 // ── falsification: an inverted / loosened rule lets the defect back in ───────

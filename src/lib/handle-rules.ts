@@ -9,8 +9,9 @@
  *
  * The format rule mirrors the DB check constraints `pages_handle_rules` and
  * `profiles_username_rules` (see handle1.sql /
- * supabase/migrations/20260904130000_handle1_reserved_and_format.sql); keep the
- * three in agreement. `RESERVED_SQL_ARRAY` below is the literal the constraints
+ * supabase/migrations/20260904130000_handle1_reserved_and_format.sql, restated
+ * with the current list by 20261111130000_email_handle1_reserved_email.sql);
+ * keep the three in agreement. `RESERVED_SQL_ARRAY` below is the literal the constraints
  * embed, generated from the same set the client checks.
  *
  * This is a superset of the short-link rules: every reserved slug is also a
@@ -33,6 +34,12 @@ const HANDLE_ONLY_RESERVED = [
   'official', 'staff', 'team', 'mod', 'moderator', 'security', 'legal', 'press',
   // System words — a handle that reads as a status page or a JS bug
   'status', 'null', 'undefined',
+  // Top-level paths the server keeps for the app or for static files
+  // (RESERVED_FIRST_SEGMENTS in src/lib/seo-profile-html.ts): /goodbye is a
+  // route, /email/*, /assets/* and /models/* are public/ and build folders.
+  // Every handle-shaped entry of that list must be in this set
+  // (scripts/handle-rules.test.mjs checks it).
+  'email', 'goodbye', 'assets', 'models',
 ] as const;
 
 /** RESERVED_SLUGS ∪ the brand/system words above. */
