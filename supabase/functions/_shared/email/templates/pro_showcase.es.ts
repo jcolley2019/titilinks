@@ -22,5 +22,9 @@ export const proShowcaseEs: EmailTemplate = {
     "Pro cuesta US{{pro_month}} al mes, o US{{pro_year_total}} al año (US{{pro_year_monthly}} al mes).",
   ],
   button: { label: "Ver Pro", href: "upgrade_url" },
+  image: {
+    file: "pro_showcase.es.png",
+    alt: "La pantalla Mejora a Pro en un teléfono, con el precio y la lista de lo que incluye Pro.",
+  },
   closing: ["Si con el plan Gratis tienes todo lo que necesitas, no tienes que hacer nada."],
 };

@@ -21,8 +21,22 @@
 //   {{free_short_links}}  {{pro_month}}  {{pro_year_monthly}}  {{pro_year_total}}
 //                         the product facts in facts.ts.
 // A token the renderer does not know throws, so a typo can never reach an inbox.
+//
+// EMAIL.DRIP.2 — each template also names one image (template.image): a real
+// screen of the app from public/email/, shown under the headline, linked to the
+// same URL as the button, with alt text in the template's language.
 
-import { buttonHtml, escapeHtml, layoutHtml, layoutText, SITE, type Lang, type Stream } from "./layout.ts";
+import {
+  BRAND,
+  buttonHtml,
+  emailAssetUrl,
+  escapeHtml,
+  layoutHtml,
+  layoutText,
+  SITE,
+  type Lang,
+  type Stream,
+} from "./layout.ts";
 import {
   ANALYTICS_PATH,
   EDITOR_PATH,
@@ -77,6 +91,13 @@ export interface EmailTemplate {
   button: { label: string; href: EmailLink };
   /** Paragraphs after the button. */
   closing?: string[];
+  /**
+   * EMAIL.DRIP.2 — a picture of the screen the email talks about, shown under
+   * the headline and linked to the button's URL. `file` is in public/email/
+   * (made by scripts/email-shots.mjs, served from www.titilinks.com/email/);
+   * `alt` describes the screen, in the template's language.
+   */
+  image: { file: string; alt: string };
 }
 
 /** template_key → language → copy. Every key carries both languages. */
@@ -190,7 +211,7 @@ function renderHtmlLine(s: string, vars: Vars): string {
     const value = tokenValue(token, vars);
     out +=
       token === "page_url"
-        ? `<a href="${escapeHtml(value)}" style="color:#111827;text-decoration:underline;">${escapeHtml(value.replace(/^https:\/\//, ""))}</a>`
+        ? `<a href="${escapeHtml(value)}" style="color:${BRAND.nearBlack};text-decoration:underline;">${escapeHtml(value.replace(/^https:\/\//, ""))}</a>`
         : escapeHtml(value);
     last = (m.index ?? 0) + m[0].length;
   }
@@ -274,6 +295,9 @@ export function renderEmail(input: RenderInput): RenderedEmail {
       stream: input.stream,
       subject: template.subject,
       bodyHtml: htmlParts.join("\n"),
+      image: template.image
+        ? { src: emailAssetUrl(template.image.file), alt: template.image.alt, href }
+        : undefined,
       unsubscribeUrl: url,
       postalAddress: input.postalAddress,
     }),

@@ -19,9 +19,18 @@
 // features ENTITLEMENTS gives Pro and not Free; the facts the copy quotes match
 // entitlements.ts, pricing.ts and App.tsx; and the SQL destination rule's
 // expected values match the sitemap's JS rule.
+//
+// EMAIL.DRIP.2 adds: the brand palette in layout.ts equals the src/index.css
+// tokens it names; the HTML is email-safe (no <style>, no flex/grid, no
+// background images, no http: URL, the only <link> is the Google Fonts sheet);
+// every <img> carries width, alt and the block style; every template in both
+// languages has exactly one content image — non-empty alt, an absolute
+// https://www.titilinks.com/email/ src, linked to its button's URL — and the
+// file it names is in public/email/ within the caps (PNG 1200 px wide and
+// ≤ 250 KB; the editor_tour GIF ≤ 600 KB, looping, under 3 s).
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import {
   FROM,
   LINKS,
@@ -36,7 +45,14 @@ import {
   toLang,
   unsubscribeUrl,
 } from '../supabase/functions/_shared/email/render.ts';
-import { POSTAL_ADDRESS_PLACEHOLDER, resolvePostalAddress } from '../supabase/functions/_shared/email/layout.ts';
+import {
+  BRAND,
+  CONTENT_IMAGE_WIDTH,
+  IMG_STYLE,
+  LOGO_WIDTH,
+  POSTAL_ADDRESS_PLACEHOLDER,
+  resolvePostalAddress,
+} from '../supabase/functions/_shared/email/layout.ts';
 import * as FACTS from '../supabase/functions/_shared/email/facts.ts';
 import { CONFIRM_FIELD, pickLang, unsubscribePage, UUID_RE } from '../supabase/functions/_shared/email/unsubscribe-page.ts';
 import { signSvix, verifySvixSignature } from '../supabase/functions/_shared/email/svix.ts';
@@ -74,7 +90,7 @@ const seededKeys = (sql) => {
     assert.ok(r.html.includes(POSTAL), 'postal address in the html footer');
     assert.ok(r.text.includes(POSTAL), 'postal address in the text footer');
     assert.ok(!r.html.includes(POSTAL_ADDRESS_PLACEHOLDER) && !r.text.includes(POSTAL_ADDRESS_PLACEHOLDER), 'the placeholder never renders');
-    assert.ok(!/<img|<script|<link/i.test(r.html), 'plain HTML: no images, scripts or stylesheets');
+    assert.ok(!/<script|<style/i.test(r.html), 'no scripts, no <style> block');
     assert.ok(r.html.includes('href="https://www.titilinks.com/maria-luna"'), 'the page URL is linked');
     assert.ok(r.text.includes('https://www.titilinks.com/maria-luna'), 'the page URL is in the text part');
   }
@@ -211,7 +227,7 @@ const seededKeys = (sql) => {
       assert.ok(r.html.includes(`href="${URL_}"`) && r.text.includes(URL_), `${key}/${lang}: unsubscribe URL in both parts`);
       assert.ok(r.html.includes(POSTAL) && r.text.includes(POSTAL), `${key}/${lang}: postal address in both parts`);
       assert.equal((r.html.match(/data-role="button"/g) ?? []).length, 1, `${key}/${lang}: exactly one button`);
-      assert.ok(!/<img|<script|<link/i.test(r.html), `${key}/${lang}: plain HTML`);
+      assert.ok(!/<script|<style/i.test(r.html), `${key}/${lang}: no scripts, no <style> block`);
       const href = TEMPLATES[key][lang].button.href;
       const target = href === 'page_url' ? 'https://www.titilinks.com/maria-luna' : LINKS[href];
       assert.ok(r.html.includes(`data-role="button" href="${target}"`), `${key}/${lang}: the button opens ${target}`);
@@ -240,6 +256,163 @@ const seededKeys = (sql) => {
   assert.throws(() => renderEmail({ templateKey: '__probe', lang: 'en', ...NEWS }), /unknown token/);
   delete TEMPLATES.__probe;
   ok('every news email carries the unsubscribe URL, the postal address and one button, and refuses a missing address');
+}
+
+// ── DRIP.2: the palette is the app's, from src/index.css ─────────────────────
+{
+  const css = readFileSync('src/index.css', 'utf8');
+  const block = (selector) => {
+    const start = css.indexOf(`${selector} {`);
+    assert.ok(start >= 0, `src/index.css has a ${selector} block`);
+    return css.slice(start, css.indexOf('}', start));
+  };
+  const hex = (scope, token) => {
+    const m = new RegExp(`--${token}:\\s*([\\d.]+)\\s+([\\d.]+)%\\s+([\\d.]+)%`).exec(scope);
+    assert.ok(m, `--${token} is an HSL token`);
+    const [h, s, l] = [Number(m[1]), Number(m[2]) / 100, Number(m[3]) / 100];
+    const k = (n) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return `#${[f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('')}`;
+  };
+  const root = block(':root');
+  const dark = block('.dark');
+  assert.equal(BRAND.gold, hex(root, 'primary'), 'gold = --primary');
+  assert.equal(BRAND.nearBlack, hex(dark, 'background'), 'near-black = the dark --background');
+  assert.equal(BRAND.canvas, hex(root, 'background'), 'canvas = the light --background');
+  assert.equal(BRAND.text, hex(root, 'foreground'), 'body text = --foreground');
+  assert.equal(BRAND.muted, hex(root, 'muted-foreground'), 'footer = --muted-foreground');
+  assert.equal(BRAND.border, hex(root, 'border'), 'footer rule = --border');
+  ok(`the email palette (${Object.values(BRAND).join(' ')}) is the src/index.css tokens`);
+}
+
+// ── DRIP.2: email-safe HTML, one content image per email, files within caps ──
+{
+  const EMAIL_DIR = 'public/email';
+  const PNG_MAX = 250 * 1024;
+  const GIF_MAX = 600 * 1024;
+  const attrs = (tag) => Object.fromEntries([...tag.matchAll(/([a-z-]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+  const unescape = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+  /** Width and byte size of a PNG (IHDR), asserting the signature. */
+  const pngInfo = (path) => {
+    const b = readFileSync(path);
+    assert.equal(b.subarray(1, 4).toString('latin1'), 'PNG', `${path} is a PNG`);
+    return { width: b.readUInt32BE(16), height: b.readUInt32BE(20), bytes: b.length };
+  };
+
+  /** Width, frame count, total delay (ms) and loop flag of a GIF, by walking its blocks. */
+  const gifInfo = (path) => {
+    const b = readFileSync(path);
+    assert.equal(b.subarray(0, 6).toString('latin1'), 'GIF89a', `${path} is a GIF89a`);
+    const width = b.readUInt16LE(6);
+    let i = 13 + (b[10] & 0x80 ? 3 * 2 ** ((b[10] & 7) + 1) : 0);
+    let frames = 0;
+    let delayMs = 0;
+    let loops = false;
+    const skipSubBlocks = () => { while (b[i] !== 0) i += b[i] + 1; i++; };
+    while (i < b.length && b[i] !== 0x3b) {
+      if (b[i] === 0x21) {
+        const label = b[i + 1];
+        if (label === 0xf9) delayMs += b.readUInt16LE(i + 4) * 10;
+        if (label === 0xff && b.subarray(i + 3, i + 14).toString('latin1') === 'NETSCAPE2.0') loops = true;
+        i += 2;
+        skipSubBlocks();
+      } else if (b[i] === 0x2c) {
+        frames++;
+        const packed = b[i + 9];
+        i += 10 + (packed & 0x80 ? 3 * 2 ** ((packed & 7) + 1) : 0) + 1;
+        skipSubBlocks();
+      } else {
+        assert.fail(`${path}: unexpected block 0x${b[i].toString(16)} at ${i}`);
+      }
+    }
+    return { width, frames, delayMs, loops, bytes: b.length };
+  };
+
+  const checked = new Map();
+  const checkFile = (file) => {
+    if (checked.has(file)) return checked.get(file);
+    const path = `${EMAIL_DIR}/${file}`;
+    assert.ok(existsSync(path), `${path} exists (run node scripts/email-shots.mjs)`);
+    let info;
+    if (file.endsWith('.png')) {
+      info = pngInfo(path);
+      assert.ok(info.bytes <= PNG_MAX, `${path} is ${info.bytes} bytes, over ${PNG_MAX}`);
+      if (file !== 'logo.png') assert.equal(info.width, CONTENT_IMAGE_WIDTH * 2, `${path} is ${CONTENT_IMAGE_WIDTH * 2} px wide`);
+    } else if (file.endsWith('.gif')) {
+      info = gifInfo(path);
+      assert.ok(info.bytes <= GIF_MAX, `${path} is ${info.bytes} bytes, over ${GIF_MAX}`);
+      assert.ok(info.delayMs > 0 && info.delayMs < 3000, `${path} runs ${info.delayMs} ms (under 3 s)`);
+      assert.ok(info.frames >= 2 && info.loops, `${path} is a looping animation`);
+      assert.ok(info.width >= CONTENT_IMAGE_WIDTH && info.width <= CONTENT_IMAGE_WIDTH * 2, `${path} fills the ${CONTENT_IMAGE_WIDTH} px slot`);
+    } else {
+      assert.fail(`${file}: only .png and .gif`);
+    }
+    checked.set(file, info);
+    return info;
+  };
+
+  const logo = checkFile('logo.png');
+  assert.equal(logo.width, LOGO_WIDTH * 2, 'logo.png is rendered at 2x its display width');
+
+  for (const [key, byLang] of Object.entries(TEMPLATES)) {
+    const alts = [];
+    for (const lang of LANGS) {
+      const t = byLang[lang];
+      const r = renderEmail({ templateKey: key, lang, ...NEWS });
+      const html = r.html;
+      const where = `${key}/${lang}`;
+
+      // Email-safe: inline styles only, no layout that needs a stylesheet, https only.
+      assert.ok(!/<style\b/i.test(html), `${where}: no <style> block`);
+      assert.ok(!/display:\s*(flex|grid)|background-image|url\(/i.test(html), `${where}: no flex, grid or background images`);
+      assert.ok(!/\bhttp:/i.test(html), `${where}: no http: URL`);
+      const links = [...html.matchAll(/<link\b[^>]*>/gi)].map((m) => attrs(m[0]));
+      assert.equal(links.length, 1, `${where}: one <link>`);
+      assert.match(links[0].href, /^https:\/\/fonts\.googleapis\.com\/css2\?family=DM\+Sans[^"]*family=Playfair\+Display/, `${where}: the <link> is the Google Fonts sheet`);
+      assert.ok(html.includes('<meta name="color-scheme" content="light">'), `${where}: color-scheme light`);
+      assert.ok(html.includes("font-family:'Playfair Display', Georgia, serif"), `${where}: Playfair headline, Georgia fallback`);
+      assert.ok(html.includes("font-family:'DM Sans', Arial, Helvetica, sans-serif"), `${where}: DM Sans body, Arial fallback`);
+      assert.ok(html.includes(`background:${BRAND.nearBlack}`) && html.includes(`background:${BRAND.gold}`), `${where}: near-black band, gold button`);
+
+      // Every image: width, alt, the block style.
+      const imgs = [...html.matchAll(/<img\b[^>]*>/gi)].map((m) => ({ tag: m[0], ...attrs(m[0]) }));
+      for (const img of imgs) {
+        assert.match(img.width ?? '', /^\d+$/, `${where}: <img> has a width`);
+        assert.ok(unescape(img.alt ?? '').trim(), `${where}: <img> has alt text`);
+        assert.ok((img.style ?? '').startsWith(IMG_STYLE), `${where}: <img> style starts with ${IMG_STYLE}`);
+        assert.ok(img.src.startsWith('https://www.titilinks.com/email/'), `${where}: <img> is served from www.titilinks.com/email/`);
+      }
+      const logos = imgs.filter((img) => img['data-role'] === 'logo');
+      assert.equal(logos.length, 1, `${where}: one logo`);
+      assert.equal(logos[0].src, 'https://www.titilinks.com/email/logo.png');
+      assert.equal(logos[0].width, String(LOGO_WIDTH));
+
+      // Exactly one content image, the template's own file, linked like the button.
+      const content = imgs.filter((img) => img['data-role'] === 'content-image');
+      assert.equal(content.length, 1, `${where}: exactly one content image`);
+      assert.equal(imgs.length, 2, `${where}: no other images`);
+      const [img] = content;
+      assert.match(t.image.file, new RegExp(`^${key}\\.${lang}\\.(png|gif)$`), `${where}: names its own file`);
+      assert.equal(t.image.file.endsWith('.gif'), key === 'editor_tour', `${where}: only editor_tour is animated`);
+      assert.equal(img.src, `https://www.titilinks.com/email/${t.image.file}`, `${where}: absolute https src`);
+      assert.equal(img.width, String(CONTENT_IMAGE_WIDTH), `${where}: fills the ${CONTENT_IMAGE_WIDTH} px slot`);
+      assert.equal(unescape(img.alt), t.image.alt, `${where}: alt is the template's`);
+      assert.ok(t.image.alt.trim().length >= 20, `${where}: the alt describes the screen`);
+      alts.push(t.image.alt);
+      const target = t.button.href === 'page_url' ? 'https://www.titilinks.com/maria-luna' : LINKS[t.button.href];
+      assert.ok(html.includes(`<a href="${target}" style="display:block;text-decoration:none;">${img.tag}</a>`), `${where}: the image links to ${target}, like the button`);
+      checkFile(t.image.file);
+      // The still of every screen ships too (editor_tour's GIF has a PNG beside it).
+      checkFile(`${key}.${lang}.png`);
+      // Alt text is content, not decoration: escaped, and absent from the text part.
+      assert.ok(!r.text.includes(t.image.alt), `${where}: the text part does not repeat the alt`);
+    }
+    assert.notEqual(alts[0], alts[1], `${key}: EN and ES alt text differ (each in its language)`);
+  }
+  const sizes = [...checked].map(([f, i]) => `${f} ${(i.bytes / 1024).toFixed(0)} KB`).join(', ');
+  ok(`all ${Object.keys(TEMPLATES).length * LANGS.length} emails are email-safe with one linked content image; files within caps (${sizes})`);
 }
 
 // ── DRIP.1: pro_showcase claims only what Pro has and Free lacks ─────────────

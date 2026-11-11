@@ -19,4 +19,8 @@ export const editorTourEn: EmailTemplate = {
     "Your photo: tap the pencil on it to re-crop it, or the camera to choose a new one.",
   ],
   button: { label: "Edit my page", href: "editor_url" },
+  image: {
+    file: "editor_tour.en.gif",
+    alt: "The TitiLinks editor on a phone, with the Edit Profile button at the top highlighted. Tapping it opens the Add Content menu.",
+  },
 };

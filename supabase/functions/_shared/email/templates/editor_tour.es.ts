@@ -19,4 +19,8 @@ export const editorTourEs: EmailTemplate = {
     "Tu foto: toca el lápiz para recortarla de nuevo o la cámara para elegir otra.",
   ],
   button: { label: "Editar mi página", href: "editor_url" },
+  image: {
+    file: "editor_tour.es.gif",
+    alt: "El editor de TitiLinks en un teléfono, con el botón Editar perfil resaltado arriba. Al tocarlo se abre el menú Agregar contenido.",
+  },
 };

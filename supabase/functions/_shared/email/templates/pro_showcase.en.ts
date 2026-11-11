@@ -27,5 +27,9 @@ export const proShowcaseEn: EmailTemplate = {
     "Pro is {{pro_month}} a month, or {{pro_year_total}} a year (that's {{pro_year_monthly}} a month).",
   ],
   button: { label: "See Pro", href: "upgrade_url" },
+  image: {
+    file: "pro_showcase.en.png",
+    alt: "The Upgrade to Pro screen on a phone, with the price and the list of what Pro includes.",
+  },
   closing: ["If the Free plan does everything you need, you don't have to do anything."],
 };

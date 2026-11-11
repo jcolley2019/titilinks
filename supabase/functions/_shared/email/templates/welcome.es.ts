@@ -17,5 +17,9 @@ export const welcomeEs: EmailTemplate = {
     "Pega tu link en la bio de Instagram y de TikTok.",
   ],
   button: { label: "Abrir mi editor", href: "editor_url" },
+  image: {
+    file: "welcome.es.png",
+    alt: "Una página de TitiLinks terminada en un teléfono: una foto arriba, el nombre y el usuario, los íconos de redes y los botones de links debajo.",
+  },
   closing: ["¿Tienes dudas? Responde a este correo."],
 };

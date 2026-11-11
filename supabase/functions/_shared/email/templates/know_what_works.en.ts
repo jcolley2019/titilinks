@@ -16,4 +16,8 @@ export const knowWhatWorksEn: EmailTemplate = {
     "One tip: put what you want people to do today at the top of your page.",
   ],
   button: { label: "Open my analytics", href: "analytics_url" },
+  image: {
+    file: "know_what_works.en.png",
+    alt: "The Analytics screen on a phone: views and clicks for the last 7 days, with the 30-day total under each.",
+  },
 };

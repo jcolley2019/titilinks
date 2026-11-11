@@ -5,6 +5,8 @@
 // (the module is edge code, not app code, so nothing in the app imports it).
 // Always green against the working tree:
 //   1. candidateHandle accepts exactly one lowercase handle-shaped segment.
+//   1b. a file under public/email/ (EMAIL.DRIP.2) is served by the dev server as
+//      itself, not the SPA shell.
 //   2. buildProfileHtml escapes every value, keeps exactly one title and one
 //      canonical, drops non-http(s) and 18+-gated links, keeps </script> out of
 //      the JSON-LD, puts the summary inside #root, and leaves none of the
@@ -93,7 +95,8 @@ test.describe('TL.SEO.META.1 — Part A: the pure builders (dev server)', () => 
     // '/signup' — SEO.TITILINKS.MONEYPAGE.1: the money page is reserved, never a handle lookup.
     // '/blog' — SEO.TITILINKS.BLOG.1: the English blog index, same reason.
     // '/u', '/u/x' — EMAIL.INFRA.1: /u/<token> is the email-unsubscribe function, never a handle lookup.
-    const cases = ['/joeyc', '/Joey-C/', '/', '/templates', '/dashboard', '/signup', '/blog', '/u', '/u/x', '/a.b', '/x/y', '/-bad'];
+    // '/email', '/email/x.png' — EMAIL.DRIP.2: public/email/ holds the onboarding emails' images.
+    const cases = ['/joeyc', '/Joey-C/', '/', '/templates', '/dashboard', '/signup', '/blog', '/u', '/u/x', '/email', '/email/', '/email/welcome.en.png', '/a.b', '/x/y', '/-bad'];
     const got = await page.evaluate(async (paths) => {
       // @ts-expect-error vite runtime path — served by the dev server, unresolvable by tsc
       const m = (await import('/src/lib/seo-profile-html.ts')) as Mod;
@@ -109,10 +112,27 @@ test.describe('TL.SEO.META.1 — Part A: the pure builders (dev server)', () => 
       '/blog': null,
       '/u': null,
       '/u/x': null,
+      '/email': null,
+      '/email/': null,
+      '/email/welcome.en.png': null,
       '/a.b': null,
       '/x/y': null,
       '/-bad': null,
     });
+  });
+
+  test('1b. a file under public/email/ is served as itself, ahead of the handle route', async ({ request }) => {
+    // EMAIL.DRIP.2 — the onboarding emails load these from www.titilinks.com/email/.
+    // A miss would fall through to the SPA shell (text/html), so the type is the proof.
+    for (const [path, type] of [
+      ['/email/logo.png', 'image/png'],
+      ['/email/welcome.en.png', 'image/png'],
+      ['/email/editor_tour.es.gif', 'image/gif'],
+    ]) {
+      const res = await request.get(path);
+      expect(res.status(), path).toBe(200);
+      expect(res.headers()['content-type'], path).toContain(type);
+    }
   });
 
   test('2. buildProfileHtml escapes, dedupes and swaps the homepage tags for the creator', async ({ page }) => {

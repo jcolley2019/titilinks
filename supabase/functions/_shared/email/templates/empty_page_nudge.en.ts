@@ -12,5 +12,9 @@ export const emptyPageNudgeEn: EmailTemplate = {
     "Adding your first link takes about a minute: paste it in, and TitiLinks usually fills in the title and picture for you.",
   ],
   button: { label: "Add my first link", href: "editor_url" },
+  image: {
+    file: "empty_page_nudge.en.png",
+    alt: "The new-link form in the TitiLinks editor on a phone, with the box where you paste your link and the title below it.",
+  },
   closing: ["Stuck? Reply to this email and a person will help."],
 };

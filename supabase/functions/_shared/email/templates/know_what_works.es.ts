@@ -14,4 +14,8 @@ export const knowWhatWorksEs: EmailTemplate = {
     "Un consejo: pon arriba de todo lo que quieres que la gente haga hoy.",
   ],
   button: { label: "Ver mis analíticas", href: "analytics_url" },
+  image: {
+    file: "know_what_works.es.png",
+    alt: "La pantalla de Analíticas en un teléfono: vistas y clics de los últimos 7 días, con el total de 30 días debajo de cada uno.",
+  },
 };

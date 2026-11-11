@@ -17,5 +17,9 @@ export const welcomeEn: EmailTemplate = {
     "Paste your link in your Instagram and TikTok bio.",
   ],
   button: { label: "Open my page editor", href: "editor_url" },
+  image: {
+    file: "welcome.en.png",
+    alt: "A finished TitiLinks page on a phone: a photo at the top, the creator's name and handle, social icons, and link buttons below.",
+  },
   closing: ["Questions? Just reply to this email."],
 };
