@@ -100,18 +100,22 @@ export default function Login({ page }: { page?: 'signup' } = {}) {
         void startCheckout(resume).then(({ error }) => {
           // Success navigates to Stripe and never gets here. On failure fall
           // through to the normal destination rather than trapping them on /login.
-          if (error) navigate(onboardingComplete ? '/dashboard/editor' : '/onboarding');
+          if (error) navigate(onboardingComplete === false ? '/onboarding' : '/dashboard/editor');
         });
         return;
       }
 
-      if (onboardingComplete) {
+      // FRAGILE.ONB.1 — only a SUCCESSFUL read saying "incomplete" (false)
+      // goes to onboarding. A failed read (null) goes to the editor, whose
+      // ProtectedRoute shows Retry instead of guessing "new user".
+      if (onboardingComplete === false) {
+        navigate('/onboarding');
+      } else {
         // Existing account with a built page — a template browsed just now must
         // NOT overwrite it. Drop any pending handoff before entering the editor.
+        // A failed read takes this branch too: it may be a built page.
         try { localStorage.removeItem(PENDING_TEMPLATE_KEY); } catch { /* storage disabled */ }
         navigate('/dashboard/editor');
-      } else {
-        navigate('/onboarding');
       }
     }
   }, [user, authLoading, onboardingLoading, onboardingComplete, navigate]);

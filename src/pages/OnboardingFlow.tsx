@@ -333,10 +333,15 @@ export default function OnboardingFlow() {
         .maybeSingle();
 
       if (existingPage) {
-        // Update existing page theme
-        await supabase.from('pages').update({
-          theme_json: themeJson,
-        }).eq('id', existingPage.id);
+        // FRAGILE.ONB.1 — re-theme only a page this wizard run created (the
+        // user went Back to change their vibe). A page that already existed
+        // keeps its theme: the step-3 state there is onboarding defaults, not
+        // a choice, and writing it replaced a finished creator's whole design.
+        if (state.pageCreatedInWizard) {
+          await supabase.from('pages').update({
+            theme_json: themeJson,
+          }).eq('id', existingPage.id);
+        }
 
         updateField('createdPageId', existingPage.id);
         updateField('createdHandle', existingPage.handle);
@@ -371,6 +376,7 @@ export default function OnboardingFlow() {
       }).select().single();
 
       if (pageError) throw pageError;
+      updateField('pageCreatedInWizard', true);
 
       // Single page (Page 1 = shop mode). A second page is opt-in later via the
       // editor's "Second page" toggle (Pro), which creates it on demand —
@@ -414,9 +420,19 @@ export default function OnboardingFlow() {
     }
   };
 
-  // Step 4 save: add social link items to blocks
+  // Step 4 save: add social link items to blocks.
+  // FRAGILE.ONB.1 (audit O1) — this used to delete EVERY item in the block and
+  // then insert only what was ticked, so a creator bounced here with nothing
+  // ticked lost all their social links on Continue. Now:
+  //   - nothing ticked → no writes at all;
+  //   - ticked platforms already in the block are not inserted again (the
+  //     duplicate guard the blanket delete used to provide);
+  //   - a delete happens only AFTER the insert succeeded, and only of rows this
+  //     wizard run itself inserted for a platform that is now unticked.
+  //   Rows that existed before the wizard are never deleted.
   const handleStep4Next = async () => {
-    if (!user || !state.createdPageId) {
+    const ticked = state.selectedSocialPlatforms;
+    if (!user || !state.createdPageId || ticked.length === 0) {
       goNext();
       return;
     }
@@ -425,22 +441,24 @@ export default function OnboardingFlow() {
     stepSavingRef.current = true;
     try {
       // Find shop mode's social_links block
-      const { data: modes } = await supabase
+      const { data: modes, error: modesError } = await supabase
         .from('modes')
         .select('id')
         .eq('page_id', state.createdPageId)
         .eq('type', 'page1');
+      if (modesError) throw modesError;
 
       if (!modes || modes.length === 0) {
         goNext();
         return;
       }
 
-      const { data: blocks } = await supabase
+      const { data: blocks, error: blocksError } = await supabase
         .from('blocks')
         .select('id')
         .eq('mode_id', modes[0].id)
         .eq('type', 'social_links');
+      if (blocksError) throw blocksError;
 
       if (!blocks || blocks.length === 0) {
         goNext();
@@ -449,21 +467,47 @@ export default function OnboardingFlow() {
 
       const blockId = blocks[0].id;
 
-      // Always delete existing items first to prevent duplicates
-      await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('block_items')
-        .delete()
+        .select('id, label, order_index')
         .eq('block_id', blockId);
+      if (existingError) throw existingError;
 
-      // Insert selected platforms if any
-      if (state.selectedSocialPlatforms.length > 0) {
-        const items = state.selectedSocialPlatforms.map((platform, i) => ({
-          block_id: blockId,
-          label: platform,
-          url: '',
-          order_index: i,
-        }));
-        await supabase.from('block_items').insert(items);
+      const norm = (s: string | null) => (s ?? '').trim().toLowerCase();
+      const existingRows = existing ?? [];
+      const present = new Set(existingRows.map((r) => norm(r.label)));
+      const toInsert = ticked.filter((p) => !present.has(norm(p)));
+
+      let wizardItems = state.wizardSocialItems;
+      if (toInsert.length > 0) {
+        const base = existingRows.reduce((m, r) => Math.max(m, r.order_index + 1), 0);
+        const { data: inserted, error: insertError } = await supabase
+          .from('block_items')
+          .insert(toInsert.map((platform, i) => ({
+            block_id: blockId,
+            label: platform,
+            url: '',
+            order_index: base + i,
+          })))
+          .select('id, label');
+        if (insertError) throw insertError;
+        wizardItems = [...wizardItems, ...(inserted ?? []).map((r) => ({ id: r.id, label: r.label ?? '' }))];
+        updateField('wizardSocialItems', wizardItems);
+      }
+
+      // Only now — the insert is done — drop rows THIS wizard run added for a
+      // platform the user has since unticked. Pre-existing rows are untouched.
+      const tickedSet = new Set(ticked.map(norm));
+      const liveIds = new Set(existingRows.map((r) => r.id));
+      const stale = wizardItems.filter((w) => liveIds.has(w.id) && !tickedSet.has(norm(w.label)));
+      if (stale.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('block_items')
+          .delete()
+          .in('id', stale.map((w) => w.id));
+        if (deleteError) throw deleteError;
+        const staleIds = new Set(stale.map((w) => w.id));
+        updateField('wizardSocialItems', wizardItems.filter((w) => !staleIds.has(w.id)));
       }
 
       goNext();

@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { safeHref } from '@/lib/safe-url';
 import { stripSampleItems } from '@/lib/placeholder-item';
 import { gateBlocksForVisitor } from '@/lib/plan-gate';
+import { LoadErrorState } from '@/components/LoadErrorState';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Page = Tables<'pages'>;
@@ -61,6 +62,9 @@ export default function Editor() {
   // profiles.show_badge toggle. Same rule the public page applies.
   const showBranding = !can('removeBranding') || showBadge;
   const [loading, setLoading] = useState(true);
+  // FRAGILE.ONB.1 — the page load FAILED (as opposed to "no page"). Only a
+  // successful load that finds no page may send the user to /onboarding.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState<Page | null>(null);
   const [modes, setModes] = useState<Mode[]>([]);
   const [selectedMode, setSelectedMode] = useState<'page1' | 'page2'>('page1');
@@ -169,6 +173,7 @@ export default function Editor() {
 
   const fetchPageData = async () => {
     if (!user) return;
+    setLoadFailed(false);
 
     try {
       const { data: pageData, error: pageError } = await supabase
@@ -194,6 +199,7 @@ export default function Editor() {
       }
     } catch (error) {
       console.error('Error fetching page data:', error);
+      setLoadFailed(true);
       toast.error(t('editor.loadFailed'));
     } finally {
       setLoading(false);
@@ -775,6 +781,19 @@ export default function Editor() {
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  // FRAGILE.ONB.1 — a failed load is not "no page": stay on the editor with
+  // Retry. Redirecting here sent finished creators into the wizard (audit O1).
+  if (loadFailed) {
+    return (
+      <DashboardLayout>
+        <LoadErrorState
+          className="min-h-[400px]"
+          onRetry={() => { setLoading(true); void fetchPageData(); }}
+        />
       </DashboardLayout>
     );
   }

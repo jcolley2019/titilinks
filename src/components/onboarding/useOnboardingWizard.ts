@@ -39,6 +39,13 @@ export interface OnboardingState {
   direction: number;
   createdPageId: string | null;
   createdHandle: string | null;
+  // FRAGILE.ONB.1 — true only when THIS wizard run inserted the page in step 3.
+  // A page that already existed (resume / a bounced creator) keeps its theme:
+  // Back-to-step-3 + Continue must not rewrite it with onboarding defaults.
+  pageCreatedInWizard: boolean;
+  // FRAGILE.ONB.1 — social items THIS wizard run inserted in step 4. The only
+  // rows step 4 may ever delete (an unticked platform on a later Continue).
+  wizardSocialItems: Array<{ id: string; label: string }>;
 }
 
 type Action =
@@ -76,6 +83,8 @@ const initialState: OnboardingState = {
   direction: 1,
   createdPageId: null,
   createdHandle: null,
+  pageCreatedInWizard: false,
+  wizardSocialItems: [],
 };
 
 function reducer(state: OnboardingState, action: Action): OnboardingState {
