@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { normalizePlan, type Plan } from '@/lib/entitlements';
+import type { Plan } from '@/lib/entitlements';
+import { lastKnownPublicBranding, loadPublicBranding } from '@/hooks/usePublicPageBranding';
 
 /**
- * Best-effort read of a PUBLIC page's owner's plan tier, via the
- * get_public_page_plan security-definer RPC (profiles is owner-only RLS, so
- * the public route can't read profiles.plan directly — PRICE.TRUTH.1).
+ * Best-effort read of a PUBLIC page's owner's plan tier (PRICE.TRUTH.1) — the
+ * email-subscribe gate.
  *
- * Defaults to 'free' while loading and on any failure (function missing
- * pre-migration, network error, no row) — fail toward the free tier's
- * constraints, never toward silently granting paid behavior.
+ * FRAGILE.PUB.1a: this used to call its own get_public_page_plan RPC and fall
+ * back to 'free' on any error. That RPC reads the same profiles.plan as
+ * get_public_page_branding, so it now shares the public page's one lookup
+ * (loadPublicBranding): retried once, given up at ~4 s, the last confirmed plan
+ * for the handle from this browser session when there is no answer, and 'free'
+ * only when nothing is known. A failure is never stored as an answer.
+ *
+ * 'free' while loading when nothing is known — fail toward the free tier's constraints, never toward
+ * silently granting paid behaviour. It starts from the last known plan for the
+ * page (lastKnownPublicBranding) when there is one, so a failed lookup does not
+ * hide the form and then pop it back. When the page's own lookup already has a
+ * fresh answer (the usual case: the public page holds its skeleton until it
+ * does), that answer is the starting value and no second request is made.
  */
 export function usePublicPagePlan(pageId: string | undefined): Plan {
-  const [plan, setPlan] = useState<Plan>('free');
+  const [plan, setPlan] = useState<Plan>(() => lastKnownPublicBranding(pageId)?.plan ?? 'free');
 
   useEffect(() => {
     if (!pageId) {
@@ -21,16 +30,9 @@ export function usePublicPagePlan(pageId: string | undefined): Plan {
     }
 
     let cancelled = false;
-
-    (async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_public_page_plan', { p_page_id: pageId });
-        if (cancelled) return;
-        setPlan(error || !data ? 'free' : normalizePlan(data));
-      } catch {
-        if (!cancelled) setPlan('free');
-      }
-    })();
+    void loadPublicBranding(pageId).then(({ branding }) => {
+      if (!cancelled) setPlan(branding.plan);
+    });
 
     return () => {
       cancelled = true;

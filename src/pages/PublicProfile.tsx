@@ -32,6 +32,8 @@ import { usePublicPageBranding } from '@/hooks/usePublicPageBranding';
 import { can } from '@/lib/entitlements';
 import { transformUrl } from '@/lib/media-url';
 import { HERO_MAX_PX } from '@/lib/crop';
+import { LoadErrorState } from '@/components/LoadErrorState';
+import { retryRead } from '@/lib/retry-read';
 
 type Page = Tables<'pages'>;
 type Mode = Tables<'modes'>;
@@ -49,6 +51,11 @@ interface ModeDetectionResult {
   mode: ModeType;
   reason: RoutingReason;
 }
+
+// FRAGILE.PUB.1: the page lookup and the content reads get three tries, each
+// cut off at 5 s; the best-effort side reads (pixels, fonts) get one, cut off at 4 s.
+const PUBLIC_READ = { attempts: 3, backoffMs: 400, attemptTimeoutMs: 5000 };
+const SIDE_READ = { attempts: 1, attemptTimeoutMs: 4000 };
 
 function detectMode(searchParams: URLSearchParams): ModeDetectionResult {
   // 1. Explicit page selector (?page=1 / ?page=2).
@@ -81,9 +88,12 @@ export default function PublicProfile() {
   // PRICE.TRUTH.1 / PROMO.TOGGLE.1: page owner's plan + optional-badge toggle,
   // read through the same public security-definer RPC pattern as pixels/fonts
   // above. Fails toward { free, badge shown }.
-  const ownerBranding = usePublicPageBranding(page?.id);
+  const ownerBranding = usePublicPageBranding(page?.id, handle);
   const [blocksByMode, setBlocksByMode] = useState<{ page1: BlockWithItems[]; page2: BlockWithItems[] }>({ page1: [], page2: [] });
   const [notFound, setNotFound] = useState(false);
+  // FRAGILE.PUB.1 (audit P1): the page lookup itself never got an answer — not
+  // the same as "no such page". Shows Retry, never the 404.
+  const [loadFailed, setLoadFailed] = useState(false);
   // PIXELS.1: the page owner's tracking-pixel IDs, read through a public
   // security-definer RPC (profiles is owner-only, so an anon visitor can't
   // select them directly). Best-effort — a null result just means no pixels.
@@ -225,6 +235,11 @@ export default function PublicProfile() {
     if (!handle) return;
 
     setLoading(true);
+    setLoadFailed(false);
+    setNotFound(false);
+    // FRAGILE.PUB.1: set once the page row is in hand. From then on a failed
+    // secondary read renders what loaded instead of blanking the page.
+    let pageLoaded = false;
     try {
       // Fetch page by handle
       // MEDIA.LEAK.1: the visitor reads the `pages_public` view, never `pages`
@@ -232,31 +247,45 @@ export default function PublicProfile() {
       // and strips `theme_json.avatar_original_url_page2` — the creator's raw
       // un-recropped uploads (EXIF/GPS intact) — so `*` here is safe by
       // construction. The editor/owner path still reads `pages` directly.
-      const { data: pageData, error: pageError } = await supabase
-        .from('pages_public')
-        .select('*')
-        .eq('handle', handle.toLowerCase())
-        .maybeSingle();
+      const { data: pageData, error: pageError } = await retryRead(
+        (signal) => supabase
+          .from('pages_public')
+          .select('*')
+          .eq('handle', handle.toLowerCase())
+          .abortSignal(signal)
+          .maybeSingle(),
+        PUBLIC_READ,
+      );
 
-      if (pageError) throw pageError;
+      // FRAGILE.PUB.1 (audit P1): only a lookup that ANSWERED "no row" is a
+      // missing page. A lookup that failed every try (network, timeout, 5xx)
+      // shows Retry — telling a visitor on weak signal the creator does not
+      // exist was the bug.
+      if (pageError) {
+        console.error('Error fetching page:', pageError);
+        setLoadFailed(true);
+        return;
+      }
 
       if (!pageData) {
         setNotFound(true);
-        setLoading(false);
         return;
       }
 
       // `Page` still carries the column for the shared EditableProfileView prop
       // type; a visitor's copy holds null, never the URL.
       setPage({ ...pageData, avatar_original_url: null });
+      pageLoaded = true;
 
       // PIXELS.1: best-effort read of the owner's tracking pixels via the
       // public security-definer RPC. Isolated try/catch so a pixels failure
       // (RLS, missing function pre-migration) never 404s the profile.
       try {
-        const { data: px } = await supabase.rpc('get_public_tracking_pixels', {
-          page_handle: handle.toLowerCase(),
-        });
+        // FRAGILE.PUB.1: time-limited — a stalled pixels read must not hold the page.
+        const { data: px } = await retryRead(
+          (signal) => supabase.rpc('get_public_tracking_pixels', { page_handle: handle.toLowerCase() }).abortSignal(signal),
+          SIDE_READ,
+        );
         const row = Array.isArray(px) ? px[0] : px;
         setPixelIds({
           meta: row?.meta_pixel_id ?? null,
@@ -273,9 +302,11 @@ export default function PublicProfile() {
       // `custom:` font key on this page resolves. Isolated try/catch: a fonts
       // failure (missing function pre-migration) never 404s the profile.
       try {
-        const { data: brandFonts } = await supabase.rpc('get_public_brand_fonts', {
-          page_handle: handle.toLowerCase(),
-        });
+        // FRAGILE.PUB.1: time-limited, same as pixels.
+        const { data: brandFonts } = await retryRead(
+          (signal) => supabase.rpc('get_public_brand_fonts', { page_handle: handle.toLowerCase() }).abortSignal(signal),
+          SIDE_READ,
+        );
         ensureUserFontFaces(fontsFromBrandJson(brandFonts));
       } catch (fontErr) {
         console.warn('[fonts] fetch failed:', fontErr);
@@ -283,11 +314,17 @@ export default function PublicProfile() {
 
       // Fetch both modes (page1 = Page 1, page2 = Page 2) so the visitor
       // switcher can flip pages instantly without a refetch.
-      const { data: modesData, error: modeError } = await supabase
-        .from('modes')
-        .select('*')
-        .eq('page_id', pageData.id)
-        .in('type', ['page1', 'page2']);
+      // FRAGILE.PUB.1: these three reads retry too; if one still fails, the
+      // catch below renders the page row with what did load.
+      const { data: modesData, error: modeError } = await retryRead(
+        (signal) => supabase
+          .from('modes')
+          .select('*')
+          .eq('page_id', pageData.id)
+          .in('type', ['page1', 'page2'])
+          .abortSignal(signal),
+        PUBLIC_READ,
+      );
 
       if (modeError) throw modeError;
 
@@ -308,25 +345,37 @@ export default function PublicProfile() {
       }
 
       // Fetch enabled blocks for both modes in one query.
-      const { data: blocksData, error: blocksError } = await supabase
-        .from('blocks')
-        .select('*')
-        .in('mode_id', modeIds)
-        .eq('is_enabled', true)
-        .order('order_index', { ascending: true });
+      const { data: blocksData, error: blocksError } = await retryRead(
+        (signal) => supabase
+          .from('blocks')
+          .select('*')
+          .in('mode_id', modeIds)
+          .eq('is_enabled', true)
+          .order('order_index', { ascending: true })
+          .abortSignal(signal),
+        PUBLIC_READ,
+      );
 
       if (blocksError) throw blocksError;
 
       const allBlocks = blocksData || [];
       // Fetch items for all blocks (both modes) in one query.
       const blockIds = allBlocks.map((b) => b.id);
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('block_items')
-        .select('*')
-        .in('block_id', blockIds)
-        .order('order_index', { ascending: true });
+      const { data: fetchedItems, error: itemsError } = await retryRead(
+        (signal) => supabase
+          .from('block_items')
+          .select('*')
+          .in('block_id', blockIds)
+          .order('order_index', { ascending: true })
+          .abortSignal(signal),
+        PUBLIC_READ,
+      );
 
-      if (itemsError) throw itemsError;
+      // FRAGILE.PUB.1: the blocks loaded, their items did not — render the
+      // blocks that stand on their own; link/product blocks left with no items
+      // drop out at render (stripSampleItems), as an emptied block always has.
+      if (itemsError) console.error('Error fetching block items:', itemsError);
+      const itemsData = itemsError ? [] : fetchedItems;
 
       // Every item, samples included: the plan gate and then the sample filter
       // (TL.PUB.SAMPLES.1/1b) run at render on the page being shown — see
@@ -366,7 +415,10 @@ export default function PublicProfile() {
       setBlocksByMode(grouped);
     } catch (error) {
       console.error('Error fetching page:', error);
-      setNotFound(true);
+      // FRAGILE.PUB.1: a failure here is never "not found". With the page row
+      // in hand, render what loaded (the blocks state keeps whatever was set);
+      // without it, offer Retry.
+      if (!pageLoaded) setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -374,6 +426,12 @@ export default function PublicProfile() {
 
   if (loading) {
     return <PublicProfileSkeleton />;
+  }
+
+  // FRAGILE.PUB.1: checked before notFound — a failed lookup has no answer, so
+  // it can never be shown as a missing page.
+  if (loadFailed) {
+    return <LoadErrorState variant="visitor" onRetry={() => { void fetchPageData(); }} />;
   }
 
   if (notFound || !page) {
