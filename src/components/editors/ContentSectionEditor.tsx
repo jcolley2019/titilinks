@@ -469,17 +469,19 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
     setSaving(true);
     try {
       // Save config to block title
-      await supabase
+      const { error: blockError } = await supabase
         .from('blocks')
         .update({ title: JSON.stringify(config) })
         .eq('id', blockId);
+      if (blockError) throw blockError;
 
       // Delete removed items
       const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
 
       for (const item of toDelete) {
-        await supabase.from('block_items').delete().eq('id', item.id);
+        const { error: deleteError } = await supabase.from('block_items').delete().eq('id', item.id);
+        if (deleteError) throw deleteError;
       }
 
       // Update or create items. TL.EDIT.DIRTY.1 — collect every row as it now
@@ -515,10 +517,11 @@ export function ContentSectionEditor({ blockId, open, onOpenChange, onSave, pane
             subtitle: item.meta_left || null,
             order_index: i,
           };
-          await supabase
+          const { error: updateError } = await supabase
             .from('block_items')
             .update(rowData)
             .eq('id', item.id);
+          if (updateError) throw updateError;
           const prev = existingItems.find((ei) => ei.id === item.id);
           savedRows.push({ ...prev!, ...rowData });
         }

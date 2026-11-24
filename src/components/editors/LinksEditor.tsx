@@ -1754,9 +1754,12 @@ export function LinksEditor({ blockId, open, onOpenChange, onSave, panelMode, di
       const ids = (data || []).map((r) => (r as { id: string }).id).filter((id) => id !== bId);
       const aIdx = ids.indexOf(aId);
       ids.splice(aIdx >= 0 ? aIdx + 1 : ids.length, 0, bId);
-      for (let i = 0; i < ids.length; i++) {
-        await supabase.from('block_items').update({ order_index: i }).eq('id', ids[i]);
-      }
+      // FRAGILE.WRITES.1: the whole new order in one all-or-nothing write.
+      const { error: reorderError } = await supabase.rpc('reorder_block_items', {
+        p_block_id: blockId,
+        p_ids: ids,
+      });
+      if (reorderError) throw reorderError;
 
       await afterSave();
       toast.success(t('linksEditor.cardsSaved'));

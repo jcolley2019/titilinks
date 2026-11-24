@@ -77,6 +77,7 @@ import { PageSetupWizard, type WizardResume } from '@/components/editors/PageSet
 import type { ChecklistRoute } from '@/lib/ais-checklist';
 import type { BlockWithItems } from '@/components/blocks/types';
 import { BLOCK_PRESETS, DEFAULT_PRESET_KEY } from '@/lib/block-presets';
+import { captureSnapshot } from '@/lib/snapshots';
 import { PAGE_SINGLETON_TYPES } from '@/lib/default-blocks';
 import { FONT_OPTIONS, resolveFontFamily } from '@/lib/fonts';
 import { validateHandle } from '@/lib/handle-rules';
@@ -1061,7 +1062,13 @@ export function ProfileDashboard({
       is_enabled: true,
       order_index: i,
     }));
-    await supabase.from('blocks').insert(seed);
+    // FRAGILE.WRITES.1: a failed seed must not go on to enable a blank Page 2.
+    const { error: seedError } = await supabase.from('blocks').insert(seed);
+    if (seedError) {
+      console.error('Page 2 seed failed:', seedError);
+      toast.error(t('dashboard.pages.createFailed'));
+      return null;
+    }
     return newMode.id;
   };
 
@@ -1069,7 +1076,7 @@ export function ProfileDashboard({
     // Two pages is Pro-gated; Free users get an upsell instead of enabling.
     if (enabled && !canTwoPages) return;
     // New accounts have only Page 1 — create a born-complete Page 2 first.
-    if (enabled) await ensureSecondPage();
+    if (enabled && !(await ensureSecondPage())) return;
     // Disabling Page 2 while editing it bounces editing back to Page 1.
     if (!enabled && selectedMode === 'page2') onSelectedModeChange?.('page1');
     // ONE theme_json write for the enabled flag + the dialed-in Page 2 hero
@@ -1101,6 +1108,19 @@ export function ProfileDashboard({
   // preserving the header social blocks. Today only the Default preset remains.
   const applyPreset = async (presetKey: string) => {
     setPendingPreset(null);
+    const preset = BLOCK_PRESETS.find((p) => p.key === presetKey);
+    if (!preset) return;
+    // FRAGILE.WRITES.1 (E4): back up the page BEFORE the reset reads or deletes
+    // anything — the same auto safety net DesignEditor.handleReset takes. A
+    // capture failure aborts the reset: nothing is deleted without a restore
+    // point first. 'auto' captures are quota-exempt, so this works on Free.
+    try {
+      await captureSnapshot(pageId, t('snapshots.autoBeforeReset').replace('{name}', t(preset.label)), 'auto');
+    } catch (snapErr) {
+      console.error('[snapshots] pre-reset capture failed:', snapErr);
+      toast.error(t('snapshots.autoFailed'));
+      return;
+    }
     // The modeId prop can lag a freshly-created Page 2: Editor refetches modes
     // on refresh, but a reset tapped immediately after enabling can beat that.
     // Resolve the active mode from the DB when the prop is null so the reset
@@ -1116,8 +1136,6 @@ export function ProfileDashboard({
       activeModeId = data?.id ?? null;
     }
     if (!activeModeId) { toast.error(t('dashboard.noMode')); return; }
-    const preset = BLOCK_PRESETS.find((p) => p.key === presetKey);
-    if (!preset) return;
     try {
       const { data: existing, error: fErr } = await supabase
         .from('blocks')

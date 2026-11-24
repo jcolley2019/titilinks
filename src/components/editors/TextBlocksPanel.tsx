@@ -91,7 +91,8 @@ export function TextBlocksPanel({ modeId, onRefresh, onEdit, onToggle }: TextBlo
     try {
       // block_items is empty for text blocks, but clear it first for parity with
       // the app's other block-removal paths.
-      await supabase.from('block_items').delete().eq('block_id', id);
+      const { error: itemsError } = await supabase.from('block_items').delete().eq('block_id', id);
+      if (itemsError) throw itemsError;
       const { error } = await supabase.from('blocks').delete().eq('id', id);
       if (error) throw error;
       setConfirmDeleteId(null);

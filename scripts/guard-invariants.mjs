@@ -161,6 +161,17 @@ const checks = [
   // page can be listed for content no visitor sees, or hidden content listed.
   // Compared whitespace-normalised; change both or neither.
   { name:'PLACEHOLDER-RULE-PARITY', placeholderParity:true },
+  // FRAGILE.WRITES.1 (AUDIT.FRAGILE.1 E3/O3): supabase-js table writes and rpc
+  // calls never throw — they RETURN { error }. A bare `await supabase.from(…)
+  // .update(…)` statement inside a try/catch therefore can never reach its
+  // catch, and the code after it announces success for a write that failed
+  // (the half-applied reorder loops, the onboarding Finish that navigated on a
+  // rejected onboarding_complete). Every awaited insert/update/upsert/delete or
+  // rpc in src/ must keep its result; the statement form that discards it — one
+  // line, or `await supabase` with the chain on the following lines — fails
+  // here. `.auth`, `.storage` and `.functions` are out of scope. Analytics is
+  // fire-and-forget by design and is the one allowlisted file.
+  { name:'CHECKED-WRITES', checkedWrites:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -409,6 +420,66 @@ for (const c of checks) {
       console.error(`      before index.css); never a Google Fonts URL, never an @import in index.css.`);
     } else {
       console.log(`ok ${c.name} (${faces} @font-face blocks in src/lib/fonts.css, imported before index.css; no Google Fonts; zero @import in index.css)`);
+    }
+    continue;
+  }
+  if (c.checkedWrites) {
+    const ALLOW = new Set(['src/hooks/useEventTracking.ts']);
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.tsx?$/.test(p) ? [p] : [];
+    });
+    // The statement that starts at `from`: up to the `;` at bracket depth 0, or
+    // (no semicolon) the first newline at depth 0 that is not followed by a
+    // `.` chain continuation. String literals and // comments are skipped.
+    const statementAt = (src, from) => {
+      let depth = 0;
+      for (let i = from; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '"' || ch === "'" || ch === '`') {
+          for (i++; i < src.length && src[i] !== ch; i++) if (src[i] === '\\') i++;
+          continue;
+        }
+        if (ch === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; i--; continue; }
+        if ('([{'.includes(ch)) depth++;
+        else if (')]}'.includes(ch)) { if (--depth < 0) return src.slice(from, i); }
+        else if (ch === ';' && depth === 0) return src.slice(from, i);
+        else if (ch === '\n' && depth === 0 && !/^\s*\./.test(src.slice(i + 1, i + 200))) return src.slice(from, i);
+      }
+      return src.slice(from);
+    };
+    const bad = [];
+    let kept = 0;
+    for (const f of walkSrc('src')) {
+      const src = readFileSync(f, 'utf8');
+      kept += (src.match(/=\s*await\s+supabase\s*\.\s*(rpc|from)\s*\(/g) ?? []).length;
+      if (ALLOW.has(f)) continue;
+      // An expression statement: `await supabase` is the first thing on its
+      // line, so nothing receives the result.
+      const re = /^[ \t]*await\s+supabase\b/gm;
+      let m;
+      while ((m = re.exec(src))) {
+        const start = m.index + m[0].indexOf('await');
+        const stmt = statementAt(src, start).replace(/\s+/g, ' ');
+        const head = stmt.match(/^await supabase\s*\.\s*(\w+)\s*\(/);
+        if (!head) continue; // .auth / .storage / .functions are out of scope
+        const isWrite = head[1] === 'rpc'
+          || (head[1] === 'from' && /\.\s*(insert|update|upsert|delete)\s*\(/.test(stmt));
+        if (!isWrite) continue;
+        const line = src.slice(0, start).split('\n').length;
+        bad.push(`${f}:${line}  ${stmt.slice(0, 110)}`);
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - a supabase table write or rpc discards its result (FRAGILE.WRITES.1)`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      supabase-js never throws on a failed write or rpc; it RETURNS { error }, so a`);
+      console.error(`      bare await inside try/catch can never reach the catch. Keep the result:`);
+      console.error(`      const { error } = await supabase...; if (error) throw error; (or the function's`);
+      console.error(`      own failure path) so no success side effect runs after a failed write.`);
+    } else {
+      console.log(`ok ${c.name} (0 discarded write/rpc results in src/; ${kept} awaited calls keep theirs; ${ALLOW.size} file allowlisted)`);
     }
     continue;
   }

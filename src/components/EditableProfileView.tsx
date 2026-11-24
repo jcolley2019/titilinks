@@ -2656,9 +2656,9 @@ export function EditableProfileView({
   const fontFamily = resolveFontFamily(draftFont) ?? getFontFamily(theme);
   const chrome = getChromeTokens(theme);
 
-  const saveHeaderConfig = async (config: Record<string, unknown>) => {
+  const saveHeaderConfig = async (config: Record<string, unknown>): Promise<boolean> => {
     const existingTheme = (page.theme_json as any) || {};
-    await supabase
+    const { error } = await supabase
       .from('pages')
       .update({
         theme_json: {
@@ -2671,7 +2671,14 @@ export function EditableProfileView({
         },
       })
       .eq('id', page.id);
+    // FRAGILE.WRITES.1: report the result; only a landed write refreshes.
+    if (error) {
+      console.error('Error saving header config:', error);
+      toast.error(t('editor.saveFailed'));
+      return false;
+    }
     onRefresh();
+    return true;
   };
 
   // Hero image — per-page. Page 2 uses its own image unless it
@@ -3733,7 +3740,12 @@ export function EditableProfileView({
                     localNameColor={localNameColor}
                     localHandleColor={localHandleColor}
                     onDisplayNameChange={async (name) => {
-                      await supabase.from('pages').update({ display_name: name }).eq('id', page.id);
+                      const { error } = await supabase.from('pages').update({ display_name: name }).eq('id', page.id);
+                      if (error) {
+                        console.error('Error saving display name:', error);
+                        toast.error(t('editor.saveFailed'));
+                        return;
+                      }
                       onRefresh();
                     }}
                   />

@@ -351,17 +351,19 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
     setSaving(true);
     try {
       // Save config to block title
-      await supabase
+      const { error: blockError } = await supabase
         .from('blocks')
         .update({ title: JSON.stringify(config) })
         .eq('id', blockId);
+      if (blockError) throw blockError;
 
       // Delete removed items
       const currentIds = items.filter((i) => !i.id.startsWith('new-')).map((i) => i.id);
       const toDelete = existingItems.filter((ei) => !currentIds.includes(ei.id));
 
       for (const item of toDelete) {
-        await supabase.from('block_items').delete().eq('id', item.id);
+        const { error: deleteError } = await supabase.from('block_items').delete().eq('id', item.id);
+        if (deleteError) throw deleteError;
       }
 
       // Update or create items. TL.EDIT.DIRTY.1 — collect every row as it now
@@ -383,7 +385,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
           if (error) throw error;
           savedRows.push(inserted);
         } else {
-          await supabase
+          const { error: updateError } = await supabase
             .from('block_items')
             .update({
               label: item.label,
@@ -392,6 +394,7 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               order_index: i,
             })
             .eq('id', item.id);
+          if (updateError) throw updateError;
           const prev = existingItems.find((ei) => ei.id === item.id);
           savedRows.push({ ...prev!, label: item.label, url: item.url, image_url: item.image_url || null, order_index: i });
         }

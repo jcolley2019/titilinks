@@ -168,7 +168,9 @@ export default function Editor() {
       order_index: i,
     }));
 
-    await supabase.from('block_items').insert(placeholderItems);
+    // Placeholder seed only — nothing the creator typed. Log and carry on.
+    const { error: seedError } = await supabase.from('block_items').insert(placeholderItems);
+    if (seedError) console.error('Error seeding placeholder links:', seedError);
   };
 
   const fetchPageData = async () => {
@@ -669,14 +671,11 @@ export default function Editor() {
     const preserved = allBlocks.filter(b => !blockIds.includes(b.id));
     setAllBlocks([...reordered, ...preserved]);
 
-    try {
-      for (let i = 0; i < blockIds.length; i++) {
-        await supabase
-          .from('blocks')
-          .update({ order_index: i })
-          .eq('id', blockIds[i]);
-      }
-    } catch (error) {
+    // FRAGILE.WRITES.1: one all-or-nothing write. The old per-row loop sat in a
+    // try/catch it could never reach (supabase-js returns errors, it does not
+    // throw), so a failed row left the order half-applied with no toast.
+    const { error } = await supabase.rpc('reorder_blocks', { p_ids: blockIds });
+    if (error) {
       console.error('Error reordering blocks:', error);
       toast.error(t('editor.failedReorder'));
       fetchBlocks();
@@ -684,8 +683,8 @@ export default function Editor() {
   };
 
   // Item reorder (G3): mirrors handleBlockReorder but on block_items, scoped to
-  // one block. Optimistic reorder of that block's items, then per-row order_index
-  // writes; refetch on failure.
+  // one block. Optimistic reorder of that block's items, then one all-or-nothing
+  // reorder_block_items write; refetch on failure.
   const handleItemsReorder = async (blockId: string, orderedItemIds: string[]) => {
     setAllBlocks(prev => prev.map(b => {
       if (b.id !== blockId) return b;
@@ -693,12 +692,19 @@ export default function Editor() {
       const reordered = orderedItemIds.map(id => byId.get(id)).filter(Boolean) as BlockItem[];
       return { ...b, items: reordered };
     }));
-    try {
-      for (let i = 0; i < orderedItemIds.length; i++) {
-        await supabase.from('block_items').update({ order_index: i }).eq('id', orderedItemIds[i]);
-      }
-    } catch (e) {
-      toast.error('Failed to reorder links');
+    // An open links editor's unsaved draft ('new-' id, the test handleItemDelete
+    // uses) is mirrored into the preview and so rides in orderedItemIds. It has
+    // no row: sending it makes reorder_block_items raise and fail the whole
+    // reorder. Persist only the real ids, in their relative order.
+    const persistedIds = orderedItemIds.filter((id) => !id.startsWith('new-'));
+    if (persistedIds.length === 0) return;
+    const { error } = await supabase.rpc('reorder_block_items', {
+      p_block_id: blockId,
+      p_ids: persistedIds,
+    });
+    if (error) {
+      console.error('Error reordering links:', error);
+      toast.error(t('editor.failedReorderLinks'));
       fetchBlocks();
     }
   };

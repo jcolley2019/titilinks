@@ -104,7 +104,8 @@ export default function OnboardingFlow() {
     if (stepSavingRef.current) return;
     stepSavingRef.current = true;
     try {
-      await supabase.from('profiles').update({ page_style: state.pageStyle }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update({ page_style: state.pageStyle }).eq('id', user.id);
+      if (error) throw error;
       goNext();
     } catch {
       toast.error(t('onboardingFlow.saveFailed'));
@@ -175,11 +176,12 @@ export default function OnboardingFlow() {
         avatarUrl = user.user_metadata.avatar_url;
       }
 
-      await supabase.from('profiles').update({
+      const { error: profileError } = await supabase.from('profiles').update({
         display_name: state.displayName,
         username: state.username,
         avatar_url: avatarUrl,
       }).eq('id', user.id);
+      if (profileError) throw profileError;
 
       // TL.ONB.PERF.1 — avatarPreview is NOT swapped for the public URL here.
       // It used to be, which meant every surface showing the photo (the phone
@@ -262,8 +264,10 @@ export default function OnboardingFlow() {
       }
 
       // Insert all items in one batch
+      // Placeholder content only — log a failure and carry on (non-fatal).
       if (itemsToInsert.length > 0) {
-        await supabase.from('block_items').insert(itemsToInsert);
+        const { error: seedError } = await supabase.from('block_items').insert(itemsToInsert);
+        if (seedError) console.error('Error seeding placeholder items:', seedError);
       }
 
       // Also create missing block types for shop mode
@@ -273,7 +277,7 @@ export default function OnboardingFlow() {
 
       for (let i = 0; i < missingShopTypes.length; i++) {
         const type = missingShopTypes[i];
-        const { data: newBlock } = await supabase
+        const { data: newBlock, error: newBlockError } = await supabase
           .from('blocks')
           .insert({
             mode_id: shopModeId,
@@ -284,9 +288,10 @@ export default function OnboardingFlow() {
           })
           .select('id')
           .single();
+        if (newBlockError) console.error(`Error seeding ${type} block:`, newBlockError);
 
         if (newBlock && type === 'email_subscribe') {
-          await supabase.from('block_items').insert({
+          const { error: subscribeSeedError } = await supabase.from('block_items').insert({
             block_id: newBlock.id,
             label: 'Stay up to date',
             url: '#',
@@ -302,6 +307,7 @@ export default function OnboardingFlow() {
             }),
             order_index: 0,
           });
+          if (subscribeSeedError) console.error('Error seeding subscribe placeholder:', subscribeSeedError);
         }
 
         // ONB.7g-b: the social_icon_row block is created EMPTY — icons
@@ -338,9 +344,10 @@ export default function OnboardingFlow() {
         // keeps its theme: the step-3 state there is onboarding defaults, not
         // a choice, and writing it replaced a finished creator's whole design.
         if (state.pageCreatedInWizard) {
-          await supabase.from('pages').update({
+          const { error: themeError } = await supabase.from('pages').update({
             theme_json: themeJson,
           }).eq('id', existingPage.id);
+          if (themeError) throw themeError;
         }
 
         updateField('createdPageId', existingPage.id);
@@ -394,7 +401,8 @@ export default function OnboardingFlow() {
         // social_links is a header block (populated in the Links step), so it's
         // always present regardless of preset — matching the block-presets contract.
         const preset = BLOCK_PRESETS.find((p) => p.key === state.selectedPreset) ?? BLOCK_PRESETS[0];
-        await supabase.from('blocks').insert([
+        // The creator's chosen layout — a failed write fails the step.
+        const { error: blocksError } = await supabase.from('blocks').insert([
           { mode_id: shopMode.id, type: 'social_links', title: 'Social Links', is_enabled: true, order_index: 0 },
           ...preset.blocks.map((b, i) => ({
             mode_id: shopMode.id,
@@ -404,6 +412,7 @@ export default function OnboardingFlow() {
             order_index: i + 1,
           })),
         ]);
+        if (blocksError) throw blocksError;
 
         // Pre-populate Page 1 blocks with placeholder content.
         await prefillBlockContent(shopMode.id);
@@ -525,7 +534,10 @@ export default function OnboardingFlow() {
     if (stepSavingRef.current) return;
     stepSavingRef.current = true;
     try {
-      await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
+      // FRAGILE.WRITES.1: a failed write must not mark the cache done, drop the
+      // wizard state or leave — ProtectedRoute would bounce the creator back.
+      const { error } = await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
+      if (error) throw error;
       // Immediately update the cache so ProtectedRoute won't redirect back
       queryClient.setQueryData(['onboarding-status', user.id], { onboarding_complete: true });
       // Onboarding is done — drop the persisted wizard state so a future visit

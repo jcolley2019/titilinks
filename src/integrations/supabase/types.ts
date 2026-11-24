@@ -652,6 +652,11 @@ export type Database = {
         Args: { p_referrer: string }
         Returns: number
       }
+      reorder_block_items: {
+        Args: { p_block_id: string; p_ids: string[] }
+        Returns: undefined
+      }
+      reorder_blocks: { Args: { p_ids: string[] }; Returns: undefined }
       resolve_short_link_by_slug: { Args: { p_slug: string }; Returns: string }
       set_my_language: { Args: { p_language: string }; Returns: undefined }
       subscribe_to_page: {
