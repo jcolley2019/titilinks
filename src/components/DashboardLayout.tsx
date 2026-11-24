@@ -227,7 +227,7 @@ export function DashboardLayout({ children, onAddContent, onViewLive, handle }: 
       }
     }
     checkUserPage();
-  }, [user]);
+  }, [user?.id]);
 
   // Build nav items - only include Setup if user hasn't set up their profile
   const withSetup: NavItem[] = hasPage === false

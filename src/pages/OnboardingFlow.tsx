@@ -87,7 +87,7 @@ export default function OnboardingFlow() {
       }
     };
     checkExisting();
-  }, [user]);
+  }, [user?.id]);
 
   // ONB.7a: re-entry guard — async step saves ignore repeat Continue
   // clicks until the in-flight save settles (success or failure).

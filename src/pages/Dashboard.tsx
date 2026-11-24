@@ -95,7 +95,7 @@ export default function Dashboard() {
     };
 
     fetchActiveLinks();
-  }, [user]);
+  }, [user?.id]);
 
   const isLoading = analytics.loading || activeLinksLoading;
 

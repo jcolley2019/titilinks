@@ -90,7 +90,7 @@ export default function Login({ page }: { page?: 'signup' } = {}) {
     if (referralClaimed.current) return;
     referralClaimed.current = true;
     void claimPendingReferral();
-  }, [user, authLoading]);
+  }, [user?.id, authLoading]);
 
   useEffect(() => {
     if (user && !authLoading && !onboardingLoading) {
@@ -118,7 +118,7 @@ export default function Login({ page }: { page?: 'signup' } = {}) {
         navigate('/dashboard/editor');
       }
     }
-  }, [user, authLoading, onboardingLoading, onboardingComplete, navigate]);
+  }, [user?.id, authLoading, onboardingLoading, onboardingComplete, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -59,7 +59,7 @@ export function TrackingPixelsEditor() {
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   const dirty =
     draft.meta !== seed.meta || draft.tiktok !== seed.tiktok || draft.ga4 !== seed.ga4;

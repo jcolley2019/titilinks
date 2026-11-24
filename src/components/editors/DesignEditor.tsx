@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -118,7 +118,7 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
 
   useEffect(() => {
     fetchCustomPresets();
-  }, [user]);
+  }, [user?.id]);
 
   const saveCustomPreset = async () => {
     if (!user || !newPresetName.trim()) return;
@@ -165,7 +165,14 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
     }
   };
 
+  // FRAGILE.TAB.1: a new themeJson (a page re-read) is adopted only while the
+  // draft has no unsaved changes. A dirty draft keeps both itself and its
+  // baseline, so a refresh can never throw away what the creator is editing.
+  // Read through a ref so this effect sees the latest render's dirtiness.
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
   useEffect(() => {
+    if (isDirtyRef.current) return;
     const saved = getThemeWithDefaults(themeJson);
     setTheme(saved);
     markClean(saved);

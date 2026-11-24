@@ -59,7 +59,7 @@ export function DeleteAccountCard() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user?.id]);
 
   // An account with no page has no handle to type; the server accepts the literal
   // 'delete' in that case, so the UI must ask for exactly that.

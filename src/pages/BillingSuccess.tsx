@@ -53,7 +53,7 @@ export default function BillingSuccess() {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [user, isPro, queryClient]);
+  }, [user?.id, isPro, queryClient]);
 
   return (
     <DashboardLayout>

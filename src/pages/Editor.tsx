@@ -337,7 +337,7 @@ export default function Editor() {
 
   useEffect(() => {
     fetchPageData();
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (modes.length > 0) {

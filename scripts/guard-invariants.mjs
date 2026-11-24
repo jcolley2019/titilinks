@@ -179,6 +179,16 @@ const checks = [
   // here. `.auth`, `.storage` and `.functions` are out of scope. Analytics is
   // fire-and-forget by design and is the one allowlisted file.
   { name:'CHECKED-WRITES', checkedWrites:true },
+  // FRAGILE.TAB.1 (AUDIT.FRAGILE.1 E1): supabase-js re-announces SIGNED_IN on
+  // every tab return with a freshly built user object, and useAuth stores it.
+  // A hook whose dependency array names the whole `user` therefore re-runs on
+  // every visit back to the tab: the editor re-read its page and blocks (2 -> 6
+  // page reads after two returns), handed DesignEditor a new themeJson and wiped
+  // the unsaved draft; onboarding re-ran checkExisting and could jump to step 4.
+  // Depend on `user?.id` (a real account change still re-runs). Every
+  // useEffect/useLayoutEffect/useCallback/useMemo/useImperativeHandle in src/ is
+  // scanned; useAuth.tsx, which owns the object, is out of scope.
+  { name:'USER-ID-DEPS', userIdDeps:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -518,6 +528,64 @@ for (const c of checks) {
       console.error(`      own failure path) so no success side effect runs after a failed write.`);
     } else {
       console.log(`ok ${c.name} (0 discarded write/rpc results in src/; ${kept} awaited calls keep theirs; ${ALLOW.size} file allowlisted)`);
+    }
+    continue;
+  }
+  if (c.userIdDeps) {
+    const SKIP = new Set(['src/hooks/useAuth.tsx']);
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.tsx?$/.test(p) ? [p] : [];
+    });
+    // From the `(` at `open`, the top-level arguments of the call up to its
+    // matching `)`. String literals, // and /* */ comments are skipped.
+    const argsAt = (src, open) => {
+      const args = [];
+      let depth = 0, start = open + 1;
+      for (let i = open; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '"' || ch === "'" || ch === '`') {
+          for (i++; i < src.length && src[i] !== ch; i++) if (src[i] === '\\') i++;
+          continue;
+        }
+        if (ch === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+        if (ch === '/' && src[i + 1] === '*') { i = src.indexOf('*/', i + 2); if (i < 0) break; i++; continue; }
+        if ('([{'.includes(ch)) depth++;
+        else if (')]}'.includes(ch)) {
+          if (--depth === 0) { args.push({ text: src.slice(start, i), at: start }); return args; }
+        } else if (ch === ',' && depth === 1) { args.push({ text: src.slice(start, i), at: start }); start = i + 1; }
+      }
+      return args;
+    };
+    // `user` as a whole identifier, not `user?.id` / `user.id` / `userId`.
+    const BARE = /(?<![\w$.])user(?![\w$])(?!\s*\??\.)/;
+    const bad = [];
+    let arrays = 0;
+    for (const f of walkSrc('src')) {
+      if (SKIP.has(f)) continue;
+      const src = readFileSync(f, 'utf8');
+      const re = /\b(?:React\.)?use(?:Effect|LayoutEffect|Callback|Memo|ImperativeHandle)\s*(?:<[^>()]*>)?\s*\(/g;
+      let m;
+      while ((m = re.exec(src))) {
+        const args = argsAt(src, m.index + m[0].length - 1).filter((a) => a.text.trim());
+        const deps = args[args.length - 1];
+        if (args.length < 2 || !deps.text.trim().startsWith('[')) continue;
+        arrays++;
+        const body = deps.text.trim().replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '');
+        if (!BARE.test(body)) continue;
+        const line = src.slice(0, deps.at + deps.text.indexOf('[')).split('\n').length;
+        bad.push(`${f}:${line}  ${body.replace(/\s+/g, ' ').slice(0, 100)}`);
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - a hook dependency array names the whole \`user\` object (FRAGILE.TAB.1)`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      supabase-js re-announces the session on every tab return with a NEW user`);
+      console.error(`      object, so this hook re-runs each time the creator comes back to the tab`);
+      console.error(`      (editor reloads, unsaved drafts reset). Depend on user?.id instead.`);
+    } else {
+      console.log(`ok ${c.name} (${arrays} hook dependency arrays in src/, none names the bare user object)`);
     }
     continue;
   }

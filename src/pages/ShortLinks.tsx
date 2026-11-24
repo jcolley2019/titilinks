@@ -68,7 +68,7 @@ export default function ShortLinks() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   const limit = entitlements.maxShortLinks;
   const atQuota = links.length >= limit;

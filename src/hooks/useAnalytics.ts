@@ -126,7 +126,7 @@ export function useAnalytics(): AnalyticsData {
     };
 
     fetchData();
-  }, [user]);
+  }, [user?.id]);
 
   const analytics = useMemo(() => {
     const sevenDaysAgo = getDaysAgo(7);

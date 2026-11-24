@@ -74,7 +74,7 @@ export default function QRCodePage() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   const publicUrl = handle ? `${window.location.origin}/${handle}` : null;
   const { fg, bg } = resolveColors(style, gold);
