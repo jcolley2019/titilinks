@@ -29,7 +29,11 @@ async function mockFreshAccount(page: Page) {
   });
   for (const table of ['profiles', 'pages']) {
     await page.route(`**/rest/v1/${table}*`, async (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
+      const method = route.request().method();
+      // Onboarding checks the result of its writes (FRAGILE.WRITES.1): answer the
+      // step-1 profiles PATCH with 204 so nothing real leaves the browser.
+      if (method === 'PATCH' && table === 'profiles') return route.fulfill({ status: 204, body: '' });
+      if (method !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
   }
