@@ -23,11 +23,26 @@ import {
  *   if (entitlements.maxPages < 2) {  // show Pro upsell for 2nd page }
  *   if (can('analyticsAdvanced')) {  // render advanced analytics }
  *   if (atLeast('pro')) {  // ... }
+ *
+ * FRAGILE.SUB.1 (audit B1) — a failed read is an ERROR, never an answer.
+ * It used to return null on error, which skipped the retries, was cached for
+ * five minutes and read as Free — so one dropped request could show a paying
+ * creator the Pro pitch. Now the error is thrown so the query retries, and
+ * callers that must not guess (the Upgrade page) read `status`:
+ *
+ *   'loading' — no answer yet (first read or its retries in flight)
+ *   'ready'   — a successful read; `plan` is the real plan
+ *   'error'   — every retry failed; show Retry, never a checkout
+ *
+ * A successful earlier answer wins over a later failed background refetch.
+ * Feature gates are unchanged: with no answer, `plan` still falls back to Free.
  */
+export type EntitlementsStatus = 'loading' | 'ready' | 'error';
+
 export function useEntitlements() {
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['plan', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -39,7 +54,7 @@ export function useEntitlements() {
 
       if (error) {
         console.warn('[useEntitlements] query error:', error.message);
-        return null;
+        throw error;
       }
       return data;
     },
@@ -51,6 +66,11 @@ export function useEntitlements() {
 
   const plan: Plan = normalizePlan(data?.plan);
   const entitlements: PlanEntitlements = getEntitlements(plan);
+
+  let status: EntitlementsStatus;
+  if (data) status = 'ready';
+  else if (isError) status = 'error';
+  else status = 'loading';
 
   return {
     plan,
@@ -64,6 +84,10 @@ export function useEntitlements() {
      *  UI conditionally rather than building a link to `/?ref=null`. */
     referralCode: (data as { referral_code?: string | null } | null)?.referral_code ?? null,
     isLoading: !!user && isLoading,
+    /** Whether `plan` is a real answer ('ready'), still pending, or failed. */
+    status,
+    /** Read the plan again (the Retry on a failed read). */
+    refetch: () => { void refetch(); },
     /** True if the current plan grants a boolean feature. */
     can: (feature: BooleanFeature) => canFeature(plan, feature),
     /** True if the current plan is at least `min` (free < pro < business). */

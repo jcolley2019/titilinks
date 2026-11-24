@@ -6,6 +6,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import { hreflangLinks, isEsPath, marketingUrl } from '@/lib/seo-marketing-html';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
+import { useAlreadySubscribedHandler } from '@/hooks/useAlreadySubscribed';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ export default function Login({ page }: { page?: 'signup' } = {}) {
   const { user, loading: authLoading, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { onboardingComplete, isLoading: onboardingLoading } = useOnboardingStatus();
+  const handleAlreadySubscribed = useAlreadySubscribedHandler();
   const [searchParams] = useSearchParams();
   const { pathname } = useLocation();
   const moneyPage = page === 'signup';
@@ -97,10 +99,14 @@ export default function Login({ page }: { page?: 'signup' } = {}) {
       const resume = !checkoutResumed.current ? consumePendingCheckout() : null;
       if (resume) {
         checkoutResumed.current = true;
-        void startCheckout(resume).then(({ error }) => {
+        void startCheckout(resume).then(({ error, status }) => {
           // Success navigates to Stripe and never gets here. On failure fall
           // through to the normal destination rather than trapping them on /login.
-          if (error) navigate(onboardingComplete === false ? '/onboarding' : '/dashboard/editor');
+          // FRAGILE.SUB.1 — a 409 (already subscribed) also says so first.
+          if (error) {
+            handleAlreadySubscribed(status);
+            navigate(onboardingComplete === false ? '/onboarding' : '/dashboard/editor');
+          }
         });
         return;
       }

@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { signupPathFor } from '@/lib/seo-marketing-html';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useAuth } from '@/hooks/useAuth';
+import { useAlreadySubscribedHandler } from '@/hooks/useAlreadySubscribed';
 import { startCheckout, stashPendingCheckout } from '@/lib/billing';
 import {
   PRO_PRICE,
@@ -77,6 +78,7 @@ export function PricingSection() {
   const { pathname } = useLocation();
   const reduce = useReducedMotion();
   const { user } = useAuth();
+  const handleAlreadySubscribed = useAlreadySubscribedHandler();
   const tx = (en: string, es: string) => (language === 'es' ? es : en);
   // TASK 3: annual is the default — surfaces the founding $7/mo price first.
   const [isAnnual, setIsAnnual] = useState(true);
@@ -95,11 +97,13 @@ export function PricingSection() {
 
   const handleUpgrade = async () => {
     setCheckoutLoading(true);
-    const { error } = await startCheckout(interval);
+    const { error, status } = await startCheckout(interval);
     // On success `startCheckout` has already navigated to Stripe; only the
     // failure path ever runs the lines below.
     if (error) {
       setCheckoutLoading(false);
+      // FRAGILE.SUB.1 — 409 = already subscribed; never a second checkout.
+      if (handleAlreadySubscribed(status)) return;
       toast({
         title: tx('Could not start checkout', 'No se pudo iniciar el pago'),
         description: error,

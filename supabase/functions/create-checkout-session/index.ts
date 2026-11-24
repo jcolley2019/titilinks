@@ -13,6 +13,7 @@ import { corsHeaders, fail, json, preflight, resolveSiteOrigin } from "../_share
 import { getAuthedUser, serviceClient } from "../_shared/auth.ts";
 import { priceDefinitionFor } from "../_shared/billing.ts";
 import { stripeFetch } from "../_shared/stripe.ts";
+import { hasAccessGrantingSubscription, type SubscriptionStatusLike } from "./rules.ts";
 
 interface CheckoutRequest {
   priceId?: string;
@@ -57,6 +58,35 @@ Deno.serve(async (req) => {
 
     const existingCustomer = (profile as { stripe_customer_id?: string | null } | null)
       ?.stripe_customer_id;
+
+    // FRAGILE.SUB.1 (audit B1) — never sell a second subscription. The client
+    // can be wrong about the plan (a failed read once looked like Free), so the
+    // server asks Stripe itself. "Subscribed" is the webhook's own definition
+    // (ACCESS_GRANTING_STATUSES via ./rules.ts). If Stripe cannot be asked, no
+    // session is created: refusing a sale is recoverable, a double bill is not.
+    if (existingCustomer) {
+      let subscriptions: { data?: SubscriptionStatusLike[] };
+      try {
+        subscriptions = await stripeFetch<{ data?: SubscriptionStatusLike[] }>(
+          `/subscriptions?customer=${encodeURIComponent(existingCustomer)}&status=all&limit=100`,
+          { method: "GET" },
+        );
+      } catch (lookupErr) {
+        const msg = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+        console.error(
+          `[create-checkout-session] subscription lookup failed for user ${user.id}:`,
+          msg,
+        );
+        return fail("Could not check your current subscription. Please try again.", 502);
+      }
+
+      if (hasAccessGrantingSubscription(subscriptions?.data)) {
+        console.log(
+          `[create-checkout-session] refused for user ${user.id}: already has a live subscription`,
+        );
+        return fail("You already have an active subscription", 409);
+      }
+    }
 
     const session = await stripeFetch<{ id: string; url: string | null }>(
       "/checkout/sessions",

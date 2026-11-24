@@ -68,6 +68,7 @@ import {
   qualifyAtFrom,
   voidGrantsForReferred,
 } from '../supabase/functions/_shared/referrals.ts';
+import { hasAccessGrantingSubscription } from '../supabase/functions/create-checkout-session/rules.ts';
 import { ENTITLEMENTS } from '../src/lib/entitlements.ts';
 import { PRO_PRICE } from '../src/lib/pricing.ts';
 
@@ -983,6 +984,53 @@ ok('rule R6: thresholds are named constants with ToS references');
     assert.deepEqual(producers, ['plan-lifecycle.ts'], `only plan-lifecycle.ts may derive plan from Stripe (found: ${producers.join(', ')})`);
   }
   ok('census: plan-lifecycle.ts is the only _shared/ module deriving plan from a Stripe status');
+}
+
+// ── FRAGILE.SUB.1: checkout refuses an already-subscribed customer ─────────────
+//
+// create-checkout-session asks Stripe for the customer's subscriptions and
+// 409s when any is live. "Live" must be the webhook's own definition, so the
+// decision reads ACCESS_GRANTING_STATUSES — tested here against every status.
+{
+  const sub = (status) => ({ id: `sub_${status}`, status });
+
+  for (const status of ['active', 'trialing', 'past_due']) {
+    assert.equal(hasAccessGrantingSubscription([sub(status)]), true, `${status} blocks a second checkout`);
+  }
+  ok('checkout guard: active / trialing / past_due count as already subscribed');
+
+  for (const status of ['canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused']) {
+    assert.equal(hasAccessGrantingSubscription([sub(status)]), false, `${status} does not block checkout`);
+  }
+  ok('checkout guard: canceled / unpaid / incomplete / incomplete_expired / paused do not');
+
+  assert.equal(hasAccessGrantingSubscription([]), false, 'an empty list is no subscription');
+  assert.equal(hasAccessGrantingSubscription(undefined), false, 'a missing list is no subscription');
+  assert.equal(hasAccessGrantingSubscription(null), false, 'a null list is no subscription');
+  ok('checkout guard: empty / missing list → not subscribed');
+
+  assert.equal(
+    hasAccessGrantingSubscription([sub('canceled'), sub('active')]),
+    true,
+    'one live subscription among dead ones still blocks',
+  );
+  assert.equal(
+    hasAccessGrantingSubscription([sub('canceled'), sub('incomplete_expired'), { id: 'sub_x' }]),
+    false,
+    'only dead or status-less subscriptions → not subscribed',
+  );
+  ok('checkout guard: a mixed list blocks when any one is live');
+
+  // The guard and the webhook must agree: a status grants Pro in the webhook
+  // exactly when it blocks a second checkout.
+  for (const [status] of PLAN_TABLE) {
+    assert.equal(
+      hasAccessGrantingSubscription([sub(status)]),
+      planForSubscriptionStatus(status) === 'pro',
+      `${status}: checkout guard and plan-flip table agree`,
+    );
+  }
+  ok('checkout guard agrees with the webhook plan-flip table on every status');
 }
 
 console.log(`\nAll ${passed} billing checks passed.`);

@@ -50,7 +50,6 @@ export const proDesc = (language: string): string =>
 /** What Pro unlocks. Mirrors ENTITLEMENTS.pro in `src/lib/entitlements.ts`. */
 export const proFeatures = (language: string): string[] => [
   tx(language, 'Two pages', 'Dos páginas'),
-  tx(language, 'All premium themes', 'Todos los temas premium'),
   tx(language, 'Full analytics', 'Analíticas completas'),
   tx(language, 'Link animations', 'Animaciones de enlaces'),
   tx(language, 'Custom fonts & Brand Kit', 'Fuentes personalizadas y Kit de marca'),

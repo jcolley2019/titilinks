@@ -9,15 +9,22 @@
 // Already paying? There is nothing to sell. The page swaps to a plan readout
 // plus the Stripe Customer Portal handoff, matching the Settings billing card
 // rather than showing a second, competing "Upgrade" CTA.
+//
+// FRAGILE.SUB.1 — and until the plan read has actually answered, there is
+// nothing to show: a pending read gets a spinner, a failed one gets Retry.
+// Neither shows the pitch or a checkout button, because "no answer" used to
+// read as Free and sold paying creators a second subscription (audit B1).
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Crown, Loader2, Sparkles } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { LoadErrorState } from '@/components/LoadErrorState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useAlreadySubscribedHandler } from '@/hooks/useAlreadySubscribed';
 import { openBillingPortal, startCheckout } from '@/lib/billing';
 import {
   PRO_PRICE,
@@ -34,8 +41,9 @@ const GOLD = '#C9A55C';
 
 export default function Upgrade() {
   const { language, t } = useLanguage();
-  const { entitlements, atLeast } = useEntitlements();
+  const { entitlements, atLeast, status: planStatus, refetch: refetchPlan } = useEntitlements();
   const isPaid = atLeast('pro');
+  const handleAlreadySubscribed = useAlreadySubscribedHandler();
 
   // Annual first — it surfaces the lower founding rate, same as the landing
   // grid (PRICE.TRUTH.1 TASK 3).
@@ -48,11 +56,13 @@ export default function Upgrade() {
 
   const handleUpgrade = async () => {
     setCheckoutLoading(true);
-    const { error } = await startCheckout(interval);
+    const { error, status } = await startCheckout(interval);
     // On success `startCheckout` has already navigated to Stripe; only the
     // failure path reaches the lines below.
     if (error) {
       setCheckoutLoading(false);
+      // 409 = already subscribed: toast + re-read the plan (→ the paid view).
+      if (handleAlreadySubscribed(status)) return;
       toast.error(t('upgrade.checkoutError'), { description: error });
     }
   };
@@ -90,7 +100,15 @@ export default function Upgrade() {
           </p>
         </div>
 
-        {isPaid ? (
+        {planStatus === 'loading' ? (
+          /* ---------------- Plan read still in flight ---------------- */
+          <div className="flex justify-center py-16" data-testid="upgrade-plan-loading">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : planStatus === 'error' ? (
+          /* ---------------- Plan read failed: Retry, never a guess ---------------- */
+          <LoadErrorState className="min-h-[300px]" onRetry={refetchPlan} />
+        ) : isPaid ? (
           /* ---------------- Already on a paid plan ---------------- */
           <Card>
             <CardContent className="p-5 space-y-4">

@@ -146,9 +146,10 @@ test.describe('/dashboard/upgrade — free plan', () => {
 
     // The feature list is the pricing grid's, not a second hand-written copy.
     const features = page.getByTestId('upgrade-features').locator('li');
-    await expect(features).toHaveCount(8);
+    // FRAGILE.SUB.1 (B3): 7, not 8 — "All premium themes" is gone (nothing gates themes).
+    await expect(features).toHaveCount(7);
     await expect(features.first()).toHaveText('Two pages');
-    await expect(features.nth(7)).toHaveText('TitiLinks badge — optional');
+    await expect(features.nth(6)).toHaveText('TitiLinks badge — optional');
 
     // Nothing about managing an existing subscription belongs here.
     await expect(page.getByTestId('upgrade-manage-billing')).toHaveCount(0);
