@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import type { OnboardingState } from './useOnboardingWizard';
+import { useHexField } from '@/hooks/useHexField';
 
 interface Props {
   state: OnboardingState;
@@ -34,6 +35,9 @@ export function StepPickYourVibe({ state, updateField, onNext, onPrev, t }: Prop
       updateField('gradientEnd', color);
     }
   };
+  // FRAGILE.COLOR.1: the typed box only ever hands handlePickerChange a valid
+  // six-digit colour; the picker itself always emits one.
+  const hexField = useHexField(pickerColor, handlePickerChange);
 
   return (
     <div className="flex flex-col gap-6 flex-1 w-full max-w-lg mx-auto">
@@ -114,10 +118,14 @@ export function StepPickYourVibe({ state, updateField, onNext, onPrev, t }: Prop
           />
           <input
             type="text"
-            value={pickerColor}
-            onChange={(e) => handlePickerChange(e.target.value)}
+            value={hexField.value}
+            onChange={hexField.onChange}
+            onBlur={hexField.onBlur}
+            aria-invalid={hexField.invalid}
             placeholder="#000000"
-            className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white font-mono uppercase text-sm focus:outline-none focus:border-[#C9A55C]/50"
+            className={`flex-1 px-3 py-2 rounded-lg bg-white/5 border text-white font-mono uppercase text-sm focus:outline-none ${
+              hexField.invalid ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#C9A55C]/50'
+            }`}
           />
         </div>
       </div>

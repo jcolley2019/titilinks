@@ -30,6 +30,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useDirtyBaseline } from '@/hooks/useDirtyBaseline';
+import { useHexField } from '@/hooks/useHexField';
+import { normalizeHexColor } from '@/lib/hex-color';
 
 import { TemplateGallery } from './TemplateGallery';
 import { ButtonSurfaceControls } from './ButtonSurfaceControls';
@@ -268,6 +270,10 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
       return newTheme;
     });
   };
+
+  // FRAGILE.COLOR.1: the typed hex boxes store only a valid six-digit colour.
+  const bgHexField = useHexField(theme.background.solid_color, (hex) => updateBackground({ type: 'solid', solid_color: hex }));
+  const textHexField = useHexField(theme.typography.text_color, (hex) => updateTypography({ text_color: hex }));
 
   return (
     // FOOTER.1: the flex column is chained root → Card → CardContent so the
@@ -566,7 +572,8 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                     try {
                       const ed = new (window as any).EyeDropper();
                       const res = await ed.open();
-                      updateBackground({ type: 'solid', solid_color: res.sRGBHex });
+                      const hex = normalizeHexColor(res.sRGBHex);
+                      if (hex) updateBackground({ type: 'solid', solid_color: hex });
                     } catch { /* cancelled */ }
                   }}
                   className="text-muted-foreground hover:text-foreground transition-colors"
@@ -586,10 +593,12 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 style={{ backgroundColor: theme.background.solid_color }}
               />
               <Input
-                value={theme.background.solid_color}
-                onChange={(e) => updateBackground({ type: 'solid', solid_color: e.target.value })}
+                value={bgHexField.value}
+                onChange={bgHexField.onChange}
+                onBlur={bgHexField.onBlur}
+                aria-invalid={bgHexField.invalid}
                 placeholder="#000000"
-                className="flex-1 font-mono uppercase"
+                className={cn('flex-1 font-mono uppercase', bgHexField.invalid && 'border-red-500')}
               />
             </div>
           </TabsContent>
@@ -626,10 +635,12 @@ export function DesignEditor({ pageId, themeJson, onUpdate, displayName, bio, av
                 style={{ backgroundColor: theme.typography.text_color }}
               />
               <Input
-                value={theme.typography.text_color}
-                onChange={(e) => updateTypography({ text_color: e.target.value })}
+                value={textHexField.value}
+                onChange={textHexField.onChange}
+                onBlur={textHexField.onBlur}
+                aria-invalid={textHexField.invalid}
                 placeholder="#FFFFFF"
-                className="flex-1 font-mono uppercase"
+                className={cn('flex-1 font-mono uppercase', textHexField.invalid && 'border-red-500')}
               />
             </div>
             <p className="text-xs text-muted-foreground">

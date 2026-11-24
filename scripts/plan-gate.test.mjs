@@ -126,13 +126,13 @@ ok('every tier follows its ENTITLEMENTS flags');
 // ── 4. gateThemeForVisitor ──────────────────────────────────────────────────
 {
   const theme = getThemeWithDefaults({
-    typography: { font: 'custom:Brand Sans', text_color: '#fff' },
+    typography: { font: 'custom:Brand Sans', text_color: '#ffffff' },
     buttons: { animation: 'pulse' },
   });
   assert.equal(gateThemeForVisitor('pro', theme), theme, 'pro: same theme back');
   const free = gateThemeForVisitor('free', theme);
   assert.equal(free.typography.font, 'inter');
-  assert.equal(free.typography.text_color, '#fff', 'the rest of typography kept');
+  assert.equal(free.typography.text_color, '#ffffff', 'the rest of typography kept');
   assert.equal(free.buttons.animation, undefined, 'page-level animation stripped');
   assert.equal(free.buttons.fill_color, theme.buttons.fill_color, 'the rest of buttons kept');
   assert.equal(theme.typography.font, 'custom:Brand Sans', 'input not mutated');

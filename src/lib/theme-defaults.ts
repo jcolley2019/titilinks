@@ -2,6 +2,7 @@
 
 import { DEVICE_PRESETS, DEFAULT_DEVICE_ID } from '@/lib/device-presets';
 import type { AnimationId } from '@/lib/animations';
+import { normalizeHexColor } from '@/lib/hex-color';
 
 export interface ThemeBackground {
   type: 'solid' | 'gradient' | 'image';
@@ -312,19 +313,30 @@ export function getThemeWithDefaults(themeJson: unknown): ThemeJson {
 
   const parsed = themeJson as Partial<ThemeJson>;
 
+  const background = {
+    ...DEFAULT_THEME.background,
+    ...(parsed.background || {}),
+  };
+  const typography = {
+    ...DEFAULT_THEME.typography,
+    ...(parsed.typography || {}),
+  };
+  // FRAGILE.COLOR.1: repair on read. A mistyped colour already in the database
+  // (`FFC0CB`, `#ffffff80`) renders as its normalised `#rrggbb`; a valid
+  // six-digit value comes back byte-identical, and anything that does not
+  // normalise (legacy gradient strings in solid_color) is left as stored.
+  const bgHex = normalizeHexColor(background.solid_color);
+  if (bgHex !== null) background.solid_color = bgHex;
+  const textHex = normalizeHexColor(typography.text_color);
+  if (textHex !== null) typography.text_color = textHex;
+
   return {
-    background: {
-      ...DEFAULT_THEME.background,
-      ...(parsed.background || {}),
-    },
+    background,
     buttons: {
       ...DEFAULT_THEME.buttons,
       ...(parsed.buttons || {}),
     },
-    typography: {
-      ...DEFAULT_THEME.typography,
-      ...(parsed.typography || {}),
-    },
+    typography,
     motion: {
       ...DEFAULT_THEME.motion,
       ...(parsed.motion || {}),

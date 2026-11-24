@@ -69,6 +69,13 @@ const checks = [
   // session must never fall back to a raw key, so the two maps must hold the
   // identical key set. Fails loudly, naming the offending keys.
   { name:'I18N-PARITY', parity:true },
+  // FRAGILE.COLOR.1 (audit N2): every literal key handed to t() must exist in
+  // the dictionary. A missing key renders as the raw key string on screen —
+  // d120cce shipped `editor.saveFailed` that way. Literal = single quotes,
+  // double quotes, or a backtick string with no `${}`; keys built at run time
+  // (`blocks.${type}.title`) are out of scope. Parity (above) covers es, so
+  // the en map is the dictionary checked here.
+  { name:'I18N-USED-KEYS', usedKeys:true },
   // TL.ISO.2: every spec runs behind the default-deny write fixture. The ONLY
   // door to @playwright/test is tests/fixtures.ts (which builds the guarded
   // test) and tests/auth.setup.ts (the one real login, minted before any spec
@@ -278,6 +285,37 @@ for (const c of checks) {
       if (onlyEs.length) console.error(`      missing in EN: ${onlyEs.join(', ')}`);
     } else {
       console.log(`ok ${c.name} (${en.size} keys, en/es identical)`);
+    }
+    continue;
+  }
+  if (c.usedKeys) {
+    const dict = readFileSync(F('hooks/useLanguage.tsx'), 'utf8');
+    const en = dict.slice(dict.indexOf('  en: {'), dict.indexOf('  es: {'));
+    const keys = new Set([...en.matchAll(/^\s*'([^']+)':/gm)].map((m) => m[1]));
+    const walkSrc = (dir) => readdirSync(dir).flatMap((n) => {
+      const p = `${dir}/${n}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.(tsx?|jsx?)$/.test(p) ? [p] : [];
+    });
+    // `t(` not preceded by an identifier char or a dot (so `i18n.t(` / `fmt(`
+    // never match), then one literal and the end of the first argument.
+    const CALL = /(?<![\w$.])t\(\s*(?:'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`\\$]*)`)\s*[,)]/g;
+    const bad = [];
+    let calls = 0;
+    for (const f of walkSrc('src')) {
+      for (const m of readFileSync(f, 'utf8').matchAll(CALL)) {
+        calls++;
+        const key = m[1] ?? m[2] ?? m[3];
+        if (!keys.has(key)) bad.push(`${f}  '${key}'`);
+      }
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - t() is called with a key the dictionary does not have`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      add the key to BOTH the en and es maps in src/hooks/useLanguage.tsx,`);
+      console.error(`      or fix the spelling at the call site.`);
+    } else {
+      console.log(`ok ${c.name} (${calls} literal t() keys, all in the dictionary)`);
     }
     continue;
   }
