@@ -12,7 +12,8 @@ export type FontKey =
   | 'inter' | 'system' | 'serif' | 'mono'
   | 'playfair' | 'bebas' | 'abril' | 'pacifico'
   | 'orbitron' | 'caveat' | 'archivo' | 'lora'
-  | 'patrick' | 'space';
+  | 'patrick' | 'space'
+  | 'dmsans' | 'barlow' | 'sourceserif';
 
 export interface FontOption {
   // Catalog FontKey, or a `custom:<family>` key for an uploaded font.
@@ -74,6 +75,9 @@ export const FONT_OPTIONS: FontOption[] = [
   { value: 'lora', label: 'Lora', fontFamily: "'Lora', serif" },
   { value: 'patrick', label: 'Patrick Hand', fontFamily: "'Patrick Hand', cursive" },
   { value: 'space', label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
+  { value: 'dmsans', label: 'DM Sans', fontFamily: "'DM Sans', sans-serif" },
+  { value: 'barlow', label: 'Barlow Condensed', fontFamily: "'Barlow Condensed', sans-serif" },
+  { value: 'sourceserif', label: 'Source Serif 4', fontFamily: "'Source Serif 4', serif" },
   { value: 'serif', label: 'Georgia (Serif)', fontFamily: 'Georgia, serif' },
   { value: 'mono', label: 'Monospace', fontFamily: 'monospace' },
 ];

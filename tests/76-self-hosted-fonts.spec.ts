@@ -25,6 +25,7 @@ const SHOTS = 'tests/screenshots';
 const SELF_HOSTED = [
   'Playfair Display', 'DM Sans', 'Bebas Neue', 'Pacifico', 'Abril Fatface', 'Orbitron',
   'Caveat', 'Archivo Black', 'Lora', 'Patrick Hand', 'Space Grotesk',
+  'Barlow Condensed', 'Source Serif 4',
 ];
 
 type FontReq = { url: string; bytes: number };
