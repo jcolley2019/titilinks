@@ -24,10 +24,12 @@ import { useProUpsell } from '@/hooks/useProUpsell';
 import {
   isAnimationLocked,
   isFontLocked,
+  isLookOptionLocked,
   lockedBlockFeature,
   visiblePageCount,
   type LockedBlockFeature,
 } from '@/lib/plan-gate';
+import type { LookOptionKey } from '@/lib/page-look';
 
 export type LockFeature = LockedBlockFeature | 'page2' | 'customFonts' | 'linkAnimations';
 
@@ -56,6 +58,11 @@ export function usePlanLock() {
       ready && isFontLocked(plan, fontKey),
     animationLocked: (value: unknown): boolean =>
       ready && isAnimationLocked(plan, value),
+    /** TP.F0: a saved premium-look value (src/lib/page-look.ts) visitors don't
+     *  get — a Pro choice without premiumThemes. No caller yet: the first
+     *  locked control (and its copy) arrives with the brick that shows it. */
+    lookLocked: (key: LookOptionKey, value: unknown): boolean =>
+      ready && isLookOptionLocked(plan, key, value),
     /** The lock's full sentence — hover title, note and upsell description. */
     hint: (feature: LockFeature): string => t(COPY[feature].hint),
     /** The upgrade CTA for a locked item. */

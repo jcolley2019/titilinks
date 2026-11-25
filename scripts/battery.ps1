@@ -12,7 +12,7 @@
 # a fresh token.
 #
 #   desktop-A, desktop-B, mobile-A, mobile-B
-#   A = tests/0[0-9]-* .. 3[0-9]-*.spec.ts    B = tests/4[0-9]-* onward
+#   A = tests/0[0-9]-* .. 3[0-9]-*.spec.ts    B = tests/4[0-9]-* onward (100-* and up too)
 #
 # Each quarter writes battery-<date>-<project>-<half>.log in the repo root and
 # its failure artifacts to tests/results/<project>-<half> (a single outputDir
@@ -33,10 +33,14 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 $date = Get-Date -Format 'yyyy-MM-dd'
-$specs = Get-ChildItem -Path 'tests' -Filter '*.spec.ts' | Sort-Object Name
+# TP.F0: sorted by the leading spec NUMBER, then name - a name sort would put
+# 100- between 10- and 11-. B takes every number from 40 up, three digits and
+# more included; a two-digit-only B silently skipped spec 100 onward.
+$specNumber = { if ($_.Name -match '^(\d+)-') { [int]$Matches[1] } else { [int]::MaxValue } }
+$specs = Get-ChildItem -Path 'tests' -Filter '*.spec.ts' | Sort-Object -Property @{ Expression = $specNumber }, Name
 $halves = @{
   'A' = @($specs | Where-Object { $_.Name -match '^[0-3][0-9]-' } | ForEach-Object { "tests/$($_.Name)" })
-  'B' = @($specs | Where-Object { $_.Name -match '^[4-9][0-9]-' } | ForEach-Object { "tests/$($_.Name)" })
+  'B' = @($specs | Where-Object { $_.Name -match '^([4-9][0-9]|[0-9]{3,})-' } | ForEach-Object { "tests/$($_.Name)" })
 }
 
 $summary = @()

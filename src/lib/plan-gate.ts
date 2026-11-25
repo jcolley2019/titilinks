@@ -157,3 +157,13 @@ export function isFontLocked(plan: PlanLike, fontKey: string | null | undefined)
 export function isAnimationLocked(plan: PlanLike, value: unknown): boolean {
   return isAnimationId(value) && !can(plan, 'linkAnimations');
 }
+
+// ── premiumThemes (TP.F0) ───────────────────────────────────────────────────
+// The premium look — theme_json.look, the 'sheet'/'band' page styles, a block's
+// or a link's card style — gates through the option table in
+// src/lib/page-look.ts, the one reader of theme_json.look. Its visitor gate is
+// resolveLook(themeJson, pageId, plan) / resolveLookOption(key, saved, plan);
+// its owner lock is isLookOptionLocked, re-exported here beside the other
+// owner-side predicates so usePlanLock binds every lock from this one module.
+// Same conventions: a null plan is Free, and nothing saved is ever rewritten.
+export { isLookOptionLocked } from '@/lib/page-look';

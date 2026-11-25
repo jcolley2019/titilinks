@@ -189,6 +189,19 @@ const checks = [
   // useEffect/useLayoutEffect/useCallback/useMemo/useImperativeHandle in src/ is
   // scanned; useAuth.tsx, which owns the object, is out of scope.
   { name:'USER-ID-DEPS', userIdDeps:true },
+  // TP.F0 (THEME.PREMIUM.3 §B): the premium look has ONE reader.
+  // theme_json.look holds a premium theme's choices, and src/lib/page-look.ts
+  // is the only code that reads it: absent or unknown values resolve to
+  // today's, and every Pro choice the owner's plan lacks resolves to its free
+  // value. A second reader would skip both rules, so a downgraded owner's
+  // visitors could be served a Pro look, or an existing page could change.
+  // Caught in every .ts/.tsx under src/ but that file: `.look` property access
+  // (`raw.look`, `theme_json?.look`, and an assignment `x.look = …`, which
+  // counts too — build the next theme_json with a spread), `['look']`,
+  // `'look' in …`, and destructuring `{ look } = …`. Comments are stripped and
+  // string contents blanked first. Writing `{ ...raw, look: next }` and
+  // spreading the raw theme_json (the Design editor's save) are not reads.
+  { name:'LOOK-ONE-READER', lookOneReader:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -528,6 +541,78 @@ for (const c of checks) {
       console.error(`      own failure path) so no success side effect runs after a failed write.`);
     } else {
       console.log(`ok ${c.name} (0 discarded write/rpc results in src/; ${kept} awaited calls keep theirs; ${ALLOW.size} file allowlisted)`);
+    }
+    continue;
+  }
+  if (c.lookOneReader) {
+    const OWNER = 'src/lib/page-look.ts';
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.tsx?$/.test(p) ? [p] : [];
+    });
+    // `code`: comments removed (newlines kept, so line numbers hold). `bare`:
+    // the same with every string literal's contents blanked. A ' or " string
+    // ends at a newline too, so a JSX apostrophe can blank at most its line.
+    const strip = (src) => {
+      let code = '', bare = '';
+      for (let i = 0; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '/' && src[i + 1] === '/') {
+          while (i < src.length && src[i] !== '\n') i++;
+          i--; continue;
+        }
+        if (ch === '/' && src[i + 1] === '*') {
+          const end = src.indexOf('*/', i + 2);
+          const stop = end < 0 ? src.length : end + 2;
+          const keep = src.slice(i, stop).replace(/[^\n]/g, '');
+          code += keep; bare += keep; i = stop - 1; continue;
+        }
+        if (ch === '"' || ch === "'" || ch === '`') {
+          let j = i + 1;
+          for (; j < src.length && src[j] !== ch; j++) {
+            if (src[j] === '\\') j++;
+            else if (src[j] === '\n' && ch !== '`') break;
+          }
+          const lit = src.slice(i, j + 1);
+          code += lit;
+          bare += ch + lit.slice(1, -1).replace(/[^\n]/g, ' ') + (lit.length > 1 ? lit[lit.length - 1] : '');
+          i = j; continue;
+        }
+        code += ch; bare += ch;
+      }
+      return { code, bare };
+    };
+    const READS = [
+      { on: 'bare', re: /\.\s*look\b/g, what: '.look' },
+      { on: 'bare', re: /\{[^{}]*\blook\b[^{}]*\}\s*=(?![=>])/g, what: '{ look } = destructuring' },
+      { on: 'code', re: /\[\s*(['"`])look\1\s*\]/g, what: "['look']" },
+      { on: 'code', re: /(['"`])look\1\s+in\b/g, what: "'look' in" },
+    ];
+    const bad = [];
+    let scanned = 0;
+    for (const f of walkSrc('src')) {
+      if (f === OWNER) continue;
+      scanned++;
+      const parts = strip(readFileSync(f, 'utf8'));
+      for (const r of READS) {
+        for (const m of parts[r.on].matchAll(r.re)) {
+          const line = parts[r.on].slice(0, m.index).split('\n').length;
+          bad.push(`${f}:${line}  ${r.what}  ${parts.code.split('\n')[line - 1].trim().slice(0, 90)}`);
+        }
+      }
+    }
+    let ownerReads = false;
+    try { ownerReads = /\.look\b/.test(strip(readFileSync(OWNER, 'utf8')).bare); } catch { /* reported below */ }
+    if (!ownerReads) bad.push(`${OWNER} no longer reads theme_json.look - the one reader is missing`);
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - theme_json.look is read outside ${OWNER} (TP.F0)`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      The premium look has one reader: it fills absent values with today's and`);
+      console.error(`      serves a plan without premiumThemes the free value of every Pro choice.`);
+      console.error(`      Call resolveLook / resolveLookOption from ${OWNER} instead.`);
+    } else {
+      console.log(`ok ${c.name} (${scanned} files in src/ scanned; theme_json.look is read only in ${OWNER})`);
     }
     continue;
   }

@@ -10,9 +10,11 @@ import {
   gateThemeForVisitor,
   isAnimationLocked,
   isFontLocked,
+  isLookOptionLocked,
   lockedBlockFeature,
   visiblePageCount,
 } from '../src/lib/plan-gate';
+import * as pageLook from '../src/lib/page-look';
 import { ENTITLEMENTS, PLAN_ORDER } from '../src/lib/entitlements';
 import { stripSampleItems } from '../src/lib/placeholder-item';
 import { getThemeWithDefaults } from '../src/lib/theme-defaults';
@@ -178,5 +180,36 @@ for (const plan of PLAN_ORDER) {
   assert.equal(isFontLocked(plan, 'custom:X'), gateFontForVisitor(plan, 'custom:X') !== 'custom:X', `${plan}: font`);
 }
 ok('owner lock == visitor gate on every tier');
+
+// ── 6. premiumThemes (TP.F0) — the premium look ─────────────────────────────
+// The look's table and resolver are src/lib/page-look.ts (scripts/
+// page-look.test.mjs covers every option); here: plan-gate exposes the same
+// lock, it keys on the premiumThemes flag, and it agrees with the visitor gate.
+assert.equal(isLookOptionLocked, pageLook.isLookOptionLocked, 'plan-gate re-exports the one look lock');
+{
+  // The look is read from the RAW theme_json: the normaliser drops it.
+  assert.equal(getThemeWithDefaults({ look: { v: 1, theme: 'cartel' } }).look, undefined, 'getThemeWithDefaults drops look');
+  const raw = {
+    look: { v: 1, theme: 'pase', options: { nameScale: 'large', lettering: 'caps', nameAlign: 'left', iconsStyle: 'outlined' } },
+    typography: { font: 'space', text_color: '#ffffff', display_font: 'archivo' },
+  };
+  const PRO_SAVED = { nameScale: 'large', lettering: 'caps', iconsStyle: 'outlined', nameFont: 'archivo' };
+  for (const plan of [...PLAN_ORDER, null]) {
+    const e = plan ? ENTITLEMENTS[plan] : ENTITLEMENTS.free;
+    const visitor = pageLook.resolveLook(raw, 'page1', plan);
+    for (const [key, saved] of Object.entries(PRO_SAVED)) {
+      assert.equal(isLookOptionLocked(plan, key, saved), !e.premiumThemes, `${String(plan)}: ${key} lock follows premiumThemes`);
+      assert.equal(visitor[key] === saved, e.premiumThemes, `${String(plan)}: ${key} visitor gate follows premiumThemes`);
+    }
+    assert.equal(isLookOptionLocked(plan, 'nameAlign', 'left'), false, `${String(plan)}: a free choice never locks`);
+    assert.equal(visitor.nameAlign, 'left', `${String(plan)}: a free choice always reaches the visitor`);
+  }
+  // The look gate leaves every other gate alone.
+  const theme = getThemeWithDefaults(raw);
+  assert.equal(gateThemeForVisitor('free', theme), theme, 'a premium look does not trip the theme gate');
+  assert.equal(isFontLocked('free', 'archivo'), false, 'a catalog name font is not a customFonts lock');
+  assert.equal(pageLook.resolveLook(raw, 'page1').nameScale, 'large', 'owner canvas (no plan) sees what is saved');
+}
+ok('premiumThemes: look lock and visitor gate follow the flag on every tier; null plan refused');
 
 console.log('\nAll ' + passed + ' checks passed.');

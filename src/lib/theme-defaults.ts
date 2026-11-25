@@ -114,8 +114,17 @@ export interface HeroConfig {
 }
 
 /** Page layout style. The union is shared by the profile-level default and
- *  each page's own override (PAGES.STYLE.1). */
+ *  each page's own override (PAGES.STYLE.1). This is the RENDERED set — what
+ *  resolveEffectivePageStyle can return and every consumer switches on. */
 export type PageStyle = 'hero' | 'full_bleed';
+
+/** TP.F0 — every page style a theme_json may STORE: the rendered set plus the
+ *  two Pro page styles of the premium themes (src/lib/page-look.ts). 'sheet'
+ *  and 'band' are typed ahead of their renderers (TP.F7, TP.M1); until
+ *  resolveEffectivePageStyle accepts one, a stored 'sheet' or 'band' falls back
+ *  exactly like any other unknown value does today. A brick that builds one
+ *  moves it into PageStyle and handles every consumer the compiler names. */
+export type StoredPageStyle = PageStyle | 'sheet' | 'band';
 
 /** The two pages a profile can have. Doubles as the key into PagesConfig and
  *  as the `activePageId` every effective-style derivation is keyed to. */
@@ -128,8 +137,8 @@ export type PageId = 'page1' | 'page2';
 // like, so the fallback IS the migration.
 export interface PagesConfig {
   enabled?: boolean;
-  page1?: { label?: string; style?: PageStyle };
-  page2?: { label?: string; heroInherit?: boolean; style?: PageStyle };
+  page1?: { label?: string; style?: StoredPageStyle };
+  page2?: { label?: string; heroInherit?: boolean; style?: StoredPageStyle };
 }
 
 /** DESK.STAGE.2 — the desktop stage's device, chosen by the page OWNER.
@@ -154,7 +163,7 @@ export interface ThemeJson {
   // Absent → hero. PAGES.STYLE.1: never read this directly to decide what a
   // page looks like — go through resolveEffectivePageStyle(), which keys off
   // the ACTIVE page and treats this as the fallback it is.
-  pageStyle?: PageStyle;
+  pageStyle?: StoredPageStyle;
   // Two-page feature + per-page hero. All optional; read via casts in components.
   pages?: PagesConfig;
   heroConfig?: HeroConfig;
