@@ -11,8 +11,30 @@ const checks = [
     needs:[/position:\s*'sticky'/, /top:\s*stickyTop/, /height:\s*'calc\(var\(--pv-vh, 1dvh\) \* 50 \+ '\s*\+\s*HERO_EXTRA\s*\+\s*'px\)'/, /const HERO_EXTRA\s*=\s*60\b/] },
   { name:'STICKY-PROP', file:'components/EditableProfileView.tsx',
     needs:[/stickyTop\?\s*:\s*number\s*\|\s*string/, /stickyTop\s*=\s*0\b/] },
-  { name:'FADE-SEAM', file:'components/EditableProfileView.tsx',
-    needs:[/height:\s*'64px'/, /transparent 0%[^)]*80%\)/] },
+  // TP.F2a (audit S1/S5): the fade strip and the content panel under the hero
+  // photo paint from ONE value, heroBgValue, so the join cannot mismatch. The
+  // old rule (FADE-SEAM) pinned the literals of a strip painted in a colour
+  // worked out apart from the panel's — the two could not match on a
+  // 135-degree gradient, and "fixing" the pair was done four times.
+  //   · solid page: the panel paints heroBgValue and the strip ramps from
+  //     `transparent` to that same variable.
+  //   · gradient page: panel and strip both paint heroBgValue as their image
+  //     (two slices of one gradient) and the ramp is a mask on the strip ONLY.
+  // The panel always keeps an opaque background of its own: a mask under page
+  // text costs desktop its subpixel antialiasing (TP.F2). This rule fails if a
+  // separately computed fade colour comes back, if a ramp runs between
+  // `transparent` and anything but heroBgValue, or if the mask is used a second
+  // time or on the panel. It pins no colour, height or ramp length —
+  // tests/97-seam-pixels.spec.ts reads the pixels.
+  { name:'JOIN-ONE-SURFACE', file:'components/EditableProfileView.tsx',
+    needs:[/:\s*\{\s*background:\s*heroBgValue\s*\}/,
+      /gradient\([^)\n]*\btransparent\b[^,)\n]*,\s*\$\{heroBgValue\}[^,)\n]*,\s*\$\{heroBgValue\}[^,)\n]*\)/,
+      /backgroundImage:\s*heroBgValue\b[\s\S]*backgroundImage:\s*heroBgValue\b/,
+      /maskImage:\s*heroFadeMask\b/, /WebkitMaskImage:\s*heroFadeMask\b/,
+      /heroPanelPaint\),\s*\n\s*minHeight:\s*'60vh'/, /:\s*heroStripPaint\)/],
+    absent:[/heroFadeColor/,
+      /gradient\([^)\n]*\btransparent\b[^,)\n]*,\s*\$\{(?!heroBgValue\})/, /gradient\([^)\n]*\$\{(?!heroBgValue\})[^}\n]*\}[^,)\n]*,\s*transparent\b/,
+      /\bmaskImage:[\s\S]*\bmaskImage:/, /const heroPanelPaint[^;]*[mM]askImage/] },
   { name:'OVERLAY-CENTER', file:'components/EditableProfileView.tsx',
     needs:[/items-center\s+justify-center\s+flex-1\s+p-6\s+gap-4\s+overflow-y-auto/] },
   { name:'HERO-MT6', file:'pages/Editor.tsx',

@@ -1171,7 +1171,7 @@ function NameHandleCard({
               ...nameFx,
             }}
           />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'rgba(255,255,255,1)' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: gapNameHandle }}>
+          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'var(--handle-default, rgba(255,255,255,1))' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: gapNameHandle }}>
             @{page.handle}
           </p>
         </div>
@@ -2877,23 +2877,60 @@ export function EditableProfileView({
     (b) => b.type === 'social_links' || b.type === 'social_icon_row'
   );
 
-  // Hero fade must END on a real color. New gradient pages keep the gradient in
-  // gradient_css, but legacy/early-onboarding pages stashed a gradient STRING in
-  // solid_color (type:'solid'); a gradient nested inside the fade is invalid CSS
-  // and silently kills the fade (hard line under the hero photo). So derive the
-  // page's effective bg, then pull its first hex when it's a gradient — the
-  // gradient's top color, which is what the hero seam sits against.
+  // TP.F2a — the join under the hero photo. The content panel always paints its
+  // own OPAQUE background and only the 64px fade strip above it is translucent:
+  // no text ever sits on a masked surface (a mask under text costs desktop its
+  // subpixel antialiasing). Strip and panel cannot disagree because both paint
+  // from ONE value, heroBgValue:
+  //   · solid colour — the panel paints the colour and the strip ramps from
+  //     transparent to that same colour. Exactly the paint Joey tuned.
+  //   · gradient — two slices of one image. The gradient is laid over the box
+  //     that starts 60px above the panel's top edge and ends at its bottom; the
+  //     panel shows it from its own top edge down, the strip shows its top 64px
+  //     through a mask that carries the same ramp. (The strip used to be the
+  //     gradient's first hex, which a 135-degree gradient equals in one corner
+  //     only — audit S1.)
   const heroBgValue = theme.background?.type === 'gradient' && theme.background?.gradient_css
     ? theme.background.gradient_css
     : (theme.background?.solid_color || '#0e0c09');
-  const heroFadeColor = heroBgValue.includes('gradient')
+  // Tested on the value, not the type: legacy/early-onboarding pages stashed a
+  // gradient STRING in solid_color with type:'solid'.
+  const heroBgIsGradient = heroBgValue.includes('gradient');
+  // Only chooses the ramp LENGTH below; on a gradient it is never painted. A
+  // gradient's first hex is the colour the seam sits against.
+  const heroJoinTone = heroBgIsGradient
     ? (heroBgValue.match(/#[0-9a-fA-F]{3,8}/)?.[0] || '#0e0c09')
     : heroBgValue;
   // Dark backgrounds (the fade's original design target) keep the long, gentle
   // ramp — photo-into-dark is invisible. Colored/light backgrounds reach the bg
   // color much higher up so the photo's brightness-mismatched lower edge is
   // covered before it reads as a band at the seam.
-  const heroFadeStop = relativeLuminance(heroFadeColor) > 0.15 ? 45 : 80;
+  const heroFadeStop = relativeLuminance(heroJoinTone) > 0.15 ? 45 : 80;
+  // The same ramp as an alpha mask, for the gradient strip: clear at the top,
+  // opaque at heroFadeStop% of 64px, and nothing at all from 64px down — below
+  // that the panel's own slice is the only paint.
+  const heroFadeMask = `linear-gradient(to bottom, transparent 0px, #000 ${(64 * heroFadeStop) / 100}px, #000 64px, transparent 64px)`;
+  const heroPanelPaint: React.CSSProperties = heroBgIsGradient
+    ? {
+        backgroundImage: heroBgValue,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: '100% calc(100% + 60px)',
+        backgroundPosition: '0 -60px',
+      }
+    : { background: heroBgValue };
+  const heroStripPaint: React.CSSProperties = heroBgIsGradient
+    ? {
+        bottom: 0,
+        backgroundImage: heroBgValue,
+        backgroundRepeat: 'no-repeat',
+        maskImage: heroFadeMask,
+        WebkitMaskImage: heroFadeMask,
+        clipPath: 'inset(0 0 calc(100% - 64px) 0)',
+      }
+    : {
+        height: '64px',
+        background: `linear-gradient(to bottom, transparent 0%, ${heroBgValue} ${heroFadeStop}%, ${heroBgValue} 80%)`,
+      };
 
   const allSortableItems = displayBlocks.map(b => b.id);
 
@@ -3132,15 +3169,20 @@ export function EditableProfileView({
         style={{
           position: 'relative',
           zIndex: 10,
-          background: isFullBleed
-            ? 'transparent'
-            : theme.background?.type === 'gradient' && theme.background?.gradient_css
-              ? theme.background.gradient_css
-              : (theme.background?.solid_color || '#0e0c09'),
+          ...(isFullBleed ? { background: 'transparent' } : heroPanelPaint),
           minHeight: '60vh',
           marginTop: '-2rem',
           paddingTop: '0',
-        }}
+          // TP.F2 (audit S4): the @handle's colour when the creator has not
+          // picked one, published once so the edit card and the public header
+          // cannot disagree. Pure white wherever it always was (dark and
+          // mid-tone pages, and every full-screen page, whose handle sits on the
+          // photo); on a light page the theme's own text colour — the name's
+          // default — or ink when that text colour is itself light.
+          ['--handle-default' as string]: isFullBleed || !chrome.isLight
+            ? 'rgba(255,255,255,1)'
+            : relativeLuminance(chrome.text) > 0.5 ? '#0e0c09' : chrome.text,
+        } as React.CSSProperties}
       >
         {/* Gradient fade — scrolls over the sticky hero photo */}
         <div
@@ -3149,8 +3191,7 @@ export function EditableProfileView({
             top: '-60px',
             left: 0,
             right: 0,
-            height: '64px',
-            background: isFullBleed ? 'none' : `linear-gradient(to bottom, transparent 0%, ${heroFadeColor} ${heroFadeStop}%, ${heroFadeColor} 80%)`,
+            ...(isFullBleed ? { height: '64px', background: 'none' } : heroStripPaint),
             pointerEvents: 'none',
             zIndex: 1,
           }}
@@ -3172,7 +3213,7 @@ export function EditableProfileView({
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             const headerNameColor = headerConfig.nameColor || chrome.text;
-            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'rgba(255,255,255,1)';
+            const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'var(--handle-default, rgba(255,255,255,1))';
             if (id === '__name_handle__') return (
               <div key={id} data-name-scrim={heroIsLight ? 'on' : 'off'} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
                 <h1
