@@ -8,8 +8,14 @@ interface MediaThumbProps {
   media?: Media | null;
   fallbackIcon?: React.ReactNode;
   className?: string;
-  /** MEDIA.PHOTO.1: when given, an uploaded image is served as right-sized renditions. */
-  box?: MediaThumbBox;
+  /** MEDIA.PHOTO.1: when given, an uploaded image is served as right-sized renditions.
+   *  IMG.FIT.1: `aspect` may be left out — a picture we position ourselves (a
+   *  stored crop, or the whole picture fitted) must not be cropped server-side. */
+  box?: Omit<MediaThumbBox, 'aspect'> & { aspect?: number };
+  /** IMG.FIT.1: inline style on the thumb box (a fitted picture's background). */
+  style?: React.CSSProperties;
+  /** IMG.FIT.1: inline style on the image (a stored crop's rectangle). */
+  imgStyle?: React.CSSProperties;
 }
 
 function LinkGlyph() {
@@ -29,7 +35,7 @@ function PlayGlyph() {
   );
 }
 
-export function MediaThumb({ media, fallbackIcon, className = '', box }: MediaThumbProps) {
+export function MediaThumb({ media, fallbackIcon, className = '', box, style, imgStyle }: MediaThumbProps) {
   if (!media) {
     return (
       <span className={`lb-thumb ${className}`.trim()} aria-hidden="true">
@@ -62,8 +68,8 @@ export function MediaThumb({ media, fallbackIcon, className = '', box }: MediaTh
   }
 
   return (
-    <span className={`lb-thumb ${className}`.trim()} aria-hidden="true">
-      <ResponsiveImg src={media.src} alt="" {...box} />
+    <span className={`lb-thumb ${className}`.trim()} aria-hidden="true" style={style}>
+      <ResponsiveImg src={media.src} alt="" {...box} style={imgStyle} />
     </span>
   );
 }

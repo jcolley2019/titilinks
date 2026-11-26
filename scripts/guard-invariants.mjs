@@ -224,6 +224,15 @@ const checks = [
   // string contents blanked first. Writing `{ ...raw, look: next }` and
   // spreading the raw theme_json (the Design editor's save) are not reads.
   { name:'LOOK-ONE-READER', lookOneReader:true },
+  // IMG.FIT.1: the picture fitter has ONE module. block_items.style_json's
+  // picture keys (the stored frame's aspect, fit, the fit background) are read
+  // and written only by src/lib/picture-fit.ts: it resolves absent or junk
+  // values to today's cover, re-shapes a stored window for the box it paints
+  // into, and never leaves a crop and a fit on one row. A second reader would
+  // skip all three. Every .ts/.tsx under src/ but that file must not contain
+  // the key strings at all (comments included), and that file must still
+  // contain both.
+  { name:'PICTURE-FIT-ONE-MODULE', pictureFitOneModule:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -635,6 +644,36 @@ for (const c of checks) {
       console.error(`      Call resolveLook / resolveLookOption from ${OWNER} instead.`);
     } else {
       console.log(`ok ${c.name} (${scanned} files in src/ scanned; theme_json.look is read only in ${OWNER})`);
+    }
+    continue;
+  }
+  if (c.pictureFitOneModule) {
+    const OWNER = 'src/lib/picture-fit.ts';
+    const KEYS = ['crop_aspect', 'fit_bg'];
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.tsx?$/.test(p) ? [p] : [];
+    });
+    const bad = [];
+    let scanned = 0;
+    for (const f of walkSrc('src')) {
+      if (f === OWNER) continue;
+      scanned++;
+      readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+        for (const k of KEYS) if (line.includes(k)) bad.push(`${f}:${i + 1}  ${k}  ${line.trim().slice(0, 90)}`);
+      });
+    }
+    let owner = '';
+    try { owner = readFileSync(OWNER, 'utf8'); } catch { /* reported below */ }
+    for (const k of KEYS) if (!owner.includes(k)) bad.push(`${OWNER} no longer names ${k} - the one module is missing`);
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - a picture-fit key is named outside ${OWNER} (IMG.FIT.1)`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      The picture fitter has one module: read with resolvePictureFit / pictureFitSeed,`);
+      console.error(`      write with writePictureFit, so junk resolves to cover and crop and fit never mix.`);
+    } else {
+      console.log(`ok ${c.name} (${scanned} files in src/ scanned; ${KEYS.join(' / ')} appear only in ${OWNER})`);
     }
     continue;
   }

@@ -150,3 +150,64 @@ export async function analyzeImageForLogo(src: string): Promise<boolean | null> 
   const sig = await analyzeLogoSignals(src);
   return sig ? classifyLogo(sig) : null;
 }
+
+/** Below this mean alpha the winning border colour is see-through, not a field. */
+const EDGE_MIN_ALPHA = 250;
+
+/**
+ * IMG.FIT.1 — the colour of the field a picture sits on, for painting behind it
+ * when the whole picture is shown. Same border ring and 4-bit buckets as
+ * borderFlatShare; the winner is the most common bucket (first to reach the
+ * top count), and the answer is the MEAN of the real pixels in it — so a white
+ * field stays `#ffffff` rather than the quantised `#f0f0f0`. Null when the
+ * winning bucket is transparent (mean alpha under 250) or there is no ring.
+ */
+export function dominantBorderColor(rgba: Uint8ClampedArray, w: number, h: number): string | null {
+  if (!(w > 0) || !(h > 0) || rgba.length < w * h * 4) return null;
+  const sums = new Map<number, { n: number; r: number; g: number; b: number; a: number }>();
+  let topKey = -1;
+  let top = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (x !== 0 && y !== 0 && x !== w - 1 && y !== h - 1) continue;
+      const i = (y * w + x) * 4;
+      const key = quantKey(rgba, i, 4);
+      const s = sums.get(key) ?? { n: 0, r: 0, g: 0, b: 0, a: 0 };
+      s.n++; s.r += rgba[i]; s.g += rgba[i + 1]; s.b += rgba[i + 2]; s.a += rgba[i + 3];
+      sums.set(key, s);
+      if (s.n > top) { top = s.n; topKey = key; }
+    }
+  }
+  const win = sums.get(topKey);
+  if (!win || win.a / win.n < EDGE_MIN_ALPHA) return null;
+  const hex = (sum: number) => Math.round(sum / win.n).toString(16).padStart(2, '0');
+  return `#${hex(win.r)}${hex(win.g)}${hex(win.b)}`;
+}
+
+/**
+ * IMG.FIT.1 — is this picture logo-like, and what colour is its edge? From ONE
+ * image load and the same 32×32 downsample analyzeLogoSignals reads. Never
+ * throws; a picture that cannot be read (no CORS, decode error) is null.
+ */
+export async function analyzePictureEdge(src: string): Promise<{ isLogo: boolean; edgeColor: string | null } | null> {
+  try {
+    if (!src || typeof document === 'undefined') return null;
+    const img = await loadCorsImage(src);
+    if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+    const s = LOGO_SAMPLE_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = s;
+    canvas.height = s;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, s, s);
+    // getImageData throws SecurityError on a tainted canvas — caught below.
+    const { data } = ctx.getImageData(0, 0, s, s);
+    return {
+      isLogo: classifyLogo(logoSignals(data, s, s, img.naturalWidth, img.naturalHeight)),
+      edgeColor: dominantBorderColor(data, s, s),
+    };
+  } catch {
+    return null;
+  }
+}

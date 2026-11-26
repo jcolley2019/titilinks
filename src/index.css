@@ -644,6 +644,34 @@
     transform: translateX(2px);
   }
 
+  /* IMG.FIT.1 — Fit whole picture (root class lb-fit, set by LinkButton from
+     stored data only). The frame carries the cover's aspect inline (from
+     linkThumbBox), so the card's OUTER box is exactly the Fill card's; inside
+     it the picture area gives up the title strip's height. overflow:hidden is
+     load-bearing: it drops the aspect-ratio box's automatic minimum, so a long
+     title shrinks the picture instead of growing the card. The title sits
+     BELOW the picture on the card's own surface in the card's own colour (a
+     per-item title colour still wins inline) — no gradient, no shadow. */
+  .lb-velvet.lb-fit .lb-fit-frame {
+    display: flex; flex-direction: column;
+    width: 100%;
+    overflow: hidden;
+  }
+  .lb-velvet.lb-fit .lb-fit-frame .lb-cover {
+    flex: 1 1 0; min-height: 0;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+  .lb-velvet.lb-fit .lb-fit-frame .lb-cover img { object-fit: contain; }
+  .lb-velvet.lb-fit .lb-fit-frame .lb-text {
+    position: static;
+    flex-shrink: 0;
+    background: none;
+    color: inherit;
+  }
+  .lb-velvet.lb-fit .lb-fit-frame .lb-title { text-shadow: none; }
+  .lb-velvet.lb-fit .lb-fit-frame .lb-subtitle { color: inherit; opacity: 0.75; }
+
   /* Velvet: meta chip (right side, medium/small only) */
   .lb-velvet .lb-meta {
     font-family: var(--font-body);

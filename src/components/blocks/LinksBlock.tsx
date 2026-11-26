@@ -254,6 +254,7 @@ export function LinksBlock({
         fillGradient={fillGradient}
         titleColor={item.title_color || undefined}
         animation={sj?.animation as string | undefined}
+        styleJson={sj}
         title={tc(shownLabel)}
         subtitle={item.subtitle ? tc(item.subtitle) : undefined}
         media={item.image_url ? { kind: 'image', src: item.image_url } : undefined}

@@ -215,6 +215,12 @@ const uploadThumb = async (page: Page, file: { name: string; mimeType: string; b
   expect(res.status(), 'the storage POST succeeded').toBeLessThan(300);
   await expect(page.getByText(T['thumbnailUpload.uploaded'], { exact: true })).toBeVisible({ timeout: 15_000 });
   const url = res.url().replace('/storage/v1/object/page-assets/', `${OBJECT}page-assets/`);
+  // IMG.FIT.1: an upload onto a Large/Small card opens the picture fitter;
+  // close it with its own Cancel (the draft keeps the picture).
+  const sheet = page.getByTestId('picture-fit-sheet');
+  await expect(sheet).toBeVisible({ timeout: 15_000 });
+  await sheet.getByTestId('picture-fit-cancel').click();
+  await expect(sheet).toHaveCount(0);
   return url;
 };
 

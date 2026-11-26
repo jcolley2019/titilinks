@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
@@ -25,9 +25,15 @@ interface ThumbnailUploadProps {
     hasValue: boolean;
     remove: () => void;
   }) => React.ReactNode;
+  /**
+   * IMG.FIT.1: receives this uploader's `upload(file)` — the same gate,
+   * prepare step and Storage upload as a picked file — so a pasted picture
+   * (usePastedImage) lands exactly the way a picked one does.
+   */
+  uploadRef?: React.MutableRefObject<((file: File) => void) | null>;
 }
 
-export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTrigger }: ThumbnailUploadProps) {
+export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTrigger, uploadRef }: ThumbnailUploadProps) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
@@ -35,7 +41,12 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const uploadFile = async (file: File) => {
+    if (!user) return;
 
     // MEDIA.PHOTO.2 — the shared gate replaces the 2 MB thumbnail cap: the
     // input is bounded at 40 MB, the stored master in pixels (below).
@@ -75,6 +86,14 @@ export function ThumbnailUpload({ value, onChange, label, size = 'sm', renderTri
       }
     }
   };
+
+  // IMG.FIT.1: hand the latest uploader to whoever asked for it (paste).
+  useEffect(() => {
+    if (!uploadRef) return;
+    const upload = (file: File) => { void uploadFile(file); };
+    uploadRef.current = upload;
+    return () => { if (uploadRef.current === upload) uploadRef.current = null; };
+  });
 
   const handleRemove = () => {
     onChange(null);

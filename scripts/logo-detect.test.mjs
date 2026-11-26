@@ -16,6 +16,7 @@ import {
   aspectNearSquare,
   classifyLogo,
   logoSignals,
+  dominantBorderColor,
   LOGO_MAX_COLORS,
   LOGO_MIN_BORDER_FLAT,
 } from '../src/lib/logo-detect';
@@ -128,6 +129,53 @@ const twoColourNoisyBorder = buf(S, S, (x, y) => PALETTE[(x + y) % PALETTE.lengt
   assert.equal(classifyLogo({ colors: 96, borderFlat: 0.5, nearSquare: false }), true, '96 colours + 0.5 border is still a logo');
   assert.equal(classifyLogo({ colors: 97, borderFlat: 0.499, nearSquare: true }), false, 'just over both is a photo');
   ok('recon signals pinned; threshold edges inclusive');
+}
+
+// ── 6. IMG.FIT.1 — the edge colour behind a fitted picture ───────────────────
+{
+  const rgbaBuf = (w, h, px) => {
+    const out = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const [r, g, b, a = 255] = px(x, y);
+      const i = (y * w + x) * 4;
+      out[i] = r; out[i + 1] = g; out[i + 2] = b; out[i + 3] = a;
+    }
+    return out;
+  };
+  // A white field stays exactly #ffffff (the quantised bucket would be #f0f0f0).
+  const white = rgbaBuf(S, S, (x, y) => (x > 10 && x < 22 && y > 10 && y < 22 ? [20, 40, 200] : [255, 255, 255]));
+  assert.equal(dominantBorderColor(white, S, S), '#ffffff', 'white field → #ffffff exactly');
+
+  // A near-white field with JPEG-like ringing: the MEAN of the real pixels.
+  const ringing = rgbaBuf(S, S, (x, y) => (isBorder(x, y) ? [250 + ((x + y) % 2) * 4, 251, 249] : [0, 0, 0]));
+  assert.equal(dominantBorderColor(ringing, S, S), '#fcfbf9', 'the mean of the winning bucket, not its quantised value');
+
+  // A mostly-red border: 3 in 4 ring pixels red (two shades in one bucket), the rest blue.
+  let k = 0;
+  const reds = [];
+  const mostlyRed = rgbaBuf(S, S, (x, y) => {
+    if (!isBorder(x, y)) return [255, 255, 255];
+    const n = k++;
+    if (n % 4 === 3) return [10, 20, 230];
+    const px = n % 2 === 0 ? [224, 16, 16] : [232, 20, 24];
+    reds.push(px);
+    return px;
+  });
+  const mean = (i) => Math.round(reds.reduce((s, p) => s + p[i], 0) / reds.length);
+  const hex = (n) => n.toString(16).padStart(2, '0');
+  const want = `#${hex(mean(0))}${hex(mean(1))}${hex(mean(2))}`;
+  assert.equal(dominantBorderColor(mostlyRed, S, S), want, `mostly-red border → its red mean ${want}`);
+
+  // A transparent border (a cut-out PNG logo): no colour to paint behind it.
+  const cutout = rgbaBuf(S, S, (x, y) => (isBorder(x, y) ? [0, 0, 0, 0] : [200, 30, 30, 255]));
+  assert.equal(dominantBorderColor(cutout, S, S), null, 'transparent border → null');
+  // Half-transparent border pixels (mean alpha under 250) are not a field either.
+  const faint = rgbaBuf(S, S, (x, y) => (isBorder(x, y) ? [255, 255, 255, 200] : [0, 0, 0, 255]));
+  assert.equal(dominantBorderColor(faint, S, S), null, 'translucent border → null');
+  // Degenerate input never throws and never invents a colour.
+  assert.equal(dominantBorderColor(new Uint8ClampedArray(0), 0, 0), null, 'empty buffer → null');
+  assert.equal(dominantBorderColor(new Uint8ClampedArray(8), 4, 4), null, 'short buffer → null');
+  ok('dominantBorderColor: white stays #ffffff, the mean of the winner, transparent → null');
 }
 
 console.log(`\nAll ${passed} logo-detect checks passed.`);

@@ -8,6 +8,8 @@ import { safeHref } from '@/lib/safe-url';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 import { linkThumbBox } from '@/lib/link-thumb-box';
+import { resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
+import { scaleBox } from '@/lib/media-url';
 
 type Media = { kind: 'image' | 'video'; src?: string; poster?: string; youtubeId?: string };
 
@@ -38,6 +40,11 @@ interface BaseLinkButtonProps {
    *  (frame + fill) moves as one; inert under prefers-reduced-motion. Sourced
    *  from block_items.style_json.animation (links) or the CTA's style config. */
   animation?: string;
+  /** IMG.FIT.1: the item's block_items.style_json. Read ONLY for a Large/Small
+   *  card with a picture, through src/lib/picture-fit.ts: a stored zoom/pan
+   *  window, or the whole picture fitted on a background. Without the picture
+   *  keys (or without this prop) the card renders exactly as before. */
+  styleJson?: unknown;
 }
 
 interface ButtonLinkButtonProps extends BaseLinkButtonProps {
@@ -138,6 +145,16 @@ export function LinkButton(props: LinkButtonProps) {
   const hasImage = !!effectiveMedia;
   const effectiveSize =
     (size === 'big' || size === 'small') && !hasImage ? 'button' : size;
+
+  // IMG.FIT.1: how the card's picture sits in its box. Only a Large/Small card
+  // painting an image consults the stored keys; everything else is cover, i.e.
+  // today's element untouched. The box aspect comes from the one aspect table.
+  const isCoverCard = (effectiveSize === 'big' || effectiveSize === 'small') && !!effectiveMedia;
+  const coverBox = isCoverCard ? linkThumbBox(effectiveSize, span) : null;
+  const picture: PictureFit =
+    coverBox && effectiveMedia?.kind === 'image' && effectiveMedia.src && props.styleJson != null
+      ? resolvePictureFit(props.styleJson, coverBox.aspect)
+      : { mode: 'cover' };
 
   const bs = { ...DEFAULT_BLOCK_STYLE, ...(blockStyle || {}) };
 
@@ -249,6 +266,7 @@ export function LinkButton(props: LinkButtonProps) {
     // per-item prop wins ('none' = deliberately still), else the page-level
     // theme.buttons.animation, else nothing.
     animationClass(resolveAnimation(themeButtons?.animation, props.animation)),
+    picture.mode === 'fit' ? 'lb-fit' : '',
     className,
   ]
     .filter(Boolean)
@@ -258,11 +276,53 @@ export function LinkButton(props: LinkButtonProps) {
     triggerHaptic('light');
   };
 
+  const textNode = (title || (subtitle && effectiveSize !== 'button')) && (
+    <span className="lb-text">
+      {title && <span className="lb-title" style={props.titleColor ? { color: props.titleColor } : undefined}>{title}</span>}
+      {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
+    </span>
+  );
+
+  // IMG.FIT.1 — the cover picture, painted the way the stored data says.
+  //  - cover: today's element, untouched.
+  //  - crop:  GalleryPhoto's paint — the resolved rectangle, renditions `zoom`
+  //           box-widths wide and aspect-preserving (no server crop: the maths
+  //           positions the WHOLE image). `.lb-cover img` sets inset:0, so the
+  //           far edges are released explicitly; the rectangle owns all four.
+  //  - fit:   the whole picture (contain, no server crop — it would cut a logo)
+  //           on the stored background, the title BELOW it inside a frame that
+  //           keeps the cover's aspect, so the card's outer box is unchanged.
+  let coverThumb: React.ReactNode = null;
+  if (coverBox && effectiveMedia) {
+    if (picture.mode === 'crop') {
+      coverThumb = (
+        <MediaThumb
+          media={effectiveMedia}
+          className="lb-cover"
+          imgStyle={{ ...picture.style, right: 'auto', bottom: 'auto' }}
+          box={{ cssWidth: Math.round(coverBox.cssWidth * picture.zoom), sizes: scaleBox(coverBox.sizes, picture.zoom) }}
+        />
+      );
+    } else if (picture.mode === 'fit') {
+      coverThumb = (
+        <span className="lb-fit-frame" style={{ aspectRatio: String(coverBox.aspect) }}>
+          <MediaThumb
+            media={effectiveMedia}
+            className="lb-cover"
+            style={picture.bg ? { background: picture.bg } : undefined}
+            box={{ cssWidth: coverBox.cssWidth, sizes: coverBox.sizes }}
+          />
+          {textNode}
+        </span>
+      );
+    } else {
+      coverThumb = <MediaThumb media={effectiveMedia} className="lb-cover" box={coverBox} />;
+    }
+  }
+
   const content = (
     <>
-      {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && (
-        <MediaThumb media={effectiveMedia} className="lb-cover" box={linkThumbBox(effectiveSize, span)} />
-      )}
+      {coverThumb}
       {(effectiveSize === 'big' || effectiveSize === 'small') && effectiveMedia && socialIcon && (
         <span
           className={`absolute z-[1] rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white ${
@@ -283,12 +343,7 @@ export function LinkButton(props: LinkButtonProps) {
         </span>
       )}
 
-      {(title || (subtitle && effectiveSize !== 'button')) && (
-        <span className="lb-text">
-          {title && <span className="lb-title" style={props.titleColor ? { color: props.titleColor } : undefined}>{title}</span>}
-          {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
-        </span>
-      )}
+      {picture.mode !== 'fit' && textNode}
 
       {meta && effectiveSize !== 'big' && effectiveSize !== 'button' && <span className="lb-meta">{meta}</span>}
     </>

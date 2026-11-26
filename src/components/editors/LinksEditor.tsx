@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   Settings2,
   Camera,
+  Crop,
   Lock,
   Plus,
   ArrowLeftRight,
@@ -57,8 +58,25 @@ import { isAdultPlatformLabel, isAdultUrl } from '@/lib/adult-gate';
 import { displayLabel, labelFromUrl, looksLikeUrl } from '@/lib/link-label';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
+import { PhotoCropSheet } from './PhotoCropSheet';
+import { resolvePictureFit, writePictureFit, type PictureFitChoice } from '@/lib/picture-fit';
+import { analyzePictureEdge } from '@/lib/logo-detect';
+import { linkThumbBox } from '@/lib/link-thumb-box';
+import { usePastedImage } from '@/hooks/usePastedImage';
 
 const MAX_ITEMS = ITEM_CAPS.links;
+
+/** IMG.FIT.1 — the most an upload waits for its picture to be read before the
+ *  framing sheet opens anyway (in Fill). */
+const PICTURE_READ_CAP_MS = 1500;
+
+/** IMG.FIT.1 — the ONE way a card's picture changes: a stored framing (window,
+ *  fit, background) belongs to the old picture, so it goes with it. Same URL →
+ *  the card untouched. */
+function withPicture<T extends { image_url?: string | null; style_json?: Record<string, any> | null }>(card: T, url: string | null): T {
+  if ((card.image_url || null) === (url || null)) return card;
+  return { ...card, image_url: url, style_json: writePictureFit(card.style_json, { mode: 'cover' }) };
+}
 
 type BlockItem = Tables<'block_items'>;
 
@@ -357,9 +375,9 @@ function LinkDetailPanel({
   // (including cleared), it's frozen — so a deleted title stays deleted.
   const applyMeta = (card: LinkItem, st: { titleEdited: boolean; imageEdited: boolean }, meta: UnfurlMeta | null): LinkItem => {
     if (!meta) return card;
-    const next = { ...card };
+    let next = { ...card };
     if (!st.titleEdited && meta.title && meta.title.trim()) next.label = meta.title.trim();
-    if (!st.imageEdited && meta.image) next.image_url = meta.image;
+    if (!st.imageEdited && meta.image) next = withPicture(next, meta.image);
     // Subtitle is user-only — never auto-filled from the link's OG description (it's optional).
     return next;
   };
@@ -528,6 +546,88 @@ function LinkDetailPanel({
   const previewTheme = themeFor(active);
   const previewBlockStyle = blockStyleFor(active);
 
+  // ── IMG.FIT.1 — the card's picture: Fill (zoom/pan) or Fit whole picture ──
+  // The sheet is the shared fitter (PhotoCropSheet + src/lib/picture-fit); it
+  // edits the DRAFT only — nothing reaches a row until the panel's own Save
+  // (style_json is already inside dirtyKey and buildItemPayload).
+  const [pictureSheet, setPictureSheet] = useState<{ slot: 'a' | 'b'; src: string; edgeColor?: string | null } | null>(null);
+  // The cards as they now stand, for the upload flow's late answers.
+  const cardsNow = useRef<{ a: LinkItem; b: LinkItem | null }>({ a: cardA, b: cardB });
+  useEffect(() => { cardsNow.current = { a: cardA, b: cardB }; });
+  // Each slot's uploader (ThumbnailUpload's own prepare-and-upload), for paste.
+  const uploadA = useRef<((file: File) => void) | null>(null);
+  const uploadB = useRef<((file: File) => void) | null>(null);
+
+  const setSlot = (slot: 'a' | 'b', updater: (c: LinkItem) => LinkItem) => {
+    if (slot === 'b') setCardB(prev => (prev ? updater(prev) : prev));
+    else setCardA(updater);
+  };
+  // The box the slot's picture paints into on the live page: a pair half is
+  // 4:3, the single card is a Large 16:10 — from the one aspect table.
+  const slotBoxAspect = (slot: 'a' | 'b') =>
+    (slot === 'b' || isPair ? linkThumbBox('small', 'half') : linkThumbBox('big', 'full')).aspect;
+
+  // An UPLOAD (picked or pasted) landed on a Large/Small card: read the picture
+  // (capped), give a logo-like one Fit on its own edge colour, then open the
+  // sheet for that slot on the draft. A late read for a picture that has since
+  // been replaced is dropped.
+  const framePicture = async (slot: 'a' | 'b', url: string) => {
+    const size = slot === 'b' ? 'small' : cardsNow.current.a.size;
+    if (size !== 'big' && size !== 'small') return;
+    const read = await Promise.race([
+      analyzePictureEdge(url),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), PICTURE_READ_CAP_MS)),
+    ]);
+    const now = slot === 'b' ? cardsNow.current.b : cardsNow.current.a;
+    if (!now || now.image_url !== url) return;
+    if (read?.isLogo) {
+      setSlot(slot, (c) => (c.image_url === url
+        ? { ...c, style_json: writePictureFit(c.style_json, { mode: 'fit', bg: read.edgeColor }) }
+        : c));
+    }
+    setPictureSheet({ slot, src: url, edgeColor: read ? read.edgeColor : undefined });
+  };
+
+  // The one "the picture changed" path for an upload: the old framing goes
+  // with the old picture (withPicture), then the new one is framed.
+  const pictureChanged = (slot: 'a' | 'b', url: string | null) => {
+    unfurlState.current[slot].imageEdited = true;
+    setSlot(slot, (c) => withPicture(c, url));
+    if (url) void framePicture(slot, url);
+  };
+
+  // Adjust: however the picture got there (uploaded, pasted, pulled from the
+  // link). The sheet reads the edge colour itself and does not wait for it.
+  const openAdjust = (slot: 'a' | 'b') => {
+    const card = slot === 'b' ? cardB : cardA;
+    if (!card?.image_url) return;
+    setPictureSheet({ slot, src: card.image_url });
+  };
+
+  const applyPictureChoice = (slot: 'a' | 'b', src: string, choice: PictureFitChoice) => {
+    setSlot(slot, (c) => (c.image_url === src ? { ...c, style_json: writePictureFit(c.style_json, choice) } : c));
+    setPictureSheet(null);
+  };
+
+  // Paste a picture onto the active Large/Small card (text paste is untouched).
+  usePastedImage(
+    !pictureSheet && (active.size === 'big' || active.size === 'small'),
+    (file) => (activeKey === 'b' ? uploadB : uploadA).current?.(file),
+  );
+
+  const adjustButton = (slot: 'a' | 'b', corner: string) => (
+    <button
+      type="button"
+      data-testid="link-picture-adjust"
+      aria-label={t('linksEditor.adjustPicture')}
+      onClick={(e) => { e.stopPropagation(); setActiveSlot(slot); openAdjust(slot); }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className={`absolute ${corner} h-7 w-7 rounded-full bg-black/55 border border-white/20 backdrop-blur-sm flex items-center justify-center text-white`}
+    >
+      <Crop className="h-3.5 w-3.5" />
+    </button>
+  );
+
   // One small slot in the pair preview: a filled card (cover + title + camera) or
   // an "add second" placeholder. Tapping the body selects the slot as active.
   const renderPairSlot = (card: LinkItem | null, slot: 'a' | 'b') => {
@@ -544,20 +644,44 @@ function LinkDetailPanel({
         </button>
       );
     }
+    // IMG.FIT.1: the slot paints the draft through the live card's resolver, at
+    // the live pair box (4:3). No picture keys → today's <img object-cover>.
+    const pic = card.image_url ? resolvePictureFit(card.style_json, linkThumbBox('small', 'half').aspect) : null;
     return (
       <ThumbnailUpload
         value={card.image_url}
-        onChange={(url) => {
-          unfurlState.current[slot].imageEdited = true;
-          if (slot === 'b') setCardB(prev => (prev ? { ...prev, image_url: url } : prev));
-          else setCardA(prev => ({ ...prev, image_url: url }));
-        }}
+        onChange={(url) => pictureChanged(slot, url)}
+        uploadRef={slot === 'b' ? uploadB : uploadA}
         renderTrigger={({ open, uploading }) => (
           <div
             onClick={() => setActiveSlot(slot)}
             className="relative aspect-[4/3] w-full overflow-hidden rounded-[14px] cursor-pointer"
           >
-            {card.image_url ? (
+            {card.image_url && pic?.mode === 'fit' ? (
+              // Fit: the whole picture on its background, the title BELOW it.
+              <div
+                className="absolute inset-0 flex flex-col"
+                style={{ background: 'linear-gradient(180deg, rgba(201,165,92,0.10) 0%, rgba(255,255,255,0.02) 100%)' }}
+              >
+                <div className="relative min-h-0 flex-1 overflow-hidden" style={{ background: pic.bg ?? 'rgba(0,0,0,0.25)' }}>
+                  <img src={card.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                </div>
+                {previewLabel(card) && (
+                  <div className="flex-shrink-0 px-2.5 pb-2 pt-1.5 text-left">
+                    <span className="block truncate text-[13px] font-bold" style={{ color: card.title_color || '#ffffff' }}>
+                      {previewLabel(card)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : card.image_url && pic?.mode === 'crop' ? (
+              <img
+                src={card.image_url}
+                alt=""
+                className="absolute object-cover"
+                style={{ ...pic.style, right: 'auto', bottom: 'auto' }}
+              />
+            ) : card.image_url ? (
               <img src={card.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <div
@@ -567,7 +691,7 @@ function LinkDetailPanel({
             )}
             {/* Title only when set — a deleted title shows no overlay, matching
                 the live card; positioned bottom-left like the reference. */}
-            {previewLabel(card) && (
+            {previewLabel(card) && pic?.mode !== 'fit' && (
               <div
                 className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6 text-left"
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
@@ -586,6 +710,7 @@ function LinkDetailPanel({
             >
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
             </button>
+            {card.image_url && adjustButton(slot, 'top-1.5 right-1.5')}
             {/* Active-slot highlight as an INSET frame (drawn on top, inside the
                 card) so it never overflows/clips the panel edge like an outset
                 ring would — cards stay at the exact live grid size. */}
@@ -796,7 +921,8 @@ function LinkDetailPanel({
           ) : (
           <ThumbnailUpload
             value={active.image_url}
-            onChange={(url) => { unfurlState.current[activeKey].imageEdited = true; update('image_url', url); }}
+            onChange={(url) => pictureChanged(activeKey, url)}
+            uploadRef={activeKey === 'b' ? uploadB : uploadA}
             renderTrigger={({ open, uploading }) => {
               const noImage = !active.image_url;
               const isCover = active.size === 'big' || active.size === 'small';
@@ -925,8 +1051,12 @@ function LinkDetailPanel({
                           : undefined
                       }
                       size={active.size}
+                      styleJson={active.style_json}
                       onClick={(e) => e.preventDefault()}
                     />
+                    {/* IMG.FIT.1: Adjust — the cover itself is tap-to-replace,
+                        so the button stops its tap from reaching it. */}
+                    {isCover && active.image_url && adjustButton(activeKey, 'top-2.5 right-2.5')}
                   </div>
                 );
               }
@@ -1440,6 +1570,21 @@ function LinkDetailPanel({
           </Button>
         </div>
       </div>
+      {/* IMG.FIT.1 — the shared picture fitter, for one slot, on the draft.
+          Portals to body; Cancel hands back nothing, Apply one choice. */}
+      {pictureSheet && (pictureSheet.slot === 'b' ? cardB : cardA) && (
+        <PhotoCropSheet
+          src={pictureSheet.src}
+          aspect={slotBoxAspect(pictureSheet.slot)}
+          title={t('pictureFit.title')}
+          fit={{
+            styleJson: (pictureSheet.slot === 'b' ? cardB : cardA)?.style_json ?? null,
+            edgeColor: pictureSheet.edgeColor,
+            onApply: (choice) => applyPictureChoice(pictureSheet.slot, pictureSheet.src, choice),
+          }}
+          onCancel={() => setPictureSheet(null)}
+        />
+      )}
     </div>
   );
 }
