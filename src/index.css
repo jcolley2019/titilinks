@@ -650,8 +650,11 @@
      it the picture area gives up the title strip's height. overflow:hidden is
      load-bearing: it drops the aspect-ratio box's automatic minimum, so a long
      title shrinks the picture instead of growing the card. The title sits
-     BELOW the picture on the card's own surface in the card's own colour (a
-     per-item title colour still wins inline) — no gradient, no shadow. */
+     BELOW the picture — no gradient, no shadow. With no background stored it
+     is on the card's own surface in the card's own colour (a per-item title
+     colour still wins inline); IMG.FIT.3: with one stored, LinkButton paints
+     the strip inline in that background and a colour readable on it
+     (fittedTextLook), so picture and title read as one tile. */
   .lb-velvet.lb-fit .lb-fit-frame {
     display: flex; flex-direction: column;
     width: 100%;

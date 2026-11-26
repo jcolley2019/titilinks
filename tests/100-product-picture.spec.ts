@@ -30,7 +30,12 @@
 import { test, expect, type Page, type Route, type Locator } from './fixtures';
 import { translations } from '../src/hooks/useLanguage';
 import { resolveGalleryGeometry } from '../src/lib/gallery-framing';
+import { contrastRatio } from '../src/lib/contrast';
 import { TEST_HANDLE, PINNED_TEST_USER_ID } from './helpers/auth';
+
+/** `rgb(r, g, b)` → `#rrggbb`, for contrastRatio. */
+const rgbHex = (css: string) => `#${(css.match(/\d+/g) || []).slice(0, 3)
+  .map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
 
 const EN = translations.en;
 const PHONE = { width: 402, height: 874 };
@@ -102,9 +107,49 @@ async function installReads(page: Page, items: Item[], layout: Layout = 'grid') 
 }
 
 type Box = { x: number; y: number; width: number; height: number; right: number; bottom: number };
-const rectOf = (loc: Locator): Promise<Box> => loc.evaluate((el) => {
-  const r = el.getBoundingClientRect();
-  return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
+/** An element's rectangle plus what the picture maths needs (0 / '' off an <img>). */
+type Measured = Box & {
+  clientLeft: number; clientWidth: number; clientHeight: number;
+  naturalWidth: number; naturalHeight: number; objectFit: string;
+};
+
+/**
+ * Several elements measured in ONE page.evaluate, so every rectangle comes from
+ * the same layout (spec 99's reader). IMG.FIT.3c: the page slides each block in
+ * (motion.section, y 20 → 0 on a spring), and two separate reads a few ms apart
+ * straddle a frame of it — a tile and its picture then disagree by however far
+ * the block travelled in between, with the picture exactly in place all along.
+ * Never compare rectangles from two reads; compare them through `within`, as
+ * offsets from the box they belong to.
+ */
+const measure = async <K extends string>(page: Page, locs: Record<K, Locator>): Promise<Record<K, Measured>> => {
+  const keys = Object.keys(locs) as K[];
+  const handles = await Promise.all(keys.map((k) => locs[k].elementHandle()));
+  try {
+    const out = await page.evaluate((els) => els.map((el) => {
+      const r = el!.getBoundingClientRect();
+      const i = el as unknown as HTMLImageElement;
+      return {
+        x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom,
+        clientLeft: el!.clientLeft, clientWidth: el!.clientWidth, clientHeight: el!.clientHeight,
+        naturalWidth: i.naturalWidth || 0, naturalHeight: i.naturalHeight || 0,
+        objectFit: getComputedStyle(el!).objectFit,
+      };
+    }), handles);
+    return Object.fromEntries(keys.map((k, n) => [k, out[n]])) as Record<K, Measured>;
+  } finally {
+    await Promise.all(handles.map((h) => h?.dispose()));
+  }
+};
+/** `r` as offsets from `box`'s top-left corner (both from the same `measure`). */
+const within = (r: Box, box: Box): Box => ({
+  x: r.x - box.x, y: r.y - box.y, width: r.width, height: r.height,
+  right: r.right - box.x, bottom: r.bottom - box.y,
+});
+/** A tile's box inside its border — what its picture is positioned in. */
+const innerOf = (t: Measured): Box => ({
+  x: t.x + t.clientLeft, y: t.y + t.clientLeft, width: t.clientWidth, height: t.clientHeight,
+  right: t.x + t.clientLeft + t.clientWidth, bottom: t.y + t.clientLeft + t.clientHeight,
 });
 const tileOf = (page: Page, id: string) => page.locator(`a[href="https://fixture.titilinks.test/${id}"]`).first();
 const loaded = (img: Locator) => expect.poll(async () => {
@@ -138,6 +183,14 @@ async function openPanel(page: Page) {
   await expect(page.getByTestId('sections-group-toggle')).toBeVisible();
   await page.locator('[data-testid="section-row"][data-section-type="product_cards"]').locator('button').first().click();
   await expect(panelOf(page).getByText(EN['productCardsEditor.addProduct'], { exact: true })).toBeVisible({ timeout: 20_000 });
+  // IMG.FIT.3c: the panel mounts off-screen and springs in, and its content
+  // counts as visible from the first frame — ~0.7 s a frame on the mobile
+  // project. framer leaves the transform `none` once the spring is done;
+  // nothing is asserted or tapped inside the panel before that.
+  await expect.poll(
+    () => panelOf(page).first().evaluate((el) => getComputedStyle(el).transform),
+    { timeout: 15_000, message: 'the panel finished sliding in' },
+  ).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 }
 
 /** Tap the panel tile showing `src` to select that product. */
@@ -216,18 +269,17 @@ test.describe('IMG.FIT.2 — the public tile', () => {
     const tile = tileOf(page, 'cr-a');
     const img = tile.locator('img');
     await loaded(img);
-    const box = await tile.evaluate((el) => {
-      const r = el.getBoundingClientRect(); const b = el.clientLeft;
-      return { x: r.x + b, y: r.y + b, width: el.clientWidth, height: el.clientHeight };
-    });
-    const pic = await rectOf(img);
+    // Tile and picture from one read; the picture is checked from the tile's corner.
+    const gm = await measure(page, { tile, pic: img });
+    const box = innerOf(gm.tile);
+    const pic = within(gm.pic, box);
     const geo = resolveGalleryGeometry({ crop: CROP_11 })!;
     const want = {
-      x: box.x + (geo.leftPct / 100) * box.width, y: box.y + (geo.topPct / 100) * box.height,
+      x: (geo.leftPct / 100) * box.width, y: (geo.topPct / 100) * box.height,
       width: (geo.widthPct / 100) * box.width, height: (geo.heightPct / 100) * box.height,
     };
     for (const k of ['x', 'y', 'width', 'height'] as const) {
-      expect(Math.abs(pic[k] - want[k]), `grid: painted ${k} ${pic[k]} vs ${want[k]}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(pic[k] - want[k]), `grid: painted ${k} ${pic[k]} vs ${want[k]} (from the tile's corner)`).toBeLessThanOrEqual(1);
     }
     const srcset = (await img.getAttribute('srcset')) || '';
     expect(srcset, 'a framed picture asks for no server crop').not.toContain('resize=cover');
@@ -239,17 +291,15 @@ test.describe('IMG.FIT.2 — the public tile', () => {
     const ft = tileOf(page, 'cr-a');
     const fimg = ft.locator('img');
     await loaded(fimg);
-    const fb = await ft.evaluate((el) => {
-      const r = el.getBoundingClientRect(); const b = el.clientLeft;
-      return { x: r.x + b, y: r.y + b, right: r.x + b + el.clientWidth, bottom: r.y + b + el.clientHeight, w: el.clientWidth, h: el.clientHeight };
-    });
-    expect(Math.abs(fb.w / fb.h - 3 / 4), 'the full tile is 3:4').toBeLessThan(0.02);
-    const fp = await rectOf(fimg);
-    expect(fp.x).toBeLessThanOrEqual(fb.x + 1);
-    expect(fp.y).toBeLessThanOrEqual(fb.y + 1);
-    expect(fp.right).toBeGreaterThanOrEqual(fb.right - 1);
-    expect(fp.bottom).toBeGreaterThanOrEqual(fb.bottom - 1);
-    const natural = await fimg.evaluate((el) => (el as HTMLImageElement).naturalWidth / (el as HTMLImageElement).naturalHeight);
+    const fm = await measure(page, { tile: ft, pic: fimg });
+    const fb = innerOf(fm.tile);
+    expect(Math.abs(fb.width / fb.height - 3 / 4), 'the full tile is 3:4').toBeLessThan(0.02);
+    const fp = within(fm.pic, fb);
+    expect(fp.x).toBeLessThanOrEqual(1);
+    expect(fp.y).toBeLessThanOrEqual(1);
+    expect(fp.right).toBeGreaterThanOrEqual(fb.width - 1);
+    expect(fp.bottom).toBeGreaterThanOrEqual(fb.height - 1);
+    const natural = fm.pic.naturalWidth / fm.pic.naturalHeight;
     expect(Math.abs(fp.width / fp.height - natural) / natural, 'painted aspect = the picture\'s natural aspect').toBeLessThan(0.01);
   });
 
@@ -260,6 +310,7 @@ test.describe('IMG.FIT.2 — the public tile', () => {
       await openPublic(page, [
         product('ft-a', 0, 'Fitted product', WIDE, fit, { badge: 'New', compare_at_price: 29, is_adult: false }),
         product('ft-b', 1, 'Twin product', WIDE, null, { badge: 'New', compare_at_price: 29 }),
+        product('ft-c', 2, 'No-bg product', WIDE, { fit: 'contain' }),
       ], layout);
       const fc = tileOf(page, 'ft-a');
       const twin = tileOf(page, 'ft-b');
@@ -267,19 +318,23 @@ test.describe('IMG.FIT.2 — the public tile', () => {
       await expect(area).toHaveCount(1);
       const img = area.locator('img');
       await loaded(img);
-      const a = await rectOf(area);
-      const im = await img.evaluate((el) => {
-        const r = el.getBoundingClientRect();
-        const i = el as HTMLImageElement;
-        const s = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight);
-        const w = i.naturalWidth * s; const h = i.naturalHeight * s;
-        return { fit: getComputedStyle(el).objectFit, x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, right: r.x + (r.width + w) / 2, bottom: r.y + (r.height + h) / 2 };
+      const text = fc.locator('[data-product-text]');
+      // Every rectangle this layout compares, from one read.
+      const m = await measure(page, {
+        area, img, text, fit: fc, twin,
+        chipNew: fc.getByText('New', { exact: true }), chipSale: fc.getByText('-34%', { exact: true }),
       });
+      const a = m.area;
+      // The contained picture's painted rectangle, from the picture area's corner.
+      const el = within(m.img, a);
+      const s = Math.min(el.width / m.img.naturalWidth, el.height / m.img.naturalHeight);
+      const pw = m.img.naturalWidth * s; const ph = m.img.naturalHeight * s;
+      const im = { fit: m.img.objectFit, x: el.x + (el.width - pw) / 2, y: el.y + (el.height - ph) / 2, right: el.x + (el.width + pw) / 2, bottom: el.y + (el.height + ph) / 2 };
       expect(im.fit).toBe('contain');
-      expect(im.x, `${layout}: whole picture, left`).toBeGreaterThanOrEqual(a.x - 0.5);
-      expect(im.y, `${layout}: top`).toBeGreaterThanOrEqual(a.y - 0.5);
-      expect(im.right, `${layout}: right`).toBeLessThanOrEqual(a.right + 0.5);
-      expect(im.bottom, `${layout}: bottom`).toBeLessThanOrEqual(a.bottom + 0.5);
+      expect(im.x, `${layout}: whole picture, left`).toBeGreaterThanOrEqual(-0.5);
+      expect(im.y, `${layout}: top`).toBeGreaterThanOrEqual(-0.5);
+      expect(im.right, `${layout}: right`).toBeLessThanOrEqual(a.width + 0.5);
+      expect(im.bottom, `${layout}: bottom`).toBeLessThanOrEqual(a.height + 0.5);
       const srcset = (await img.getAttribute('srcset')) || '';
       expect(srcset.length).toBeGreaterThan(0);
       expect(srcset, 'no server crop (it would cut a logo)').not.toContain('resize=cover');
@@ -287,20 +342,36 @@ test.describe('IMG.FIT.2 — the public tile', () => {
       expect(await area.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 0, 255)');
 
       // The text block sits below the picture area, off the gradient.
-      const text = fc.locator('[data-product-text]');
-      const tr = await rectOf(text);
-      expect(tr.y, `${layout}: the text block starts at or below the picture`).toBeGreaterThanOrEqual(a.bottom - 0.5);
+      const tr = within(m.text, a);
+      expect(tr.y, `${layout}: the text block starts at or below the picture`).toBeGreaterThanOrEqual(a.height - 0.5);
       expect(await text.evaluate((el) => getComputedStyle(el).backgroundImage)).toBe('none');
+      // IMG.FIT.3: the text block takes the picture's background (one tile);
+      // the label and the price read on it, the Buy pill keeps its own fill.
+      const look = await text.evaluate((el) => ({
+        bg: getComputedStyle(el).backgroundColor,
+        label: getComputedStyle(el.querySelector('p')!).color,
+        price: getComputedStyle(el.querySelectorAll('p')[1]!.querySelector('span')!).color,
+      }));
+      expect(look.bg, `${layout}: the text block on the picture's background`).toBe('rgb(255, 0, 255)');
+      for (const c of [look.label, look.price]) {
+        expect(contrastRatio(rgbHex(c), '#ff00ff'), `${layout}: ${c} reads on the background`).toBeGreaterThanOrEqual(3.2);
+      }
+      const buyBg = (tile: Locator) => tile.getByText('Buy', { exact: true }).evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(await buyBg(fc), `${layout}: the Buy pill keeps its fill`).toBe(await buyBg(twin));
+      // No background stored: the tile's own surface and text colour, as before.
+      const plain = tileOf(page, 'ft-c').locator('[data-product-text]');
+      expect(await plain.evaluate((el) => getComputedStyle(el).backgroundColor), `${layout}: no background of its own`).toBe('rgba(0, 0, 0, 0)');
+      expect(await plain.getAttribute('style'), `${layout}: only the tile's own colour`).toMatch(/^color: [^;]+;?$/);
       // The badge and the sale chip stay on the picture area.
-      for (const chip of [fc.getByText('New', { exact: true }), fc.getByText('-34%', { exact: true })]) {
-        const c = await rectOf(chip);
-        expect(c.y).toBeGreaterThanOrEqual(a.y - 0.5);
-        expect(c.bottom).toBeLessThanOrEqual(a.bottom + 0.5);
+      for (const chip of [m.chipNew, m.chipSale]) {
+        const c = within(chip, a);
+        expect(c.y).toBeGreaterThanOrEqual(-0.5);
+        expect(c.bottom).toBeLessThanOrEqual(a.height + 0.5);
       }
 
       // The outer box equals the unfitted twin's.
-      const fb = await rectOf(fc);
-      const tb = await rectOf(twin);
+      const fb = m.fit;
+      const tb = m.twin;
       expect(Math.abs(fb.width - tb.width), `${layout}: width ${fb.width} vs ${tb.width}`).toBeLessThanOrEqual(1);
       expect(Math.abs(fb.height - tb.height), `${layout}: height ${fb.height} vs ${tb.height}`).toBeLessThanOrEqual(1);
     }

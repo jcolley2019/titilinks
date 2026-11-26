@@ -8,7 +8,7 @@ import { safeHref } from '@/lib/safe-url';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { MediaThumb } from './MediaThumb';
 import { linkThumbBox } from '@/lib/link-thumb-box';
-import { resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
+import { fittedTextLook, resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
 import { scaleBox } from '@/lib/media-url';
 
 type Media = { kind: 'image' | 'video'; src?: string; poster?: string; youtubeId?: string };
@@ -43,8 +43,13 @@ interface BaseLinkButtonProps {
   /** IMG.FIT.1: the item's block_items.style_json. Read ONLY for a Large/Small
    *  card with a picture, through src/lib/picture-fit.ts: a stored zoom/pan
    *  window, or the whole picture fitted on a background. Without the picture
-   *  keys (or without this prop) the card renders exactly as before. */
+   *  keys (or without this prop) the card renders exactly as before.
+   *  IMG.FIT.3: also `hide_title` (true = paint no title or subtitle), read
+   *  for the same Large/Small card with a picture only; a button ignores it. */
   styleJson?: unknown;
+  /** IMG.FIT.3: the link's accessible name while its title is hidden (the
+   *  stored title, or the clean hostname when it is empty). */
+  accessibleLabel?: string;
 }
 
 interface ButtonLinkButtonProps extends BaseLinkButtonProps {
@@ -155,6 +160,11 @@ export function LinkButton(props: LinkButtonProps) {
     coverBox && effectiveMedia?.kind === 'image' && effectiveMedia.src && props.styleJson != null
       ? resolvePictureFit(props.styleJson, coverBox.aspect)
       : { mode: 'cover' };
+  // IMG.FIT.3: "Show title" off — the same Large/Small card with a picture
+  // paints no title or subtitle (a button always shows its label).
+  const titleHidden =
+    isCoverCard && !!props.styleJson && typeof props.styleJson === 'object' &&
+    (props.styleJson as Record<string, unknown>).hide_title === true;
 
   const bs = { ...DEFAULT_BLOCK_STYLE, ...(blockStyle || {}) };
 
@@ -276,12 +286,23 @@ export function LinkButton(props: LinkButtonProps) {
     triggerHaptic('light');
   };
 
-  const textNode = (title || (subtitle && effectiveSize !== 'button')) && (
-    <span className="lb-text">
-      {title && <span className="lb-title" style={props.titleColor ? { color: props.titleColor } : undefined}>{title}</span>}
+  // IMG.FIT.3: Fit with a stored background — the title strip takes that
+  // background (picture and text read as one tile) and the creator's own title
+  // colour when it reads on it, else dark or light. Null = the card's own
+  // surface and colour, as before. The subtitle inherits the strip's colour.
+  const fittedText = fittedTextLook(picture, props.titleColor || textColor);
+  const titleStyle = fittedText
+    ? { color: fittedText.color }
+    : props.titleColor ? { color: props.titleColor } : undefined;
+
+  const textNode = !titleHidden && (title || (subtitle && effectiveSize !== 'button')) && (
+    <span className="lb-text" style={fittedText ? { background: fittedText.background, color: fittedText.color } : undefined}>
+      {title && <span className="lb-title" style={titleStyle}>{title}</span>}
       {subtitle && effectiveSize !== 'button' && <span className="lb-subtitle">{subtitle}</span>}
     </span>
   );
+  // The link keeps a name while its title is hidden.
+  const ariaLabel = titleHidden ? (props.accessibleLabel || title || undefined) : undefined;
 
   // IMG.FIT.1 — the cover picture, painted the way the stored data says.
   //  - cover: today's element, untouched.
@@ -359,6 +380,7 @@ export function LinkButton(props: LinkButtonProps) {
         onTouchStart={handleTouchStart}
         className={cls}
         style={style}
+        aria-label={ariaLabel}
       >
         {content}
       </a>
@@ -372,6 +394,7 @@ export function LinkButton(props: LinkButtonProps) {
       onTouchStart={handleTouchStart}
       className={cls}
       style={style}
+      aria-label={ariaLabel}
     >
       {content}
     </button>

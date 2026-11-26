@@ -15,7 +15,7 @@ import { animationClass, resolveAnimation } from '@/lib/animations';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 import { glidePxPerSec } from '@/lib/glide';
 import { ResponsiveImg } from '@/components/ResponsiveImg';
-import { resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
+import { fittedTextLook, resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
 import { scaleBox } from '@/lib/media-url';
 
 // MEDIA.PHOTO.1: the box a product tile paints into, per layout, at the 402px
@@ -155,10 +155,15 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
 
     // IMG.FIT.2 Fit: the whole picture (contain, no server crop — it would cut
     // a logo) on the stored background, the label / price / Buy block BELOW it
-    // in the tile's own text colour. The tile's outer box is the Fill tile's,
+    // (IMG.FIT.3: on that background when one is stored, else in the tile's
+    // own text colour on its own surface). The tile's outer box is the Fill tile's,
     // so rows and the filmstrip keep their rhythm; the chips stay on the picture.
     if (picture.mode === 'fit' && item.image_url) {
       const ink = fullBleed ? '#ffffff' : textColor;
+      // IMG.FIT.3: with a stored background the text block takes it too (one
+      // tile), in the tile's text colour if it reads there, else dark or light;
+      // the Buy pill keeps its own fill. None stored: the tile's own, as before.
+      const fitted = fittedTextLook(picture, ink);
       return (
         <a {...tileProps}>
           <div className="absolute inset-0 flex flex-col">
@@ -195,7 +200,11 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
               )}
             </div>
             {hasText && (
-              <div data-product-text className="flex-shrink-0 px-3 pb-2.5 pt-2" style={{ color: ink }}>
+              <div
+                data-product-text
+                className="flex-shrink-0 px-3 pb-2.5 pt-2"
+                style={fitted ? { background: fitted.background, color: fitted.color } : { color: ink }}
+              >
                 {item.label && <p className="truncate text-sm font-semibold">{tc(item.label)}</p>}
                 {cfg.showPrice && item.price != null && (
                   <p className="flex items-center gap-1.5 mt-0.5">

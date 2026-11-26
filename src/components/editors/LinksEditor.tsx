@@ -59,7 +59,7 @@ import { displayLabel, labelFromUrl, looksLikeUrl } from '@/lib/link-label';
 import { findPartnerId } from '@/lib/link-layout';
 import { cn } from '@/lib/utils';
 import { PhotoCropSheet } from './PhotoCropSheet';
-import { resolvePictureFit, writePictureFit, type PictureFitChoice } from '@/lib/picture-fit';
+import { fittedTextLook, resolvePictureFit, writePictureFit, type PictureFitChoice } from '@/lib/picture-fit';
 import { analyzePictureEdge } from '@/lib/logo-detect';
 import { linkThumbBox } from '@/lib/link-thumb-box';
 import { usePastedImage } from '@/hooks/usePastedImage';
@@ -647,6 +647,11 @@ function LinkDetailPanel({
     // IMG.FIT.1: the slot paints the draft through the live card's resolver, at
     // the live pair box (4:3). No picture keys → today's <img object-cover>.
     const pic = card.image_url ? resolvePictureFit(card.style_json, linkThumbBox('small', 'half').aspect) : null;
+    // IMG.FIT.3: the slot follows the live card — a fitted picture with a
+    // stored background puts the title strip on that background, in the colour
+    // LinkButton picks (fittedTextLook); "Show title" off paints no title.
+    const fitted = pic ? fittedTextLook(pic, card.title_color || themeFor(card).buttons.text_color) : null;
+    const titleShown = !!previewLabel(card) && !(card.image_url && card.style_json?.hide_title === true);
     return (
       <ThumbnailUpload
         value={card.image_url}
@@ -666,9 +671,12 @@ function LinkDetailPanel({
                 <div className="relative min-h-0 flex-1 overflow-hidden" style={{ background: pic.bg ?? 'rgba(0,0,0,0.25)' }}>
                   <img src={card.image_url} alt="" className="absolute inset-0 h-full w-full object-contain" />
                 </div>
-                {previewLabel(card) && (
-                  <div className="flex-shrink-0 px-2.5 pb-2 pt-1.5 text-left">
-                    <span className="block truncate text-[13px] font-bold" style={{ color: card.title_color || '#ffffff' }}>
+                {titleShown && (
+                  <div
+                    className="flex-shrink-0 px-2.5 pb-2 pt-1.5 text-left"
+                    style={fitted ? { background: fitted.background } : undefined}
+                  >
+                    <span className="block truncate text-[13px] font-bold" style={{ color: fitted ? fitted.color : card.title_color || '#ffffff' }}>
                       {previewLabel(card)}
                     </span>
                   </div>
@@ -691,7 +699,7 @@ function LinkDetailPanel({
             )}
             {/* Title only when set — a deleted title shows no overlay, matching
                 the live card; positioned bottom-left like the reference. */}
-            {previewLabel(card) && pic?.mode !== 'fit' && (
+            {titleShown && pic?.mode !== 'fit' && (
               <div
                 className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6 text-left"
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.85) 100%)' }}
@@ -1162,6 +1170,23 @@ function LinkDetailPanel({
               className="h-10"
             />
           </div>
+
+          {/* IMG.FIT.3 — "Show title": a Large/Small card with a picture can
+              paint no title (style_json.hide_title; absent = shown). The stored
+              title is untouched; buttons always show their label, so no switch. */}
+          {(active.size === 'big' || active.size === 'small') && !!active.image_url && (
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="link-show-title" className="min-w-0 text-sm font-normal text-muted-foreground">
+                {t('linksEditor.showTitle')}
+              </Label>
+              <Switch
+                id="link-show-title"
+                data-testid="link-show-title"
+                checked={active.style_json?.hide_title !== true}
+                onCheckedChange={(on) => setStyleField('hide_title', on ? null : true)}
+              />
+            </div>
+          )}
 
           {/* Customize Color — collapsible: Title / Background / Border tabs.
               One row below the tabs carries the background gradient toggle (left,

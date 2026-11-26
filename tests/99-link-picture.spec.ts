@@ -28,6 +28,7 @@
 import { test, expect, allowWrites, type Page, type Route, type Locator } from './fixtures';
 import { translations } from '../src/hooks/useLanguage';
 import { resolveGalleryGeometry } from '../src/lib/gallery-framing';
+import { contrastRatio } from '../src/lib/contrast';
 import { TEST_HANDLE, PINNED_TEST_USER_ID } from './helpers/auth';
 
 const EN = translations.en;
@@ -104,9 +105,40 @@ async function installReads(page: Page, items: Item[]) {
 }
 
 type Box = { x: number; y: number; width: number; height: number; right: number; bottom: number };
-const rectOf = (loc: Locator): Promise<Box> => loc.evaluate((el) => {
-  const r = el.getBoundingClientRect();
-  return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
+/** An element's rectangle plus what the picture maths needs (0 / '' off an <img>). */
+type Measured = Box & { naturalWidth: number; naturalHeight: number; objectFit: string };
+
+/**
+ * Several elements measured in ONE page.evaluate, so every rectangle comes from
+ * the same layout. IMG.FIT.3c: the page slides each block in (motion.section,
+ * y 20 → 0 on a spring), and two separate reads a few ms apart straddle a frame
+ * of it — the box and its picture then disagree by however far the block
+ * travelled in between (1.5 px, 18.6 px), with the picture exactly in its box
+ * all along. Never compare rectangles from two reads; compare them through
+ * `within`, as offsets from the box they belong to.
+ */
+const measure = async <K extends string>(page: Page, locs: Record<K, Locator>): Promise<Record<K, Measured>> => {
+  const keys = Object.keys(locs) as K[];
+  const handles = await Promise.all(keys.map((k) => locs[k].elementHandle()));
+  try {
+    const out = await page.evaluate((els) => els.map((el) => {
+      const r = el!.getBoundingClientRect();
+      const i = el as unknown as HTMLImageElement;
+      return {
+        x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom,
+        naturalWidth: i.naturalWidth || 0, naturalHeight: i.naturalHeight || 0,
+        objectFit: getComputedStyle(el!).objectFit,
+      };
+    }), handles);
+    return Object.fromEntries(keys.map((k, n) => [k, out[n]])) as Record<K, Measured>;
+  } finally {
+    await Promise.all(handles.map((h) => h?.dispose()));
+  }
+};
+/** `r` as offsets from `box`'s top-left corner (both from the same `measure`). */
+const within = (r: Box, box: Box): Box => ({
+  x: r.x - box.x, y: r.y - box.y, width: r.width, height: r.height,
+  right: r.right - box.x, bottom: r.bottom - box.y,
 });
 
 const loaded = (img: Locator) => expect.poll(
@@ -115,6 +147,21 @@ const loaded = (img: Locator) => expect.poll(
 ).toBe(true);
 
 const card = (page: Page, label: string) => page.locator('.lb-velvet', { hasText: label }).first();
+/** A card by its item id — a card whose title is hidden has no text to find it by. */
+const cardById = (scope: Page | Locator, id: string) => scope.locator(`a[href="https://fixture.titilinks.test/${id}"]`).first();
+
+/** `rgb(r, g, b)` → `#rrggbb`, for contrastRatio. */
+const rgbHex = (css: string) => `#${(css.match(/\d+/g) || []).slice(0, 3)
+  .map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
+
+/** IMG.FIT.3 — how a Fit card's title strip paints. */
+const stripLook = (c: Locator) => c.locator('.lb-text').evaluate((el) => ({
+  bg: getComputedStyle(el).backgroundImage,
+  bgColor: getComputedStyle(el).backgroundColor,
+  shadow: getComputedStyle(el.querySelector('.lb-title')!).textShadow,
+  color: getComputedStyle(el.querySelector('.lb-title')!).color,
+  root: getComputedStyle(el.closest('.lb-velvet')!).color,
+}));
 
 async function openPublic(page: Page, items: Item[]) {
   await page.setViewportSize(PHONE);
@@ -127,16 +174,33 @@ async function openPublic(page: Page, items: Item[]) {
 const panelOf = (page: Page) => page.locator('[class*="z-[120]"]');
 const sheetOf = (page: Page) => page.getByTestId('picture-fit-sheet');
 
+/**
+ * The detail panel mounted AND at rest. It mounts off-screen (translateX(100%))
+ * and springs in, and its Save button counts as visible from the first frame —
+ * on the mobile project (WebKit, 1440×1000 at 3×) a frame takes ~0.7 s, so the
+ * panel is still ~97% off-screen at that point. framer leaves the transform
+ * `none` once the spring is done; nothing is asserted or tapped before that.
+ */
+async function detailSettled(page: Page) {
+  await expect(page.getByTestId('link-detail-save')).toBeVisible({ timeout: 15_000 });
+  await expect.poll(
+    () => panelOf(page).first().evaluate((el) => getComputedStyle(el).transform),
+    { timeout: 15_000, message: 'the panel finished sliding in' },
+  ).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+}
+
 /** Open the editor, then tap the card labelled `label` to open its detail panel. */
 async function openDetail(page: Page, label: string) {
   await page.setViewportSize(DESKTOP);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/dashboard/editor');
   await page.waitForLoadState('networkidle');
+  // networkidle can fire before the editor's first read (a cold dev server took
+  // 5.4 s more to draw the frame), so the frame gets the same budget as the panel.
   const frame = page.getByTestId('device-frame');
-  await expect(frame).toBeVisible();
+  await expect(frame).toBeVisible({ timeout: 30_000 });
   await frame.getByText(label, { exact: true }).first().click();
-  await expect(page.getByTestId('link-detail-save')).toBeVisible({ timeout: 15_000 });
+  await detailSettled(page);
 }
 
 /** Spec 41's slider driver: React listens for `input`, so set the value natively. */
@@ -239,21 +303,23 @@ test.describe('IMG.FIT.1 — the public card', () => {
     ];
     await openPublic(page, items);
 
-    // Large: exactly the gallery geometry (same box shape as the frame).
+    // Large: exactly the gallery geometry (same box shape as the frame). Box and
+    // picture come from one read; the picture is checked from the box's corner.
     const big = card(page, 'Cropped large');
     const bigImg = big.locator('.lb-cover img');
     await loaded(bigImg);
-    const box = await rectOf(big.locator('.lb-cover'));
-    const pic = await rectOf(bigImg);
+    const bm = await measure(page, { box: big.locator('.lb-cover'), pic: bigImg });
+    const box = bm.box;
+    const pic = within(bm.pic, box);
     const geo = resolveGalleryGeometry({ crop: CROP_1610 })!;
     const want = {
-      x: box.x + (geo.leftPct / 100) * box.width,
-      y: box.y + (geo.topPct / 100) * box.height,
+      x: (geo.leftPct / 100) * box.width,
+      y: (geo.topPct / 100) * box.height,
       width: (geo.widthPct / 100) * box.width,
       height: (geo.heightPct / 100) * box.height,
     };
     for (const k of ['x', 'y', 'width', 'height'] as const) {
-      expect(Math.abs(pic[k] - want[k]), `Large: painted ${k} ${pic[k]} vs ${want[k]}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(pic[k] - want[k]), `Large: painted ${k} ${pic[k]} vs ${want[k]} (from the box's corner)`).toBeLessThanOrEqual(1);
     }
     // All four edges: the far edges are the rectangle's too, not .lb-cover img's inset:0.
     expect(Math.abs(pic.right - (want.x + want.width))).toBeLessThanOrEqual(1);
@@ -266,14 +332,15 @@ test.describe('IMG.FIT.1 — the public card', () => {
     const half = card(page, 'Cropped left');
     const halfImg = half.locator('.lb-cover img');
     await loaded(halfImg);
-    const hb = await rectOf(half.locator('.lb-cover'));
-    const hp = await rectOf(halfImg);
+    const hm = await measure(page, { box: half.locator('.lb-cover'), pic: halfImg });
+    const hb = hm.box;
+    const hp = within(hm.pic, hb);
     expect(Math.abs(hb.width / hb.height - 4 / 3), 'the pair box is 4:3').toBeLessThan(0.02);
-    expect(hp.x, 'covers the left edge').toBeLessThanOrEqual(hb.x + 1);
-    expect(hp.y, 'covers the top edge').toBeLessThanOrEqual(hb.y + 1);
-    expect(hp.right, 'covers the right edge').toBeGreaterThanOrEqual(hb.right - 1);
-    expect(hp.bottom, 'covers the bottom edge').toBeGreaterThanOrEqual(hb.bottom - 1);
-    const natural = await halfImg.evaluate((el) => (el as HTMLImageElement).naturalWidth / (el as HTMLImageElement).naturalHeight);
+    expect(hp.x, 'covers the left edge').toBeLessThanOrEqual(1);
+    expect(hp.y, 'covers the top edge').toBeLessThanOrEqual(1);
+    expect(hp.right, 'covers the right edge').toBeGreaterThanOrEqual(hb.width - 1);
+    expect(hp.bottom, 'covers the bottom edge').toBeGreaterThanOrEqual(hb.height - 1);
+    const natural = hm.pic.naturalWidth / hm.pic.naturalHeight;
     expect(Math.abs(hp.width / hp.height - natural) / natural, 'painted aspect = the picture\'s natural aspect').toBeLessThan(0.01);
   });
 
@@ -284,6 +351,7 @@ test.describe('IMG.FIT.1 — the public card', () => {
       item('ft-twin', 1, 'Twin card', 'big', WIDE),
       item('ft-left', 2, 'Fit left', 'small', PORTRAIT, fit),
       item('ft-right', 3, 'Fill right', 'small', SQUARE),
+      item('ft-nobg', 4, 'Fit no bg', 'big', WIDE, { fit: 'contain' }),
     ];
     await openPublic(page, items);
 
@@ -295,58 +363,128 @@ test.describe('IMG.FIT.1 — the public card', () => {
     const img = area.locator('img');
     await loaded(img);
 
-    const a = await rectOf(area);
-    const im = await img.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      const i = el as HTMLImageElement;
-      const s = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight);
-      const w = i.naturalWidth * s; const h = i.naturalHeight * s;
-      return {
-        fit: getComputedStyle(el).objectFit,
-        x: r.x + (r.width - w) / 2, y: r.y + (r.height - h) / 2, right: r.x + (r.width + w) / 2, bottom: r.y + (r.height + h) / 2,
-      };
+    // Every rectangle this test compares, from one read.
+    const badge = (c: Locator) => c.locator('> span.absolute').first();
+    const m = await measure(page, {
+      area, img, title: fc.locator('.lb-title'), fit: fc, twin,
+      fitBadge: badge(fc), twinBadge: badge(twin),
+      left: card(page, 'Fit left'), right: card(page, 'Fill right'),
     });
+    const a = m.area;
+    // The contained picture's painted rectangle, from the picture area's corner.
+    const el = within(m.img, a);
+    const s = Math.min(el.width / m.img.naturalWidth, el.height / m.img.naturalHeight);
+    const pw = m.img.naturalWidth * s; const ph = m.img.naturalHeight * s;
+    const im = {
+      fit: m.img.objectFit,
+      x: el.x + (el.width - pw) / 2, y: el.y + (el.height - ph) / 2, right: el.x + (el.width + pw) / 2, bottom: el.y + (el.height + ph) / 2,
+    };
     expect(im.fit).toBe('contain');
-    expect(im.x, 'whole picture: left').toBeGreaterThanOrEqual(a.x - 0.5);
-    expect(im.y, 'whole picture: top').toBeGreaterThanOrEqual(a.y - 0.5);
-    expect(im.right, 'whole picture: right').toBeLessThanOrEqual(a.right + 0.5);
-    expect(im.bottom, 'whole picture: bottom').toBeLessThanOrEqual(a.bottom + 0.5);
+    expect(im.x, 'whole picture: left').toBeGreaterThanOrEqual(-0.5);
+    expect(im.y, 'whole picture: top').toBeGreaterThanOrEqual(-0.5);
+    expect(im.right, 'whole picture: right').toBeLessThanOrEqual(a.width + 0.5);
+    expect(im.bottom, 'whole picture: bottom').toBeLessThanOrEqual(a.height + 0.5);
     const srcset = (await img.getAttribute('srcset')) || '';
     expect(srcset.length).toBeGreaterThan(0);
     expect(srcset, 'no server crop (it would cut the logo)').not.toContain('resize=cover');
     expect(srcset).not.toContain('height=');
     expect(await area.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 0, 255)');
 
-    // Title below the picture, on the card's own surface, no gradient or shadow.
-    const title = fc.locator('.lb-title');
-    const tr = await rectOf(title);
-    expect(tr.y, 'the title starts at or below the picture area').toBeGreaterThanOrEqual(a.bottom - 0.5);
-    const look = await fc.locator('.lb-text').evaluate((el) => ({
-      bg: getComputedStyle(el).backgroundImage,
-      shadow: getComputedStyle(el.querySelector('.lb-title')!).textShadow,
-      color: getComputedStyle(el.querySelector('.lb-title')!).color,
-      root: getComputedStyle(el.closest('.lb-velvet')!).color,
-    }));
-    expect(look.bg).toBe('none');
-    expect(look.shadow).toBe('none');
-    expect(look.color, 'the card\'s own text colour').toBe(look.root);
+    // Title below the picture, no gradient or shadow.
+    const tr = within(m.title, a);
+    expect(tr.y, 'the title starts at or below the picture area').toBeGreaterThanOrEqual(a.height - 0.5);
+    // IMG.FIT.3: a stored background paints the title strip too (one tile),
+    // and the title is readable on it — on the Large card and the pair half.
+    for (const fitted of [fc, card(page, 'Fit left')]) {
+      const look = await stripLook(fitted);
+      expect(look.bg).toBe('none');
+      expect(look.shadow).toBe('none');
+      expect(look.bgColor, 'the strip takes the picture\'s background').toBe('rgb(255, 0, 255)');
+      expect(contrastRatio(rgbHex(look.color), '#ff00ff'), `title ${look.color} reads on the background`).toBeGreaterThanOrEqual(3.2);
+    }
+    // No background stored: the card's own surface and colour, as before.
+    const plain = await stripLook(card(page, 'Fit no bg'));
+    expect(plain.bg).toBe('none');
+    expect(plain.bgColor, 'no background of its own').toBe('rgba(0, 0, 0, 0)');
+    expect(plain.color, 'the card\'s own text colour').toBe(plain.root);
 
     // Same outer box as the Fill twin.
-    const fb = await rectOf(fc);
-    const tb = await rectOf(twin);
+    const fb = m.fit;
+    const tb = m.twin;
     expect(Math.abs(fb.width - tb.width), `Large width ${fb.width} vs ${tb.width}`).toBeLessThanOrEqual(1);
     expect(Math.abs(fb.height - tb.height), `Large height ${fb.height} vs ${tb.height}`).toBeLessThanOrEqual(1);
-    // The corner badge sits where the twin's does.
-    const badge = (c: Locator) => c.locator('> span.absolute').first();
-    const bf = await rectOf(badge(fc));
-    const bt = await rectOf(badge(twin));
-    expect(Math.abs((bf.x - fb.x) - (bt.x - tb.x)) + Math.abs((bf.y - fb.y) - (bt.y - tb.y))).toBeLessThanOrEqual(1);
+    // The corner badge sits where the twin's does (each from its own card's corner).
+    const bf = within(m.fitBadge, fb);
+    const bt = within(m.twinBadge, tb);
+    expect(Math.abs(bf.x - bt.x) + Math.abs(bf.y - bt.y)).toBeLessThanOrEqual(1);
 
     // A mixed pair stays equal height.
-    const left = await rectOf(card(page, 'Fit left'));
-    const right = await rectOf(card(page, 'Fill right'));
+    const left = m.left;
+    const right = m.right;
     expect(Math.abs(left.height - right.height), `pair ${left.height} vs ${right.height}`).toBeLessThanOrEqual(1);
-    expect(Math.abs(left.y - right.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(within(right, left).y)).toBeLessThanOrEqual(1);
+  });
+
+  test('8. hide_title: no title in Fill or Fit, the link keeps its name; a button ignores the key', async ({ page }) => {
+    const hide = { hide_title: true };
+    const items = [
+      item('ht-twin', 0, 'Shown twin', 'big', WIDE),
+      item('ht-fill', 1, 'Hidden fill', 'big', WIDE, hide),
+      item('ht-fit', 2, 'Hidden fit', 'big', WIDE, { fit: 'contain', fit_bg: '#ffffff', hide_title: true }),
+      item('ht-left', 3, 'Hidden left', 'small', PORTRAIT, hide),
+      item('ht-right', 4, '', 'small', SQUARE, hide),
+      item('ht-button', 5, 'Button keeps label', 'button', null, hide),
+    ];
+    await openPublic(page, items);
+
+    // Fill and Fit, Large and a pair: nothing painted, the anchor named by the
+    // stored title (or the clean hostname when the title is empty).
+    const named: [string, string][] = [
+      ['ht-fill', 'Hidden fill'], ['ht-fit', 'Hidden fit'], ['ht-left', 'Hidden left'], ['ht-right', 'fixture.titilinks.test'],
+    ];
+    for (const [id, name] of named) {
+      const c = cardById(page, id);
+      await expect(c).toBeVisible();
+      await expect(c.locator('.lb-title'), `${id}: no title painted`).toHaveCount(0);
+      await expect(c.locator('.lb-subtitle')).toHaveCount(0);
+      await expect(c).toHaveAttribute('aria-label', name);
+      await expect(page.getByRole('link', { name, exact: true })).toHaveCount(1);
+    }
+
+    // Fit: the picture area takes the whole box, and the box is the Fill twin's.
+    const fit = cardById(page, 'ht-fit');
+    await expect(fit).toHaveClass(/lb-fit/);
+    const twin = cardById(page, 'ht-twin');
+    // Every rectangle this test compares, from one read.
+    const m = await measure(page, {
+      frame: fit.locator('.lb-fit-frame'), area: fit.locator('.lb-cover'), fit, twin,
+      twinCover: twin.locator('.lb-cover'), l: cardById(page, 'ht-left'), r: cardById(page, 'ht-right'),
+    });
+    const frame = m.frame;
+    const area = m.area;
+    const inFrame = within(area, frame);
+    expect(Math.abs(inFrame.x), `picture area starts ${inFrame.x} px from the box's left`).toBeLessThanOrEqual(1);
+    expect(Math.abs(inFrame.y), `picture area starts ${inFrame.y} px from the box's top`).toBeLessThanOrEqual(1);
+    for (const k of ['width', 'height'] as const) {
+      expect(Math.abs(area[k] - frame[k]), `picture area ${k} ${area[k]} vs box ${frame[k]}`).toBeLessThanOrEqual(1);
+    }
+    const fb = m.fit;
+    const tb = m.twin;
+    expect(Math.abs(fb.height - tb.height), `Fit height ${fb.height} vs twin ${tb.height}`).toBeLessThanOrEqual(1);
+    const twinCover = m.twinCover;
+    expect(Math.abs(area.height - twinCover.height), 'the picture fills what the twin\'s cover fills').toBeLessThanOrEqual(1);
+
+    // A pair stays equal height with a title hidden on both halves.
+    const l = m.l;
+    const r = m.r;
+    expect(Math.abs(l.height - r.height)).toBeLessThanOrEqual(1);
+
+    // A button always shows its label; an untouched card carries no aria-label.
+    const btn = cardById(page, 'ht-button');
+    await expect(btn.locator('.lb-title')).toHaveText('Button keeps label');
+    expect(await btn.getAttribute('aria-label')).toBeNull();
+    expect(await twin.getAttribute('aria-label')).toBeNull();
+    await expect(twin.locator('.lb-title')).toHaveText('Shown twin');
   });
 });
 
@@ -460,19 +598,23 @@ test.describe('IMG.FIT.1 — the editor', () => {
         await page.waitForTimeout(300);
         await expect(sheetOf(page)).toBeVisible();
         const card = sheetOf(page).locator('> div').first();
-        const cb = await rectOf(card);
+        const ids = ['fit-mode-fill', 'fit-mode-fit', 'fit-bg-auto', 'fit-bg-white', 'fit-bg-black', 'picture-fit-cancel', 'picture-fit-apply'] as const;
+        for (const id of ids) await expect(page.getByTestId(id), `${id} @${vp.width}`).toBeVisible();
+        // The sheet and every control in it, from one read.
+        const sm = await measure(page, {
+          card, ...Object.fromEntries(ids.map((id) => [id, page.getByTestId(id)])) as Record<typeof ids[number], Locator>,
+        });
+        const cb = sm.card;
         expect(cb.width, 'the sheet is at most panel width').toBeLessThanOrEqual(420.5);
         expect(cb.right).toBeLessThanOrEqual(vp.width + 0.5);
         const overflow = await card.evaluate((el) =>
           Array.from(el.querySelectorAll('*')).filter((n) => n.scrollWidth > n.clientWidth + 1 && getComputedStyle(n).overflowX !== 'hidden' && n.tagName !== 'INPUT').length);
         expect(overflow, 'nothing scrolls sideways inside the sheet').toBe(0);
-        for (const id of ['fit-mode-fill', 'fit-mode-fit', 'fit-bg-auto', 'fit-bg-white', 'fit-bg-black', 'picture-fit-cancel', 'picture-fit-apply']) {
-          const el = page.getByTestId(id);
-          await expect(el, `${id} @${vp.width}`).toBeVisible();
-          const r = await rectOf(el);
-          expect(r.x, `${id} left @${vp.width}`).toBeGreaterThanOrEqual(cb.x - 0.5);
-          expect(r.right, `${id} right @${vp.width}`).toBeLessThanOrEqual(cb.right + 0.5);
-          expect(r.bottom, `${id} reachable @${vp.width}`).toBeLessThanOrEqual(vp.height + 0.5);
+        for (const id of ids) {
+          const r = within(sm[id], cb);
+          expect(r.x, `${id} left @${vp.width}`).toBeGreaterThanOrEqual(-0.5);
+          expect(r.right, `${id} right @${vp.width}`).toBeLessThanOrEqual(cb.width + 0.5);
+          expect(sm[id].bottom, `${id} reachable @${vp.width}`).toBeLessThanOrEqual(vp.height + 0.5);
         }
         await expect(page.getByTestId('fit-mode-fill')).toContainText(T['pictureFit.fill'].slice(0, 6));
         await expect(page.getByTestId('fit-mode-fit')).toContainText(T['pictureFit.fit'].slice(0, 6));
@@ -548,5 +690,100 @@ test.describe('IMG.FIT.1 — the editor', () => {
       const left = await listNames(page);
       for (const p of uploaded) expect(left, `${p} was removed`).not.toContain(p.split('/').pop());
     }
+  });
+
+  test('9. Show title: only on a Large/Small card with a picture, previews before Save, saves hide_title', async ({ page }) => {
+    test.slow();
+    const white = { fit: 'contain', fit_bg: '#ffffff' };
+    const items = [
+      item('sw-large', 0, 'Switch large', 'big', WIDE, { ...white, animation: 'pulse' }),
+      item('sw-bare', 1, 'Bare large', 'big', null),
+      item('sw-button', 2, 'Plain button', 'button', null),
+      item('sw-left', 3, 'Switch left', 'small', SQUARE, white),
+      item('sw-right', 4, 'Switch right', 'small', PORTRAIT),
+    ];
+    await installReads(page, items);
+    const sw = page.getByTestId('link-show-title');
+    const frame = page.getByTestId('device-frame');
+    const openById = async (id: string) => {
+      await cardById(frame, id).click();
+      await detailSettled(page);
+    };
+    const closePanel = async () => {
+      await page.getByTestId('link-detail-cancel').click();
+      // Cancel closes the panel, and the panel — Save button included — leaves
+      // the DOM only when its exit spring ends: frame-bound, like the slide-in
+      // (~1 s on the mobile project when idle). Wait for the panel to be gone,
+      // on the budget the open gets, before asserting on what was inside it.
+      await expect(panelOf(page)).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.getByTestId('link-detail-save')).toHaveCount(0);
+    };
+
+    // No picture, or a button: no switch.
+    await openDetail(page, 'Bare large');
+    await expect(sw).toHaveCount(0);
+    await closePanel();
+    await openDetail(page, 'Plain button');
+    await expect(sw).toHaveCount(0);
+    await closePanel();
+
+    // A pair half with a picture: the switch, and the slot preview follows it.
+    await openById('sw-left');
+    await expect(sw).toBeVisible();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    const slotTitle = panelOf(page).getByText('Switch left', { exact: true });
+    await expect(slotTitle).toBeVisible();
+    // The fitted slot matches the live card: the strip on the picture's
+    // background, the title readable on it.
+    const slot = await slotTitle.evaluate((el) => ({
+      color: getComputedStyle(el).color,
+      bg: getComputedStyle(el.parentElement!).backgroundColor,
+    }));
+    expect(slot.bg, 'the slot strip takes the picture\'s background').toBe('rgb(255, 255, 255)');
+    expect(contrastRatio(rgbHex(slot.color), '#ffffff')).toBeGreaterThanOrEqual(3.2);
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(slotTitle, 'the slot preview drops the title before Save').toHaveCount(0);
+    await closePanel();
+
+    // The Large card: off → the preview drops the title, Save sends hide_title.
+    await openById('sw-large');
+    await expect(sw).toBeVisible();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    const preview = panelOf(page).locator('.lb-velvet');
+    await expect(preview.locator('.lb-title')).toHaveText('Switch large');
+    // The switch fits the narrow panel.
+    const pm = await measure(page, { panel: panelOf(page).first(), row: sw.locator('..') });
+    const swRow = within(pm.row, pm.panel);
+    expect(swRow.right, 'the switch row stays inside the panel').toBeLessThanOrEqual(pm.panel.width + 0.5);
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(preview.locator('.lb-title'), 'the preview drops the title before Save').toHaveCount(0);
+    await expect(preview).toHaveClass(/lb-fit/);
+    const patch1 = page.waitForRequest((r) => r.url().includes('/rest/v1/block_items') && r.method() === 'PATCH');
+    await page.getByTestId('link-detail-save').click();
+    const body1 = (await patch1).postDataJSON();
+    expect(body1.style_json.hide_title).toBe(true);
+    expect(body1.label, 'the stored title is never changed').toBe('Switch large');
+    expect(body1.style_json.fit).toBe('contain');
+    expect(body1.style_json.animation).toBe('pulse');
+    expect(Object.keys(body1.style_json).sort()).toEqual(['animation', 'fit', 'fit_bg', 'hide_title']);
+
+    // Reopen the saved row (read back by the mock): off; on again → the key goes.
+    await page.goto('/dashboard/editor');
+    await page.waitForLoadState('networkidle');
+    await openById('sw-large');
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(preview.locator('.lb-title')).toHaveCount(0);
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    await expect(preview.locator('.lb-title')).toHaveText('Switch large');
+    const patch2 = page.waitForRequest((r) => r.url().includes('/rest/v1/block_items') && r.method() === 'PATCH');
+    await page.getByTestId('link-detail-save').click();
+    const body2 = (await patch2).postDataJSON();
+    expect('hide_title' in body2.style_json, 'switched back on: the key is removed').toBe(false);
+    expect(body2.label).toBe('Switch large');
+    expect(body2.style_json.fit).toBe('contain');
+    expect(body2.style_json.animation).toBe('pulse');
   });
 });

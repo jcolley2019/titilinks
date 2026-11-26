@@ -26,10 +26,18 @@
  * card with no partner renders as a Large; a pair half is 4:3, a Large 16:10),
  * so a stored window is RE-SHAPED for the box it paints into (adaptCrop), never
  * stretched and never dropped.
+ *
+ * ## The text under a fitted picture (IMG.FIT.3)
+ *
+ * When a background is stored, the text block below the picture (a card's
+ * title strip, a product's label / price block) paints on that same colour, so
+ * picture and text read as one tile — fittedTextLook. With none stored the
+ * box keeps its own surface and colour, exactly as before.
  */
 import type { CSSProperties } from 'react';
 import { resolveGalleryCrop, resolveGalleryMediaStyle, type GalleryCrop } from './gallery-framing';
 import { normalizeHexColor } from './hex-color';
+import { contrastRatio } from './contrast';
 
 /** How a picture paints, resolved from stored data. */
 export type PictureFit =
@@ -117,6 +125,36 @@ export function resolvePictureFit(styleJson: unknown, boxAspect: number): Pictur
   const style = resolveGalleryMediaStyle({ crop: window });
   if (!style) return COVER;
   return { mode: 'crop', style, zoom: Math.min(MAX_ZOOM, 100 / window.w) };
+}
+
+/** IMG.FIT.3 — how the text block under a fitted picture paints. */
+export interface FittedTextLook {
+  /** The picture's stored background, behind the text too. */
+  background: string;
+  /** The text colour (title, subtitle, price) on that background. */
+  color: string;
+}
+
+/** The ratio LinkButton's label guard uses: rescues the truly unreadable only. */
+const READABLE = 3.2;
+const INK_DARK = '#0e0c09';
+const INK_LIGHT = '#ffffff';
+
+/**
+ * The text block under a fitted picture, or null when it keeps the box's own
+ * surface and colour (not Fit, or Fit with no background stored — today's
+ * paint). With a background: `preferred` (the creator's own title colour) when
+ * it reads on it at 3.2 or better, else whichever of #0e0c09 / #ffffff reads
+ * better. A `preferred` that is not a hex colour cannot be measured, so the
+ * better of the two is used.
+ */
+export function fittedTextLook(fit: PictureFit, preferred: string | null | undefined): FittedTextLook | null {
+  if (fit.mode !== 'fit' || !fit.bg) return null;
+  const bg = fit.bg;
+  const own = normalizeHexColor(preferred);
+  if (own && contrastRatio(own, bg) >= READABLE) return { background: bg, color: own };
+  const color = contrastRatio(INK_DARK, bg) >= contrastRatio(INK_LIGHT, bg) ? INK_DARK : INK_LIGHT;
+  return { background: bg, color };
 }
 
 /** What a framing sheet opens on, for a box of `boxAspect`. Mirrors the render. */
