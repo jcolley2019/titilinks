@@ -13,11 +13,14 @@ import { canonicalHeroAspect, canonicalFullBleedAspect, DEFAULT_DEVICE_ID, resol
 // this file resolves through it; nothing here may hardcode object-fit again.
 import {
   resolveHeroMediaStyle,
+  resolveHeroGeometry,
   heroFramingAttr,
   useElementAspect,
   imageAspect,
   videoAspect,
   type HeroFraming,
+  type HeroMediaStyleInput,
+  type ResolvedHeroFraming,
 } from '@/lib/hero-framing';
 import {
   DndContext,
@@ -71,6 +74,8 @@ import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
 import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
+import { HERO_BOX_ASPECTS, heroDisplayRegion, resolveHeroWindowFraming } from '@/lib/hero-window';
+import { pictureFitSeed, pictureFitSourceAspect, writePictureFit } from '@/lib/picture-fit';
 import { analyzeImageForLogo } from '@/lib/logo-detect';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
@@ -1788,6 +1793,18 @@ export function EditableProfileView({
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [localHeroImages, setLocalHeroImages] = useState<{ page1: string | null; page2: string | null }>({ page1: null, page2: null });
+  // HERO.FIT.2 — the framed window the last photo save stored (or its absence),
+  // kept beside the local URL above and keyed by the hero SLOT it was written
+  // to. While that URL is the one showing, the canvas paints with this instead
+  // of the row's, so it does not snap when the refreshed row lands.
+  const [localHeroWindows, setLocalHeroWindows] = useState<{
+    page1: { url: string; window: unknown } | null;
+    page2: { url: string; window: unknown } | null;
+  }>({ page1: null, page2: null });
+  // HERO.FIT.2 — what the open dialog's picture (photoPreview) is: a fresh
+  // 'pick', the kept 'original' (pencil), or the page's own 'display' file
+  // (pencil on a hero that has no kept original).
+  const [photoSource, setPhotoSource] = useState<'pick' | 'original' | 'display'>('pick');
   const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
   const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
   const [aiPreviewEnhanced, setAiPreviewEnhanced] = useState(false); // true = AI ran, false = crop only fallback
@@ -1838,6 +1855,11 @@ export function EditableProfileView({
   const [rcCrop, setRcCrop] = useState({ x: 0, y: 0 });
   const [rcZoom, setRcZoom] = useState(1);
   const [rcAreaPixels, setRcAreaPixels] = useState<CropArea | null>(null);
+  // HERO.FIT.2: the same framed area in percent of the picture (what reopens
+  // the cropper), and the picture's natural size (what the display region is
+  // cut from).
+  const [rcAreaPercent, setRcAreaPercent] = useState<CropArea | null>(null);
+  const [rcNatural, setRcNatural] = useState<{ width: number; height: number } | null>(null);
   // CROP.3a readiness (STEP 2): true once the TinyFaceDetector model is loaded.
   // Gates the AI-crop buttons so the first click can't race the model load.
   // TL.BUNDLE.1: starts false — the library itself is lazy now, so readiness is
@@ -2064,6 +2086,7 @@ export function EditableProfileView({
       setPhotoPreview(reader.result as string);
       setPhotoFile(prepared);
       setPhotoOriginalFile(prepared);
+      setPhotoSource('pick');
       setPhotoStep('choose');
       setPhotoOffset({ x: 50, y: 30 });
       setPhotoScale(1);
@@ -2216,9 +2239,14 @@ export function EditableProfileView({
     try {
       const existingTheme = (page.theme_json as any) || {};
       const existingHero = existingTheme[heroConfigKey] || {};
+      // HERO.FIT.2: a hero framed with Crop Image keeps its window — the
+      // position sliders are off for it, so this Save can only change Fill/Fit.
+      const nextHero = pictureFitSourceAspect(existingHero.window) != null
+        ? { ...existingHero, fit: heroFitDraft }
+        : { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft };
       const { error } = await supabase
         .from('pages')
-        .update({ theme_json: { ...existingTheme, [heroConfigKey]: { ...existingHero, fit: heroFitDraft, posY: heroPosYDraft, posX: heroPosXDraft } } })
+        .update({ theme_json: { ...existingTheme, [heroConfigKey]: nextHero } })
         .eq('id', page.id);
       if (error) throw error;
       setPhotoStep('idle');
@@ -2231,7 +2259,15 @@ export function EditableProfileView({
     }
   };
 
-  const handlePhotoSave = async (overrideFile?: File, posYOverride?: number) => {
+  const handlePhotoSave = async (
+    overrideFile?: File,
+    posYOverride?: number,
+    // HERO.FIT.2 — Apply Crop only: the framed window over the display file
+    // being saved (`window`, what paints) and over the kept original
+    // (`windowSource`, what reopens the cropper; null when the cropper's
+    // picture was not the kept original).
+    windows?: { window: Record<string, unknown>; windowSource: Record<string, unknown> | null },
+  ) => {
     // CROP.3a-C rule 2: a manual crop is composed at the canonical hero aspect,
     // so the apply path passes posY 50 (centered) — cover-at-matching-aspect is
     // an identity there. Every other caller omits it and keeps the user's draft.
@@ -2285,16 +2321,37 @@ export function EditableProfileView({
         }
       }
 
+      // HERO.FIT.2 — the hero config this save writes. A fresh pick whose
+      // original failed to upload has no kept original to reopen against.
+      const windowSourceToSave = windows && (!photoOriginalFile || originalUrl) ? windows.windowSource : null;
+      const nextHeroConfig = (stored: Record<string, unknown> | undefined) => {
+        const existingHero: Record<string, unknown> = { ...(stored || {}) };
+        delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
+        // The display picture changes with every photo save, so a window stored
+        // against the old one never survives it.
+        delete existingHero.window;
+        delete existingHero.windowSource;
+        if (!windows) return { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft };
+        // With a window the page paints THAT: a stale scale or posX must not ride on.
+        delete existingHero.scale;
+        return {
+          ...existingHero,
+          fit: 'fill',
+          posX: 50,
+          posY: 50,
+          window: windows.window,
+          ...(windowSourceToSave ? { windowSource: windowSourceToSave } : {}),
+        };
+      };
+
       if (usePage2Own) {
         // Save Page 2's own hero into theme_json: image, display config, and
         // (when a fresh file was picked) the full-size original for re-crop.
         const existingTheme = (page.theme_json as any) || {};
-        const existingHero = { ...(existingTheme.heroConfig_page2 || {}) };
-        delete existingHero.video; // an image hero replaces any video — clean swap
         const nextTheme: any = {
           ...existingTheme,
           avatar_url_page2: urlData.publicUrl,
-          heroConfig_page2: { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft },
+          heroConfig_page2: nextHeroConfig(existingTheme.heroConfig_page2),
         };
         if (originalUrl) nextTheme.avatar_original_url_page2 = originalUrl;
         const { error: updateError } = await supabase
@@ -2310,11 +2367,9 @@ export function EditableProfileView({
         const prevAvatarUrl = page.avatar_url ?? null;
         const prevOriginalUrl = originalUrl ? (page.avatar_original_url ?? null) : null;
         const existingTheme = (page.theme_json as any) || {};
-        const existingHero = { ...(existingTheme.heroConfig || {}) };
-        delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
         const updates: { avatar_url: string; avatar_original_url?: string; theme_json: any } = {
           avatar_url: urlData.publicUrl,
-          theme_json: { ...existingTheme, heroConfig: { ...existingHero, fit: heroFitDraft, posY: posYToSave, posX: heroPosXDraft } },
+          theme_json: { ...existingTheme, heroConfig: nextHeroConfig(existingTheme.heroConfig) },
         };
         if (originalUrl) {
           updates.avatar_original_url = originalUrl;
@@ -2346,6 +2401,17 @@ export function EditableProfileView({
       }
       toast.success(t('editor.hero.photoUpdated'));
       setLocalHeroImages(prev => ({ ...prev, [selectedMode]: urlData.publicUrl }));
+      // HERO.FIT.2: the window just saved (or its absence) rides beside that URL.
+      setLocalHeroWindows(prev => ({
+        ...prev,
+        [heroPageId]: { url: urlData.publicUrl, window: windows?.window },
+      }));
+      if (windows) {
+        // The config now says Fill, centred: keep the dialog's drafts on it.
+        setHeroFitDraft('fill');
+        setHeroPosYDraft(50);
+        setHeroPosXDraft(50);
+      }
       setPhotoStep('idle');
       setPhotoPreview(null);
       setPhotoFile(null);
@@ -2695,7 +2761,7 @@ export function EditableProfileView({
     setPhotoStep('idle');
     setPhotoOffset({ x: 50, y: 30 });
     setPhotoScale(1);
-    setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
+    setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
   };
 
   // Get theme
@@ -2779,6 +2845,25 @@ export function EditableProfileView({
   const heroAnalysisUrl = editMode ? heroImage : transformUrl(heroImage, { width: 480, maxWidth: HERO_MAX_PX });
   //   96 wide: it sits under a 28px blur.
   const heroBlurUrl = editMode ? heroImage : transformUrl(heroImage, { width: 96, maxWidth: HERO_MAX_PX });
+  // HERO.FIT.2 — the framed window in play. A manual crop stores a window over
+  // the DISPLAY file (the slot's `window`); it only means anything while that
+  // file is the picture showing. Right after a save the local URL shows before
+  // the refreshed row lands, so the window saved with it (or its absence) is
+  // used for as long as that URL is the one on screen. Read off the RAW slot the
+  // writers target, like neverChoseFit below. No window → undefined → every
+  // reader below takes today's path, untouched.
+  const heroSlot = (page.theme_json as any)?.[heroConfigKey] as Record<string, unknown> | undefined;
+  const localHeroWindow = localHeroWindows[heroPageId];
+  const heroWindowIsLocal = !!localHeroWindow && localHeroWindow.url === heroImage;
+  const heroRowIsShowing = !!heroImage && heroImage === (usePage2Own ? page2AvatarUrl : page.avatar_url);
+  const heroWindowJson: unknown = heroWindowIsLocal
+    ? localHeroWindow.window
+    : heroRowIsShowing ? heroSlot?.window : undefined;
+  // The display file's own aspect, read off the window: known before the
+  // picture decodes, null when no usable window is stored.
+  const heroWindowAspect = pictureFitSourceAspect(heroWindowJson);
+  // The name band follows the window only where the window is what paints.
+  const heroBandWindowed = heroWindowAspect != null && !heroSlot?.video && heroSlot?.fit !== 'fit';
   // TL.POLISH.1a: is the band the name sits over LIGHT? White text over a
   // white logo hero is unreadable (/mecivietnam), so the public name/handle
   // get a legibility scrim only when this is true. Public path only; edit
@@ -2786,13 +2871,15 @@ export function EditableProfileView({
   const [heroIsLight, setHeroIsLight] = useState(false);
   useEffect(() => {
     if (editMode || !heroImage) { setHeroIsLight(false); return; }
+    // HERO.FIT.2: a windowed hero is sampled once its box is measured (below).
+    if (heroBandWindowed) return;
     let cancelled = false;
     sampleHeroBand(heroAnalysisUrl).then((lum) => {
       if (cancelled) return;
       setHeroIsLight(lum != null && needsNameScrim(lum));
     });
     return () => { cancelled = true; };
-  }, [heroImage, heroAnalysisUrl, editMode]);
+  }, [heroImage, heroAnalysisUrl, editMode, heroBandWindowed]);
   // TL.POLISH.1b: auto-Fit for LOGO-like heroes on pages that NEVER chose a
   // display mode. resolveHeroConfig merges HERO_DEFAULTS in and loses that
   // distinction, so "never chose" is read off the RAW theme_json slot the
@@ -2880,8 +2967,53 @@ export function EditableProfileView({
   // and needs that many more pixels than the column is wide. The canonical hero
   // aspect gives 1; until the aspects are measured the srcset assumes that (the
   // full-bleed layer, which is almost always height-pinned, assumes its typical).
-  const heroCoverScale = heroFitEffective === 'fit' ? 1 : coverOverflow(heroPhotoAspect, heroContainerAspect);
-  const fullBleedCoverScale = coverOverflow(heroPhotoAspect, fullBleedAspect, HERO_FULL_BLEED_COVER_SCALE);
+  // HERO.FIT.2 — a stored window paints wherever the layer is Fill and there is
+  // no hero video: the hero box when the effective fit is Fill, the full-screen
+  // layer always. The window is re-shaped for the MEASURED box and converted to
+  // the framing the unchanged resolver paints. Until the probe answers, the
+  // file's aspect comes off the window itself, so the first paint is already
+  // the window. Null (no window, Fit, a video, or a box not yet measured) →
+  // today's inputs, the same objects as before.
+  const heroWindowMediaAspect = heroPhotoAspect ?? heroWindowAspect;
+  const heroWindowPaints = heroWindowAspect != null && !heroVideo;
+  const heroBoxWindowFraming: ResolvedHeroFraming | null = heroWindowPaints && heroFitEffective === 'fill'
+    ? resolveHeroWindowFraming(heroWindowJson, heroWindowMediaAspect, heroContainerAspect)
+    : null;
+  const fullBleedWindowFraming: ResolvedHeroFraming | null = heroWindowPaints
+    ? resolveHeroWindowFraming(heroWindowJson, heroWindowMediaAspect, fullBleedAspect)
+    : null;
+  const heroBoxMedia: HeroMediaStyleInput = heroBoxWindowFraming
+    ? { mediaAspect: heroWindowMediaAspect, containerAspect: heroContainerAspect, framing: heroBoxWindowFraming }
+    : { mediaAspect: heroPhotoAspect, containerAspect: heroContainerAspect, framing: heroImgFraming };
+  const fullBleedMedia: HeroMediaStyleInput = fullBleedWindowFraming
+    ? { mediaAspect: heroWindowMediaAspect, containerAspect: fullBleedAspect, framing: fullBleedWindowFraming }
+    : { mediaAspect: heroPhotoAspect, containerAspect: fullBleedAspect, framing: { ...heroImgFraming, fit: 'fill' } };
+  // How many box widths wide a windowed photo paints (the srcset's question).
+  const windowPaintScale = (media: HeroMediaStyleInput): number | null => {
+    const geo = resolveHeroGeometry(media.mediaAspect, media.containerAspect, media.framing);
+    return geo ? Math.min(3, Math.max(1, geo.widthPct / 100)) : null;
+  };
+  // HERO.FIT.2 — the name band of a windowed hero: the band of what the hero
+  // box shows. One sample, taken once the box is measured (not one of the whole
+  // file first), and not again when the box changes shape under a sliding
+  // browser bar. Public path only, like the un-windowed sample above.
+  const heroBoxMeasured = heroContainerAspect != null;
+  const heroBandKey = heroBandWindowed ? JSON.stringify(heroWindowJson) : '';
+  useEffect(() => {
+    if (editMode || !heroImage || !heroBandWindowed || heroContainerAspect == null) return;
+    let cancelled = false;
+    sampleHeroBand(heroAnalysisUrl, pictureFitSeed(heroWindowJson, heroContainerAspect).crop).then((lum) => {
+      if (cancelled) return;
+      setHeroIsLight(lum != null && needsNameScrim(lum));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroImage, heroAnalysisUrl, editMode, heroBandWindowed, heroBoxMeasured, heroBandKey]);
+  const heroCoverScale = heroFitEffective === 'fit'
+    ? 1
+    : (heroBoxWindowFraming ? windowPaintScale(heroBoxMedia) : null) ?? coverOverflow(heroPhotoAspect, heroContainerAspect);
+  const fullBleedCoverScale = (fullBleedWindowFraming ? windowPaintScale(fullBleedMedia) : null)
+    ?? coverOverflow(heroPhotoAspect, fullBleedAspect, HERO_FULL_BLEED_COVER_SCALE);
 
   // Page labels + two-page switcher (shown in both editor preview and live page).
   const themePages = (page.theme_json as any)?.pages;
@@ -3028,6 +3160,35 @@ export function EditableProfileView({
   // PAGES.STYLE.1: derived from the effective theme, so Page 2 can be
   // full-bleed while Page 1 stays hero.
   const isFullBleed = isFullBleedTheme(theme);
+  // HERO.FIT.2 — the pencil dialog's choose step. With no new pick it previews
+  // the page's own display file (never the kept original, which is only the
+  // cropper's source), so what it shows is what the page shows. A stored window
+  // on a Fill layer paints through the same converter, and the position sliders
+  // are off: the window IS the position.
+  const chooseSrc = photoFile ? photoPreview : (heroImage || photoPreview);
+  const chooseWindowLocked = !photoFile && heroWindowAspect != null && (isFullBleed || heroFitDraft === 'fill');
+  const chooseWindowFraming = chooseWindowLocked
+    ? resolveHeroWindowFraming(heroWindowJson, heroImgAspect, heroPreviewAspect)
+    : null;
+  const chooseMedia: HeroMediaStyleInput = chooseWindowFraming
+    ? { mediaAspect: heroImgAspect, containerAspect: heroPreviewAspect, framing: chooseWindowFraming }
+    : {
+        mediaAspect: heroImgAspect,
+        containerAspect: heroPreviewAspect,
+        // Full-screen backgrounds are always cover — the Fill/Fit toggle is hero-only.
+        framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
+      };
+  // HERO.FIT.2 — the cropper reopens where it was left: when its picture is the
+  // kept original and the row on screen stored a window over it, that window
+  // (re-shaped for today's frame) seeds react-easy-crop. Otherwise undefined →
+  // centred at zoom 1, as before.
+  const cropFrameAspect = isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect();
+  const cropReopenWindow = photoSource === 'original' && heroRowIsShowing
+    ? pictureFitSeed(heroSlot?.windowSource, cropFrameAspect).crop
+    : null;
+  const cropReopenArea = cropReopenWindow
+    ? { x: cropReopenWindow.x, y: cropReopenWindow.y, width: cropReopenWindow.w, height: cropReopenWindow.h }
+    : undefined;
 
   // NAMEFX.1b: the public header's text effect, from the saved theme (see getNameFx).
   const nameFx: React.CSSProperties = getNameFx((page.theme_json as any)?.typography?.text_effect);
@@ -3095,16 +3256,8 @@ export function EditableProfileView({
               cssWidth={editMode ? undefined : HERO_FULL_BLEED_CSS_WIDTH}
               sizes={{ fullBleed: true, scale: fullBleedCoverScale }}
               maxWidth={HERO_MAX_PX}
-              style={resolveHeroMediaStyle({
-                mediaAspect: heroPhotoAspect,
-                containerAspect: fullBleedAspect,
-                framing: { ...heroImgFraming, fit: 'fill' },
-              })}
-              data-hero-framing={heroFramingAttr({
-                mediaAspect: heroPhotoAspect,
-                containerAspect: fullBleedAspect,
-                framing: { ...heroImgFraming, fit: 'fill' },
-              })}
+              style={resolveHeroMediaStyle(fullBleedMedia)}
+              data-hero-framing={heroFramingAttr(fullBleedMedia)}
             />
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.65) 100%)' }} />
@@ -3146,11 +3299,7 @@ export function EditableProfileView({
             )}
             <div
               className="h-full w-full"
-              data-hero-framing={heroFramingAttr({
-                mediaAspect: heroPhotoAspect,
-                containerAspect: heroContainerAspect,
-                framing: heroImgFraming,
-              })}
+              data-hero-framing={heroFramingAttr(heroBoxMedia)}
             >
               <SmoothImage
                 src={heroImage}
@@ -3166,11 +3315,7 @@ export function EditableProfileView({
                 // eager + fetchpriority=high here, and only here.
                 priority
                 className="brightness-110"
-                imgStyle={resolveHeroMediaStyle({
-                  mediaAspect: heroPhotoAspect,
-                  containerAspect: heroContainerAspect,
-                  framing: heroImgFraming,
-                })}
+                imgStyle={resolveHeroMediaStyle(heroBoxMedia)}
                 containerClassName="h-full w-full"
                 skeletonClassName="bg-neutral-900"
               />
@@ -3208,6 +3353,7 @@ export function EditableProfileView({
                   // unrestricted source. Falls back to the cropped hero for
                   // legacy photos uploaded before avatar_original_url existed.
                   const editSource = (usePage2Own ? ((page.theme_json as any)?.avatar_original_url_page2 || heroImage) : (page.avatar_original_url || heroImage));
+                  setPhotoSource(editSource === heroImage ? 'display' : 'original');
                   setPhotoPreview(editSource);
                   setPhotoFile(null);
                   setPhotoOriginalFile(null);
@@ -3463,18 +3609,14 @@ export function EditableProfileView({
                         data-testid="hero-photo-preview"
                         className="relative w-full max-w-[13rem] mx-auto rounded-2xl overflow-hidden border-2 border-white/20 bg-black"
                         style={{ aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()) }}
-                        data-hero-framing={heroFramingAttr({
-                          mediaAspect: heroImgAspect,
-                          containerAspect: heroPreviewAspect,
-                          framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
-                        })}
+                        data-hero-framing={heroFramingAttr(chooseMedia)}
                       >
                         {heroFitDraft === 'fit' && !isFullBleed && (
                           <div
                             aria-hidden="true"
                             className="absolute inset-0"
                             style={{
-                              backgroundImage: `url(${photoPreview})`,
+                              backgroundImage: `url(${chooseSrc})`,
                               backgroundSize: 'cover',
                               backgroundPosition: 'center',
                               filter: 'blur(28px) brightness(0.7)',
@@ -3483,16 +3625,10 @@ export function EditableProfileView({
                           />
                         )}
                         <img
-                          src={photoPreview}
+                          src={chooseSrc || undefined}
                           alt={t('editor.hero.previewAlt')}
                           onLoad={(e) => setHeroImgAspect(imageAspect(e.currentTarget))}
-                          style={resolveHeroMediaStyle({
-                            mediaAspect: heroImgAspect,
-                            containerAspect: heroPreviewAspect,
-                            // Full-screen backgrounds are always cover — the
-                            // Fill/Fit toggle is hero-only.
-                            framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
-                          })}
+                          style={resolveHeroMediaStyle(chooseMedia)}
                         />
                       </div>
 
@@ -3534,7 +3670,8 @@ export function EditableProfileView({
                             max={100}
                             value={heroPosXDraft}
                             onChange={(e) => setHeroPosXDraft(Number(e.target.value))}
-                            className="flex-1 accent-[#C9A55C]"
+                            disabled={chooseWindowLocked}
+                            className={`flex-1 accent-[#C9A55C]${chooseWindowLocked ? ' opacity-40 cursor-not-allowed' : ''}`}
                           />
                           <span className="text-white/40 text-[10px]">{t('editor.hero.posRight')}</span>
                         </div>
@@ -3553,12 +3690,15 @@ export function EditableProfileView({
                               max={100}
                               value={heroPosYDraft}
                               onChange={(e) => setHeroPosYDraft(Number(e.target.value))}
-                              disabled={!posYHasTravel}
-                              className={`flex-1 accent-[#C9A55C]${!posYHasTravel ? ' opacity-40 cursor-not-allowed' : ''}`}
+                              disabled={!posYHasTravel || chooseWindowLocked}
+                              className={`flex-1 accent-[#C9A55C]${!posYHasTravel || chooseWindowLocked ? ' opacity-40 cursor-not-allowed' : ''}`}
                             />
                             <span className="text-white/40 text-[10px]">{t('editor.hero.posBottom')}</span>
                           </div>
-                          {!posYHasTravel && (
+                          {/* HERO.FIT.2: a hero framed with Crop Image is positioned by its window. */}
+                          {chooseWindowLocked ? (
+                            <p className="text-white/40 text-[10px] mt-1.5 text-center leading-snug">{t('editor.hero.posCropped')}</p>
+                          ) : !posYHasTravel && (
                             <p className="text-white/40 text-[10px] mt-1.5 text-center leading-snug">{t('editor.hero.posYNoTravel')}</p>
                           )}
                         </div>
@@ -3577,7 +3717,7 @@ export function EditableProfileView({
                       {/* Crop manually — secondary, optional */}
                       <button
                         onClick={() => {
-                          setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
+                          setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
                           setPhotoStep('manual');
                         }}
                         className="w-full max-w-xs py-3 rounded-2xl border border-white/20 text-white/80 font-semibold text-sm"
@@ -3623,7 +3763,7 @@ export function EditableProfileView({
                         <button
                           onClick={() => {
                             setAiPreviewData(null);
-                            setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
+                            setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
                             setPhotoStep('manual');
                           }}
                           className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
@@ -3672,10 +3812,14 @@ export function EditableProfileView({
                           image={photoPreview || ''}
                           crop={rcCrop}
                           zoom={rcZoom}
-                          aspect={isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()}
+                          aspect={cropFrameAspect}
+                          // HERO.FIT.2: read once, when the picture loads — the
+                          // PhotoCropSheet pattern.
+                          initialCroppedAreaPercentages={cropReopenArea}
+                          onMediaLoaded={(media) => setRcNatural({ width: media.naturalWidth, height: media.naturalHeight })}
                           onCropChange={setRcCrop}
                           onZoomChange={setRcZoom}
-                          onCropComplete={(_, areaPixels) => setRcAreaPixels(areaPixels)}
+                          onCropComplete={(areaPercent, areaPixels) => { setRcAreaPixels(areaPixels); setRcAreaPercent(areaPercent); }}
                         />
                       </div>
                       {/* CROP.2c: controls below the Cropper — padded, emoji-free, brand-styled */}
@@ -3744,20 +3888,35 @@ export function EditableProfileView({
                           <button
                             onClick={async () => {
                               try {
-                                if (!photoPreview || !rcAreaPixels) return;
-                                const croppedFile = await getCroppedImage(photoPreview, rcAreaPixels);
-                                const dataUrl = URL.createObjectURL(croppedFile);
-                                setPhotoPreview(dataUrl);
+                                if (!photoPreview || !rcAreaPixels || !rcNatural) return;
+                                // HERO.FIT.2: the display file is the framed area
+                                // plus only the margin other screen shapes can
+                                // show, and the framed WINDOW is stored against
+                                // that file — the page paints the window, so a
+                                // box of another shape no longer cuts into what
+                                // was framed. Same engine, cap and encoding.
+                                const display = heroDisplayRegion(rcAreaPixels, rcNatural, HERO_BOX_ASPECTS[isFullBleed ? 'full_bleed' : 'hero']);
+                                const heroWindow = display && writePictureFit(null, { mode: 'crop', crop: display.window, aspect: cropFrameAspect });
+                                if (!display || !heroWindow) throw new Error('Crop failed');
+                                // The same framed area over the kept original, to
+                                // reopen the cropper on — only when the cropper's
+                                // picture IS the kept original.
+                                const heroWindowSource = photoSource !== 'display' && rcAreaPercent
+                                  ? writePictureFit(null, {
+                                      mode: 'crop',
+                                      crop: { x: rcAreaPercent.x, y: rcAreaPercent.y, w: rcAreaPercent.width, h: rcAreaPercent.height },
+                                      aspect: cropFrameAspect,
+                                    })
+                                  : null;
+                                const croppedFile = await getCroppedImage(photoPreview, display.region);
                                 setCropZoom(1);
                                 setCropPosition({ x: 0, y: 0 });
-                                // CROP.3a-C rule 2: the crop was composed at the
-                                // canonical hero aspect, so cover-at-center shows
-                                // the EXACT framed shot. Reset posY to 50 so no
-                                // leftover top-third pan (the posY-25 seed) shifts
-                                // it. Persist the same 50 in the save that follows.
-                                setHeroPosYDraft(50);
-                                setPhotoFile(croppedFile);
-                                await handlePhotoSave(croppedFile, 50);
+                                // The cropper keeps its real source (photoPreview,
+                                // photoFile) until the save lands: a failed save
+                                // must not leave it holding the baked file. The
+                                // window is centred by construction; the save
+                                // writes posX/posY 50 and moves the drafts there.
+                                await handlePhotoSave(croppedFile, 50, { window: heroWindow, windowSource: heroWindowSource });
                               } catch (err) {
                                 // CROP.3a error truth: never fail silently —
                                 // log name+message and carry a concise cause

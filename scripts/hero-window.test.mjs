@@ -16,6 +16,8 @@ import {
   windowToHeroFraming,
   heroFramingToWindow,
   resolveHeroWindowFraming,
+  heroDisplayRegion,
+  HERO_BOX_ASPECTS,
   HERO_WINDOW_MAX_ZOOM,
 } from '../src/lib/hero-window';
 import {
@@ -24,8 +26,9 @@ import {
   HERO_FRAMING_DEFAULTS,
   HERO_SCALE_MAX,
 } from '../src/lib/hero-framing';
-import { writePictureFit } from '../src/lib/picture-fit';
+import { writePictureFit, pictureFitSeed } from '../src/lib/picture-fit';
 import { HERO_DEFAULTS } from '../src/lib/surface';
+import { DEVICE_PRESETS, canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -262,6 +265,183 @@ const shownFor = (json, M, C) => {
   assert.equal(windowToHeroFraming(null, 1.5, 0.809), null, 'no window → null');
   assert.equal(windowToHeroFraming({ x: 0, y: 0, w: -5, h: 50 }, 1.5, 0.809), null, 'negative window → null');
   ok('absent, junk, or unknown aspect → null');
+}
+
+// ── 7. HERO.FIT.2: the display region and the window stored over it ─────────
+// Apply Crop bakes heroDisplayRegion's region and stores its window. Painted
+// through the REAL resolver, that pair must show (a) exactly what was framed at
+// the frame's own shape, and (b) for every box shape in range, exactly what
+// painting the same window over the WHOLE original would — so a visitor loses
+// nothing by never being sent the original.
+{
+  const SOURCES = [
+    { width: 2000, height: 3000 }, // portrait
+    { width: 2000, height: 2000 }, // square
+    { width: 3000, height: 2000 }, // landscape
+    { width: 1200, height: 1600 },
+    { width: 4096, height: 2731 },
+  ];
+  const FRAMES = [
+    { kind: 'hero', aspect: canonicalHeroAspect() },
+    { kind: 'full_bleed', aspect: canonicalFullBleedAspect() },
+  ];
+  const CROP_ZOOMS = [1, 1.25, 1.5, 2, 3];
+  // The centre, against each edge, the corners, two others.
+  const PLACES = [[0.5, 0.5], [0, 0.5], [1, 0.5], [0.5, 0], [0.5, 1], [0, 0], [1, 1], [1, 0], [0, 1], [0.2, 0.8], [0.73, 0.31]];
+  const steps = (lo, hi, n) => Array.from({ length: n }, (_, i) => lo + ((hi - lo) * i) / (n - 1));
+  /** What react-easy-crop reports: the frame-shaped window at `zoom`, in whole source pixels. */
+  const framedPixels = (src, aspect, zoom, fx, fy) => {
+    const M = src.width / src.height;
+    const cw = (M >= aspect ? src.height * aspect : src.width) / zoom;
+    const ch = (M >= aspect ? src.height : src.width / aspect) / zoom;
+    const width = Math.round(cw);
+    const height = Math.round(ch);
+    return { x: Math.round(fx * (src.width - width)), y: Math.round(fy * (src.height - height)), width, height };
+  };
+  /** A window in percent of a w × h picture, as source pixels (given the picture's origin). */
+  const toPixels = (win, origin, w, h) => ({
+    x0: origin.x + (win.x / 100) * w, x1: origin.x + ((win.x + win.w) / 100) * w,
+    y0: origin.y + (win.y / 100) * h, y1: origin.y + ((win.y + win.h) / 100) * h,
+  });
+
+  let cases = 0;
+  let boxes = 0;
+  let worstAtFrame = 0;
+  let worstVsOriginal = 0;
+  let worstScale = 1;
+  let uncapped = 0;
+  for (const src of SOURCES) for (const frame of FRAMES) for (const zoom of CROP_ZOOMS) for (const [fx, fy] of PLACES) {
+    const range = HERO_BOX_ASPECTS[frame.kind];
+    const framed = framedPixels(src, frame.aspect, zoom, fx, fy);
+    const tag = `${src.width}x${src.height} ${frame.kind} zoom ${zoom} at ${fx},${fy}`;
+    const out = heroDisplayRegion(framed, src, range);
+    assert.ok(out, `${tag}: resolves`);
+    const { region, window: win } = out;
+    cases++;
+
+    // The region is whole pixels inside the source; the window is inside 0..100.
+    for (const k of ['x', 'y', 'width', 'height']) assert.ok(Number.isInteger(region[k]), `${tag}: region.${k} is a whole pixel (${region[k]})`);
+    assert.ok(region.x >= 0 && region.y >= 0 && region.width > 0 && region.height > 0, `${tag}: region is inside the source (top-left)`);
+    assert.ok(region.x + region.width <= src.width && region.y + region.height <= src.height, `${tag}: region is inside the source (bottom-right)`);
+    assert.ok(win.x >= 0 && win.y >= 0 && win.w > 0 && win.h > 0, `${tag}: window starts inside 0..100`);
+    assert.ok(win.x + win.w <= 100 + 1e-9 && win.y + win.h <= 100 + 1e-9, `${tag}: window ends inside 0..100`);
+    // …and it is the framed rectangle, in the region's own pixels.
+    const back = toPixels(win, region, region.width, region.height);
+    near(back.x0, framed.x, `${tag}: window left = framed left`, 1e-6);
+    near(back.x1, framed.x + framed.width, `${tag}: window right = framed right`, 1e-6);
+    near(back.y0, framed.y, `${tag}: window top = framed top`, 1e-6);
+    near(back.y1, framed.y + framed.height, `${tag}: window bottom = framed bottom`, 1e-6);
+
+    const fileAspect = region.width / region.height;
+    const stored = writePictureFit(null, { mode: 'crop', crop: win, aspect: frame.aspect });
+    const overOriginal = writePictureFit(null, {
+      mode: 'crop',
+      crop: {
+        x: (100 * framed.x) / src.width, y: (100 * framed.y) / src.height,
+        w: (100 * framed.width) / src.width, h: (100 * framed.height) / src.height,
+      },
+      aspect: frame.aspect,
+    });
+    assert.ok(stored && overOriginal, `${tag}: both windows are storable`);
+
+    // (a) at the frame's shape the box shows what was framed, within 0.5%.
+    {
+      const { fr, shown } = shownFor(stored, fileAspect, frame.aspect);
+      const px = toPixels(shown, region, region.width, region.height);
+      const err = Math.max(
+        Math.abs(px.x0 - framed.x) / framed.width, Math.abs(px.x1 - framed.x - framed.width) / framed.width,
+        Math.abs(px.y0 - framed.y) / framed.height, Math.abs(px.y1 - framed.y - framed.height) / framed.height,
+      );
+      worstAtFrame = Math.max(worstAtFrame, err);
+      assert.ok(err < 0.005, `${tag}: at the frame's shape shown == framed within 0.5% (off by ${(err * 100).toFixed(3)}%)`);
+      worstScale = Math.max(worstScale, fr.scale);
+    }
+
+    // (b) every box shape in range.
+    for (const box of [...steps(range[0], range[1], 13), frame.aspect]) {
+      boxes++;
+      const fromFile = shownFor(stored, fileAspect, box);
+      // The reference: the REAL resolver painting the same framed window over
+      // the WHOLE original. Past its 2.5 cap the resolver cannot paint a crop
+      // that tight from the original (it would show more than was framed), so
+      // there the reference is the window itself, re-shaped for this box —
+      // which the display file does paint: one more thing it fixes.
+      const fromOriginal = shownFor(overOriginal, src.width / src.height, box);
+      const capped = fromOriginal.fr.scale >= HERO_SCALE_MAX - 1e-9;
+      const ideal = capped ? pictureFitSeed(overOriginal, box).crop : fromOriginal.shown;
+      assert.ok(ideal, `${tag} box ${box.toFixed(3)}: the whole-original window resolves`);
+      if (!capped) uncapped++;
+      worstScale = Math.max(worstScale, fromFile.fr.scale);
+      assert.ok(fromFile.fr.scale < 1.1, `${tag} box ${box.toFixed(3)}: the resolver's scale stays under 1.1 (${fromFile.fr.scale})`);
+      insidePhoto(fromFile.shown, `${tag} box ${box.toFixed(3)}`);
+      const a = toPixels(fromFile.shown, region, region.width, region.height);
+      const b = toPixels(ideal, { x: 0, y: 0 }, src.width, src.height);
+      const err = Math.max(
+        Math.abs(a.x0 - b.x0) / src.width, Math.abs(a.x1 - b.x1) / src.width,
+        Math.abs(a.y0 - b.y0) / src.height, Math.abs(a.y1 - b.y1) / src.height,
+      );
+      worstVsOriginal = Math.max(worstVsOriginal, err);
+      assert.ok(err < 0.002, `${tag} box ${box.toFixed(3)}: equals painting the whole original within 0.2% of the source (off by ${(err * 100).toFixed(3)}%)`);
+      // The framed window stays whole whenever the whole original would keep it whole.
+      const SLACK = 0.75; // source pixels: both sides are rounded to whole pixels
+      const holds = (p) => p.x0 <= framed.x + SLACK && p.y0 <= framed.y + SLACK
+        && p.x1 >= framed.x + framed.width - SLACK && p.y1 >= framed.y + framed.height - SLACK;
+      const tight = (p) => p.x0 <= framed.x + 1e-6 && p.y0 <= framed.y + 1e-6
+        && p.x1 >= framed.x + framed.width - 1e-6 && p.y1 >= framed.y + framed.height - 1e-6;
+      if (tight(b)) assert.ok(holds(a), `${tag} box ${box.toFixed(3)}: framed is inside what is shown (${JSON.stringify(a)} vs ${JSON.stringify(framed)})`);
+    }
+  }
+  ok(`display region: ${cases} crops, ${boxes} paints (${uncapped} against the resolver over the whole original, the rest past its cap); at the frame's shape off by <= ${(worstAtFrame * 100).toFixed(3)}%, vs the whole original <= ${(worstVsOriginal * 100).toFixed(3)}% of the source, scale <= ${worstScale.toFixed(4)}`);
+  assert.ok(worstScale < 1.1, 'the resolver scale never reaches 1.1');
+
+  // A framed rectangle a pixel past an edge is clamped into the source first.
+  {
+    const src = { width: 2000, height: 3000 };
+    const out = heroDisplayRegion({ x: -1, y: 2400, width: 1334, height: 1649 }, src, HERO_BOX_ASPECTS.hero);
+    assert.ok(out, 'an overhanging framed rectangle still resolves');
+    assert.ok(out.region.x >= 0 && out.region.y + out.region.height <= 3000, 'its region is inside the source');
+    assert.ok(out.window.x >= 0 && out.window.y + out.window.h <= 100 + 1e-9, 'its window is inside 0..100');
+  }
+  // No room at all (the source is the frame's shape, zoom 1): the region is the source.
+  {
+    const src = { width: 402, height: 497 };
+    const out = heroDisplayRegion({ x: 0, y: 0, width: 402, height: 497 }, src, HERO_BOX_ASPECTS.hero);
+    assert.deepEqual(out.region, { x: 0, y: 0, width: 402, height: 497 }, 'no margin to add: the whole source');
+    assert.deepEqual(out.window, { x: 0, y: 0, w: 100, h: 100 }, 'and the window is all of it');
+  }
+  // Junk → null.
+  const good = { x: 100, y: 100, width: 800, height: 989 };
+  const src = { width: 2000, height: 3000 };
+  assert.ok(heroDisplayRegion(good, src, HERO_BOX_ASPECTS.hero), 'control: a good crop resolves');
+  for (const bad of [
+    null, undefined, {}, { x: 0, y: 0, width: 0, height: 10 }, { x: 0, y: 0, width: 10, height: -1 },
+    { x: NaN, y: 0, width: 10, height: 10 }, { x: 0, y: Infinity, width: 10, height: 10 },
+    { x: 0, y: 0, width: '10', height: 10 }, { x: 5000, y: 0, width: 10, height: 10 },
+  ]) assert.equal(heroDisplayRegion(bad, src, HERO_BOX_ASPECTS.hero), null, `framed ${JSON.stringify(bad)} → null`);
+  for (const bad of [null, undefined, {}, { width: 0, height: 10 }, { width: 10, height: NaN }, { width: -5, height: 5 }]) {
+    assert.equal(heroDisplayRegion(good, bad, HERO_BOX_ASPECTS.hero), null, `source ${JSON.stringify(bad)} → null`);
+  }
+  for (const bad of [null, undefined, [], [0, 1], [1, NaN], [0.78], 'range']) {
+    assert.equal(heroDisplayRegion(good, src, bad), null, `range ${JSON.stringify(bad)} → null`);
+  }
+  ok('display region: overhang is clamped, no room degrades to the source, junk → null');
+}
+
+// ── 8. HERO.FIT.2: every device preset's box is inside HERO_BOX_ASPECTS ──────
+// The hero box is the page column (at most 640 px) by min(50% of the height +
+// 60, 560); the full-screen layer is the column by the whole height.
+{
+  for (const p of DEVICE_PRESETS) {
+    const w = Math.min(p.width, 640);
+    const hero = w / Math.min(p.height * 0.5 + 60, 560);
+    const full = w / p.height;
+    assert.ok(hero >= HERO_BOX_ASPECTS.hero[0] && hero <= HERO_BOX_ASPECTS.hero[1], `${p.id}: hero box ${hero.toFixed(3)} is inside ${HERO_BOX_ASPECTS.hero}`);
+    assert.ok(full >= HERO_BOX_ASPECTS.full_bleed[0] && full <= HERO_BOX_ASPECTS.full_bleed[1], `${p.id}: full-screen box ${full.toFixed(3)} is inside ${HERO_BOX_ASPECTS.full_bleed}`);
+  }
+  for (const [kind, aspect] of [['hero', canonicalHeroAspect()], ['full_bleed', canonicalFullBleedAspect()]]) {
+    assert.ok(aspect > HERO_BOX_ASPECTS[kind][0] && aspect < HERO_BOX_ASPECTS[kind][1], `the ${kind} crop frame is inside its range`);
+  }
+  ok(`all ${DEVICE_PRESETS.length} device presets land inside HERO_BOX_ASPECTS, hero and full-screen`);
 }
 
 console.log(`\n${passed} hero-window checks passed`);

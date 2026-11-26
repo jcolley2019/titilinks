@@ -18,6 +18,7 @@ import {
   adaptCrop,
   writePictureFit,
   pictureFitSeed,
+  pictureFitSourceAspect,
 } from '../src/lib/picture-fit';
 import { resolveGalleryCrop, resolveGalleryMediaStyle } from '../src/lib/gallery-framing';
 
@@ -290,6 +291,33 @@ const WIDE_SMALL = 16 / 7;
   assert.deepEqual(pictureFitSeed({ crop, crop_aspect: LARGE }, PAIR), { mode: 'fill', crop: adaptCrop(crop, LARGE, PAIR), bg: null }, 'another box → the adapted window');
   assert.deepEqual(pictureFitSeed({ crop }, LARGE), { mode: 'fill', crop: null, bg: null }, 'a crop with no crop_aspect seeds nothing (it renders cover)');
   ok('the sheet seed mirrors the render: fit, an adapted window, or the suggested framing');
+}
+
+// ── 9. HERO.FIT.2: the source picture's aspect, from a stored crop ───────────
+{
+  // A 16:10 window that is 50% × 31.25% of the picture → the picture is square.
+  near(pictureFitSourceAspect({ crop: { x: 20, y: 30, w: 50, h: 31.25 }, crop_aspect: LARGE }), 1, 'a 16:10 window, 50 × 31.25 → a square source');
+  // Any window cut from a picture of aspect S in a frame of aspect A.
+  let n = 0;
+  for (const S of [0.5, 0.667, 1, 1.109, 1.5, 2]) for (const A of [0.46, 0.809, 1, LARGE]) for (const w of [20, 55, 100]) {
+    const h = (w * S) / A;
+    if (h > 100) continue;
+    n++;
+    near(pictureFitSourceAspect({ crop: { x: 0, y: 0, w, h }, crop_aspect: A }), S, `S ${S} A ${A} w ${w}`, 1e-9);
+  }
+  assert.ok(n > 30, 'the sweep ran');
+  // What the writer produces reads back.
+  const stored = writePictureFit(null, { mode: 'crop', crop: { x: 10, y: 5, w: 80, h: 90 }, aspect: 0.809 });
+  near(pictureFitSourceAspect(stored), (0.809 * 90) / 80, 'a written window reads back');
+  // No usable crop → null.
+  for (const junk of [
+    null, undefined, {}, 'crop', 42, [], { crop: { x: 0, y: 0, w: 50, h: 50 } }, { crop_aspect: 1 },
+    { crop: { x: 0, y: 0, w: 0, h: 50 }, crop_aspect: 1 }, { crop: { x: 0, y: 0, w: 50, h: 50 }, crop_aspect: 0 },
+    { crop: { x: 0, y: 0, w: 50, h: 50 }, crop_aspect: NaN },
+    { fit: 'contain', crop: { x: 0, y: 0, w: 50, h: 50 }, crop_aspect: 1 },
+    writePictureFit(null, { mode: 'fit' }), writePictureFit(null, { mode: 'cover' }),
+  ]) assert.equal(pictureFitSourceAspect(junk), null, `${JSON.stringify(junk)} → null`);
+  ok('pictureFitSourceAspect: crop_aspect · h / w, null without a usable crop');
 }
 
 console.log(`\nAll ${passed} picture-fit checks passed.`);

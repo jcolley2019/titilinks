@@ -42,6 +42,53 @@ const BAND_TOP_FRACTION = 0.65;
 const BAND_LEFT_FRACTION = 0.2;
 const BAND_WIDTH_FRACTION = 0.6;
 
+/** A rectangle in whole pixels. */
+export interface PixelRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The name band of a w × h sample: its bottom 35%, the middle 60% of its
+ * width, in whole pixels and never empty. Pure.
+ */
+export function nameBandRect(w: number, h: number): PixelRect {
+  const x = Math.floor(w * BAND_LEFT_FRACTION);
+  const width = Math.max(1, Math.round(w * BAND_WIDTH_FRACTION));
+  const y = Math.floor(h * BAND_TOP_FRACTION);
+  const height = Math.max(1, h - y);
+  return { x, y, width, height };
+}
+
+/**
+ * HERO.FIT.2 — the part of a naturalWidth × naturalHeight picture a window
+ * (percent of it) covers, in pixels, clamped inside the picture. Null when the
+ * window is unusable — the caller then samples the whole picture, as before.
+ */
+export function windowSourceRect(
+  naturalWidth: number,
+  naturalHeight: number,
+  win: { x: number; y: number; w: number; h: number } | null | undefined,
+): PixelRect | null {
+  if (!win || !(naturalWidth > 0) || !(naturalHeight > 0)) return null;
+  const { x, y, w, h } = win;
+  if (![x, y, w, h].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+  if (!(w > 0) || !(h > 0)) return null;
+  const x0 = Math.min(100, Math.max(0, x));
+  const y0 = Math.min(100, Math.max(0, y));
+  const x1 = Math.min(100, Math.max(0, x + w));
+  const y1 = Math.min(100, Math.max(0, y + h));
+  if (!(x1 > x0) || !(y1 > y0)) return null;
+  return {
+    x: (x0 / 100) * naturalWidth,
+    y: (y0 / 100) * naturalHeight,
+    width: ((x1 - x0) / 100) * naturalWidth,
+    height: ((y1 - y0) / 100) * naturalHeight,
+  };
+}
+
 /**
  * Loads `src` with CORS so a canvas can read it back. Resolves null on any
  * failure; never throws. Shared with logo-detect.ts (TL.POLISH.1b).
@@ -65,26 +112,32 @@ export function loadCorsImage(src: string): Promise<HTMLImageElement | null> {
 /**
  * Loads `src` with CORS, draws it to an offscreen canvas 32 px wide and returns
  * the mean luminance of the name band, or null on ANY failure. Never throws.
+ *
+ * HERO.FIT.2: with a `window` (percent of the picture — the part the hero box
+ * shows), only that part is drawn, so the band is the band of what is on
+ * screen. Without one the whole picture is sampled, exactly as before.
  */
-export async function sampleHeroBand(src: string): Promise<number | null> {
+export async function sampleHeroBand(
+  src: string,
+  window?: { x: number; y: number; w: number; h: number } | null,
+): Promise<number | null> {
   try {
     if (!src || typeof document === 'undefined') return null;
     const img = await loadCorsImage(src);
     if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+    const part = windowSourceRect(img.naturalWidth, img.naturalHeight, window);
     const w = SAMPLE_WIDTH;
-    const h = Math.max(1, Math.round((img.naturalHeight / img.naturalWidth) * w));
+    const h = Math.max(1, Math.round(((part ? part.height : img.naturalHeight) / (part ? part.width : img.naturalWidth)) * w));
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
-    ctx.drawImage(img, 0, 0, w, h);
-    const bx = Math.floor(w * BAND_LEFT_FRACTION);
-    const bw = Math.max(1, Math.round(w * BAND_WIDTH_FRACTION));
-    const by = Math.floor(h * BAND_TOP_FRACTION);
-    const bh = Math.max(1, h - by);
+    if (part) ctx.drawImage(img, part.x, part.y, part.width, part.height, 0, 0, w, h);
+    else ctx.drawImage(img, 0, 0, w, h);
+    const band = nameBandRect(w, h);
     // getImageData throws SecurityError on a tainted canvas — caught below.
-    const { data } = ctx.getImageData(bx, by, bw, bh);
+    const { data } = ctx.getImageData(band.x, band.y, band.width, band.height);
     return meanLuminance(data);
   } catch {
     return null;

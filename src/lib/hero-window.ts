@@ -175,3 +175,87 @@ export function resolveHeroWindowFraming(
   const framing = windowToHeroFraming(seed.crop, mediaAspect, containerAspect);
   return framing ? { ...framing, fit: 'fill' } : null;
 }
+
+/**
+ * HERO.FIT.2 — box shapes (width / height) the display file must be able to
+ * fill. `hero` is the sticky hero box across every device preset and phone
+ * viewport in range (0.783 on a Galaxy S26 Ultra … 1.143 on the iPad presets
+ * and short phones); `full_bleed` is the whole viewport (0.442 … 0.678). The
+ * unit test walks DEVICE_PRESETS through both box formulas to keep every
+ * preset inside these.
+ */
+export const HERO_BOX_ASPECTS = { hero: [0.78, 1.15], full_bleed: [0.44, 0.70] } as const;
+
+/** A rectangle in whole pixels of the source picture. */
+export interface HeroPixelRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * HERO.FIT.2 — what Apply Crop bakes, and the window it stores over it.
+ *
+ * A visitor must never get the whole original (it is owner-only, and a
+ * rendition of it cannot crop), yet a box of another shape needs picture
+ * beside what was framed, or it cuts it. So the display file is the framed
+ * area PLUS only the margin the box shapes in `range` can show:
+ *
+ *   width  = max(framed.width,  framed.height · range[1])   the widest box
+ *   height = max(framed.height, framed.width  / range[0])   the narrowest box
+ *
+ * each capped at the source, centred on the framed centre, slid back inside
+ * the source, in whole pixels. `window` is the framed rectangle in percent of
+ * THAT region, computed from the same pixel numbers — so the file and the
+ * window cannot disagree by a rounding. Painted through
+ * resolveHeroWindowFraming it shows exactly what painting the same window
+ * over the whole original would, for every box shape in range.
+ *
+ * `framed` is clamped into the source first (a cropper can report a pixel past
+ * an edge). Null only on junk: non-finite numbers, zero or negative sizes.
+ */
+export function heroDisplayRegion(
+  framed: HeroPixelRect | null | undefined,
+  source: { width: number; height: number } | null | undefined,
+  range: readonly [number, number],
+): { region: HeroPixelRect; window: HeroWindow } | null {
+  if (!framed || !source || !Array.isArray(range)) return null;
+  const [narrow, wide] = range;
+  if (!isAspect(narrow) || !isAspect(wide)) return null;
+  const SW = source.width;
+  const SH = source.height;
+  if (!isAspect(SW) || !isAspect(SH) || SW < 1 || SH < 1) return null;
+  const { x, y, width, height } = framed;
+  if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isAspect(width) || !isAspect(height)) return null;
+
+  // The framed rectangle, inside the source.
+  const fx = clamp(x, 0, SW);
+  const fy = clamp(y, 0, SH);
+  const fw = Math.min(width, SW - fx);
+  const fh = Math.min(height, SH - fy);
+  if (!(fw > 0) || !(fh > 0)) return null;
+
+  const rw = clamp(Math.round(Math.max(fw, fh * wide)), 1, Math.floor(SW));
+  const rh = clamp(Math.round(Math.max(fh, fw / narrow)), 1, Math.floor(SH));
+  const rx = clamp(Math.round(fx + fw / 2 - rw / 2), 0, Math.floor(SW) - rw);
+  const ry = clamp(Math.round(fy + fh / 2 - rh / 2), 0, Math.floor(SH) - rh);
+
+  // The framed rectangle again, now inside the region: rounding the region to
+  // whole pixels can leave a framed edge a fraction of a pixel outside it.
+  const wx0 = clamp(fx, rx, rx + rw);
+  const wy0 = clamp(fy, ry, ry + rh);
+  const wx1 = clamp(fx + fw, rx, rx + rw);
+  const wy1 = clamp(fy + fh, ry, ry + rh);
+  if (!(wx1 > wx0) || !(wy1 > wy0)) return null;
+
+  return {
+    region: { x: rx, y: ry, width: rw, height: rh },
+    window: {
+      x: (100 * (wx0 - rx)) / rw,
+      y: (100 * (wy0 - ry)) / rh,
+      w: (100 * (wx1 - wx0)) / rw,
+      h: (100 * (wy1 - wy0)) / rh,
+    },
+  };
+}

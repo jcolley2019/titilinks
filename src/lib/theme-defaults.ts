@@ -111,6 +111,12 @@ export interface HeroConfig {
   playback?: 'once' | 'loop' | 'bounce';
   voiceover?: string;
   videoPos?: { scale?: number; posX?: number; posY?: number };
+  // HERO.FIT.2 — the framed window, as writePictureFit stores it. `window` is
+  // over the DISPLAY file and is what paints; `windowSource` is over the kept
+  // original and only reopens the cropper. Read through picture-fit.ts
+  // (pictureFitSeed) and hero-window.ts (resolveHeroWindowFraming), never by key.
+  window?: unknown;
+  windowSource?: unknown;
 }
 
 /** Page layout style. The union is shared by the profile-level default and

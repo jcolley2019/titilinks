@@ -167,6 +167,20 @@ export function pictureFitSeed(styleJson: unknown, boxAspect: number): PictureFi
 }
 
 /**
+ * HERO.FIT.2 — the aspect (width / height) of the picture a stored crop was
+ * made over: crop_aspect · h / w, the identity adaptCrop uses. A window w × h
+ * percent of an SW × SH picture is (w·SW) × (h·SH) pixels, and that is the
+ * frame's shape. Null when there is no usable crop (absent, junk, or Fit).
+ */
+export function pictureFitSourceAspect(styleJson: unknown): number | null {
+  if (!isRecord(styleJson) || styleJson.fit === 'contain') return null;
+  const stored = storedCrop(styleJson);
+  if (!stored) return null;
+  const aspect = (stored.aspect * stored.crop.h) / stored.crop.w;
+  return isAspect(aspect) ? aspect : null;
+}
+
+/**
  * The next `style_json` after a framing choice: every other key kept
  * (`animation`, `icon_*`, `bg_gradient`, `border_*` …), the picture keys
  * replaced, null when nothing is left. Never mutates the input. A crop choice
