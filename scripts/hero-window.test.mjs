@@ -17,6 +17,8 @@ import {
   heroFramingToWindow,
   resolveHeroWindowFraming,
   heroDisplayRegion,
+  heroFaceWindow,
+  HERO_FACE_PRESETS,
   HERO_BOX_ASPECTS,
   HERO_WINDOW_MAX_ZOOM,
 } from '../src/lib/hero-window';
@@ -442,6 +444,142 @@ const shownFor = (json, M, C) => {
     assert.ok(aspect > HERO_BOX_ASPECTS[kind][0] && aspect < HERO_BOX_ASPECTS[kind][1], `the ${kind} crop frame is inside its range`);
   }
   ok(`all ${DEVICE_PRESETS.length} device presets land inside HERO_BOX_ASPECTS, hero and full-screen`);
+}
+
+// ── 9. HERO.FIT.3: the face window presets ───────────────────────────────────
+// Headshot / Shoulders / Full Body seed the cropper with a window of the
+// frame's shape around the detected face. Portrait, square and landscape
+// sources; a face in the centre and against each edge; three face sizes (one
+// small enough to hit the cropper's max zoom, one large enough to hit the
+// cover window); all three presets; both frames.
+{
+  const MAX_ZOOM = 3;
+  const SOURCES = [
+    { width: 2000, height: 3000 }, // portrait
+    { width: 2000, height: 2000 }, // square
+    { width: 3000, height: 2000 }, // landscape
+  ];
+  const FRAMES = [canonicalHeroAspect(), canonicalFullBleedAspect()];
+  // Where the face box sits in its travel: the centre, against each edge, and
+  // two spots off the centre (so "exactly on the preset" is not only centred faces).
+  const SPOTS_FACE = [[0.5, 0.5], [0, 0.5], [1, 0.5], [0.5, 0], [0.5, 1], [0.4, 0.4], [0.6, 0.45]];
+  // The face's width as a fraction of the source's shorter side.
+  const FACE_SIZES = [0.02, 0.08, 0.14, 0.3, 0.6];
+  const TINY = 1e-9;
+
+  assert.deepEqual(Object.keys(HERO_FACE_PRESETS), ['headshot', 'shoulders', 'fullbody'], 'three presets, in button order');
+  for (const [name, p] of Object.entries(HERO_FACE_PRESETS)) {
+    assert.ok(p.faceWidth > 0 && p.faceWidth < 1, `${name}: faceWidth is a fraction of the frame`);
+    assert.ok(p.faceCentreY > 0 && p.faceCentreY < 0.5, `${name}: the face sits in the upper half`);
+  }
+  assert.ok(
+    HERO_FACE_PRESETS.headshot.faceWidth > HERO_FACE_PRESETS.shoulders.faceWidth
+      && HERO_FACE_PRESETS.shoulders.faceWidth > HERO_FACE_PRESETS.fullbody.faceWidth,
+    'headshot is the tightest, full body the loosest',
+  );
+
+  let cases = 0;
+  let exact = 0;
+  let atMaxZoom = 0;
+  let atCover = 0;
+  let slid = 0;
+  for (const src of SOURCES) for (const frame of FRAMES) for (const preset of Object.keys(HERO_FACE_PRESETS))
+    for (const size of FACE_SIZES) for (const [fx, fy] of SPOTS_FACE) {
+      const side = Math.min(src.width, src.height) * size;
+      // A face box is a little taller than wide.
+      const face = { x: fx * (src.width - side), y: fy * (src.height - side * 1.2), w: side, h: side * 1.2 };
+      const tag = `${src.width}x${src.height} frame ${frame.toFixed(3)} ${preset} face ${size} at ${fx},${fy}`;
+      const win = heroFaceWindow(face, src, frame, preset, MAX_ZOOM);
+      assert.ok(win, `${tag}: resolves`);
+      cases++;
+
+      // In source pixels.
+      const W = (win.w / 100) * src.width;
+      const H = (win.h / 100) * src.height;
+      const X = (win.x / 100) * src.width;
+      const Y = (win.y / 100) * src.height;
+
+      // The frame's shape, within 0.5%.
+      assert.ok(Math.abs(W / H / frame - 1) < 0.005, `${tag}: the window has the frame's shape (${(W / H).toFixed(4)} vs ${frame.toFixed(4)})`);
+      // Inside 0..100.
+      assert.ok(win.x >= -TINY && win.y >= -TINY && win.w > 0 && win.h > 0, `${tag}: starts inside 0..100 (${JSON.stringify(win)})`);
+      assert.ok(win.x + win.w <= 100 + TINY && win.y + win.h <= 100 + TINY, `${tag}: ends inside 0..100 (${JSON.stringify(win)})`);
+      // Both size clamps: never tighter than the cropper's max zoom, never
+      // larger than the cover window.
+      const coverW = src.width / src.height >= frame ? src.height * frame : src.width;
+      assert.ok(W <= coverW + 1e-6, `${tag}: no wider than the cover window (${W} vs ${coverW})`);
+      assert.ok(W >= coverW / MAX_ZOOM - 1e-6, `${tag}: no tighter than max zoom (${W} vs ${coverW / MAX_ZOOM})`);
+
+      const p = HERO_FACE_PRESETS[preset];
+      const wanted = face.w / p.faceWidth;
+      const sizeClamped = wanted > coverW + 1e-9 || wanted < coverW / MAX_ZOOM - 1e-9;
+      if (wanted > coverW + 1e-9) atCover++;
+      if (wanted < coverW / MAX_ZOOM - 1e-9) atMaxZoom++;
+      const faceCX = face.x + face.w / 2;
+      const faceCY = face.y + face.h / 2;
+      const wantX = faceCX - W / 2;
+      const wantY = faceCY - H * p.faceCentreY;
+      const slidX = wantX < -1e-9 || wantX > src.width - W + 1e-9;
+      const slidY = wantY < -1e-9 || wantY > src.height - H + 1e-9;
+      if (slidX || slidY) slid++;
+      // Where an axis did not slide the face is on its mark on that axis,
+      // whatever the size clamp did.
+      if (!slidX) near(X + W / 2, faceCX, `${tag}: centred on the face`, 1e-6);
+      if (!slidY) near((faceCY - Y) / H, p.faceCentreY, `${tag}: the face centre sits at faceCentreY`, 1e-9);
+      // Where nothing clamped or slid: exactly the preset.
+      if (!sizeClamped && !slidX && !slidY) {
+        near(face.w / W, p.faceWidth, `${tag}: the face is exactly faceWidth wide`, 1e-9);
+        near((faceCY - Y) / H, p.faceCentreY, `${tag}: the face centre is exactly at faceCentreY`, 1e-9);
+        near(X + W / 2, faceCX, `${tag}: the window is centred on the face`, 1e-6);
+        exact++;
+      }
+      // A slide moves the window by the overhang, never further.
+      if (slidX) near(X, wantX < 0 ? 0 : src.width - W, `${tag}: slid to the edge, x`, 1e-6);
+      if (slidY) near(Y, wantY < 0 ? 0 : src.height - H, `${tag}: slid to the edge, y`, 1e-6);
+
+      // What the cropper is seeded with resolves to the same window: it is
+      // storable, and reading it back for the same frame leaves it untouched.
+      const seeded = pictureFitSeed(writePictureFit(null, { mode: 'crop', crop: win, aspect: frame }), frame).crop;
+      assert.ok(seeded, `${tag}: the window is a storable crop`);
+      nearWin(seeded, win, `${tag}: the stored window reads back unchanged`, 1e-6);
+    }
+  assert.ok(exact > 0 && atMaxZoom > 0 && atCover > 0 && slid > 0,
+    `every branch exercised (${exact} exact, ${atMaxZoom} at max zoom, ${atCover} at cover, ${slid} slid)`);
+  ok(`face window: ${cases} windows of the frame's shape inside the source (${exact} exactly on the preset, ${atMaxZoom} held at max zoom, ${atCover} held at cover, ${slid} slid inside)`);
+
+  // The default max zoom is the cropper's: 3.
+  {
+    const src = { width: 2000, height: 3000 };
+    const tiny = { x: 990, y: 1490, w: 20, h: 20 };
+    const frame = canonicalHeroAspect();
+    nearWin(heroFaceWindow(tiny, src, frame, 'headshot'), heroFaceWindow(tiny, src, frame, 'headshot', 3), 'default max zoom is 3');
+    near(heroFaceWindow(tiny, src, frame, 'headshot').w, 100 / 3, 'a tiny face is held at zoom 3');
+    near(heroFaceWindow(tiny, src, frame, 'headshot', 1).w, 100, 'max zoom 1 is the cover window');
+  }
+
+  // Junk → null.
+  const src = { width: 2000, height: 3000 };
+  const face = { x: 800, y: 900, w: 400, h: 480 };
+  const frame = canonicalHeroAspect();
+  assert.ok(heroFaceWindow(face, src, frame, 'headshot'), 'control: a good face resolves');
+  for (const bad of [
+    null, undefined, {}, 'face', 42,
+    { x: 0, y: 0, w: 0, h: 10 }, { x: 0, y: 0, w: 10, h: 0 }, { x: 0, y: 0, w: -10, h: 10 },
+    { x: NaN, y: 0, w: 10, h: 10 }, { x: 0, y: Infinity, w: 10, h: 10 }, { x: 0, y: 0, w: '10', h: 10 },
+  ]) assert.equal(heroFaceWindow(bad, src, frame, 'headshot'), null, `face ${JSON.stringify(bad)} → null`);
+  for (const bad of [null, undefined, {}, { width: 0, height: 10 }, { width: 10, height: NaN }, { width: -5, height: 5 }, { width: '2000', height: 3000 }]) {
+    assert.equal(heroFaceWindow(face, bad, frame, 'headshot'), null, `source ${JSON.stringify(bad)} → null`);
+  }
+  for (const bad of [null, undefined, 0, -1, NaN, Infinity, '0.8']) {
+    assert.equal(heroFaceWindow(face, src, bad, 'headshot'), null, `frame aspect ${bad} → null`);
+  }
+  for (const bad of [null, undefined, '', 'portrait', 'toString', 'constructor', 7]) {
+    assert.equal(heroFaceWindow(face, src, frame, bad), null, `preset ${String(bad)} → null`);
+  }
+  for (const bad of [0, 0.5, -3, NaN, Infinity, '3', null]) {
+    assert.equal(heroFaceWindow(face, src, frame, 'headshot', bad), null, `max zoom ${bad} → null`);
+  }
+  ok('face window: default max zoom is 3; junk → null');
 }
 
 console.log(`\n${passed} hero-window checks passed`);

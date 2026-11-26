@@ -6,10 +6,11 @@
 // two write sites (update-existing and insert-new) call it, and the preview reads
 // it, so what the phone shows and what the DB gets can never drift.
 import { BLOCK_PRESETS } from './block-presets';
+import { pictureFitSourceAspect } from './picture-fit';
 import type { OnboardingState } from '@/components/onboarding/useOnboardingWizard';
 import type { BlockWithItems } from '@/components/blocks/types';
 import type { ThemeTypography } from '@/lib/theme-defaults';
-import type { Tables } from '@/integrations/supabase/types';
+import type { Json, Tables } from '@/integrations/supabase/types';
 
 /** The in-memory page's id / mode id. Never a real row — nothing queries by it. */
 export const PREVIEW_PAGE_ID = 'onboarding-preview';
@@ -63,6 +64,20 @@ export function buildOnboardingTheme(state: OnboardingState) {
     border_color: '#FFFFFF',
   } : null;
 
+  // HERO.FIT.3 — a photo cropped in onboarding carries its framed window, in
+  // the same hero config the editor's Apply Crop writes: Fill, centred, the
+  // window over the display copy, and the window over the kept original only
+  // when that original really uploaded (it is what reopens the cropper). With
+  // no usable window the theme is exactly what it always was.
+  const usable = (win: unknown): win is { [key: string]: Json } => pictureFitSourceAspect(win) != null;
+  const heroConfig = usable(state.avatarWindow) ? {
+    fit: 'fill' as const,
+    posX: 50,
+    posY: 50,
+    window: state.avatarWindow,
+    ...(state.avatarOriginalUrl && usable(state.avatarWindowSource) ? { windowSource: state.avatarWindowSource } : {}),
+  } : null;
+
   return {
     background: backgroundJson,
     ...(fbButtons ? { buttons: fbButtons } : {}),
@@ -71,6 +86,7 @@ export function buildOnboardingTheme(state: OnboardingState) {
     pageStyle: state.pageStyle,
     linkLayout: state.linkLayout,
     linkCount: state.linkCount,
+    ...(heroConfig ? { heroConfig } : {}),
   };
 }
 

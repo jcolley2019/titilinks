@@ -20,6 +20,14 @@ export interface OnboardingState {
   // TL.ONB.PHOTO.1 — public URL of the uploaded original (step 2 → pages.insert in
   // step 3). A string, so it survives the sessionStorage round-trip.
   avatarOriginalUrl: string | null;
+  // HERO.FIT.3 — the framed window the onboarding crop stores, as the editor's
+  // Apply Crop does: over the display copy (`avatarWindow`, what paints) and
+  // over the kept original (`avatarWindowSource`, what reopens the cropper).
+  // Both are what writePictureFit returns — plain JSON, read only through
+  // picture-fit.ts — so they survive the sessionStorage round-trip. Null when
+  // the photo was not cropped.
+  avatarWindow: unknown | null;
+  avatarWindowSource: unknown | null;
   backgroundColor: string;
   backgroundType: 'solid' | 'gradient';
   gradientStart: string;
@@ -64,6 +72,8 @@ const initialState: OnboardingState = {
   avatarUploadedUrl: null,
   avatarOriginalFile: null,
   avatarOriginalUrl: null,
+  avatarWindow: null,
+  avatarWindowSource: null,
   backgroundColor: '#0e0c09',
   backgroundType: 'solid',
   gradientStart: '#667eea',

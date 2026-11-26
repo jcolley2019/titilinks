@@ -23,6 +23,9 @@ import {
   buildPreviewBlocks,
 } from '../src/lib/onboarding-preview';
 import { BLOCK_PRESETS } from '../src/lib/block-presets';
+import { writePictureFit } from '../src/lib/picture-fit';
+import { resolveHeroWindowFraming } from '../src/lib/hero-window';
+import { canonicalHeroAspect } from '../src/lib/device-presets';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -101,6 +104,74 @@ ok('hero + a LIGHT solid → no buttons key, and auto-contrast flips the text da
 
 assert.equal('buttons' in buildOnboardingTheme(stateB), false);
 ok('a hero page writes no theme.buttons at all (not buttons: null)');
+
+// ── HERO.FIT.3: the cropped photo's window ──────────────────────────────────
+// A photo cropped in onboarding carries its framed window into the theme, in
+// the hero config the editor's Apply Crop writes. The windows are made the way
+// the step makes them, through writePictureFit — never spelled out here.
+const frame = canonicalHeroAspect();
+const avatarWindow = writePictureFit(null, { mode: 'crop', crop: { x: 12.5, y: 20, w: 75, h: 60 }, aspect: frame });
+const avatarWindowSource = writePictureFit(null, { mode: 'crop', crop: { x: 30, y: 25, w: 40, h: 33 }, aspect: frame });
+assert.ok(avatarWindow && avatarWindowSource, 'control: both windows are storable');
+
+for (const base of [stateA, stateB]) {
+  const plain = buildOnboardingTheme(base);
+
+  // No window: byte-identical to the theme with the fields absent, whatever
+  // else the photo state holds.
+  for (const none of [
+    { avatarWindow: null, avatarWindowSource: null },
+    { avatarWindow: null, avatarWindowSource: null, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp' },
+    { avatarWindow: null, avatarWindowSource, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp' },
+    { avatarWindow: undefined },
+    { avatarWindow: {} },
+    { avatarWindow: 'window' },
+    { avatarWindow: writePictureFit(null, { mode: 'fit' }) },
+    { avatarWindow: writePictureFit(null, { mode: 'cover' }) },
+  ]) {
+    const themed = buildOnboardingTheme({ ...base, ...none });
+    assert.equal(JSON.stringify(themed), JSON.stringify(plain), `${base.pageStyle}: ${JSON.stringify(none)} leaves the theme byte-identical`);
+    assert.equal('heroConfig' in themed, false, `${base.pageStyle}: no heroConfig key at all`);
+  }
+
+  // A window, the original uploaded: window and windowSource.
+  const both = buildOnboardingTheme({
+    ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp',
+  });
+  assert.deepEqual(both, {
+    ...plain,
+    heroConfig: { fit: 'fill', posX: 50, posY: 50, window: avatarWindow, windowSource: avatarWindowSource },
+  });
+
+  // A window, no original (it failed to upload, or has not landed yet): the
+  // window alone — there is nothing for the cropper to reopen against.
+  for (const avatarOriginalUrl of [null, undefined, '']) {
+    const alone = buildOnboardingTheme({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl });
+    assert.deepEqual(alone, { ...plain, heroConfig: { fit: 'fill', posX: 50, posY: 50, window: avatarWindow } });
+    assert.equal('windowSource' in alone.heroConfig, false, 'no windowSource key without an uploaded original');
+  }
+
+  // An unusable source window is dropped; the painting window still rides.
+  const junkSource = buildOnboardingTheme({
+    ...base, avatarWindow, avatarWindowSource: { nope: true }, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp',
+  });
+  assert.deepEqual(junkSource.heroConfig, { fit: 'fill', posX: 50, posY: 50, window: avatarWindow });
+
+  // What rides is what the hero paints: the stored window resolves for a hero box.
+  assert.ok(resolveHeroWindowFraming(both.heroConfig.window, 0.75, frame), `${base.pageStyle}: the stored window paints`);
+}
+ok('no usable window → the theme is byte-identical to today\'s (8 shapes of "none", both page styles)');
+ok('a window + an uploaded original → heroConfig { fill, 50, 50, window, windowSource }');
+ok('a window with no uploaded original → heroConfig carries the window alone');
+
+// The window survives the wizard's sessionStorage round trip (JSON) unchanged.
+{
+  const state = { ...stateB, avatarWindow, avatarWindowSource, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp' };
+  const restored = JSON.parse(JSON.stringify(state));
+  assert.deepEqual(buildOnboardingTheme(restored), buildOnboardingTheme(state));
+  assert.deepEqual(restored.avatarWindow, avatarWindow);
+  ok('the window fields are plain JSON: a sessionStorage round trip changes nothing');
+}
 
 // ── the in-memory page ──────────────────────────────────────────────────────
 const pageState = {
