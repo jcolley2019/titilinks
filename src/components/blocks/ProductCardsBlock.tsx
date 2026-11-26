@@ -15,15 +15,25 @@ import { animationClass, resolveAnimation } from '@/lib/animations';
 import { gatedHref, isGated } from '@/lib/adult-gate';
 import { glidePxPerSec } from '@/lib/glide';
 import { ResponsiveImg } from '@/components/ResponsiveImg';
+import { resolvePictureFit, type PictureFit } from '@/lib/picture-fit';
+import { scaleBox } from '@/lib/media-url';
 
 // MEDIA.PHOTO.1: the box a product tile paints into, per layout, at the 402px
 // reference phone (370px content column). Centred object-cover → the rendition
 // is cropped server-side to exactly the tile.
+// IMG.FIT.2: also the ONE aspect table for the picture fitter — the editor's
+// framing sheet opens at productTileAspect(layout), so a window framed there is
+// the shape it paints into here.
 const TILE_IMG = {
   filmstrip: { cssWidth: 266, sizes: { column: 0.72, insetPx: 32 }, aspect: 1 },
   full: { cssWidth: 370, sizes: { column: 1, insetPx: 32 }, aspect: 3 / 4 },
   grid: { cssWidth: 179, sizes: { column: 0.5, insetPx: 44 }, aspect: 1 },
 } as const;
+
+export type ProductLayout = keyof typeof TILE_IMG;
+
+/** IMG.FIT.2 — the aspect (width / height) of a product tile in `layout`. */
+export const productTileAspect = (layout: ProductLayout): number => TILE_IMG[layout].aspect;
 
 interface ProductConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -122,27 +132,118 @@ export function ProductCardsBlock({ block, onOutboundClick, theme, editMode }: T
   // One product tile — used by every layout. `rounded` controls the corner.
   const Tile = ({ item, rounded = 'rounded-xl' }: { item: BlockItem; rounded?: string }) => {
     const onSale = !!(cfg.showPrice && item.compare_at_price && item.price && item.compare_at_price > item.price);
+    const tileBox = cfg.layout === 'filmstrip' ? TILE_IMG.filmstrip : cfg.layout === 'full' ? TILE_IMG.full : TILE_IMG.grid;
+    // IMG.FIT.2: how the picture sits in the tile, through the shared fitter.
+    // No picture keys → cover, i.e. today's <img> below, untouched.
+    const picture: PictureFit = item.image_url && item.style_json != null
+      ? resolvePictureFit(item.style_json, tileBox.aspect)
+      : { mode: 'cover' };
+    const tileProps = {
+      href: gatedHref(item.url, item.is_adult, editMode),
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      onClick: (e: React.MouseEvent) => handleClick(e, item),
+      onTouchStart: () => triggerHaptic('light'),
+      className: `group relative block h-full w-full overflow-hidden ${rounded}`,
+      style: {
+        backgroundColor: surface.background,
+        border: `1px solid ${surface.borderColor}`,
+        ...(fullBleed ? { backdropFilter: 'blur(12px)' } : {}),
+      },
+    };
+    const hasText = !!(item.label || (cfg.showPrice && item.price) || (cfg.showBuy && item.cta_label));
+
+    // IMG.FIT.2 Fit: the whole picture (contain, no server crop — it would cut
+    // a logo) on the stored background, the label / price / Buy block BELOW it
+    // in the tile's own text colour. The tile's outer box is the Fill tile's,
+    // so rows and the filmstrip keep their rhythm; the chips stay on the picture.
+    if (picture.mode === 'fit' && item.image_url) {
+      const ink = fullBleed ? '#ffffff' : textColor;
+      return (
+        <a {...tileProps}>
+          <div className="absolute inset-0 flex flex-col">
+            <div
+              data-product-picture="fit"
+              className="relative min-h-0 flex-1 overflow-hidden"
+              style={picture.bg ? { background: picture.bg } : undefined}
+            >
+              <ResponsiveImg
+                src={item.image_url}
+                alt={item.label || ''}
+                className="absolute inset-0 h-full w-full object-contain"
+                loading="lazy"
+                cssWidth={tileBox.cssWidth}
+                sizes={tileBox.sizes}
+              />
+              {item.badge && (
+                <span
+                  className="absolute top-2 left-2 z-[1] text-[10px] font-bold px-2 py-0.5 rounded"
+                  style={{ backgroundColor: '#C9A55C', color: '#0e0c09' }}
+                >
+                  {tc(item.badge)}
+                </span>
+              )}
+              {onSale && (
+                <span className="absolute top-2 right-2 z-[1] text-[10px] font-bold px-2 py-0.5 rounded bg-red-500 text-white">
+                  -{discountPct(item.price!, item.compare_at_price!)}%
+                </span>
+              )}
+              {item.is_adult && (
+                <span className="absolute bottom-2 right-2 z-[2] bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-0.5">
+                  <ShieldAlert className="h-3 w-3" /> 18+
+                </span>
+              )}
+            </div>
+            {hasText && (
+              <div data-product-text className="flex-shrink-0 px-3 pb-2.5 pt-2" style={{ color: ink }}>
+                {item.label && <p className="truncate text-sm font-semibold">{tc(item.label)}</p>}
+                {cfg.showPrice && item.price != null && (
+                  <p className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-sm font-bold">{formatPrice(item.price, item.currency || 'USD')}</span>
+                    {onSale && (
+                      <span className="text-xs line-through opacity-60">
+                        {formatPrice(item.compare_at_price!, item.currency || 'USD')}
+                      </span>
+                    )}
+                  </p>
+                )}
+                {cfg.showBuy && item.cta_label && (
+                  <span
+                    className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${buyAnimClass}`.trim()}
+                    style={{ backgroundColor: fill, color: theme.buttons.text_color }}
+                  >
+                    {tc(item.cta_label)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </a>
+      );
+    }
+
     return (
-      <a
-        href={gatedHref(item.url, item.is_adult, editMode)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => handleClick(e, item)}
-        onTouchStart={() => triggerHaptic('light')}
-        className={`group relative block h-full w-full overflow-hidden ${rounded}`}
-        style={{
-          backgroundColor: surface.background,
-          border: `1px solid ${surface.borderColor}`,
-          ...(fullBleed ? { backdropFilter: 'blur(12px)' } : {}),
-        }}
-      >
-        {item.image_url ? (
+      <a {...tileProps}>
+        {item.image_url && picture.mode === 'crop' ? (
+          // IMG.FIT.2 crop: GalleryPhoto's paint, as on link cards — the
+          // resolved rectangle over the whole image, renditions `zoom` tile
+          // widths wide and aspect-preserving (no server crop).
+          <ResponsiveImg
+            src={item.image_url}
+            alt={item.label || ''}
+            className="absolute object-cover"
+            loading="lazy"
+            cssWidth={Math.round(tileBox.cssWidth * picture.zoom)}
+            sizes={scaleBox(tileBox.sizes, picture.zoom)}
+            style={picture.style}
+          />
+        ) : item.image_url ? (
           <ResponsiveImg
             src={item.image_url}
             alt={item.label || ''}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
             loading="lazy"
-            {...(cfg.layout === 'filmstrip' ? TILE_IMG.filmstrip : cfg.layout === 'full' ? TILE_IMG.full : TILE_IMG.grid)}
+            {...tileBox}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

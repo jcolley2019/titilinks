@@ -30,13 +30,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, ShoppingBag, ImagePlus, ShieldAlert } from 'lucide-react';
+import { Loader2, Plus, Trash2, ShoppingBag, ImagePlus, ShieldAlert, Crop } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 import { translateContent } from '@/lib/content-i18n';
 import type { Tables } from '@/integrations/supabase/types';
 import { ITEM_CAPS, validateUrl } from '@/lib/validation';
 import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { removePublicObject } from '@/lib/storage-cleanup';
+import { PhotoCropSheet } from './PhotoCropSheet';
+import { resolvePictureFit, writePictureFit, type PictureFitChoice } from '@/lib/picture-fit';
+import { usePastedImage } from '@/hooks/usePastedImage';
+import { productTileAspect } from '@/components/blocks/ProductCardsBlock';
 
 const MAX_ITEMS = ITEM_CAPS.product_cards;
 
@@ -54,9 +58,21 @@ interface ProductItem {
   compare_at_price?: number | null;
   currency?: string;
   cta_label?: string;
+  /** IMG.FIT.2: the row's style_json, carried through load → Save → re-sync so
+   *  the picture framing (and any other per-item key) is never dropped. */
+  style_json?: Record<string, any> | null;
   imageFile?: File;
   imagePreview?: string;
 }
+
+/** IMG.FIT.2 — the ONE way a product's picture changes: a stored framing
+ *  (window, fit, background) belongs to the old picture, so it goes with it. */
+function withPicture(item: ProductItem, file: File, preview: string): ProductItem {
+  return { ...item, imageFile: file, imagePreview: preview, style_json: writePictureFit(item.style_json, { mode: 'cover' }) };
+}
+
+/** The picture a product shows right now: a staged preview, else the stored URL. */
+const pictureOf = (item: ProductItem | undefined | null) => item?.imagePreview || item?.image_url || null;
 
 interface ProductCardsConfig {
   layout: 'full' | 'filmstrip' | 'grid';
@@ -90,6 +106,7 @@ function toProductItem(item: BlockItem): ProductItem {
     compare_at_price: item.compare_at_price,
     currency: item.currency || 'USD',
     cta_label: item.cta_label || '',
+    style_json: (item.style_json as Record<string, any> | null) ?? null,
   };
 }
 
@@ -183,12 +200,44 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     }
   };
 
+  // ── IMG.FIT.2 — the product's picture: Fill (zoom/pan) or Fit whole picture ──
+  // The sheet is the shared fitter (PhotoCropSheet + src/lib/picture-fit); it
+  // edits the DRAFT only — pictures and framing reach a row on the panel's Save.
+  const [pictureSheet, setPictureSheet] = useState<{ id: string; src: string } | null>(null);
+
+  // A new picture (added, replaced or pasted): open the sheet for that product
+  // at the current layout's tile shape, always in Fill. The editor does not read
+  // the picture or pick Fit for it; Cancel keeps the plain cover default.
+  const framePicture = (id: string, src: string) => {
+    setPictureSheet({ id, src });
+  };
+
+  // Adjust: however the picture got there. The sheet reads the edge colour
+  // itself and does not wait for it.
+  const openAdjust = (id: string) => {
+    const src = pictureOf(items.find((i) => i.id === id));
+    if (src) setPictureSheet({ id, src });
+  };
+
+  const applyPictureChoice = (id: string, src: string, choice: PictureFitChoice) => {
+    setItems((prev) => prev.map((i) => (i.id === id && pictureOf(i) === src
+      ? { ...i, style_json: writePictureFit(i.style_json, choice) }
+      : i)));
+    setPictureSheet(null);
+  };
+
   // Tapping the "+" tile opens the file picker; the chosen image becomes a new
   // product, auto-selected so its link/title fields show below (Gallery flow).
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
+    addProductFromFile(file);
+  };
+
+  // One door for a new product's picture — the "+" pick and a paste with no
+  // product selected: same checks, same max-products rule.
+  const addProductFromFile = (file: File) => {
     if (items.length >= MAX_ITEMS) {
       toast.error(t('productCardsEditor.maxProducts').replace('{max}', String(MAX_ITEMS)));
       return;
@@ -202,10 +251,11 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
     const id = `new-${Date.now()}-${Math.random()}`;
     const reader = new FileReader();
     reader.onload = () => {
+      const preview = reader.result as string;
       // TL.PROD.ADD.3 — newest first: the new product takes the slot right
       // after the "+" tile; order_index follows array position on save.
       setItems((prev) => [
-        {
+        withPicture({
           id,
           label: '',
           url: '',
@@ -216,13 +266,13 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           compare_at_price: null,
           currency: 'USD',
           cta_label: '',
-          imageFile: file,
-          imagePreview: reader.result as string,
-        },
+          style_json: null,
+        }, file, preview),
         ...prev,
       ]);
       pendingFocusIdRef.current = id;
       setSelectedId(id);
+      framePicture(id, preview);
     };
     reader.readAsDataURL(file);
   };
@@ -243,9 +293,21 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => updateItem(id, { imageFile: file, imagePreview: reader.result as string });
+    reader.onload = () => {
+      const preview = reader.result as string;
+      setItems((prev) => prev.map((i) => (i.id === id ? withPicture(i, file, preview) : i)));
+      framePicture(id, preview);
+    };
     reader.readAsDataURL(file);
   };
+
+  // IMG.FIT.2 — paste a picture while the panel is open and the sheet is not:
+  // onto the selected product, or as a new product when none is selected.
+  // A text paste into any field is left alone (usePastedImage's rule).
+  usePastedImage(open && !loading && !pictureSheet, (file) => {
+    if (selectedId && items.some((i) => i.id === selectedId)) replaceImage(selectedId, file);
+    else addProductFromFile(file);
+  });
 
   const uploadImage = async (picked: File): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
@@ -309,6 +371,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
           compare_at_price: item.compare_at_price ?? null,
           currency: item.currency || 'USD',
           cta_label: item.cta_label?.trim() || null,
+          // IMG.FIT.2: written back as loaded unless a framing choice changed
+          // it (writePictureFit leaves null when nothing is left).
+          style_json: item.style_json ?? null,
         };
 
         if (item.id.startsWith('new-')) {
@@ -458,6 +523,9 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                 {items.map((item) => {
                   const img = item.imagePreview || item.image_url;
                   const isSel = item.id === selectedId;
+                  // IMG.FIT.2: the square tile paints the draft through the
+                  // shared fitter; no picture keys → today's object-cover image.
+                  const pic = img ? resolvePictureFit(item.style_json, 1) : null;
                   return (
                     <div
                       key={item.id}
@@ -466,7 +534,13 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                         isSel ? 'border-[#C9A55C]' : 'border-transparent'
                       }`}
                     >
-                      {img ? (
+                      {img && pic?.mode === 'crop' ? (
+                        <img src={img} alt="" className="absolute object-cover" style={pic.style} />
+                      ) : img && pic?.mode === 'fit' ? (
+                        <div className="absolute inset-0" style={{ background: pic.bg ?? 'rgba(0,0,0,0.25)' }}>
+                          <img src={img} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                        </div>
+                      ) : img ? (
                         <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -600,8 +674,25 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
                   </div>
 
                   <div className="flex items-center justify-between gap-3 pt-1">
-                    <ImageReplaceButton onPick={(file) => replaceImage(selected.id, file)} hasImage={!!(selected.imagePreview || selected.image_url)} />
-                    <div className="flex items-center gap-2">
+                    {/* IMG.FIT.2: Adjust sits beside Change photo; the pair
+                        wraps rather than push the 18+ toggle off a 360 px panel. */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <ImageReplaceButton onPick={(file) => replaceImage(selected.id, file)} hasImage={!!(selected.imagePreview || selected.image_url)} />
+                      {pictureOf(selected) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs gap-1.5"
+                          data-testid="product-picture-adjust"
+                          onClick={() => openAdjust(selected.id)}
+                        >
+                          <Crop className="h-3.5 w-3.5" />
+                          {t('productCardsEditor.adjustPhoto')}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
                       <ShieldAlert className="h-4 w-4 text-white/50" />
                       <span className="text-xs text-white/50">18+</span>
                       <Switch
@@ -641,6 +732,21 @@ export function ProductCardsEditor({ blockId, open, onOpenChange, onSave, panelM
             </Button>
           </div>
         </div>
+      )}
+      {/* IMG.FIT.2 — the shared picture fitter, for one product, on the draft,
+          at the current layout's tile shape. Portals to body; Cancel hands back
+          nothing, Apply one choice. */}
+      {pictureSheet && items.some((i) => i.id === pictureSheet.id) && (
+        <PhotoCropSheet
+          src={pictureSheet.src}
+          aspect={productTileAspect(config.layout)}
+          title={t('pictureFit.title')}
+          fit={{
+            styleJson: items.find((i) => i.id === pictureSheet.id)?.style_json ?? null,
+            onApply: (choice) => applyPictureChoice(pictureSheet.id, pictureSheet.src, choice),
+          }}
+          onCancel={() => setPictureSheet(null)}
+        />
       )}
     </>
   );

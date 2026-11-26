@@ -279,6 +279,10 @@ test.describe('replacing an item image removes the superseded object (TL.STOR.8.
       await expect(changeBtn).toBeVisible();
       await changeBtn.locator('xpath=..').locator('input[type="file"]')
         .setInputFiles(await mintPng(page, '#2980b9', 'replacement.png'));
+      // IMG.FIT.2: a new picture opens the framing sheet; close it with its Cancel.
+      await expect(page.getByTestId('picture-fit-sheet')).toBeVisible({ timeout: 15_000 });
+      await page.getByTestId('picture-fit-cancel').click();
+      await expect(page.getByTestId('picture-fit-sheet')).toHaveCount(0);
 
       await panelSave(page).click();
       await expect(page.getByText(T['productCardsEditor.saved'], { exact: true }))
