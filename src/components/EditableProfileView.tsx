@@ -101,6 +101,7 @@ import { ResponsiveImg } from '@/components/ResponsiveImg';
 import { coverOverflow, scaleBox, transformUrl, type SizesBox } from '@/lib/media-url';
 import { glidePxPerSec } from '@/lib/glide';
 import type { HeaderDraft } from '@/lib/header-draft';
+import { resolveLookWithDraft } from '@/lib/page-look';
 import { createPortal } from 'react-dom';
 import { countSampleItems } from '@/lib/placeholder-item';
 import type { Plan } from '@/lib/entitlements';
@@ -288,11 +289,18 @@ function resolveIconBg(
 // drifting strip; `onOverflowChange` reports each flip so the caller can place
 // it elsewhere. The public mount passes neither, so its render is unchanged:
 // no trailing => children are exactly `nodes`, and the measure subtracts 0.
-function HeaderIconRow({ nodes, gapTop, trailing, onOverflowChange }: {
+// TP.F4: `align` (look.options.iconsAlign) justifies the FITTED row only;
+// 'center' (the default) keeps today's class string. The drifting row is
+// unchanged.
+const ICON_ROW_JUSTIFY = { left: 'justify-start', center: 'justify-center', right: 'justify-end' } as const;
+type IconsAlign = keyof typeof ICON_ROW_JUSTIFY;
+
+function HeaderIconRow({ nodes, gapTop, trailing, onOverflowChange, align = 'center' }: {
   nodes: ReactElement[];
   gapTop: number;
   trailing?: ReactElement;
   onOverflowChange?: (overflowing: boolean) => void;
+  align?: IconsAlign;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [overflowing, setOverflowing] = useState(false);
@@ -373,7 +381,7 @@ function HeaderIconRow({ nodes, gapTop, trailing, onOverflowChange }: {
       style={{ marginTop: gapTop }}
       className={cn(
         'flex scrollbar-hide',
-        overflowing ? 'justify-start overflow-x-auto' : `justify-center overflow-x-hidden ${ICON_ROW_GAP}`,
+        overflowing ? 'justify-start overflow-x-auto' : `${ICON_ROW_JUSTIFY[align]} overflow-x-hidden ${ICON_ROW_GAP}`,
       )}
     >
       {overflowing
@@ -1084,6 +1092,15 @@ const HEADER_LIFT = 25;      // px the name/handle/icons ride UP toward the seam
 const HEADER_OFFSET_Y =95; // name/handle/icons lift over the hero, in px. Raise to float them up; 0 = none.
 const CARDS_LIFT = 85;      // px the link cards ride UP under the icons, closing the gap the header lift leaves behind. Bigger = cards higher / smaller gap; smaller = bigger gap.
 const HERO_EXTRA = 60;       // px added to hero height; gradient follows down with it. Dial on a REAL phone until the hero fills ~half the screen. 6px ~ 1/16 in.
+// TP.F4 — namePlacement 'below' (hero pages): the header is not lifted over the
+// photo; it starts this many px under the content panel's top edge (where the
+// photo ends). Applied as PADDING on the header wrapper, not margin: the
+// wrapper's top margin collapses into the panel's -2rem (today's -HEADER_LIFT
+// has no effect for that reason), so a positive margin would move the panel —
+// and the photo join with it — instead of the header.
+const HEADER_BELOW_TOP = 12;
+const HANDLE_BESIDE_GAP = 8; // TP.F4 — handlePosition 'beside': px between the name and the @handle
+const HEADER_SIDE_INSET = '1.5rem'; // the public header's side padding; the canvas cards mirror it for left / beside / side-aligned icons
 
 // MEDIA.PHOTO.1 — the boxes the hero paints into, for srcset/sizes (visitor path).
 // The page column is the default device preset wide (402px); the hero fills it. The
@@ -1104,12 +1121,20 @@ function NameHandleCard({
   nameFx,
   chrome,
   gapNameHandle,
+  align = 'center',
+  showHandle = true,
+  handleBeside = false,
 }: {
   page: any;
   chrome: ChromeTokens;
   draftDisplayName?: string;
   // HDR.SPACE.2 — resolved name -> handle gap (draft ?? saved ?? HEADER_GAP_A).
   gapNameHandle: number;
+  // TP.F4 — the look's nameAlign / showHandle / handlePosition. The defaults
+  // render today's card exactly.
+  align?: 'center' | 'left';
+  showHandle?: boolean;
+  handleBeside?: boolean;
   // Text-effect style (shadow/outline) for the name + handle. Carries no layout
   // properties, so it spreads over the text styles without moving anything.
   nameFx?: React.CSSProperties;
@@ -1134,6 +1159,50 @@ function NameHandleCard({
 
   const resolvedNameColor = localNameColor || chrome.text;
 
+  // TP.F4 — the arrangement. Left and beside mirror the public header's side
+  // padding (the canvas card has none today, and a centred line needs none).
+  const left = align === 'left';
+  const inset = left || handleBeside;
+  const contentStyle: React.CSSProperties = inset
+    ? { paddingTop: HEADER_NAME_TOP, textAlign: left ? 'left' : 'center', paddingLeft: HEADER_SIDE_INSET, paddingRight: HEADER_SIDE_INSET }
+    : { paddingTop: HEADER_NAME_TOP, textAlign: 'center' };
+  const stackStyle: React.CSSProperties = handleBeside
+    ? { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: left ? 'flex-start' : 'center', columnGap: HANDLE_BESIDE_GAP }
+    : { display: 'flex', flexDirection: 'column', alignItems: left ? 'flex-start' : 'center' };
+
+  const nameInput = (
+    <input
+      type="text"
+      value={localDisplayName}
+      onChange={(e) => {
+        setLocalDisplayName(e.target.value);
+        debouncedNameSave(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+          onDisplayNameChange(localDisplayName);
+        }
+      }}
+      onBlur={() => onDisplayNameChange(localDisplayName)}
+      placeholder={`@${page.handle}`}
+      className={`font-bold mb-0 bg-transparent border-0 outline-none ${handleBeside ? 'text-left' : left ? 'text-left w-full' : 'text-center w-full'}`}
+      style={{
+        fontSize: localNameSize,
+        lineHeight: 1,
+        padding: 0,
+        color: resolvedNameColor,
+        textShadow: 'none',
+        caretColor: '#C9A55C',
+        ...nameFx,
+        // Beside: sized to its text — it shares one grid cell with a hidden
+        // copy of the text, contributes no width of its own (width 0), and
+        // fills the cell the copy sizes (min-width 100%).
+        ...(handleBeside ? { gridArea: '1 / 1', width: 0, minWidth: '100%' } : {}),
+      }}
+    />
+  );
+
   return (
     <div
       style={{ position: 'relative', zIndex: 20 }}
@@ -1142,38 +1211,26 @@ function NameHandleCard({
       {/* Content — tap name to edit inline. */}
       <div
         className="relative"
-        style={{ paddingTop: HEADER_NAME_TOP, textAlign: 'center' }}
+        style={contentStyle}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={localDisplayName}
-            onChange={(e) => {
-              setLocalDisplayName(e.target.value);
-              debouncedNameSave(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.currentTarget.blur();
-                onDisplayNameChange(localDisplayName);
-              }
-            }}
-            onBlur={() => onDisplayNameChange(localDisplayName)}
-            placeholder={`@${page.handle}`}
-            className="font-bold mb-0 bg-transparent border-0 outline-none text-center w-full"
-            style={{
-              fontSize: localNameSize,
-              lineHeight: 1,
-              padding: 0,
-              color: resolvedNameColor,
-              textShadow: 'none',
-              caretColor: '#C9A55C',
-              ...nameFx,
-            }}
-          />
-          <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'var(--handle-default, rgba(255,255,255,1))' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: gapNameHandle }}>
-            @{page.handle}
-          </p>
+        <div style={stackStyle}>
+          {handleBeside ? (
+            <span style={{ display: 'inline-grid', gridTemplateColumns: 'minmax(0, max-content)', maxWidth: '100%' }}>
+              {nameInput}
+              <span
+                aria-hidden="true"
+                className="font-bold"
+                style={{ gridArea: '1 / 1', visibility: 'hidden', whiteSpace: 'pre', overflow: 'hidden', fontSize: localNameSize, lineHeight: 1 }}
+              >
+                {localDisplayName || `@${page.handle}`}
+              </span>
+            </span>
+          ) : nameInput}
+          {showHandle && (
+            <p style={{ fontSize: localHandleSize, color: localHandleColor === '#ffffff99' ? 'var(--handle-default, rgba(255,255,255,1))' : localHandleColor, textShadow: 'none', ...nameFx, margin: 0, marginTop: handleBeside ? 0 : gapNameHandle }}>
+              @{page.handle}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -1196,6 +1253,7 @@ function SocialIconsCard({
   onEditSocial,
   onSave,
   gapHandleIcons,
+  align = 'center',
 }: {
   socialItems: any[];
   chrome: ChromeTokens;
@@ -1211,6 +1269,8 @@ function SocialIconsCard({
   onSave: () => void;
   // HDR.SPACE.2 — resolved handle -> icons gap (draft ?? saved ?? HEADER_GAP_B).
   gapHandleIcons: number;
+  // TP.F4 — look.options.iconsAlign. 'center' (the default) renders today's card.
+  align?: IconsAlign;
 }) {
   const { t } = useLanguage();
   const dragStart = useRef({ y: 0, cardY: 0 });
@@ -1229,7 +1289,11 @@ function SocialIconsCard({
 
   return (
     <div
-      style={{ marginTop: gapHandleIcons, position: 'relative', zIndex: 20 }}
+      // TP.F4: a side-aligned row mirrors the public header's side padding,
+      // so its icons start (or end) where the public row's do.
+      style={align === 'center'
+        ? { marginTop: gapHandleIcons, position: 'relative', zIndex: 20 }
+        : { marginTop: gapHandleIcons, position: 'relative', zIndex: 20, paddingLeft: HEADER_SIDE_INSET, paddingRight: HEADER_SIDE_INSET }}
       className="relative"
     >
       {/* Icon row — size comes from the Social Platforms menu (headerConfig.iconSize) */}
@@ -1313,9 +1377,10 @@ function SocialIconsCard({
                 gapTop={0}
                 trailing={rowOverflowing ? undefined : addButton}
                 onOverflowChange={setRowOverflowing}
+                align={align}
               />
               {rowOverflowing && (
-                <div className="flex justify-center" style={{ marginTop: 8 }}>{addButton}</div>
+                <div className={`flex ${ICON_ROW_JUSTIFY[align]}`} style={{ marginTop: 8 }}>{addButton}</div>
               )}
             </>
           );
@@ -2650,6 +2715,18 @@ export function EditableProfileView({
   // (page font + page-level animation); the edit canvas passes no plan.
   const styledTheme = withEffectivePageStyle(contrastTheme, page.theme_json, selectedMode);
   const theme = visitorPlan ? gateThemeForVisitor(visitorPlan, styledTheme) : styledTheme;
+  // TP.F4: the page look (theme_json.look), resolved once for the active page:
+  // at the owner's plan on a visitor surface, as saved on the edit canvas. An
+  // open Name & Handle hub draft (L4) is written over the saved record first,
+  // so a draft and a saved value take one path. Today's values are the
+  // defaults below, and each only branches the render when it differs.
+  const pageLook = resolveLookWithDraft(page.theme_json, headerDraft, selectedMode, visitorPlan);
+  // 'below' counts only on a hero page: a full-screen page renders it as 'page'.
+  const nameBelow = pageLook.namePlacement === 'below' && !isFullBleedTheme(theme);
+  const nameLeft = pageLook.nameAlign === 'left';
+  const handleShown = pageLook.showHandle !== 'off';
+  const handleBeside = pageLook.handlePosition === 'beside';
+  const iconsAlign: IconsAlign = pageLook.iconsAlign;
   // An in-progress hub font draft (L4) wins; resolveFontFamily returns undefined
   // for an absent draft, so the saved font is the fallback.
   const draftFont = visitorPlan ? gateFontForVisitor(visitorPlan, headerDraft?.font) : headerDraft?.font;
@@ -3206,16 +3283,25 @@ export function EditableProfileView({
             paddingLeft: '1.5rem',
             paddingRight: '1.5rem',
             marginTop: -HEADER_LIFT,
-            transform: editMode ? undefined : `translateY(${-HEADER_OFFSET_Y}px)`,
+            transform: editMode || nameBelow ? undefined : `translateY(${-HEADER_OFFSET_Y}px)`,
             paddingBottom: editMode ? 0 : headerSpacing.iconsContent,
+            // TP.F4 'below': not lifted over the photo; it starts
+            // HEADER_BELOW_TOP under the panel's top edge (padding, see the constant).
+            ...(!editMode && nameBelow ? { paddingTop: HEADER_BELOW_TOP } : {}),
           }}
         >
           {/* In edit mode, name/handle render as sortable cards below */}
           {!editMode && headerCardOrder.map(id => {
             const headerNameColor = headerConfig.nameColor || chrome.text;
             const headerHandleColor = headerConfig.handleColor && headerConfig.handleColor !== '#ffffff99' ? headerConfig.handleColor : 'var(--handle-default, rgba(255,255,255,1))';
+            // TP.F4: left aligns this card inside the side padding (icons and the
+            // page switcher keep the wrapper's centring); beside puts the handle
+            // on the name's line, wrapping under it when the name is too long.
+            const scrimStyle: React.CSSProperties = handleBeside
+              ? { paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: nameLeft ? 'flex-start' : 'center', columnGap: HANDLE_BESIDE_GAP, ...(nameLeft ? { textAlign: 'left' as const } : {}) }
+              : { paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: nameLeft ? 'flex-start' : 'center', ...(nameLeft ? { textAlign: 'left' as const } : {}) };
             if (id === '__name_handle__') return (
-              <div key={id} data-name-scrim={heroIsLight ? 'on' : 'off'} style={{ paddingTop: HEADER_NAME_TOP, display: 'flex', flexDirection: 'column' as const, alignItems: 'center' }}>
+              <div key={id} data-name-scrim={heroIsLight ? 'on' : 'off'} style={scrimStyle}>
                 <h1
                   className="font-bold mb-0"
                   style={{
@@ -3230,19 +3316,22 @@ export function EditableProfileView({
                 >
                   {page.display_name || `@${page.handle}`}
                 </h1>
-                <p
-                  style={{
-                    fontSize: `${headerConfig.handleSize}px`,
-                    color: headerHandleColor,
-                    textShadow: 'none',
-                    ...nameFx,
-                    ...nameScrimFx,
-                    margin: 0,
-                    marginTop: headerSpacing.nameHandle,
-                  }}
-                >
-                  @{page.handle}
-                </p>
+                {handleShown && (
+                  <p
+                    style={{
+                      fontSize: `${headerConfig.handleSize}px`,
+                      color: headerHandleColor,
+                      textShadow: 'none',
+                      ...nameFx,
+                      ...nameScrimFx,
+                      margin: 0,
+                      // Beside: on the name's line, so the name→handle gap does not apply.
+                      marginTop: handleBeside ? 0 : headerSpacing.nameHandle,
+                    }}
+                  >
+                    @{page.handle}
+                  </p>
+                )}
               </div>
             );
             if (id === '__social_icons__') {
@@ -3337,7 +3426,7 @@ export function EditableProfileView({
                       </a>
                     );
                   });
-              return <HeaderIconRow nodes={iconNodes} gapTop={headerSpacing.handleIcons} />;
+              return <HeaderIconRow nodes={iconNodes} gapTop={headerSpacing.handleIcons} align={iconsAlign} />;
             }
             return null;
           })}
@@ -3756,8 +3845,12 @@ export function EditableProfileView({
                 HDR.SPACE.2: the edit canvas composes the below-icons gap differently
                 (card gaps, no view-mode paddingBottom), so it mirrors the slider as a
                 DELTA from the default — absent config = 0 = today's canvas, and a drag
-                shifts the canvas by exactly the px the public page will shift. */}
-            <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 5, transform: `translateY(${-HEADER_OFFSET_Y}px)`, marginBottom: headerSpacing.iconsContent - HEADER_GAP_C }}>
+                shifts the canvas by exactly the px the public page will shift.
+                TP.F4 'below': no lift — the cards start HEADER_BELOW_TOP under the
+                panel's top edge, as the public header does. */}
+            <div className="flex flex-col gap-[6px]" style={nameBelow
+              ? { position: 'relative', zIndex: 5, marginBottom: headerSpacing.iconsContent - HEADER_GAP_C, paddingTop: HEADER_BELOW_TOP }
+              : { position: 'relative', zIndex: 5, transform: `translateY(${-HEADER_OFFSET_Y}px)`, marginBottom: headerSpacing.iconsContent - HEADER_GAP_C }}>
             {photoStep === 'idle' && (() => {
               const allItems = socialBlocks.flatMap(b => b.items);
               const seen = new Set<string>();
@@ -3776,6 +3869,9 @@ export function EditableProfileView({
                     draftDisplayName={headerDraft?.displayName}
                     nameFx={editNameFx}
                     gapNameHandle={headerSpacing.nameHandle}
+                    align={pageLook.nameAlign}
+                    showHandle={handleShown}
+                    handleBeside={handleBeside}
                     localNameSize={localNameSize}
                     localHandleSize={localHandleSize}
                     localNameColor={localNameColor}
@@ -3797,6 +3893,7 @@ export function EditableProfileView({
                     chrome={chrome}
                     socialItems={dedupedSocialItems}
                     gapHandleIcons={headerSpacing.handleIcons}
+                    align={iconsAlign}
                     expanded={expandedHeaderCard === '__social_icons__'}
                     onToggleExpand={() => setExpandedHeaderCard(expandedHeaderCard === '__social_icons__' ? null : '__social_icons__')}
                     localIconsPaddingY={localIconsPaddingY} setLocalIconsPaddingY={setLocalIconsPaddingY}
@@ -3822,8 +3919,10 @@ export function EditableProfileView({
             })()}
             {photoStep === 'idle' && renderPageSwitcher()}
             </div>
-            {/* Block cards (sortable via DndContext) */}
-            <div className="flex flex-col gap-[6px]" style={{ marginTop: `${-CARDS_LIFT}px` }}>
+            {/* Block cards (sortable via DndContext). TP.F4 'below': the header is
+                not lifted, so the cards ride up by the lift's difference only —
+                today's distance from the icons. */}
+            <div className="flex flex-col gap-[6px]" style={{ marginTop: `${nameBelow ? HEADER_OFFSET_Y - CARDS_LIFT : -CARDS_LIFT}px` }}>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}>
               <SortableContext items={allSortableItems} strategy={verticalListSortingStrategy}>
                 {allSortableItems.map((itemId) => {
@@ -3856,10 +3955,12 @@ export function EditableProfileView({
             </div>
           </div>
         ) : (
-          /* Full block content for view mode */
+          /* Full block content for view mode. TP.F4 'below': the header is not
+             translated up, so the blocks keep today's distance from the icons
+             with HEADER_OFFSET_Y - CARDS_LIFT instead of -CARDS_LIFT. */
           <div
             className="px-4 pb-20 flex flex-col gap-3"
-            style={{ marginTop: `${-CARDS_LIFT}px` }}
+            style={{ marginTop: `${nameBelow ? HEADER_OFFSET_Y - CARDS_LIFT : -CARDS_LIFT}px` }}
           >
             {displayBlocks.length === 0 ? (
               <EmptyState textColor={theme.typography.text_color} />

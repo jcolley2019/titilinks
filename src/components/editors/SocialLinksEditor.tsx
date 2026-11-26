@@ -274,6 +274,9 @@ interface SocialLinksEditorProps {
   // IR.1: circle background style. 'default' resolves to the current appearance.
   iconBgStyle?: string;
   onIconBgStyleChange?: (v: string) => void;
+  // TP.F4: where the header icon row sits (theme_json.look.options.iconsAlign).
+  iconsAlign?: 'left' | 'center' | 'right';
+  onIconsAlignChange?: (v: 'left' | 'center' | 'right') => void;
 }
 
 // Localized display labels for the platform-catalog category headers. The
@@ -333,7 +336,7 @@ function PlatformPickerRow({
   );
 }
 
-export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange, iconBgStyle, onIconBgStyleChange }: SocialLinksEditorProps) {
+export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMode, iconSize, onIconSizeChange, iconColorMode, onIconColorModeChange, iconBgStyle, onIconBgStyleChange, iconsAlign, onIconsAlignChange }: SocialLinksEditorProps) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -346,6 +349,7 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
   const [localIconSize, setLocalIconSize] = useState<'small' | 'medium' | 'large'>(iconSize ?? 'medium');
   const [localIconColorMode, setLocalIconColorMode] = useState<'color' | 'black' | 'white'>(iconColorMode ?? 'color');
   const [localIconBgStyle, setLocalIconBgStyle] = useState<string>(iconBgStyle ?? 'default');
+  const [localIconsAlign, setLocalIconsAlign] = useState<'left' | 'center' | 'right'>(iconsAlign ?? 'center');
   // TL.EDIT.DIRTY.1 — Save is live only when the rows (as Save would write
   // them, in order) differ from what was loaded / last saved. The icon size /
   // colour / background chips persist on tap and are not part of Save.
@@ -721,6 +725,32 @@ export function SocialLinksEditor({ blockId, open, onOpenChange, onSave, panelMo
             {(localIconColorMode === 'black' || localIconColorMode === 'white') && (
               <p className="text-[10px] text-white/40 mt-1">{t('socialLinksEditor.noContrastHint')}</p>
             )}
+          </div>
+
+          {/* Alignment (TP.F4) — global, saved on tap to theme_json.look.options.iconsAlign. */}
+          <div className="mb-4">
+            <label className="text-xs text-white/50 block mb-1.5">{t('socialLinksEditor.iconsAlign')}</label>
+            <div className="flex gap-1.5">
+              {([
+                { value: 'left', label: t('socialLinksEditor.alignLeft') },
+                { value: 'center', label: t('socialLinksEditor.alignCenter') },
+                { value: 'right', label: t('socialLinksEditor.alignRight') },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={localIconsAlign === opt.value}
+                  onClick={() => { setLocalIconsAlign(opt.value); onIconsAlignChange?.(opt.value); }}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    localIconsAlign === opt.value
+                      ? 'bg-[#C9A55C] text-[#0e0c09]'
+                      : 'bg-white/10 text-white/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Platform Picker Toggle */}

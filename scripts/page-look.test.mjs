@@ -16,6 +16,8 @@ import {
   isLookProValue,
   resolveLook,
   resolveLookOption,
+  resolveLookWithDraft,
+  writeLookOptions,
 } from '../src/lib/page-look';
 import { ENTITLEMENTS, PLAN_ORDER } from '../src/lib/entitlements';
 import { FONT_OPTIONS } from '../src/lib/fonts';
@@ -272,5 +274,123 @@ assert.equal(isLookOptionLocked(undefined, 'nameScale', 'poster'), true, 'no pla
 assert.equal(isLookOptionLocked('pro', 'nameScale', 'poster'), false);
 assert.equal(isLookOptionLocked('free', 'nameScale', 'normal'), false, 'a free value never locks');
 ok('isLookOptionLocked locks exactly what a visitor is served the free value of, on every tier');
+
+// ── 9. The writer (TP.F4): writeLookOptions ─────────────────────────────────
+// Rules written from the TP.F4 brief, section 3.
+{
+  const LOOK_HOME_KEYS = KEYS.filter((k) => LOOK_OPTIONS[k].home.at === 'look');
+  const base = deepFreeze({
+    ...structuredClone(DEFAULT_THEME),
+    headerConfig: { nameSize: 31 },
+    pages: { page1: { style: 'hero' } },
+    pageStyle: 'hero',
+    typography: { ...DEFAULT_THEME.typography, font: 'playfair' },
+  });
+  const baseJson = JSON.stringify(base);
+
+  // a. Returns a NEW theme_json and never mutates (frozen input: a write throws).
+  const w1 = writeLookOptions(base, { nameAlign: 'left' });
+  assert.notEqual(w1, base, 'a new object');
+  assert.equal(JSON.stringify(base), baseJson, 'input untouched');
+  assert.deepEqual(w1.look, { v: 1, options: { nameAlign: 'left' } }, 'record shape { v: 1, options }');
+  // Every other key is carried over untouched.
+  const { look: _l1, ...w1Rest } = w1;
+  assert.deepEqual(w1Rest, base, 'every other theme_json key carried over');
+  ok('writeLookOptions returns a new theme_json, never mutates, carries every other key over');
+
+  // b. Only look-home keys, only allowed values; the rest of the patch is ignored.
+  const junk = writeLookOptions(base, {
+    pageStyle: 'full_bleed',            // home pageStyle
+    nameFont: 'playfair',               // home typography
+    linkCard: 'grouped',                // home block
+    itemCard: 'featured',               // home item
+    nameAlign: 'right',                 // not a choice
+    showHandle: false,                  // wrong type
+    iconsAlign: 7,                      // wrong type
+    notAnOption: 'x',
+    toString: 'left', constructor: 'left', __proto__: 'left',
+    handlePosition: 'beside',           // the one valid entry
+  });
+  assert.deepEqual(junk.look, { v: 1, options: { handlePosition: 'beside' } }, 'only the valid look-home entry lands');
+  assert.equal(junk.pageStyle, 'hero', 'a pageStyle in the patch does not touch the profile page style');
+  assert.deepEqual(junk.pages, base.pages, 'nor pages.<id>.style');
+  assert.equal(junk.typography.display_font, undefined, 'nor typography');
+  for (const key of KEYS.filter((k) => LOOK_OPTIONS[k].home.at !== 'look')) {
+    const v = [...EXPECTED[key].free, ...Object.keys(EXPECTED[key].pro)].find((x) => x !== EXPECTED[key].today) ?? 'x';
+    assert.equal(writeLookOptions(base, { [key]: v }).look, undefined, `${key} (home ${LOOK_OPTIONS[key].home.at}) is never written to look`);
+  }
+  for (const key of LOOK_HOME_KEYS) {
+    for (const v of [...EXPECTED[key].free, ...Object.keys(EXPECTED[key].pro)]) {
+      const out = writeLookOptions(base, { [key]: v });
+      if (v === EXPECTED[key].today) assert.equal(out.look, undefined, `${key}=${v} (today) stores nothing`);
+      else assert.deepEqual(out.look, { v: 1, options: { [key]: v } }, `${key}=${v} stored`);
+    }
+    assert.equal(writeLookOptions(base, { [key]: 'bogus value!' }).look?.options?.[key],
+      key === 'dockedLink' ? 'bogus value!' : undefined, `${key}: an unlisted value is ignored (a link id is the one open choice)`);
+  }
+  ok('only keys whose home is look, and only values the table allows, are written');
+
+  // c. A value equal to today deletes the key; options empty + no theme/palette → no look key.
+  const two = writeLookOptions(base, { nameAlign: 'left', iconsAlign: 'right' });
+  const back = writeLookOptions(deepFreeze(structuredClone(two)), { nameAlign: 'center' });
+  assert.deepEqual(back.look, { v: 1, options: { iconsAlign: 'right' } }, 'today deletes just that key');
+  const none = writeLookOptions(back, { iconsAlign: 'center' });
+  assert.equal('look' in none, false, 'empty options and no theme/palette: the look key is removed');
+  assert.equal(JSON.stringify(none), baseJson, 'back to the bytes we started from');
+  assert.equal('look' in writeLookOptions(base, { showHandle: 'on', handlePosition: 'under', namePlacement: 'page' }), false,
+    'writing only today\'s values onto a page with no look stores nothing');
+  assert.equal('look' in writeLookOptions(base, {}), false, 'an empty patch adds nothing');
+  assert.equal('look' in writeLookOptions(base, null), false, 'a null patch adds nothing');
+  ok('a value equal to today deletes its key; an emptied record with no theme or palette removes `look`');
+
+  // d. An existing theme and palette are kept, with the record's other options.
+  const withTheme = deepFreeze({ ...base, look: { v: 1, theme: 'cartel', palette: 'amarillo', options: { iconsAlign: 'left' } } });
+  assert.deepEqual(writeLookOptions(withTheme, { nameAlign: 'left' }).look,
+    { v: 1, theme: 'cartel', palette: 'amarillo', options: { iconsAlign: 'left', nameAlign: 'left' } }, 'theme, palette and other options kept');
+  assert.deepEqual(writeLookOptions(withTheme, { iconsAlign: 'center' }).look,
+    { v: 1, theme: 'cartel', palette: 'amarillo', options: {} }, 'emptied options keep a record that has a theme');
+  assert.deepEqual(writeLookOptions({ look: { v: 1, palette: 'rosa' } }, { showHandle: 'off' }).look,
+    { v: 1, palette: 'rosa', options: { showHandle: 'off' } }, 'palette alone is kept; a missing options object starts empty');
+  ok('an existing theme and palette are kept');
+
+  // e. A record with another v is replaced.
+  for (const prior of [{ v: 2, theme: 'cartel', options: { nameAlign: 'left' } }, { theme: 'pase' }, { v: '1', options: { iconsAlign: 'left' } }, 'cartel', null, []]) {
+    assert.deepEqual(writeLookOptions({ ...base, look: prior }, { showHandle: 'off' }).look, { v: 1, options: { showHandle: 'off' } },
+      `prior ${JSON.stringify(prior)} replaced`);
+    assert.equal('look' in writeLookOptions({ ...base, look: prior }, { showHandle: 'on' }), false, `prior ${JSON.stringify(prior)} replaced by nothing`);
+  }
+  ok('a record with another v (or none) is replaced');
+
+  // f. resolveLook(writeLookOptions(x, p)) returns p's values; the input is not mutated.
+  const patches = [
+    { namePlacement: 'below', nameAlign: 'left', showHandle: 'off', handlePosition: 'beside', iconsAlign: 'right' },
+    { namePlacement: 'page', nameAlign: 'center', showHandle: 'on', handlePosition: 'under', iconsAlign: 'center' },
+    { nameAlign: 'left', iconsAlign: 'left' },
+    { handlePosition: 'beside' },
+  ];
+  for (const x of [base, withTheme, deepFreeze({ look: { v: 1, options: { nameAlign: 'left', showHandle: 'off' } } }), undefined, null]) {
+    const before = JSON.stringify(x);
+    for (const p of patches) {
+      const written = writeLookOptions(x, p);
+      const look = resolveLook(written, 'page1');
+      for (const [k, v] of Object.entries(p)) assert.equal(look[k], v, `${k}=${v} reads back`);
+      for (const plan of [...PLANS]) {
+        const gated = resolveLook(written, 'page1', plan);
+        for (const [k, v] of Object.entries(p)) assert.equal(gated[k], v, `${k}=${v} reads back on ${String(plan)} (free choices)`);
+      }
+      assert.equal(JSON.stringify(x), before, 'input not mutated');
+    }
+  }
+  ok('resolveLook(writeLookOptions(x, p)) returns p\'s values on every plan; the input is never mutated');
+
+  // g. The draft path: resolveLookWithDraft = resolveLook over writeLookOptions.
+  const saved = writeLookOptions(base, { nameAlign: 'left', iconsAlign: 'right' });
+  assert.deepEqual(resolveLookWithDraft(saved, null, 'page1'), resolveLook(saved, 'page1'), 'no draft = what is saved');
+  assert.deepEqual(resolveLookWithDraft(saved, { displayName: 'x' }, 'page1'), resolveLook(saved, 'page1'), 'a draft with no look = what is saved');
+  assert.deepEqual(resolveLookWithDraft(saved, { look: { nameAlign: 'center', showHandle: 'off' } }, 'page1', 'free'),
+    resolveLook(writeLookOptions(saved, { nameAlign: 'center', showHandle: 'off' }), 'page1', 'free'), 'a draft resolves over the written record');
+  assert.equal(resolveLookWithDraft(saved, { look: { nameAlign: 'center' } }, 'page1').iconsAlign, 'right', 'saved options the draft does not name stay');
+  ok('resolveLookWithDraft resolves a draft and a saved value through one path');
+}
 
 console.log('\nAll ' + passed + ' checks passed.');

@@ -52,7 +52,9 @@ import { PrimaryCtaEditor } from '@/components/editors/PrimaryCtaEditor';
 import { SocialLinksEditor } from '@/components/editors/SocialLinksEditor';
 import { LinksEditor } from '@/components/editors/LinksEditor';
 import type { LinkItem } from '@/components/editors/LinksEditor';
-import type { HeaderDraft } from '@/lib/header-draft';
+import type { HeaderDraft, HeaderLookDraft } from '@/lib/header-draft';
+import { resolveLook, writeLookOptions, type ResolvedLook } from '@/lib/page-look';
+import type { Json } from '@/integrations/supabase/types';
 import { ProductCardsEditor } from '@/components/editors/ProductCardsEditor';
 import { EmailSubscribeEditor } from '@/components/editors/EmailSubscribeEditor';
 import { GalleryEditor, type GalleryDraft } from '@/components/editors/GalleryEditor';
@@ -168,10 +170,20 @@ interface ProfileDashboardProps {
   avatarUrl?: string;
 }
 
-// Name & Handle hub tabs. All four write the same theme_json keys the rest of
+// Name & Handle hub tabs. They write the same theme_json keys the rest of
 // the app already reads (typography.font / typography.text_effect,
-// headerConfig.name*/handle*) plus the pages.display_name column.
-type TypoTab = 'name' | 'font' | 'color' | 'effects';
+// headerConfig.name*/handle*) plus the pages.display_name column; TP.F4's
+// Layout tab and handle rows write theme_json.look through writeLookOptions.
+type TypoTab = 'name' | 'layout' | 'font' | 'color' | 'effects';
+
+// TP.F4 — the three look options the hub edits, all free. Seeded from the saved
+// look (resolveLook, no plan = what is saved).
+type HubArrangement = Required<HeaderLookDraft>;
+const arrangementOf = (look: ResolvedLook): HubArrangement => ({
+  nameAlign: look.nameAlign,
+  showHandle: look.showHandle,
+  handlePosition: look.handlePosition,
+});
 
 // Everything the hub owns, as one snapshot. Seeded when the hub opens; the live
 // drafts are compared against it for the dirty flag and restored from it on Cancel.
@@ -189,14 +201,20 @@ type HubSeed = {
   spacingNameHandle: number;
   spacingHandleIcons: number;
   spacingIconsContent: number;
+  arrangement: HubArrangement;
 };
 
 const TYPO_TABS: { key: TypoTab; labelKey: string }[] = [
   { key: 'name', labelKey: 'typoHub.tabName' },
+  { key: 'layout', labelKey: 'typoHub.tabLayout' },
   { key: 'font', labelKey: 'typoHub.tabFont' },
   { key: 'color', labelKey: 'typoHub.tabColor' },
   { key: 'effects', labelKey: 'typoHub.tabEffects' },
 ];
+
+// The hub's chip (the Effects tab's Style / outline chips), for TP.F4's rows.
+const hubChipClass = (active: boolean) =>
+  `rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${active ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`;
 
 // <input type="color"> only accepts #rrggbb. handleColor defaults to the
 // 8-digit '#ffffff99', so the swatch shows its opaque form while the hex field
@@ -532,6 +550,9 @@ export function ProfileDashboard({
   const [spacingNameHandleDraft, setSpacingNameHandleDraft] = useState(-2);
   const [spacingHandleIconsDraft, setSpacingHandleIconsDraft] = useState(6);
   const [spacingIconsContentDraft, setSpacingIconsContentDraft] = useState(16);
+  // TP.F4 — the arrangement (Layout tab + the handle rows on the Name tab).
+  const [arrangementDraft, setArrangementDraft] = useState<HubArrangement>(() => arrangementOf(resolveLook(null, 'page1')));
+  const patchArrangement = (patch: Partial<HubArrangement>) => setArrangementDraft((prev) => ({ ...prev, ...patch }));
   // The snapshot the drafts were seeded from — also the Cancel target. Null until
   // the hub has been opened once.
   const [hubSeed, setHubSeed] = useState<HubSeed | null>(null);
@@ -749,6 +770,7 @@ export function ProfileDashboard({
     setSpacingNameHandleDraft(s.spacingNameHandle);
     setSpacingHandleIconsDraft(s.spacingHandleIcons);
     setSpacingIconsContentDraft(s.spacingIconsContent);
+    setArrangementDraft(s.arrangement);
   };
 
   // Seed drafts when the hub opens (avoids clobbering mid-edit). Re-seeding on
@@ -770,6 +792,7 @@ export function ProfileDashboard({
       spacingNameHandle: typeof hc.spacing?.nameHandle === 'number' ? hc.spacing.nameHandle : -2,
       spacingHandleIcons: typeof hc.spacing?.handleIcons === 'number' ? hc.spacing.handleIcons : 6,
       spacingIconsContent: typeof hc.spacing?.iconsContent === 'number' ? hc.spacing.iconsContent : 16,
+      arrangement: arrangementOf(resolveLook(themeJson, selectedMode ?? 'page1')),
     };
     setTypoTab('name');
     applyHubSeed(seed);
@@ -789,7 +812,8 @@ export function ProfileDashboard({
     JSON.stringify(fxDraft) !== JSON.stringify(hubSeed.textEffect) ||
     spacingNameHandleDraft !== hubSeed.spacingNameHandle ||
     spacingHandleIconsDraft !== hubSeed.spacingHandleIcons ||
-    spacingIconsContentDraft !== hubSeed.spacingIconsContent
+    spacingIconsContentDraft !== hubSeed.spacingIconsContent ||
+    (Object.keys(arrangementDraft) as (keyof HubArrangement)[]).some((k) => arrangementDraft[k] !== hubSeed.arrangement[k])
   );
 
   // TL.HANDLE.2 — the Username field. Same rules and query as onboarding
@@ -853,9 +877,10 @@ export function ProfileDashboard({
         handleIcons: spacingHandleIconsDraft,
         iconsContent: spacingIconsContentDraft,
       },
+      look: arrangementDraft,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nameFxOpen, open, nameDraft, nameSizeDraft, handleSizeDraft, nameColorDraft, handleColorDraft, fontDraft, fxDraft, spacingNameHandleDraft, spacingHandleIconsDraft, spacingIconsContentDraft]);
+  }, [nameFxOpen, open, nameDraft, nameSizeDraft, handleSizeDraft, nameColorDraft, handleColorDraft, fontDraft, fxDraft, spacingNameHandleDraft, spacingHandleIconsDraft, spacingIconsContentDraft, arrangementDraft]);
 
   // Live-mirror (L4): the header draft lives only as long as the hub is open.
   // Clear it when the hub closes, when the whole dashboard closes (handleClose
@@ -905,7 +930,9 @@ export function ProfileDashboard({
     const existingTypo = existingTheme.typography || {};
     const nextName = nameDraft.trim();
     const update: Record<string, unknown> = {
-      theme_json: {
+      // TP.F4: the merged theme_json goes through writeLookOptions (the one
+      // look writer) — same single update, today's values stored as absent.
+      theme_json: writeLookOptions({
         ...existingTheme,
         headerConfig: {
           ...existingHeader,
@@ -920,7 +947,7 @@ export function ProfileDashboard({
           },
         },
         typography: { ...existingTypo, font: fontDraft, text_effect: fxDraft },
-      },
+      }, arrangementDraft),
     };
     if (nextName !== hubSeed.displayName) update.display_name = nextName;
     const { error } = await supabase.from('pages').update(update).eq('id', pageId);
@@ -949,6 +976,7 @@ export function ProfileDashboard({
       spacingNameHandle: spacingNameHandleDraft,
       spacingHandleIcons: spacingHandleIconsDraft,
       spacingIconsContent: spacingIconsContentDraft,
+      arrangement: arrangementDraft,
     });
     // Await the refetch before dropping the draft: clearing first would let the
     // preview fall back to the stale themeJson prop and flash the old values.
@@ -1611,6 +1639,17 @@ export function ProfileDashboard({
               if (error) { toast.error(t('dashboard.couldNotSave')); return; }
               onRefresh();
             }}
+            // TP.F4 — look.options.iconsAlign: read through resolveLook, written
+            // through writeLookOptions over the freshest themeJson, on tap.
+            iconsAlign={resolveLook(themeJson, activePageId).iconsAlign}
+            onIconsAlignChange={async (v) => {
+              const { error } = await supabase
+                .from('pages')
+                .update({ theme_json: writeLookOptions(themeJson, { iconsAlign: v }) as unknown as Json })
+                .eq('id', pageId);
+              if (error) { toast.error(t('dashboard.couldNotSave')); return; }
+              onRefresh();
+            }}
           />
         );
       case 'links':
@@ -2074,6 +2113,31 @@ export function ProfileDashboard({
                           </div>
                         )}
                       </div>
+                      {/* TP.F4 — Show @handle, then where it sits (hidden while it is
+                          off). Draft-only like every hub control; Save writes them. */}
+                      <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="hub-show-handle" className="min-w-0 text-white/40 text-[10px]">{t('typoHub.showHandle')}</label>
+                        <Switch
+                          id="hub-show-handle"
+                          checked={arrangementDraft.showHandle !== 'off'}
+                          onCheckedChange={(v) => patchArrangement({ showHandle: v ? 'on' : 'off' })}
+                          aria-label={t('typoHub.showHandle')}
+                        />
+                      </div>
+                      {arrangementDraft.showHandle !== 'off' && (
+                        <div>
+                          <p className="text-white/40 text-[10px] mb-1">{t('typoHub.handlePosition')}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {([['under', 'typoHub.handleUnder'], ['beside', 'typoHub.handleBeside']] as const).map(([v, labelKey]) => (
+                              <button key={v} type="button" aria-pressed={arrangementDraft.handlePosition === v}
+                                onClick={() => patchArrangement({ handlePosition: v })}
+                                className={hubChipClass(arrangementDraft.handlePosition === v)}>
+                                {t(labelKey)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-white/40 text-[10px]">{t('typoHub.nameSize')}</span>
@@ -2119,6 +2183,27 @@ export function ProfileDashboard({
                           </div>
                         ))}
                         <p className="text-white/30 text-[10px]">{t('typoHub.spacingHint')}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TP.F4 — Layout: the name's alignment. The name, handle and
+                      icons always stay on the fade; the 'below' placement is
+                      reachable only by a stored value. One column; chips in the
+                      Effects tab's style. */}
+                  {typoTab === 'layout' && (
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-white/50 mb-2">{t('typoHub.alignment')}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([['left', 'typoHub.alignLeft'], ['center', 'typoHub.alignCenter']] as const).map(([v, labelKey]) => (
+                            <button key={v} type="button" aria-pressed={arrangementDraft.nameAlign === v}
+                              onClick={() => patchArrangement({ nameAlign: v })}
+                              className={hubChipClass(arrangementDraft.nameAlign === v)}>
+                              {t(labelKey)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}

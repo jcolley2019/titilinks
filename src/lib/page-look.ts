@@ -16,7 +16,8 @@
 // migration is needed. A record whose `v` is not 1, an unknown theme, and an
 // unknown or wrongly typed option value all resolve as absent.
 //
-// This module is the ONLY reader of theme_json.look (guard LOOK-ONE-READER).
+// This module is the ONLY reader of theme_json.look (guard LOOK-ONE-READER),
+// and writeLookOptions below is its only writer (TP.F4).
 // Render, editor, gate and fallback all go through resolveLook (page-level
 // options) or resolveLookOption (an option stored on a block or a link). It
 // reads the RAW theme_json: getThemeWithDefaults drops keys it does not know,
@@ -345,6 +346,71 @@ export function resolveLook(themeJson: unknown, activePageId: PageId, plan?: str
     out[key] = gateValue(def, readValue(def, saved), gated);
   }
   return out as ResolvedLook;
+}
+
+// ── The writer (TP.F4) ──────────────────────────────────────────────────────
+
+/** A set of look option values to store: option key → value. Only keys whose
+ *  home is `{ at: 'look' }` and values the table allows are written; anything
+ *  else is ignored. */
+export type LookOptionsPatch = Readonly<Record<string, unknown>>;
+
+const ownsOption = (key: string): key is LookOptionKey =>
+  Object.prototype.hasOwnProperty.call(LOOK_OPTIONS, key);
+
+/**
+ * The ONE writer of theme_json.look. Returns a NEW theme_json with `patch`
+ * applied to look.options; `themeJson` is never mutated.
+ *
+ *   • only keys whose home is `{ at: 'look' }`, and only values the table
+ *     allows (a listed choice, or one `accepts` takes), are written — the rest
+ *     of the patch is ignored;
+ *   • a value equal to the option's `today` deletes the key (today is never
+ *     stored);
+ *   • the record is written as `{ v: 1, theme?, palette?, options }`, keeping
+ *     an existing theme and palette; a record with another `v` is replaced;
+ *   • when options ends empty and there is no theme and no palette, the `look`
+ *     key is removed;
+ *   • every other theme_json key is carried over untouched.
+ */
+export function writeLookOptions(themeJson: unknown, patch: LookOptionsPatch | null | undefined): Obj {
+  const { look: prior, ...rest } = isObj(themeJson) ? themeJson : {};
+  const record = isObj(prior) && prior.v === LOOK_VERSION ? prior : null;
+  const options: Obj = record && isObj(record.options) ? { ...record.options } : {};
+
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (!ownsOption(key)) continue;
+    const def = LOOK_OPTIONS[key];
+    if (def.home.at !== 'look' || typeof value !== 'string') continue;
+    if (!def.choices.includes(value) && !def.accepts?.(value)) continue;
+    if (value === def.today) delete options[key];
+    else options[key] = value;
+  }
+
+  const keep = (field: 'theme' | 'palette') =>
+    record && record[field] !== undefined ? { [field]: record[field] } : {};
+  const next: Obj = { ...rest };
+  const kept = { ...keep('theme'), ...keep('palette') };
+  if (Object.keys(options).length > 0 || Object.keys(kept).length > 0) {
+    next.look = { v: LOOK_VERSION, ...kept, options };
+  }
+  return next;
+}
+
+/**
+ * resolveLook with an unsaved editor draft over what is saved: the draft's
+ * look options (a HeaderDraft carries them as `look`) are written over
+ * `themeJson` with writeLookOptions first, so a draft and a saved value take
+ * one path. No draft = resolveLook(themeJson, …).
+ */
+export function resolveLookWithDraft(
+  themeJson: unknown,
+  draft: { look?: LookOptionsPatch | null } | null | undefined,
+  activePageId: PageId,
+  plan?: string | null,
+): ResolvedLook {
+  const pending = draft?.look;
+  return resolveLook(pending ? writeLookOptions(themeJson, pending) : themeJson, activePageId, plan);
 }
 
 // ── Owner side ──────────────────────────────────────────────────────────────

@@ -8,6 +8,12 @@
 // Every field is optional and undefined means "no override" — the preview
 // falls back to the saved value. Nothing here is persisted; the hub commits on
 // Save and drops the draft on Cancel.
+import type { LookValues } from '@/lib/page-look';
+
+/** TP.F4 — the Name & Handle hub's arrangement choices (theme_json.look.options),
+ *  read by the canvas through resolveLookWithDraft. */
+export type HeaderLookDraft = Partial<Pick<LookValues, 'nameAlign' | 'showHandle' | 'handlePosition'>>;
+
 export interface HeaderDraft {
   displayName?: string;
   nameSize?: number;
@@ -29,4 +35,6 @@ export interface HeaderDraft {
     handleIcons?: number;
     iconsContent?: number;
   };
+  // TP.F4 — live mirror of the Layout tab and the handle rows on the Name tab.
+  look?: HeaderLookDraft;
 }
