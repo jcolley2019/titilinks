@@ -114,48 +114,25 @@ const renderCrop = (image: HTMLImageElement, pixelCrop: Area): HTMLCanvasElement
   return canvas;
 };
 
-export const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
+/** PHOTO.POLISH.1 — an optional last word on the drawn canvas, before it is encoded. */
+export type HeroCanvasHook = (canvas: HTMLCanvasElement) => void | Promise<void>;
+
+export const getCroppedImage = async (imageSrc: string, pixelCrop: Area, onCanvas?: HeroCanvasHook): Promise<File> => {
   const image = await loadHeroImage(imageSrc);
-  return encodeHero(renderCrop(image, pixelCrop));
+  const canvas = renderCrop(image, pixelCrop);
+  if (onCanvas) await onCanvas(canvas);
+  return encodeHero(canvas);
 };
 
 /** TL.CROP.QUAL.1 — the same cap + encoding for an image that is NOT being
  *  cropped: a full-frame identity crop. Used by the AI-accept path (the model
  *  returns a full-resolution PNG) and by "Save" with no crop (the raw pick).
  *  One output path, so a hero can never be uploaded uncapped or mis-typed. */
-export const boundHeroImage = async (imageSrc: string): Promise<File> => {
+export const boundHeroImage = async (imageSrc: string, onCanvas?: HeroCanvasHook): Promise<File> => {
   const image = await loadHeroImage(imageSrc);
-  return encodeHero(
-    renderCrop(image, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }),
-  );
-};
-
-/**
- * TL.AI.COST.1 — bound an image for the AI-enhance request. Replicate bills
- * crystal-upscaler by OUTPUT megapixels and we always ask for 2×, so the input
- * decides the price: ≤1024 px in → ≤2048 px out (≈4.2 MP, the cheapest tier)
- * versus a native-resolution phone crop (3000 px → 36 MP, 16× the price and
- * far slower). Nothing above ~1500 px is visible on the hero. Never upscales;
- * a source already within the bound is re-encoded at the same size.
- */
-export const AI_INPUT_MAX_PX = 1024;
-
-export const boundForAi = (
-  source: HTMLCanvasElement,
-  maxPx: number = AI_INPUT_MAX_PX,
-): { dataUrl: string; width: number; height: number } => {
-  const sw = source.width;
-  const sh = source.height;
-  const ratio = Math.min(1, maxPx / Math.max(sw, sh));
-  const width = Math.max(1, Math.round(sw * ratio));
-  const height = Math.max(1, Math.round(sh * ratio));
-  const out = document.createElement('canvas');
-  out.width = width;
-  out.height = height;
-  const ctx = out.getContext('2d');
-  if (!ctx) throw new Error('No canvas context');
-  ctx.drawImage(source, 0, 0, sw, sh, 0, 0, width, height);
-  return { dataUrl: out.toDataURL('image/jpeg', 0.9), width, height };
+  const canvas = renderCrop(image, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight });
+  if (onCanvas) await onCanvas(canvas);
+  return encodeHero(canvas);
 };
 
 export type { Area };

@@ -320,8 +320,9 @@ test.describe('HERO.FIT.3 — onboarding uses the hero window; the editor crop s
       await expect(back).toBeVisible();
       await expect(apply).toBeVisible();
       await expect(page.getByTestId('crop-auto-frame'), 'no Auto frame button').toHaveCount(0);
-      for (const key of ['headshot', 'shoulders', 'fullBody', 'autoFrame']) {
-        await expect(dlg.getByRole('button', { name: EN[`editor.crop.${key}`] }), `no ${EN[`editor.crop.${key}`]} button`).toHaveCount(0);
+      // PHOTO.POLISH.1: the labels are literals — their dictionary keys are gone with the buttons.
+      for (const label of ['Headshot', 'Shoulders', 'Full Body', 'Auto frame']) {
+        await expect(dlg.getByRole('button', { name: label }), `no ${label} button`).toHaveCount(0);
       }
       // The zoom row is followed directly by the Back / Apply Crop row.
       const rows = await page.evaluate(({ backLabel, applyLabel }) => {

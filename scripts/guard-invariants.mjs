@@ -242,14 +242,12 @@ const checks = [
   // `tsc -p tests/tsconfig.json` must exit 0. Runs last: it is the slow one.
   { name:'TESTS-TYPECHECK', testsTypecheck:true },
   // TL.BUNDLE.1 (AUDIT_rev6 #13): the build is split. ONE 3.4 MB chunk used to
-  // serve every route, and @vladmandic/face-api (TensorFlow inside, 1.33 MB
-  // pre-minified) rode in it because EditableProfileView imported it
-  // statically — so a visitor to /:handle downloaded the editor, the dashboard,
-  // onboarding and a face detector to look at a link page. This runs
+  // serve every route — so a visitor to /:handle downloaded the editor, the
+  // dashboard and onboarding to look at a link page. This runs
   // `vite build --manifest` into dist/ and reads the manifest: the static
   // import closure of the entry (what /:handle actually loads) must not carry
-  // the face-api chunk or its model strings, assets/ must hold >= 4 JS chunks,
-  // and no app chunk may exceed 1.2 MB raw. The face-api chunk is the one
+  // a lazy library's chunk, assets/ must hold >= 4 JS chunks,
+  // and no app chunk may exceed 1.2 MB raw. A lazy library's chunk is the one
   // named exception to that cap: it is a single pre-minified module that
   // cannot be split further, it is lazy, and it gets its own ceiling. A full
   // build, so it is the slowest invariant — it runs last.
@@ -866,16 +864,13 @@ for (const c of checks) {
   if (c.bundleSplit) {
     const OUT = 'dist';
     const CAP = 1_200_000;           // bytes raw, every app chunk
-    const FACE_CAP = 1400000;       // bytes raw, a lazy pre-minified library chunk
-    const FACE_KEY = '@vladmandic/face-api';
+    const LAZY_LIB_CAP = 1400000;   // bytes raw, a lazy pre-minified library chunk
     // The named lazy exceptions: single pre-minified modules that cannot be
     // split further, each behind a dynamic import so /:handle never loads them.
-    //   @vladmandic/face-api — TensorFlow inside (TL.BUNDLE.1), loadFaceApi()
     //   heic2any             — libheif WASM inlined (MEDIA.PHOTO.2), imported
     //                          lazily by src/lib/prepare-image.ts for non-iOS
     //                          HEIC picks only
-    const LAZY_LIBS = [FACE_KEY, 'heic2any'];
-    const MODEL_MARK = /tiny_face_detector_model|ssd_mobilenetv1_model|face_landmark_68_model/;
+    const LAZY_LIBS = ['heic2any'];
     const vite = join(dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin', 'vite.js');
     const bad = [];
     let summary = '';
@@ -892,7 +887,7 @@ for (const c of checks) {
         const size = (n) => statSync(`${OUT}/assets/${n}`).size;
         // The eager closure: every chunk an entry pulls in through STATIC
         // imports before first paint. Dynamic imports — the lazy routes and
-        // face-api — are exactly what must stay out of it.
+        // the lazy libraries — are exactly what must stay out of it.
         const eager = new Set();
         const walk = (key) => {
           const m = manifest[key];
@@ -906,19 +901,14 @@ for (const c of checks) {
         const lazyFiles = new Map();
         for (const lib of LAZY_LIBS) {
           const files = Object.keys(manifest).filter((k) => k.includes(lib)).map((k) => manifest[k].file);
-          // face-api is no longer imported anywhere, so no chunk for it is fine;
-          // when one does exist every rule below still applies to it.
-          if (!files.length && lib !== FACE_KEY) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
+          if (!files.length) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
           for (const f of files) lazyFiles.set(f, lib);
         }
         if (js.length < 4) bad.push(`assets/ holds ${js.length} JS chunk(s); route-level splitting should produce at least 4`);
         for (const [f, lib] of lazyFiles) if (eager.has(f)) bad.push(`${f} (${lib}) is in the entry's static import closure - /:handle would download it`);
-        for (const f of eager) {
-          if (f.endsWith('.js') && MODEL_MARK.test(readFileSync(`${OUT}/${f}`, 'utf8'))) bad.push(`${f} is eager and carries face-api model strings`);
-        }
         for (const n of js) {
           const lib = lazyFiles.get(`assets/${n}`);
-          const cap = lib ? FACE_CAP : CAP;
+          const cap = lib ? LAZY_LIB_CAP : CAP;
           const b = size(n);
           if (b > cap) bad.push(`assets/${n} is ${b.toLocaleString('en-US')} B raw, over the ${cap.toLocaleString('en-US')} B ${lib ?? 'chunk'} cap`);
         }
@@ -929,11 +919,11 @@ for (const c of checks) {
     }
     if (bad.length) {
       failed++;
-      console.error(`x ${c.name} - the build must stay route-split with face-api out of the entry`);
+      console.error(`x ${c.name} - the build must stay route-split with the lazy libraries out of the entry`);
       bad.forEach((b) => console.error(`      ${b}`));
       console.error(`      one chunk serving every route is the AUDIT_rev6 #13 defect: /:handle visitors`);
-      console.error(`      download the editor, the dashboard and a face detector. Keep the routes in`);
-      console.error(`      App.tsx lazy, face-api behind loadFaceApi() and heic2any behind prepareImage();`);
+      console.error(`      download the editor and the dashboard. Keep the routes in`);
+      console.error(`      App.tsx lazy and heic2any behind prepareImage();`);
       console.error(`      never re-add a static import.`);
     } else {
       console.log(`ok ${c.name} (${summary})`);

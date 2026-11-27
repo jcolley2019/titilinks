@@ -2,9 +2,9 @@
 // upscaler. One tap that brightens, balances and gently sharpens a photo the
 // way a phone's Auto button does.
 //
-// NOT WIRED. Nothing in the app imports this module yet: IMG.ENH.1 builds the
-// maths and proves it with pictures (scripts/auto-enhance.test.mjs and the
-// IMG.ENH.1 contact sheets). No UI, nothing a visitor or creator can see.
+// Wired through src/lib/hero-enhance.ts: the hero's Auto enhance in the Edit
+// Photo screen (PHOTO.POLISH.1). IMG.ENH.1 built the maths and proved it with
+// pictures (scripts/auto-enhance.test.mjs and the IMG.ENH.1 contact sheets).
 //
 // Pure functions on RGBA arrays — no DOM, no canvas — so the whole pipeline
 // runs under tsx with no browser. Analysis and application are separate on

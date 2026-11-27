@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, cloneElement, type ReactElement } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useEntitlements } from '@/hooks/useEntitlements';
-import { useProUpsell } from '@/hooks/useProUpsell';
 import { usePlanLock } from '@/hooks/usePlanLock';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
@@ -74,8 +72,11 @@ import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
 import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
-import { HERO_BOX_ASPECTS, heroDisplayRegion, heroFaceWindow, resolveHeroWindowFraming } from '@/lib/hero-window';
+import { HERO_BOX_ASPECTS, heroDisplayRegion, resolveHeroWindowFraming } from '@/lib/hero-window';
 import { pictureFitSeed, pictureFitSourceAspect, writePictureFit } from '@/lib/picture-fit';
+import { readHeroEnhance, writeHeroEnhance, analyzeForEnhance, enhanceCanvas, type HeroEnhance, type HeroEnhanceRect } from '@/lib/hero-enhance';
+import type { EnhanceParams } from '@/lib/auto-enhance';
+import { Switch } from '@/components/ui/switch';
 import { analyzeImageForLogo } from '@/lib/logo-detect';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
 import { toast } from 'sonner';
@@ -114,21 +115,33 @@ import { gateFontForVisitor, gateThemeForVisitor, visiblePageCount } from '@/lib
 import { SampleTag } from '@/components/SampleTag';
 import { PlanLockTag } from '@/components/PlanLock';
 
-// TL.BUNDLE.1 (AUDIT_rev6 #13): face-api — TensorFlow inside, 1.3 MB minified —
-// is loaded on demand. It only serves the AI-crop path, and the static import
-// it replaced shipped it to every visitor of every public page. One shared
-// promise, so the preload effect and detectFace never start a second download.
-type FaceApi = typeof import('@vladmandic/face-api');
-let faceApiLoad: Promise<FaceApi> | null = null;
-const loadFaceApi = (): Promise<FaceApi> => {
-  if (!faceApiLoad) faceApiLoad = import('@vladmandic/face-api');
-  return faceApiLoad;
-};
-
-// HERO.FIT.3 — the hero cropper's max zoom, named once: the Cropper, its zoom
-// slider and the face presets' tightest window (heroFaceWindow) all read it, so
-// a preset can never ask for a window the cropper cannot reach.
+// HERO.FIT.3 — the hero cropper's max zoom, named once: the Cropper and its zoom slider read it.
 const HERO_CROP_MAX_ZOOM = 3;
+
+// PHOTO.POLISH.1 — the long side of the choose preview's Auto enhance copies.
+const HERO_ENHANCE_PREVIEW_PX = 800;
+/** A canvas as an object URL (the caller revokes it). */
+const canvasObjectUrl = (canvas: HTMLCanvasElement): Promise<string> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(URL.createObjectURL(blob)) : reject(new Error('Preview failed'))),
+      'image/jpeg',
+      0.92,
+    );
+  });
+/** A framed window (percent of the picture) as a rectangle in a canvas's pixels. */
+const windowOnCanvas = (
+  canvas: HTMLCanvasElement,
+  win: { x: number; y: number; w: number; h: number } | null,
+): HeroEnhanceRect | null =>
+  win
+    ? {
+        x: (win.x / 100) * canvas.width,
+        y: (win.y / 100) * canvas.height,
+        width: (win.w / 100) * canvas.width,
+        height: (win.h / 100) * canvas.height,
+      }
+    : null;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1786,9 +1799,6 @@ export function EditableProfileView({
 }: EditableProfileViewProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  // TL.EDGE.2 — AI photo enhance is Pro-only (server: ai-enhance → plan_allows('aiTools')).
-  const { entitlements } = useEntitlements();
-  const showUpsell = useProUpsell();
   // TL.PLAN.ENFORCE.3: the OWNER's plan locks saved Pro items on the edit
   // canvas (separate from visitorPlan, which only visitor surfaces pass).
   const planLock = usePlanLock();
@@ -1803,21 +1813,37 @@ export function EditableProfileView({
   // to. While that URL is the one showing, the canvas paints with this instead
   // of the row's, so it does not snap when the refreshed row lands.
   const [localHeroWindows, setLocalHeroWindows] = useState<{
-    page1: { url: string; window: unknown } | null;
-    page2: { url: string; window: unknown } | null;
+    page1: { url: string; window: unknown; enhance: HeroEnhance | null } | null;
+    page2: { url: string; window: unknown; enhance: HeroEnhance | null } | null;
   }>({ page1: null, page2: null });
   // HERO.FIT.2 — what the open dialog's picture (photoPreview) is: a fresh
   // 'pick', the kept 'original' (pencil), or the page's own 'display' file
   // (pencil on a hero that has no kept original).
   const [photoSource, setPhotoSource] = useState<'pick' | 'original' | 'display'>('pick');
-  const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual' | 'ai' | 'ai-preview' | 'preview'>('idle');
-  const [aiPreviewData, setAiPreviewData] = useState<string | null>(null); // holds AI-cropped+enhanced data URL
-  const [aiPreviewEnhanced, setAiPreviewEnhanced] = useState(false); // true = AI ran, false = crop only fallback
-  const [photoOffset, setPhotoOffset] = useState({ x: 50, y: 30 });
-  const [photoScale, setPhotoScale] = useState(1);
-  const [aiProcessing, setAiProcessing] = useState(false);
-  const [cropZoom, setCropZoom] = useState(1);
-  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 }); // image pan offset
+  const [photoStep, setPhotoStep] = useState<'idle' | 'choose' | 'manual'>('idle');
+  // PHOTO.POLISH.1 — Auto enhance: the choose step's switch and strength slider
+  // (0-100). The DISPLAY file is what gets enhanced, when it is baked; the kept
+  // original never changes. `enhanceSwitchTouched` is whether the creator has
+  // flipped the switch since the dialog opened: untouched, a bake re-uses the
+  // STORED params (nudging the frame or the strength must not shift the
+  // colour); touched, the picture is analysed again.
+  const [enhanceOn, setEnhanceOn] = useState(false);
+  const [enhanceStrength, setEnhanceStrength] = useState(100);
+  const [enhanceSwitchTouched, setEnhanceSwitchTouched] = useState(false);
+  // The choose preview's copies of the UN-enhanced source (at most
+  // HERO_ENHANCE_PREVIEW_PX): as it is, and enhanced at the current strength
+  // (null while the switch is off). Object URLs, revoked when replaced.
+  const [enhancePreview, setEnhancePreview] = useState<{ plain: string; enhanced: string | null } | null>(null);
+  const [enhanceHold, setEnhanceHold] = useState(false);
+  // The params the preview on screen was made with: a Save bakes with the same
+  // numbers, so what was previewed is what is stored.
+  const enhancePreviewParams = useRef<EnhanceParams | null>(null);
+  // The un-enhanced source, loaded once per picture (with CORS, so a canvas can read it).
+  const enhanceSourceRef = useRef<{ url: string; promise: Promise<HTMLImageElement> } | null>(null);
+  // The choose step's Save button: brought into view when the row grows on a short screen.
+  const enhanceSaveRef = useRef<HTMLButtonElement>(null);
+  // Pencil on a hero that stores no window: is its display file the WHOLE kept original?
+  const [enhanceWholeOriginal, setEnhanceWholeOriginal] = useState<{ url: string; whole: boolean } | null>(null);
   // Two-page hero (HERO-PAGE2): Page 2 reads/writes its OWN hero config
   // unless it inherits Page 1's. `heroConfigKey` is the single key the hero
   // handlers + render selection target.
@@ -1848,15 +1874,7 @@ export function EditableProfileView({
     setHeroPosYDraft(cfg.posY ?? 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroConfigKey]);
-  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const cropImgRef = useRef<HTMLImageElement>(null);
-  const cropFrameRef = useRef<HTMLDivElement>(null);
-  const cropContainerRef = useRef<HTMLDivElement>(null);
-  const [, setCropImgLoaded] = useState(0); // triggers re-render on img load
-  // CROP.2b: react-easy-crop state for the manual crop step —
-  // replaces the legacy pan/zoom interaction (which remains below
-  // as scaffolding for the AI paths until CROP.2d).
+  // CROP.2b: react-easy-crop state for the manual crop step.
   const [rcCrop, setRcCrop] = useState({ x: 0, y: 0 });
   const [rcZoom, setRcZoom] = useState(1);
   const [rcAreaPixels, setRcAreaPixels] = useState<CropArea | null>(null);
@@ -1865,19 +1883,6 @@ export function EditableProfileView({
   // cut from).
   const [rcAreaPercent, setRcAreaPercent] = useState<CropArea | null>(null);
   const [rcNatural, setRcNatural] = useState<{ width: number; height: number } | null>(null);
-  // HERO.FIT.3 — Headshot / Shoulders / Full Body: the window that frames the
-  // detected face (percent of the picture), for the ONE return to the cropper
-  // that follows the press. Every other way into the crop step clears it, so
-  // the HERO.FIT.2 rule (reopen on the stored window, else centred) holds.
-  // The key remounts the Cropper so it reads the seed afresh.
-  const [rcFaceSeed, setRcFaceSeed] = useState<CropArea | null>(null);
-  const [rcCropperKey, setRcCropperKey] = useState(0);
-  // CROP.3a readiness (STEP 2): true once the TinyFaceDetector model is loaded.
-  // Gates the AI-crop buttons so the first click can't race the model load.
-  // TL.BUNDLE.1: starts false — the library itself is lazy now, so readiness is
-  // only ever learned from the preload effect below (an already-loaded model
-  // resolves it on the next tick).
-  const [faceModelReady, setFaceModelReady] = useState(false);
   // CROP.3a slider-truth (STEP 2/Defect D): the hero preview box + the photo's
   // natural aspect drive whether the Top/Bottom slider has any vertical travel.
   const heroPreviewRef = useRef<HTMLDivElement>(null);
@@ -1898,8 +1903,11 @@ export function EditableProfileView({
   useEffect(() => {
     if (photoStep !== 'idle' && photoPreview) {
       document.body.style.overflow = 'hidden';
-      // Also lock all scrollable containers inside the device frame
-      const scrollables = document.querySelectorAll<HTMLElement>('.overflow-y-auto, .overflow-auto');
+      // Also lock all scrollable containers inside the device frame.
+      // PHOTO.POLISH.1: never the dialog's own column — it is in the document
+      // when this runs, and locking it left a short screen unable to scroll.
+      const scrollables = Array.from(document.querySelectorAll<HTMLElement>('.overflow-y-auto, .overflow-auto'))
+        .filter((el) => !el.closest('[data-hero-photo-dialog]'));
       scrollables.forEach(el => { el.style.overflow = 'hidden'; });
       return () => {
         document.body.style.overflow = '';
@@ -2083,150 +2091,10 @@ export function EditableProfileView({
       setPhotoFile(prepared);
       setPhotoOriginalFile(prepared);
       setPhotoSource('pick');
+      resetEnhanceDraft(null); // PHOTO.POLISH.1: a new pick starts with the switch off
       setPhotoStep('choose');
-      setPhotoOffset({ x: 50, y: 30 });
-      setPhotoScale(1);
-      setCropZoom(1);
-      setCropPosition({ x: 0, y: 0 });
     };
     reader.readAsDataURL(prepared);
-  };
-
-  // Compute crop frame size (fixed 3:4 aspect, fits within container with padding)
-  const getCropFrameSize = () => {
-    const container = cropContainerRef.current;
-    if (!container) return { fw: 300, fh: 400 };
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    const padding = 24;
-    const availW = cw - padding * 2;
-    const availH = ch - padding * 2;
-    // WYSIWYG: derive the frame from the SAME formula as the target
-    // canvas. Hero pages use the hero window's CSS (width capped 640;
-    // height = 50dvh + HERO_EXTRA, capped 500 + HERO_EXTRA).
-    // Full-screen pages use the phone viewport — real dims on a
-    // phone, capped at 430x932 reference dims on desktop so the
-    // desktop editor never yields a landscape frame. With matching
-    // aspects, cover-fill of the saved crop displays exactly what was
-    // framed.
-    const heroW = Math.min(window.innerWidth, 640);
-    const heroH = Math.min(window.innerHeight * 0.5 + 60, 560);
-    const ratio = isFullBleed
-      ? Math.min(window.innerWidth, 430) / Math.min(window.innerHeight, 932)
-      : heroW / heroH;
-    let fw = availW;
-    let fh = fw / ratio;
-    if (fh > availH) { fh = availH; fw = fh * ratio; }
-    return { fw, fh };
-  };
-
-  // Compute min zoom so the image always covers the frame (no gaps)
-  const getCropMinZoom = () => {
-    const img = cropImgRef.current;
-    const container = cropContainerRef.current;
-    if (!img || !container || !img.naturalWidth) return 1;
-    const { fw, fh } = getCropFrameSize();
-    const nw = img.naturalWidth;
-    const nh = img.naturalHeight;
-    // fitScale: image fits within the frame (the "zoomed out" size)
-    const scaleW = fw / nw;
-    const scaleH = fh / nh;
-    // We need the image to COVER the frame, so use the LARGER scale
-    const coverScale = Math.max(scaleW, scaleH);
-    // Also need the image to at least fit within the container at zoom=1
-    // minZoom is relative to the "base" size (image fit in container)
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    const baseScale = Math.min(cw / nw, ch / nh);
-    return coverScale / baseScale;
-  };
-
-  // Clamp pan position so image edges never go inside the frame
-  const clampCropPosition = (panX: number, panY: number, zoom: number) => {
-    const img = cropImgRef.current;
-    const container = cropContainerRef.current;
-    if (!img || !container || !img.naturalWidth) return { x: panX, y: panY };
-    const { fw, fh } = getCropFrameSize();
-    const nw = img.naturalWidth;
-    const nh = img.naturalHeight;
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    // Image display size at current zoom
-    const baseScale = Math.min(cw / nw, ch / nh);
-    const dispW = nw * baseScale * zoom;
-    const dispH = nh * baseScale * zoom;
-    // Frame is centered in container
-    const frameCX = cw / 2;
-    const frameCY = ch / 2;
-    const frameL = frameCX - fw / 2;
-    const frameR = frameCX + fw / 2;
-    const frameT = frameCY - fh / 2;
-    const frameB = frameCY + fh / 2;
-    // Image center = container center + pan
-    // Image left = (cw/2 + panX) - dispW/2, must be <= frameL
-    // Image right = (cw/2 + panX) + dispW/2, must be >= frameR
-    const maxPanX = frameL - (cw / 2 - dispW / 2);   // image left <= frame left
-    const minPanX = frameR - (cw / 2 + dispW / 2);    // image right >= frame right
-    const maxPanY = frameT - (ch / 2 - dispH / 2);
-    const minPanY = frameB - (ch / 2 + dispH / 2);
-    return {
-      x: Math.min(maxPanX, Math.max(minPanX, panX)),
-      y: Math.min(maxPanY, Math.max(minPanY, panY)),
-    };
-  };
-
-  const getCroppedCanvas = (): string => {
-    const img = cropImgRef.current;
-    const container = cropContainerRef.current;
-    if (!img || !container || !photoPreview) return photoPreview || '';
-    const nw = img.naturalWidth;
-    const nh = img.naturalHeight;
-    if (!nw || !nh) return photoPreview || '';
-
-    const { fw, fh } = getCropFrameSize();
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-
-    // Image display size — use the EFFECTIVE zoom, exactly as the
-    // on-screen transform, slider, and pan clamp do. Raw cropZoom
-    // can sit below the cover minimum (e.g. state still 1 while the
-    // display enforces minZoom), and computing with it maps the
-    // frame onto a larger region than the user saw.
-    const baseScale = Math.min(cw / nw, ch / nh);
-    const effectiveZoom = Math.max(cropZoom, getCropMinZoom());
-    const dispW = nw * baseScale * effectiveZoom;
-    const dispH = nh * baseScale * effectiveZoom;
-
-    // Image position (center of container + pan offset)
-    const imgCX = cw / 2 + cropPosition.x;
-    const imgCY = ch / 2 + cropPosition.y;
-    const imgL = imgCX - dispW / 2;
-    const imgT = imgCY - dispH / 2;
-
-    // Frame is centered
-    const frameL = cw / 2 - fw / 2;
-    const frameT = ch / 2 - fh / 2;
-
-    // Frame position relative to image, in display pixels
-    const relX = frameL - imgL;
-    const relY = frameT - imgT;
-
-    // Convert to natural pixels. Keep the source rect at full frame size and
-    // slide its position back inside the image so the output stays square —
-    // truncating srcW/srcH at the edge would yield a non-square crop.
-    const scale = nw / dispW;
-    const srcW = Math.min(Math.round(fw * scale), nw);
-    const srcH = Math.min(Math.round(fh * scale), nh);
-    const srcX = Math.max(0, Math.min(Math.round(relX * scale), nw - srcW));
-    const srcY = Math.max(0, Math.min(Math.round(relY * scale), nh - srcH));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = srcW;
-    canvas.height = srcH;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return photoPreview || '';
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
-    return canvas.toDataURL('image/jpeg', 0.95);
   };
 
   // HERO-1 (B1): persist display mode only — no file upload, no crop.
@@ -2262,7 +2130,12 @@ export function EditableProfileView({
     // being saved (`window`, what paints) and over the kept original
     // (`windowSource`, what reopens the cropper; null when the cropper's
     // picture was not the kept original).
-    windows?: { window: Record<string, unknown>; windowSource: Record<string, unknown> | null },
+    // PHOTO.POLISH.1: `fit` only when the display file is re-baked for a
+    // hero that already had a window (its Fill / Fit choice is kept).
+    windows?: { window: Record<string, unknown>; windowSource: Record<string, unknown> | null; fit?: 'fill' | 'fit' },
+    // PHOTO.POLISH.1 — the Auto enhance baked into the file being saved, or
+    // null / absent for none. Written or removed with the rest of the config.
+    enhance?: HeroEnhance | null,
   ) => {
     // CROP.3a-C rule 2: a manual crop is composed at the canonical hero aspect,
     // so the apply path passes posY 50 (centered) — cover-at-matching-aspect is
@@ -2321,7 +2194,9 @@ export function EditableProfileView({
       // original failed to upload has no kept original to reopen against.
       const windowSourceToSave = windows && (!photoOriginalFile || originalUrl) ? windows.windowSource : null;
       const nextHeroConfig = (stored: Record<string, unknown> | undefined) => {
-        const existingHero: Record<string, unknown> = { ...(stored || {}) };
+        // PHOTO.POLISH.1: the enhancement belongs to the display file too — it is
+        // written when this save baked one in, and dropped otherwise.
+        const existingHero: Record<string, unknown> = writeHeroEnhance(stored, enhance ?? null);
         delete existingHero.video; // an image hero replaces any video — clean swap, no leftover video
         // The display picture changes with every photo save, so a window stored
         // against the old one never survives it.
@@ -2332,7 +2207,7 @@ export function EditableProfileView({
         delete existingHero.scale;
         return {
           ...existingHero,
-          fit: 'fill',
+          fit: windows.fit ?? 'fill',
           posX: 50,
           posY: 50,
           window: windows.window,
@@ -2400,11 +2275,12 @@ export function EditableProfileView({
       // HERO.FIT.2: the window just saved (or its absence) rides beside that URL.
       setLocalHeroWindows(prev => ({
         ...prev,
-        [heroPageId]: { url: urlData.publicUrl, window: windows?.window },
+        [heroPageId]: { url: urlData.publicUrl, window: windows?.window, enhance: enhance ?? null },
       }));
+      resetEnhanceDraft(null);
       if (windows) {
         // The config now says Fill, centred: keep the dialog's drafts on it.
-        setHeroFitDraft('fill');
+        setHeroFitDraft(windows.fit ?? 'fill');
         setHeroPosYDraft(50);
         setHeroPosXDraft(50);
       }
@@ -2412,8 +2288,6 @@ export function EditableProfileView({
       setPhotoPreview(null);
       setPhotoFile(null);
       setPhotoOriginalFile(null);
-      setPhotoOffset({ x: 50, y: 30 });
-      setPhotoScale(1);
       onRefresh();
     } catch (err) {
       console.error('Photo upload error:', err);
@@ -2479,189 +2353,41 @@ export function EditableProfileView({
     }
   };
 
-  // Detect face using face-api.js TinyFaceDetector (works in all browsers, 190KB model)
-  const detectFace = async (img: HTMLImageElement): Promise<{ x: number; y: number; w: number; h: number } | null> => {
-    try {
-      // TL.BUNDLE.1: the library is lazy — this is the one place it is needed.
-      const faceapi = await loadFaceApi();
-      // Load model on first use (cached after that)
-      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-        console.log('[AI CROP] Loading face detection model...');
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-        console.log('[AI CROP] Model loaded successfully');
-      }
-
-      // Draw image to canvas first — ensures pixels are fully decoded
-      // (data URL images may not be decoded when passed directly)
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('No canvas context');
-      ctx.drawImage(img, 0, 0);
-
-      console.log('[AI CROP] Running detection on', img.naturalWidth, 'x', img.naturalHeight, 'image...');
-
-      // Try multiple input sizes for best results (larger = more accurate but slower)
-      for (const inputSize of [512, 416, 320] as const) {
-        const detection = await faceapi.detectSingleFace(
-          canvas as any,
-          new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.15 })
-        );
-
-        if (detection) {
-          const { x, y, width, height } = detection.box;
-          console.log('[AI CROP] Face detected (inputSize=%d, score=%.2f):', inputSize, detection.score, {
-            x: Math.round(x), y: Math.round(y), w: Math.round(width), h: Math.round(height)
-          });
-          return { x, y, w: width, h: height };
-        }
-        console.log('[AI CROP] No face at inputSize', inputSize, '— trying next...');
-      }
-
-      console.log('[AI CROP] No face detected at any input size');
-    } catch (e) {
-      // CROP.3a error truth: re-throw so a model-load / decode / detection
-      // failure reaches the caller as a real cause hint — only a clean run that
-      // finds nothing falls through to the null "no face" result below.
-      console.error('[AI CROP] face-api.js error:', (e as any)?.name, (e as any)?.message, e);
-      throw e;
-    }
-
-    return null; // no face detected (clean run — genuinely no face)
-  };
-
-  const handleAiCrop = async (mode: 'headshot' | 'shoulders' | 'fullbody') => {
-    if (!photoPreview) return;
-    setAiProcessing(true);
-    setPhotoStep('ai');
-    try {
-      // Load image
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = photoPreview;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Image load failed'));
-      });
-
-      const natW = img.naturalWidth;
-      const natH = img.naturalHeight;
-
-      // Detect face
-      const face = await detectFace(img);
-      // HERO.FIT.3 — the press FRAMES the face; it bakes nothing. The window
-      // has the crop frame's own shape and sits where the preset puts a face
-      // (heroFaceWindow), and the cropper comes back seeded with it for the
-      // creator to adjust or apply. Apply Crop stores the window, as for any
-      // manual crop. Free and Pro alike: no square, no preview step, and no
-      // request to the paid enhancement.
-      const seed = face
-        ? heroFaceWindow(face, { width: natW, height: natH }, cropFrameAspect, mode, HERO_CROP_MAX_ZOOM)
-        : null;
-      if (!seed) {
-        toast.error(t('editor.crop.noFace'));
-        setRcFaceSeed(null);
-        setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
-        setPhotoStep('manual');
-        return;
-      }
-      console.log('[AI CROP] framing the face:', mode, seed);
-      setRcFaceSeed({ x: seed.x, y: seed.y, width: seed.w, height: seed.h });
-      setRcCropperKey((k) => k + 1);
-      setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
-      setPhotoStep('manual');
-      return;
-    } catch (err) {
-      // CROP.3a error truth: log name+message and carry a concise cause hint so
-      // a model-load / decode failure is distinguishable from a clean no-face.
-      console.error('[AI CROP] failed:', (err as any)?.name, (err as any)?.message, err);
-      toast.error(`${t('editor.aiCropFailed')} — ${t(cropErrorCauseKey(err))}`);
-      setRcFaceSeed(null);
-      setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
-      setPhotoStep('manual');
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  const handleAiEnhance = async (mode: 'upscale' | 'face_restore', fromCrop?: boolean) => {
-    if (!entitlements.aiTools) {
-      // TL.EDGE.2: Pro-only — upsell before any work or network call.
-      showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body'));
-      return;
-    }
-    setAiProcessing(true);
-    setPhotoStep('ai');
-    try {
-      let sourceDataUrl = photoPreview;
-
-      // If called from manual crop, crop first then enhance
-      if (fromCrop && sourceDataUrl) {
-        sourceDataUrl = getCroppedCanvas();
-      }
-
-      if (!sourceDataUrl) throw new Error('No image');
-
-      const [header, base64] = sourceDataUrl.split(',');
-      const mediaType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      console.log(`[AI Enhance] Sending ${(base64.length / 1024).toFixed(0)}KB to crystal-upscaler...`);
-
-      const { data, error } = await supabase.functions.invoke('ai-enhance', {
-        body: { base64, mediaType },
-      });
-
-      if (error) {
-        // TL.EDGE.2: the server's plan gate answers 403 { code: 'PLAN_REQUIRED' };
-        // supabase-js hides the body behind error.context (a Response).
-        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
-        if (body?.code === 'PLAN_REQUIRED') throw Object.assign(new Error(body.error), { code: 'PLAN_REQUIRED' });
-      }
-      if (error || !data?.output) throw new Error(error?.message || 'Enhancement failed');
-
-      // Fetch enhanced image from Replicate's URL
-      const response = await fetch(data.output);
-      const blob = await response.blob();
-      const enhancedDataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-
-      setPhotoPreview(enhancedDataUrl);
-      const file = new File([blob], 'enhanced.jpg', { type: 'image/jpeg' });
-      setPhotoFile(file);
-
-      if (fromCrop) {
-        // Crop + enhance → save directly
-        await handlePhotoSave(file);
-      } else {
-        // Enhance before crop → go back to choose so user can crop or save
-        setPhotoStep('choose');
-        toast.success(mode === 'upscale' ? 'Photo upscaled!' : 'Face enhanced!');
-      }
-    } catch (err) {
-      console.error('AI enhance error:', err);
-      if ((err as { code?: string })?.code === 'PLAN_REQUIRED') {
-        showUpsell(t('ai.proOnly.title'), t('ai.proOnly.body')); // TL.EDGE.2
-      } else {
-        toast.error(t('editor.crop.enhanceFailed'));
-      }
-      setPhotoStep('choose');
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
   const resetPhoto = () => {
     setPhotoPreview(null);
     setPhotoFile(null);
     setPhotoOriginalFile(null);
     setPhotoStep('idle');
-    setPhotoOffset({ x: 50, y: 30 });
-    setPhotoScale(1);
     setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
-    setRcFaceSeed(null);
+    resetEnhanceDraft(null);
+  };
+
+  // PHOTO.POLISH.1 — the Auto enhance draft for a dialog that is opening (or
+  // closing): on at the stored strength when the picture was baked with one,
+  // else off at 100.
+  const resetEnhanceDraft = (stored: HeroEnhance | null) => {
+    setEnhanceOn(!!stored);
+    setEnhanceStrength(stored ? Math.max(1, Math.round(stored.strength * 100)) : 100);
+    setEnhanceSwitchTouched(false);
+    setEnhanceHold(false);
+    enhancePreviewParams.current = null;
+  };
+
+  /** The dialog's un-enhanced source as a decoded, canvas-readable image. One load per picture. */
+  const loadEnhanceSource = (url: string): Promise<HTMLImageElement> => {
+    if (enhanceSourceRef.current?.url !== url) {
+      enhanceSourceRef.current = {
+        url,
+        promise: new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Image load failed'));
+          img.src = url;
+        }),
+      };
+    }
+    return enhanceSourceRef.current.promise;
   };
 
   // Get theme
@@ -3090,6 +2816,203 @@ export function EditableProfileView({
     ? { x: cropReopenWindow.x, y: cropReopenWindow.y, width: cropReopenWindow.w, height: cropReopenWindow.h }
     : undefined;
 
+  // PHOTO.POLISH.1 — Auto enhance, for the open dialog. What the picture
+  // showing was baked with: the value saved beside the local URL while that URL
+  // is the one on screen (as the window is), else the row's.
+  const heroEnhanceStored: HeroEnhance | null = heroWindowIsLocal
+    ? localHeroWindow.enhance
+    : heroRowIsShowing ? readHeroEnhance(heroSlot) : null;
+  // A new pick was baked with nothing, whatever the picture it replaces stored.
+  const dialogEnhanceStored = photoSource === 'pick' ? null : heroEnhanceStored;
+  const dialogIsGif = photoFile ? photoFile.type === 'image/gif' : /\.gif(\?|#|$)/i.test(heroImage);
+  // The row needs an UN-enhanced source to bake from: the new pick, or the kept
+  // original — cut to the stored window's region, or whole when the display
+  // file IS the whole original. A GIF is saved as picked, and a hero cropped
+  // before windows were stored has no region to cut: neither shows the row.
+  const enhanceAvailable = photoStep !== 'idle' && !!photoPreview && !dialogIsGif && (
+    photoSource === 'pick'
+      ? !!photoFile
+      : photoSource === 'original' && heroRowIsShowing && (
+          heroWindowAspect != null
+            ? !!cropReopenWindow
+            : enhanceWholeOriginal?.url === photoPreview && enhanceWholeOriginal.whole
+        )
+  );
+  // The strength asked for (0..1], or null for none.
+  const enhanceWanted: number | null = enhanceAvailable && enhanceOn && enhanceStrength > 0 ? enhanceStrength / 100 : null;
+  // Pencil only: does Save have to bake the display file again?
+  const enhanceChanged = photoSource !== 'pick' && enhanceAvailable && (
+    enhanceWanted == null
+      ? !!dialogEnhanceStored
+      : !dialogEnhanceStored || enhanceSwitchTouched || Math.round(dialogEnhanceStored.strength * 100) !== enhanceStrength
+  );
+  /**
+   * What a bake of the dialog's un-enhanced source is cut from: the display
+   * region around the stored window with that window over it (exactly what
+   * Apply Crop would bake from the reopened cropper, unmoved), or the whole
+   * picture when there is no window.
+   */
+  const enhanceGeometry = (natural: { width: number; height: number }) => {
+    if (photoSource === 'original' && cropReopenWindow) {
+      const display = heroDisplayRegion(
+        {
+          x: (cropReopenWindow.x / 100) * natural.width,
+          y: (cropReopenWindow.y / 100) * natural.height,
+          width: (cropReopenWindow.w / 100) * natural.width,
+          height: (cropReopenWindow.h / 100) * natural.height,
+        },
+        natural,
+        HERO_BOX_ASPECTS[isFullBleed ? 'full_bleed' : 'hero'],
+      );
+      if (!display) throw new Error('Crop failed');
+      return display;
+    }
+    return { region: { x: 0, y: 0, width: natural.width, height: natural.height }, window: null };
+  };
+
+  // No window stored: the kept original is a usable source only when the
+  // display file is the whole of it (the same shape, within 1%).
+  useEffect(() => {
+    if (photoStep === 'idle' || photoSource !== 'original' || !photoPreview || !heroImage || heroWindowAspect != null) return;
+    if (enhanceWholeOriginal?.url === photoPreview) return;
+    let cancelled = false;
+    const url = photoPreview;
+    const shape = (src: string) => new Promise<number>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = src;
+    });
+    Promise.all([loadEnhanceSource(url).then((img) => img.naturalWidth / img.naturalHeight), shape(heroImage)])
+      .then(([original, display]) => {
+        if (!cancelled) setEnhanceWholeOriginal({ url, whole: Math.abs(original / display - 1) < 0.01 });
+      })
+      .catch(() => { if (!cancelled) setEnhanceWholeOriginal({ url, whole: false }); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoStep, photoSource, photoPreview, heroImage, heroWindowAspect]);
+
+  // The choose preview's copies: the un-enhanced source at preview size, and
+  // (switch on) the same enhanced at the current strength. Re-made on every
+  // switch or slider change, debounced. With the switch off they are only
+  // needed when the page's file IS enhanced, to show what turning it off gives.
+  const enhanceStoredKey = dialogEnhanceStored ? JSON.stringify(dialogEnhanceStored) : '';
+  const enhanceRegionKey = cropReopenWindow
+    ? `${cropReopenWindow.x},${cropReopenWindow.y},${cropReopenWindow.w},${cropReopenWindow.h},${isFullBleed}`
+    : 'whole';
+  useEffect(() => {
+    if (!enhanceAvailable || photoStep !== 'choose' || !photoPreview || (!enhanceOn && !dialogEnhanceStored)) {
+      enhancePreviewParams.current = null;
+      setEnhancePreview(null);
+      return;
+    }
+    let cancelled = false;
+    const source = photoPreview;
+    const timer = window.setTimeout(async () => {
+      try {
+        const img = await loadEnhanceSource(source);
+        if (cancelled) return;
+        const geo = enhanceGeometry({ width: img.naturalWidth, height: img.naturalHeight });
+        const scale = Math.min(1, HERO_ENHANCE_PREVIEW_PX / Math.max(geo.region.width, geo.region.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(geo.region.width * scale));
+        canvas.height = Math.max(1, Math.round(geo.region.height * scale));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(img, geo.region.x, geo.region.y, geo.region.width, geo.region.height, 0, 0, canvas.width, canvas.height);
+        const plain = await canvasObjectUrl(canvas);
+        let enhanced: string | null = null;
+        let params: EnhanceParams | null = null;
+        if (enhanceOn) {
+          params = !enhanceSwitchTouched && dialogEnhanceStored
+            ? dialogEnhanceStored.params
+            : analyzeForEnhance(canvas, windowOnCanvas(canvas, geo.window));
+          enhanceCanvas(canvas, params, enhanceStrength / 100);
+          enhanced = await canvasObjectUrl(canvas);
+        }
+        if (cancelled) {
+          URL.revokeObjectURL(plain);
+          if (enhanced) URL.revokeObjectURL(enhanced);
+          return;
+        }
+        enhancePreviewParams.current = params;
+        setEnhancePreview({ plain, enhanced });
+      } catch (err) {
+        console.error('[ENHANCE] preview failed:', (err as any)?.name, (err as any)?.message, err);
+      }
+    }, 120);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enhanceAvailable, enhanceOn, enhanceStrength, enhanceSwitchTouched, photoStep, photoPreview, enhanceStoredKey, enhanceRegionKey]);
+  // A replaced (or dropped) pair of copies is released.
+  useEffect(() => {
+    if (!enhancePreview) return;
+    return () => {
+      URL.revokeObjectURL(enhancePreview.plain);
+      if (enhancePreview.enhanced) URL.revokeObjectURL(enhancePreview.enhanced);
+    };
+  }, [enhancePreview]);
+  // What the choose preview paints: the enhanced copy ('on'), the un-enhanced
+  // one while the photo is held ('original'), or — switch off — the picture as
+  // it would be saved ('off': the page's own file, or the un-enhanced copy when
+  // that file is enhanced).
+  const enhancePreviewState: 'on' | 'original' | 'off' = enhanceAvailable && enhanceOn && enhancePreview?.enhanced
+    ? (enhanceHold ? 'original' : 'on')
+    : 'off';
+  const chooseShownSrc = enhancePreviewState === 'on'
+    ? enhancePreview!.enhanced
+    : enhancePreviewState === 'original' || (enhanceAvailable && !enhanceOn && dialogEnhanceStored && enhancePreview)
+      ? enhancePreview!.plain
+      : chooseSrc;
+
+  // PHOTO.POLISH.1 — Save on the choose step when the display file has to be
+  // baked for the enhancement: a new pick with the switch on, or the pencil
+  // with the switch or the strength changed. Always from the un-enhanced source
+  // (the pick, or the KEPT ORIGINAL), so nothing compounds; the kept original
+  // itself is never re-sent by the pencil, and never changed.
+  const handleEnhanceSave = async () => {
+    if (!photoPreview) return;
+    setPhotoSaving(true);
+    try {
+      const img = await loadEnhanceSource(photoPreview);
+      const geo = enhanceGeometry({ width: img.naturalWidth, height: img.naturalHeight });
+      const baked: { value: HeroEnhance | null } = { value: null };
+      const strength = enhanceWanted;
+      const hook = strength == null ? undefined : (canvas: HTMLCanvasElement) => {
+        // A strength change keeps the stored numbers; a fresh switch-on uses
+        // the ones the preview showed (analysed on the framed window).
+        const params = !enhanceSwitchTouched && dialogEnhanceStored
+          ? dialogEnhanceStored.params
+          : enhancePreviewParams.current ?? analyzeForEnhance(canvas, windowOnCanvas(canvas, geo.window));
+        enhanceCanvas(canvas, params, strength);
+        baked.value = { strength, params };
+      };
+      if (geo.window) {
+        const heroWindow = writePictureFit(null, { mode: 'crop', crop: geo.window, aspect: cropFrameAspect });
+        if (!heroWindow) throw new Error('Crop failed');
+        const file = await getCroppedImage(photoPreview, geo.region, hook);
+        await handlePhotoSave(
+          file,
+          50,
+          {
+            window: heroWindow,
+            windowSource: (heroSlot?.windowSource ?? null) as Record<string, unknown> | null,
+            fit: isFullBleed ? 'fill' : heroFitDraft,
+          },
+          baked.value,
+        );
+      } else {
+        const file = await boundHeroImage(photoPreview, hook);
+        await handlePhotoSave(file, undefined, undefined, baked.value);
+      }
+    } catch (err) {
+      console.error('[ENHANCE] save failed:', (err as any)?.name, (err as any)?.message, err);
+      toast.error(`${t('editor.photo.uploadFailed')} — ${t(cropErrorCauseKey(err))}`);
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
   // NAMEFX.1b: the public header's text effect, from the saved theme (see getNameFx).
   const nameFx: React.CSSProperties = getNameFx((page.theme_json as any)?.typography?.text_effect);
   // TL.POLISH.1a: getNameFx returns textShadow:'none' for the no-effect case
@@ -3254,11 +3177,10 @@ export function EditableProfileView({
                   // legacy photos uploaded before avatar_original_url existed.
                   const editSource = (usePage2Own ? ((page.theme_json as any)?.avatar_original_url_page2 || heroImage) : (page.avatar_original_url || heroImage));
                   setPhotoSource(editSource === heroImage ? 'display' : 'original');
+                  resetEnhanceDraft(heroEnhanceStored); // PHOTO.POLISH.1
                   setPhotoPreview(editSource);
                   setPhotoFile(null);
                   setPhotoOriginalFile(null);
-                  setCropZoom(1);
-                  setCropPosition({ x: 0, y: 0 });
                   setPhotoStep('choose');
                 }}
                 className="bg-black/40 backdrop-blur-sm rounded-full p-3"
@@ -3482,6 +3404,7 @@ export function EditableProfileView({
 
               {photoPreview && photoStep !== 'idle' && createPortal(
                 <div
+                  data-hero-photo-dialog=""
                   className="fixed inset-0 z-[130] flex flex-col bg-black/95"
                   style={{ overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                 >
@@ -3492,8 +3415,16 @@ export function EditableProfileView({
 
                   {/* CHOOSE STEP — simplified, just preview + Crop Image */}
                   {photoStep === 'choose' && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-4 overflow-y-auto">
-                      <p className="text-white font-bold text-xl">
+                    // PHOTO.POLISH.1: on a short screen the column scrolls. Centring
+                    // by `justify-center` would push the top out of reach once the
+                    // content is taller than the screen, so the first and last
+                    // children carry the centring as auto margins instead: centred
+                    // while it fits, top-aligned and scrollable when it does not.
+                    <div
+                      className="flex flex-col items-center justify-center flex-1 p-6 gap-4 overflow-y-auto"
+                      style={{ justifyContent: 'flex-start', touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+                    >
+                      <p className="text-white font-bold text-xl mt-auto">
                         {t('editor.editPhoto')}
                       </p>
 
@@ -3507,16 +3438,26 @@ export function EditableProfileView({
                       <div
                         ref={heroPreviewRef}
                         data-testid="hero-photo-preview"
-                        className="relative w-full max-w-[13rem] mx-auto rounded-2xl overflow-hidden border-2 border-white/20 bg-black"
-                        style={{ aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()) }}
+                        className="relative w-full max-w-[13rem] mx-auto shrink-0 rounded-2xl overflow-hidden border-2 border-white/20 bg-black"
+                        style={{
+                          aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()),
+                          // PHOTO.POLISH.1: a press-and-hold must not select or call up the image menu.
+                          ...(enhanceAvailable && enhanceOn ? { userSelect: 'none' as const, WebkitUserSelect: 'none' as const, WebkitTouchCallout: 'none' as const } : {}),
+                        }}
                         data-hero-framing={heroFramingAttr(chooseMedia)}
+                        data-enhance-preview={enhancePreviewState}
+                        onPointerDown={() => { if (enhancePreviewState !== 'off') setEnhanceHold(true); }}
+                        onPointerUp={() => setEnhanceHold(false)}
+                        onPointerLeave={() => setEnhanceHold(false)}
+                        onPointerCancel={() => setEnhanceHold(false)}
+                        onContextMenu={(e) => { if (enhancePreviewState !== 'off') e.preventDefault(); }}
                       >
                         {heroFitDraft === 'fit' && !isFullBleed && (
                           <div
                             aria-hidden="true"
                             className="absolute inset-0"
                             style={{
-                              backgroundImage: `url(${chooseSrc})`,
+                              backgroundImage: `url(${chooseShownSrc})`,
                               backgroundSize: 'cover',
                               backgroundPosition: 'center',
                               filter: 'blur(28px) brightness(0.7)',
@@ -3525,8 +3466,9 @@ export function EditableProfileView({
                           />
                         )}
                         <img
-                          src={chooseSrc || undefined}
+                          src={chooseShownSrc || undefined}
                           alt={t('editor.hero.previewAlt')}
+                          draggable={false}
                           onLoad={(e) => setHeroImgAspect(imageAspect(e.currentTarget))}
                           style={resolveHeroMediaStyle(chooseMedia)}
                         />
@@ -3604,10 +3546,62 @@ export function EditableProfileView({
                         </div>
                       )}
 
+                      {/* PHOTO.POLISH.1 — Auto enhance: a switch, and while it is on a
+                          strength slider. Free for everyone; the display file is
+                          what gets enhanced, never the kept original. */}
+                      {enhanceAvailable && (
+                        <div data-testid="hero-enhance-row" className="w-full max-w-xs flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <span id="hero-enhance-label" className="text-white/80 text-sm font-semibold">{t('editor.hero.autoEnhance')}</span>
+                            <Switch
+                              data-testid="hero-enhance-switch"
+                              aria-labelledby="hero-enhance-label"
+                              checked={enhanceOn}
+                              disabled={photoSaving}
+                              onCheckedChange={(on) => {
+                                enhancePreviewParams.current = null;
+                                setEnhanceSwitchTouched(true);
+                                setEnhanceHold(false);
+                                setEnhanceOn(on);
+                                // The slider row pushes Save down: on a short screen, keep it in view.
+                                if (on) requestAnimationFrame(() => enhanceSaveRef.current?.scrollIntoView({ block: 'nearest' }));
+                              }}
+                              className="data-[state=checked]:bg-[#C9A55C] data-[state=unchecked]:bg-white/20"
+                            />
+                          </div>
+                          {enhanceOn && (
+                            <>
+                              <div className="flex items-center gap-3">
+                                <span className="text-white/40 text-[10px]">{t('editor.hero.enhanceStrength')}</span>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  value={enhanceStrength}
+                                  onChange={(e) => setEnhanceStrength(Number(e.target.value))}
+                                  disabled={photoSaving}
+                                  data-testid="hero-enhance-strength"
+                                  aria-label={t('editor.hero.enhanceStrength')}
+                                  className="flex-1 min-w-0 accent-[#C9A55C]"
+                                />
+                                <span className="text-white/40 text-[10px] tabular-nums w-6 text-right">{enhanceStrength}</span>
+                              </div>
+                              <p className="text-white/40 text-[10px] text-center leading-snug">{t('editor.hero.holdToCompare')}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       {/* Save (no crop needed) — new photo uploads uncropped + config;
-                          existing photo writes display config only */}
+                          existing photo writes display config only. PHOTO.POLISH.1:
+                          with an enhancement to bake (a new pick with the switch on,
+                          or the pencil with the switch / strength changed) the
+                          display file is baked from the un-enhanced source first. */}
                       <button
-                        onClick={() => (photoFile ? handlePhotoSave() : handleHeroDisplaySave())}
+                        ref={enhanceSaveRef}
+                        onClick={() => (photoFile
+                          ? (enhanceWanted != null ? handleEnhanceSave() : handlePhotoSave())
+                          : (enhanceChanged ? handleEnhanceSave() : handleHeroDisplaySave()))}
                         disabled={photoSaving}
                         className="w-full max-w-xs py-4 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm disabled:opacity-60"
                       >
@@ -3618,9 +3612,6 @@ export function EditableProfileView({
                       <button
                         onClick={() => {
                           setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
-                          // HERO.FIT.3: a face seed is for the one return that
-                          // follows a preset press, never for a fresh open.
-                          setRcFaceSeed(null);
                           setPhotoStep('manual');
                         }}
                         className="w-full max-w-xs py-3 rounded-2xl border border-white/20 text-white/80 font-semibold text-sm"
@@ -3628,68 +3619,9 @@ export function EditableProfileView({
                         {t('editor.cropImage')}
                       </button>
 
-                      <button onClick={resetPhoto} className="text-white/40 text-xs">
+                      <button onClick={resetPhoto} className="text-white/40 text-xs mb-auto">
                         {t('editor.cancel')}
                       </button>
-                    </div>
-                  )}
-
-                  {/* AI PROCESSING STEP */}
-                  {photoStep === 'ai' && (
-                    <div className="flex flex-col items-center justify-center flex-1 gap-4">
-                      <div className="w-12 h-12 border-2 border-[#C9A55C] border-t-transparent rounded-full animate-spin" />
-                      <p className="text-white font-semibold">{t('editor.crop.autoFrame')}</p>
-                      <p className="text-white/40 text-xs">{t('editor.crop.findingFace')}</p>
-                    </div>
-                  )}
-
-                  {/* AI PREVIEW STEP — shows result, accept or go back */}
-                  {photoStep === 'ai-preview' && aiPreviewData && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-5">
-                      <p className="text-white font-bold text-lg">
-                        {aiPreviewEnhanced ? t('editor.crop.aiResult') : t('editor.crop.cropPreview')}
-                      </p>
-                      <div className="relative">
-                        <div className={`w-64 h-64 rounded-2xl overflow-hidden border-2 ${aiPreviewEnhanced ? 'border-[#C9A55C]/50' : 'border-amber-500/40'}`}>
-                          <img src={aiPreviewData} alt={t('editor.crop.aiPreviewAlt')} className="w-full h-full object-cover" />
-                        </div>
-                        {/* Status badge */}
-                        <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-md ${
-                          aiPreviewEnhanced
-                            ? 'bg-[#C9A55C]/90 text-[#0e0c09]'
-                            : 'bg-amber-500/90 text-[#0e0c09]'
-                        }`}>
-                          {aiPreviewEnhanced ? t('editor.crop.aiEnhanced') : t('editor.crop.aiFailed')}
-                        </div>
-                      </div>
-                      <div className="flex gap-3 w-full max-w-xs">
-                        <button
-                          onClick={() => {
-                            setAiPreviewData(null);
-                            setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
-                            setPhotoStep('manual');
-                          }}
-                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold text-sm"
-                        >
-                          {t('editor.crop.aiPreviewBack')}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!aiPreviewData) return;
-                            setPhotoPreview(aiPreviewData);
-                            // TL.CROP.QUAL.1 — the model returns a full-resolution
-                            // PNG; route it through the one output path so it gets
-                            // the same cap, encoding and name as every other hero.
-                            const file = await boundHeroImage(aiPreviewData);
-                            setPhotoFile(file);
-                            setAiPreviewData(null);
-                            await handlePhotoSave(file);
-                          }}
-                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-bold text-sm"
-                        >
-                          {t('editor.crop.accept')}
-                        </button>
-                      </div>
                     </div>
                   )}
 
@@ -3712,18 +3644,14 @@ export function EditableProfileView({
                       {/* CROP.2b: react-easy-crop replaces the legacy pan/zoom interaction for the manual step */}
                       <div className="relative bg-black rounded-xl overflow-hidden w-full" style={{ height: 'min(52dvh, 460px)' }}>
                         <Cropper
-                          // HERO.FIT.3: a preset press bumps the key, so the
-                          // cropper mounts afresh on the face window.
-                          key={rcCropperKey}
                           image={photoPreview || ''}
                           crop={rcCrop}
                           zoom={rcZoom}
                           maxZoom={HERO_CROP_MAX_ZOOM}
                           aspect={cropFrameAspect}
                           // HERO.FIT.2: read once, when the picture loads — the
-                          // PhotoCropSheet pattern. HERO.FIT.3: the face window
-                          // from a preset press, for that one return, comes first.
-                          initialCroppedAreaPercentages={rcFaceSeed ?? cropReopenArea}
+                          // PhotoCropSheet pattern.
+                          initialCroppedAreaPercentages={cropReopenArea}
                           onMediaLoaded={(media) => setRcNatural({ width: media.naturalWidth, height: media.naturalHeight })}
                           onCropChange={setRcCrop}
                           onZoomChange={setRcZoom}
@@ -3777,15 +3705,26 @@ export function EditableProfileView({
                                       aspect: cropFrameAspect,
                                     })
                                   : null;
-                                const croppedFile = await getCroppedImage(photoPreview, display.region);
-                                setCropZoom(1);
-                                setCropPosition({ x: 0, y: 0 });
+                                // PHOTO.POLISH.1: with Auto enhance on, the region is
+                                // enhanced before it is encoded — with the STORED
+                                // params while the switch is untouched (nudging the
+                                // frame must not shift the colour), else analysed on
+                                // the framed window, never the margin.
+                                const baked: { value: HeroEnhance | null } = { value: null };
+                                const strength = enhanceWanted;
+                                const croppedFile = await getCroppedImage(photoPreview, display.region, strength == null ? undefined : (canvas) => {
+                                  const params = !enhanceSwitchTouched && dialogEnhanceStored
+                                    ? dialogEnhanceStored.params
+                                    : analyzeForEnhance(canvas, windowOnCanvas(canvas, display.window));
+                                  enhanceCanvas(canvas, params, strength);
+                                  baked.value = { strength, params };
+                                });
                                 // The cropper keeps its real source (photoPreview,
                                 // photoFile) until the save lands: a failed save
                                 // must not leave it holding the baked file. The
                                 // window is centred by construction; the save
                                 // writes posX/posY 50 and moves the drafts there.
-                                await handlePhotoSave(croppedFile, 50, { window: heroWindow, windowSource: heroWindowSource });
+                                await handlePhotoSave(croppedFile, 50, { window: heroWindow, windowSource: heroWindowSource }, baked.value);
                               } catch (err) {
                                 // CROP.3a error truth: never fail silently —
                                 // log name+message and carry a concise cause
@@ -3802,49 +3741,6 @@ export function EditableProfileView({
                         </div>
                       </div>
 
-                    </div>
-                  )}
-
-                  {/* PREVIEW STEP */}
-                  {photoStep === 'preview' && (
-                    <div className="flex flex-col items-center justify-center flex-1 p-6 gap-6">
-                      <p className="text-white font-semibold text-lg">
-                        {t('editor.previewPhoto')}
-                      </p>
-                      {/* FIX.MEDIA.1: was aspect-video — a 16:9 landscape
-                          confirmation of a portrait hero. Same live aspect and
-                          same resolver as every other surface. */}
-                      <div
-                        className="relative w-full max-w-[13rem] mx-auto rounded-2xl overflow-hidden border-2 border-[#C9A55C]/50"
-                        style={{ aspectRatio: String(isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect()) }}
-                      >
-                        <img
-                          src={photoPreview}
-                          alt={t('editor.hero.previewAlt')}
-                          onLoad={(e) => setHeroImgAspect(imageAspect(e.currentTarget))}
-                          style={resolveHeroMediaStyle({
-                            mediaAspect: heroImgAspect,
-                            containerAspect: isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect(),
-                            framing: { fit: isFullBleed ? 'fill' : heroFitDraft, posX: heroPosXDraft, posY: heroPosYDraft },
-                          })}
-                        />
-                      </div>
-                      <div className="flex gap-3 w-full max-w-xs">
-                        <button
-                          onClick={() => setPhotoStep('choose')}
-                          className="flex-1 py-3 rounded-2xl border border-white/20 text-white font-semibold"
-                          disabled={photoSaving}
-                        >
-                          {t('editor.cancel')}
-                        </button>
-                        <button
-                          onClick={() => handlePhotoSave()}
-                          disabled={photoSaving}
-                          className="flex-1 py-3 rounded-2xl bg-[#C9A55C] text-[#0e0c09] font-semibold"
-                        >
-                          {photoSaving ? '...' : t('editor.savePhoto')}
-                        </button>
-                      </div>
                     </div>
                   )}
 

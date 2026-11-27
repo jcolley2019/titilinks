@@ -24,8 +24,7 @@ import NotFound from "./pages/NotFound";
 // dashboard, onboarding and the templates gallery to look at a link page. The
 // public profile and the landing page stay eager — they ARE the first paint;
 // everything behind a login, plus templates and the legal pages, loads on its
-// first navigation. face-api left the eager graph the same night (see
-// loadFaceApi in EditableProfileView.tsx).
+// first navigation.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Editor = lazy(() => import("./pages/Editor"));
 const Analytics = lazy(() => import("./pages/Analytics"));

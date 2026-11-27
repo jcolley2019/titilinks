@@ -117,6 +117,10 @@ export interface HeroConfig {
   // (pictureFitSeed) and hero-window.ts (resolveHeroWindowFraming), never by key.
   window?: unknown;
   windowSource?: unknown;
+  // PHOTO.POLISH.1 — the Auto enhance baked into the display file
+  // ({ strength, params }); absent = off. Read and written through
+  // hero-enhance.ts (readHeroEnhance / writeHeroEnhance), never by key.
+  enhance?: unknown;
 }
 
 /** Page layout style. The union is shared by the profile-level default and
