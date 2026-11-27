@@ -6,7 +6,7 @@ import { useProUpsell } from '@/hooks/useProUpsell';
 import { usePlanLock } from '@/hooks/usePlanLock';
 import { motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import { getCroppedImage, boundForAi, boundHeroImage, cropErrorCauseKey, HERO_MAX_PX, type Area as CropArea } from '@/lib/crop';
+import { getCroppedImage, boundHeroImage, cropErrorCauseKey, HERO_MAX_PX, type Area as CropArea } from '@/lib/crop';
 import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { canonicalHeroAspect, canonicalFullBleedAspect, DEFAULT_DEVICE_ID, resolveDevicePreset } from '@/lib/device-presets';
 // FIX.MEDIA.1 — the one definition of hero framing. Every hero-media surface in
@@ -74,7 +74,7 @@ import { cn, randomUUID } from '@/lib/utils';
 import { isEffectivelyGated } from '@/lib/adult-gate';
 import { safeHref } from '@/lib/safe-url';
 import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
-import { HERO_BOX_ASPECTS, heroDisplayRegion, resolveHeroWindowFraming } from '@/lib/hero-window';
+import { HERO_BOX_ASPECTS, heroDisplayRegion, heroFaceWindow, resolveHeroWindowFraming } from '@/lib/hero-window';
 import { pictureFitSeed, pictureFitSourceAspect, writePictureFit } from '@/lib/picture-fit';
 import { analyzeImageForLogo } from '@/lib/logo-detect';
 import { triggerHaptic } from '@/hooks/useHapticFeedback';
@@ -124,6 +124,11 @@ const loadFaceApi = (): Promise<FaceApi> => {
   if (!faceApiLoad) faceApiLoad = import('@vladmandic/face-api');
   return faceApiLoad;
 };
+
+// HERO.FIT.3 — the hero cropper's max zoom, named once: the Cropper, its zoom
+// slider and the face presets' tightest window (heroFaceWindow) all read it, so
+// a preset can never ask for a window the cropper cannot reach.
+const HERO_CROP_MAX_ZOOM = 3;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1860,6 +1865,13 @@ export function EditableProfileView({
   // cut from).
   const [rcAreaPercent, setRcAreaPercent] = useState<CropArea | null>(null);
   const [rcNatural, setRcNatural] = useState<{ width: number; height: number } | null>(null);
+  // HERO.FIT.3 — Headshot / Shoulders / Full Body: the window that frames the
+  // detected face (percent of the picture), for the ONE return to the cropper
+  // that follows the press. Every other way into the crop step clears it, so
+  // the HERO.FIT.2 rule (reopen on the stored window, else centred) holds.
+  // The key remounts the Cropper so it reads the seed afresh.
+  const [rcFaceSeed, setRcFaceSeed] = useState<CropArea | null>(null);
+  const [rcCropperKey, setRcCropperKey] = useState(0);
   // CROP.3a readiness (STEP 2): true once the TinyFaceDetector model is loaded.
   // Gates the AI-crop buttons so the first click can't race the model load.
   // TL.BUNDLE.1: starts false — the library itself is lazy now, so readiness is
@@ -1910,22 +1922,6 @@ export function EditableProfileView({
     photoInputRef.current?.click();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openPhotoRequest]);
-
-  // CROP.3a readiness (STEP 2): preload the TinyFaceDetector model the moment
-  // the manual crop step opens, so the AI-crop buttons gate on real readiness
-  // (disabled + loading) instead of letting the first click race the load. A
-  // load failure is logged (name+message) and leaves the buttons disabled.
-  useEffect(() => {
-    if (photoStep !== 'manual') return;
-    let cancelled = false;
-    // TL.BUNDLE.1: the library arrives lazily (loadFaceApi); an already-loaded
-    // model resolves this chain immediately, exactly as the sync check did.
-    loadFaceApi()
-      .then((faceapi) => (faceapi.nets.tinyFaceDetector.isLoaded ? undefined : faceapi.nets.tinyFaceDetector.loadFromUri('/models')))
-      .then(() => { if (!cancelled) setFaceModelReady(true); })
-      .catch((e) => console.error('[AI CROP] model preload failed:', (e as any)?.name, (e as any)?.message));
-    return () => { cancelled = true; };
-  }, [photoStep]);
 
   // Header config (must be before state that depends on it)
   const headerConfig = (page.theme_json as any)?.headerConfig || {
@@ -2554,131 +2550,34 @@ export function EditableProfileView({
 
       // Detect face
       const face = await detectFace(img);
-      if (!face) {
+      // HERO.FIT.3 — the press FRAMES the face; it bakes nothing. The window
+      // has the crop frame's own shape and sits where the preset puts a face
+      // (heroFaceWindow), and the cropper comes back seeded with it for the
+      // creator to adjust or apply. Apply Crop stores the window, as for any
+      // manual crop. Free and Pro alike: no square, no preview step, and no
+      // request to the paid enhancement.
+      const seed = face
+        ? heroFaceWindow(face, { width: natW, height: natH }, cropFrameAspect, mode, HERO_CROP_MAX_ZOOM)
+        : null;
+      if (!seed) {
         toast.error(t('editor.crop.noFace'));
-        setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
+        setRcFaceSeed(null);
+        setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
         setPhotoStep('manual');
         return;
       }
-
-      // Face bounding box (exact pixels from FaceDetector)
-      const faceX = face.x;           // face left edge
-      const faceY = face.y;           // face top edge
-      const faceW = face.w;           // face width
-      const faceH = face.h;           // face height
-      const faceCX = faceX + faceW / 2; // face center X
-      const faceCY = faceY + faceH / 2; // face center Y
-
-      // --- CROP SIZING BY FACE OCCUPANCY ---
-      // Target: face takes up X% of crop width. More stable than padding multipliers.
-      // headshot: face = ~58% of width
-      // shoulders: face = ~40% of width
-      // fullbody: face = ~18% of width
-      const targetFaceRatio = mode === 'headshot' ? 0.50 : mode === 'shoulders' ? 0.40 : 0.18;
-      let cropSize = faceW / targetFaceRatio;
-      cropSize = Math.min(cropSize, natW, natH);
-
-      // Center horizontally on face
-      let sx = faceCX - cropSize / 2;
-
-      // Vertical placement: face higher in frame for portraits
-      const faceTopRatio = mode === 'headshot' ? 0.48 : mode === 'shoulders' ? 0.30 : 0.22;
-      let sy = faceCY - cropSize * faceTopRatio;
-
-      // Clamp to image bounds
-      sx = Math.max(0, Math.min(sx, natW - cropSize));
-      sy = Math.max(0, Math.min(sy, natH - cropSize));
-
-      console.log(`[AI Crop] Face: ${Math.round(faceW)}px wide @ (${Math.round(faceCX)}, ${Math.round(faceCY)}). Crop: ${Math.round(cropSize)}px square @ (${Math.round(sx)}, ${Math.round(sy)})`);
-
-      // Crop the headshot square
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(cropSize);
-      canvas.height = Math.round(cropSize);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('No canvas context');
-      ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, canvas.width, canvas.height);
-
-      // JPEG at high quality — much smaller payload than PNG (avoids 6MB request limit)
-      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      console.log(`[AI Crop] Cropped data URL size: ${(croppedDataUrl.length / 1024).toFixed(0)}KB`);
-
-      // --- AI ENHANCEMENT — crystal-upscaler (portrait-optimized, no plastic skin) ---
-      let finalDataUrl = croppedDataUrl;
-      let aiSucceeded = false;
-      let aiErrorMsg = '';
-
-      if (!entitlements.aiTools) {
-        // TL.EDGE.2: free tier — skip the AI call entirely and take the
-        // crop-only fallback below (no network, no error toast).
-        console.log('[AI Enhance] Skipped — AI tools are a Pro feature; crop-only.');
-      } else try {
-        // TL.AI.COST.1 — the AI payload is bounded to AI_INPUT_MAX_PX on its
-        // longest edge (Replicate bills by output megapixels; see crop.ts).
-        // Only the request is bounded: croppedDataUrl stays native-resolution
-        // for the crop-only fallback below, exactly as before.
-        const aiInput = boundForAi(canvas);
-        const [hdr, b64] = aiInput.dataUrl.split(',');
-        const mt = hdr.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-        console.log(`[AI Enhance] Sending ${aiInput.width}x${aiInput.height} (${(b64.length / 1024).toFixed(0)}KB) to crystal-upscaler...`);
-
-        const { data: enhData, error: enhErr } = await supabase.functions.invoke('ai-enhance', {
-          body: { base64: b64, mediaType: mt },
-        });
-
-        if (enhErr) {
-          // Try to get the raw response from the FunctionsHttpError
-          let extra = '';
-          try {
-            // @ts-ignore - context is on FunctionsHttpError
-            const ctx = (enhErr as any).context;
-            if (ctx && typeof ctx.json === 'function') {
-              const body = await ctx.json();
-              extra = ` — ${JSON.stringify(body)}`;
-            } else if (ctx && typeof ctx.text === 'function') {
-              extra = ` — ${await ctx.text()}`;
-            }
-          } catch (_) { /* ignore */ }
-          aiErrorMsg = `${enhErr.message || enhErr.name || 'unknown'}${extra}`;
-          console.error('[AI Enhance] Supabase function error:', enhErr, 'extra:', extra);
-          throw new Error(aiErrorMsg);
-        }
-        if (!enhData?.output) {
-          aiErrorMsg = `Empty output (response: ${JSON.stringify(enhData)})`;
-          console.error('[AI Enhance] No output:', enhData);
-          throw new Error(aiErrorMsg);
-        }
-
-        // Fetch the enhanced image — crystal-upscaler returns natural-looking
-        // results, no client-side sharpening needed.
-        const enhResp = await fetch(enhData.output);
-        if (!enhResp.ok) {
-          aiErrorMsg = `Fetch enhanced image failed: ${enhResp.status}`;
-          throw new Error(aiErrorMsg);
-        }
-        const enhBlob = await enhResp.blob();
-        finalDataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(enhBlob);
-        });
-        aiSucceeded = true;
-        console.log('[AI Enhance] ✓ Success');
-      } catch (enhanceErr) {
-        console.error('[AI Enhance] FAILED — showing crop-only fallback:', enhanceErr);
-        toast.error(`AI enhancement failed${aiErrorMsg ? `: ${aiErrorMsg.slice(0, 80)}` : ''}`, { duration: 5000 });
-      }
-
-      // Show preview for user to accept or go back — with badge if AI didn't run
-      setAiPreviewData(finalDataUrl);
-      setAiPreviewEnhanced(aiSucceeded);
-      setPhotoStep('ai-preview');
+      console.log('[AI CROP] framing the face:', mode, seed);
+      setRcFaceSeed({ x: seed.x, y: seed.y, width: seed.w, height: seed.h });
+      setRcCropperKey((k) => k + 1);
+      setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
+      setPhotoStep('manual');
       return;
     } catch (err) {
       // CROP.3a error truth: log name+message and carry a concise cause hint so
       // a model-load / decode failure is distinguishable from a clean no-face.
       console.error('[AI CROP] failed:', (err as any)?.name, (err as any)?.message, err);
       toast.error(`${t('editor.aiCropFailed')} — ${t(cropErrorCauseKey(err))}`);
+      setRcFaceSeed(null);
       setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null);
       setPhotoStep('manual');
     } finally {
@@ -2762,6 +2661,7 @@ export function EditableProfileView({
     setPhotoOffset({ x: 50, y: 30 });
     setPhotoScale(1);
     setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
+    setRcFaceSeed(null);
   };
 
   // Get theme
@@ -3718,6 +3618,9 @@ export function EditableProfileView({
                       <button
                         onClick={() => {
                           setRcCrop({ x: 0, y: 0 }); setRcZoom(1); setRcAreaPixels(null); setRcAreaPercent(null);
+                          // HERO.FIT.3: a face seed is for the one return that
+                          // follows a preset press, never for a fresh open.
+                          setRcFaceSeed(null);
                           setPhotoStep('manual');
                         }}
                         className="w-full max-w-xs py-3 rounded-2xl border border-white/20 text-white/80 font-semibold text-sm"
@@ -3735,8 +3638,8 @@ export function EditableProfileView({
                   {photoStep === 'ai' && (
                     <div className="flex flex-col items-center justify-center flex-1 gap-4">
                       <div className="w-12 h-12 border-2 border-[#C9A55C] border-t-transparent rounded-full animate-spin" />
-                      <p className="text-white font-semibold">{t('editor.crop.aiProcessing')}</p>
-                      <p className="text-white/40 text-xs">{t('editor.crop.aiDetecting')}</p>
+                      <p className="text-white font-semibold">{t('editor.crop.autoFrame')}</p>
+                      <p className="text-white/40 text-xs">{t('editor.crop.findingFace')}</p>
                     </div>
                   )}
 
@@ -3809,13 +3712,18 @@ export function EditableProfileView({
                       {/* CROP.2b: react-easy-crop replaces the legacy pan/zoom interaction for the manual step */}
                       <div className="relative bg-black rounded-xl overflow-hidden w-full" style={{ height: 'min(52dvh, 460px)' }}>
                         <Cropper
+                          // HERO.FIT.3: a preset press bumps the key, so the
+                          // cropper mounts afresh on the face window.
+                          key={rcCropperKey}
                           image={photoPreview || ''}
                           crop={rcCrop}
                           zoom={rcZoom}
+                          maxZoom={HERO_CROP_MAX_ZOOM}
                           aspect={cropFrameAspect}
                           // HERO.FIT.2: read once, when the picture loads — the
-                          // PhotoCropSheet pattern.
-                          initialCroppedAreaPercentages={cropReopenArea}
+                          // PhotoCropSheet pattern. HERO.FIT.3: the face window
+                          // from a preset press, for that one return, comes first.
+                          initialCroppedAreaPercentages={rcFaceSeed ?? cropReopenArea}
                           onMediaLoaded={(media) => setRcNatural({ width: media.naturalWidth, height: media.naturalHeight })}
                           onCropChange={setRcCrop}
                           onZoomChange={setRcZoom}
@@ -3830,7 +3738,7 @@ export function EditableProfileView({
                           <input
                             type="range"
                             min={1}
-                            max={3}
+                            max={HERO_CROP_MAX_ZOOM}
                             step={0.05}
                             value={rcZoom}
                             onChange={(e) => setRcZoom(Number(e.target.value))}
@@ -3838,50 +3746,11 @@ export function EditableProfileView({
                           />
                         </div>
 
-                        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider text-center">{t('editor.crop.aiEnhance')}{!faceModelReady && ` · ${t('editor.crop.modelLoading')}`}</p>
-
-                        {/* Hero mode: 3-column AI preset grid; full-screen folds Full Body into the button row below.
-                            CROP.3a (STEP 2): disabled until the face model is loaded so the first click can't race it. */}
-                        {!isFullBleed && (
-                          <div className="grid grid-cols-3 gap-1.5">
-                            <button
-                              onClick={() => handleAiCrop('headshot')}
-                              disabled={!faceModelReady || aiProcessing}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('editor.crop.headshot')}
-                            </button>
-                            <button
-                              onClick={() => handleAiCrop('shoulders')}
-                              disabled={!faceModelReady || aiProcessing}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('editor.crop.shoulders')}
-                            </button>
-                            <button
-                              onClick={() => handleAiCrop('fullbody')}
-                              disabled={!faceModelReady || aiProcessing}
-                              className="py-2.5 rounded-lg bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-[10px] hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('editor.crop.fullBody')}
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Button row — full-screen: [Full Body] [Back] [Apply Crop]; hero: [Back] [Apply Crop] */}
-                        <div className={isFullBleed ? 'grid grid-cols-3 gap-2' : 'flex gap-2'}>
-                          {isFullBleed && (
-                            <button
-                              onClick={() => handleAiCrop('fullbody')}
-                              disabled={!faceModelReady || aiProcessing}
-                              className="py-2.5 rounded-xl bg-[#C9A55C]/10 border border-[#C9A55C]/30 text-[#C9A55C] font-semibold text-xs hover:bg-[#C9A55C]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {t('editor.crop.fullBody')}
-                            </button>
-                          )}
+                        {/* Button row — both page styles: [Back] [Apply Crop] */}
+                        <div className="flex gap-2">
                           <button
                             onClick={() => setPhotoStep('choose')}
-                            className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs`}
+                            className="flex-1 py-2.5 rounded-xl border border-white/20 text-white font-semibold text-xs"
                           >
                             {t('editor.crop.back')}
                           </button>
@@ -3926,7 +3795,7 @@ export function EditableProfileView({
                                 toast.error(`${t('editor.crop.cropFailed')} — ${t(cropErrorCauseKey(err))}`);
                               }
                             }}
-                            className={`${isFullBleed ? '' : 'flex-1 '}py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs`}
+                            className="flex-1 py-2.5 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-bold text-xs"
                           >
                             {t('editor.crop.applyCrop')}
                           </button>

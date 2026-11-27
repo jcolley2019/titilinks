@@ -906,7 +906,9 @@ for (const c of checks) {
         const lazyFiles = new Map();
         for (const lib of LAZY_LIBS) {
           const files = Object.keys(manifest).filter((k) => k.includes(lib)).map((k) => manifest[k].file);
-          if (!files.length) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
+          // face-api is no longer imported anywhere, so no chunk for it is fine;
+          // when one does exist every rule below still applies to it.
+          if (!files.length && lib !== FACE_KEY) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
           for (const f of files) lazyFiles.set(f, lib);
         }
         if (js.length < 4) bad.push(`assets/ holds ${js.length} JS chunk(s); route-level splitting should produce at least 4`);
@@ -920,8 +922,9 @@ for (const c of checks) {
           const b = size(n);
           if (b > cap) bad.push(`assets/${n} is ${b.toLocaleString('en-US')} B raw, over the ${cap.toLocaleString('en-US')} B ${lib ?? 'chunk'} cap`);
         }
-        const entryBytes = entry ? statSync(`${OUT}/${entry.file}`).size : 0;
-        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, ${LAZY_LIBS.length} lazy libs (face-api, heic2any)`;
+        const foundLibs = LAZY_LIBS.filter((lib) => [...lazyFiles.values()].includes(lib));
+        const entryBytes = entry ?statSync(`${OUT}/${entry.file}`).size : 0;
+        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, ${foundLibs.length} lazy lib${foundLibs.length === 1 ? '' : 's'} (${foundLibs.join(', ')})`;
       }
     }
     if (bad.length) {

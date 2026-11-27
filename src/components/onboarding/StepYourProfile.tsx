@@ -9,6 +9,9 @@ import type { Area } from 'react-easy-crop';
 import type { OnboardingState } from './useOnboardingWizard';
 import { prepareImage, validateImageInput } from '@/lib/prepare-image';
 import { beginAvatarUpload } from '@/lib/onboarding-upload';
+import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
+import { HERO_BOX_ASPECTS, heroDisplayRegion } from '@/lib/hero-window';
+import { writePictureFit } from '@/lib/picture-fit';
 
 interface Props {
   state: OnboardingState;
@@ -90,8 +93,17 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
   const [rawFile, setRawFile] = useState<File | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState<number>(state.pageStyle === 'full_bleed' ? 9 / 16 : 1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  // HERO.FIT.3 — the same framed area in percent of the picture (what reopens a
+  // cropper), and the picture's natural size (what the display region is cut
+  // from), exactly as the editor's crop step keeps them.
+  const [croppedAreaPercent, setCroppedAreaPercent] = useState<Area | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  // HERO.FIT.3 — the crop frame IS the shape the page shows the photo in: the
+  // hero box, or the whole screen on a full-screen page. Same source as the
+  // editor's crop step, so a crop made here and one made there are one thing.
+  const isFullBleed = state.pageStyle === 'full_bleed';
+  const cropFrameAspect = isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect();
 
   useEffect(() => {
     if (!state.displayName && user?.user_metadata?.full_name) {
@@ -166,7 +178,9 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       setModalStep('preview');
       setCrop({ x: 0, y: 0 });
       setZoom(1);
-      setAspectRatio(1);
+      setCroppedAreaPixels(null);
+      setCroppedAreaPercent(null);
+      setNaturalSize(null);
     };
     reader.readAsDataURL(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -214,11 +228,21 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       updateField('avatarOriginalFile', originalFile);
       kickOffUpload(processedFile, originalFile);
       const reader = new FileReader();
-      reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+      reader.onloadend = () => showPhoto(reader.result as string, null, null);
       reader.readAsDataURL(processedFile);
     } finally {
       setCompressing(false);
     }
+  };
+
+  // HERO.FIT.3 — the photo on screen and the window that frames it change in
+  // ONE update: a window belongs to exactly one display file, so the preview
+  // must never paint the new file under the old window (or the reverse). An
+  // uncropped photo carries no window.
+  const showPhoto = (preview: string, avatarWindow: unknown, avatarWindowSource: unknown) => {
+    updateField('avatarPreview', preview);
+    updateField('avatarWindow', avatarWindow);
+    updateField('avatarWindowSource', avatarWindowSource);
   };
 
   const handleApplyCrop = async () => {
@@ -226,7 +250,23 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
     setCompressing(true);
     setModalStep('none');
     try {
-      const croppedFile = await getCroppedImage(rawImageSrc, croppedAreaPixels);
+      // HERO.FIT.3 — what the editor's Apply Crop does: the display file is the
+      // framed area plus only the margin other screen shapes can show, and the
+      // framed WINDOW is stored against that file, so the page paints exactly
+      // what was framed here on every screen. Same engine, cap and encoding.
+      const display = heroDisplayRegion(croppedAreaPixels, naturalSize, HERO_BOX_ASPECTS[isFullBleed ? 'full_bleed' : 'hero']);
+      const avatarWindow = display && writePictureFit(null, { mode: 'crop', crop: display.window, aspect: cropFrameAspect });
+      if (!display || !avatarWindow) throw new Error('Crop failed');
+      // The same framed area over the kept original (the uncropped pick), to
+      // reopen the cropper on.
+      const avatarWindowSource = croppedAreaPercent
+        ? writePictureFit(null, {
+            mode: 'crop',
+            crop: { x: croppedAreaPercent.x, y: croppedAreaPercent.y, w: croppedAreaPercent.width, h: croppedAreaPercent.height },
+            aspect: cropFrameAspect,
+          })
+        : null;
+      const croppedFile = await getCroppedImage(rawImageSrc, display.region);
       updateField('avatarFile', croppedFile);
       // TL.ONB.PHOTO.1 — the ORIGINAL is the uncropped pick, exactly as the
       // editor stores photoOriginalFile beside its crop.
@@ -237,7 +277,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       }
       kickOffUpload(croppedFile, originalFile);
       const reader = new FileReader();
-      reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+      reader.onloadend = () => showPhoto(reader.result as string, avatarWindow, avatarWindowSource);
       reader.readAsDataURL(croppedFile);
     } catch (err) {
       // CROP.3a error truth: log the real cause (name+message), tell the user
@@ -250,27 +290,13 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
         updateField('avatarOriginalFile', rawFile);
         kickOffUpload(rawFile, rawFile);
         const reader = new FileReader();
-        reader.onloadend = () => updateField('avatarPreview', reader.result as string);
+        reader.onloadend = () => showPhoto(reader.result as string, null, null);
         reader.readAsDataURL(rawFile);
       }
     } finally {
       setCompressing(false);
     }
   };
-
-  // ONB.7e: a full-screen background is a portrait phone canvas —
-  // crop 9:16 (Free as escape hatch). Hero keeps the original set.
-  const aspectRatioOptions = state.pageStyle === 'full_bleed'
-    ? [
-        { label: '9:16', value: 9 / 16 },
-        { label: 'Free', value: 0 },
-      ]
-    : [
-        { label: 'Square', value: 1 },
-        { label: 'Free', value: 0 },
-        { label: '4:3', value: 4 / 3 },
-        { label: '3:2', value: 3 / 2 },
-      ];
 
   const avatarSrc = state.avatarPreview || user?.user_metadata?.avatar_url || null;
   const initials = state.displayName
@@ -536,30 +562,6 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
               </button>
             </div>
             <div className="p-4 space-y-4">
-              {/* Aspect ratio */}
-              <div className="space-y-2">
-                <p className="text-xs text-white/50 font-body">{t('onboardingFlow.aspectRatio')}</p>
-                <div className="flex gap-2 flex-wrap">
-                  {aspectRatioOptions.map((opt) => (
-                    <button
-                      key={opt.label}
-                      type="button"
-                      onClick={() => setAspectRatio(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-body border transition-all ${
-                        aspectRatio === opt.value
-                          ? 'border-[#C9A55C] bg-[#C9A55C]/10 text-[#C9A55C]'
-                          : 'border-white/10 text-white/60 hover:border-white/20'
-                      }`}
-                    >
-                      {opt.label === 'Free'
-                        ? t('onboardingFlow.aspectFree')
-                        : opt.label === 'Square'
-                        ? t('onboardingFlow.aspectSquare')
-                        : opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               {/* Zoom */}
               <div className="space-y-2">
                 <p className="text-xs text-white/50 font-body">{t('onboardingFlow.zoomLevel').replace('{value}', zoom.toFixed(1))}</p>
@@ -573,31 +575,40 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
                   className="w-full accent-[#C9A55C]"
                 />
               </div>
-              {/* Crop area */}
-              <div className="relative bg-black rounded-xl overflow-hidden" style={{ height: '240px' }}>
+              {/* Crop area. HERO.FIT.3: the frame is the hero's own portrait
+                  shape, so the box takes all the height the screen can spare:
+                  the viewport less everything else in this modal (its 96px of
+                  outer padding, the header, the zoom row, the button row and
+                  the gaps between them: 320px in all), so Apply Crop stays on
+                  screen on a short phone. */}
+              <div className="relative bg-black rounded-xl overflow-hidden" style={{ height: 'clamp(180px, calc(100dvh - 320px), 520px)' }}>
                 <Cropper
                   image={rawImageSrc}
                   crop={crop}
                   zoom={zoom}
-                  aspect={aspectRatio === 0 ? undefined : aspectRatio}
+                  aspect={cropFrameAspect}
+                  onMediaLoaded={(media) => setNaturalSize({ width: media.naturalWidth, height: media.naturalHeight })}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
-                  onCropComplete={(_, areaPixels) => setCroppedAreaPixels(areaPixels)}
+                  onCropComplete={(areaPercent, areaPixels) => { setCroppedAreaPixels(areaPixels); setCroppedAreaPercent(areaPercent); }}
                 />
               </div>
-              {/* Buttons */}
-              <button
-                onClick={() => setModalStep('preview')}
-                className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body hover:bg-white/10 transition-colors"
-              >
-                {t('onboardingFlow.back')}
-              </button>
-              <button
-                onClick={handleApplyCrop}
-                className="w-full py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
-              >
-                {t('onboardingFlow.applyCrop')}
-              </button>
+              {/* Buttons — one row, as the editor's crop step has them: stacked,
+                  they took 64px of crop height a short phone cannot spare. */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setModalStep('preview')}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body hover:bg-white/10 transition-colors"
+                >
+                  {t('onboardingFlow.back')}
+                </button>
+                <button
+                  onClick={handleApplyCrop}
+                  className="flex-1 py-3 rounded-xl bg-[#C9A55C] text-[#0e0c09] font-semibold font-body hover:opacity-90 transition-opacity"
+                >
+                  {t('onboardingFlow.applyCrop')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -344,8 +344,19 @@ export default function OnboardingFlow() {
         // keeps its theme: the step-3 state there is onboarding defaults, not
         // a choice, and writing it replaced a finished creator's whole design.
         if (state.pageCreatedInWizard) {
-          const { error: themeError } = await supabase.from('pages').update({
+          // HERO.FIT.3b — the photo and its window travel together. A photo
+          // changed after going Back must reach the page, and a window made for
+          // the new file must never land over the old one. With no uploaded URL
+          // neither column is touched and the theme carries no window. Never a
+          // data: URL.
+          const uploadedUrl = state.avatarUploadedUrl;
+          const hasUpload = typeof uploadedUrl === 'string' && /^https?:\/\//i.test(uploadedUrl);
+          const { error: themeError } = await supabase.from('pages').update(hasUpload ? {
             theme_json: themeJson,
+            avatar_url: uploadedUrl,
+            avatar_original_url: state.avatarOriginalUrl || null,
+          } : {
+            theme_json: buildOnboardingTheme({ ...state, avatarWindow: null, avatarWindowSource: null }),
           }).eq('id', existingPage.id);
           if (themeError) throw themeError;
         }
