@@ -171,8 +171,8 @@ export function bakeEnhance(canvas: PixelCanvas, request: EnhanceRequest): HeroE
   return { strength: request.strength, params };
 }
 
-/** The long side of a preview copy. */
-export const ENHANCE_PREVIEW_PX = 800;
+/** The long side of the photo editor's enhanced copy. */
+export const ENHANCE_COPY_PX = 1600;
 
 /** A canvas as an object URL (the caller revokes it). */
 const canvasObjectUrl = (canvas: HTMLCanvasElement): Promise<string> =>
@@ -185,30 +185,25 @@ const canvasObjectUrl = (canvas: HTMLCanvasElement): Promise<string> =>
   });
 
 /**
- * The preview copies of `region` of a decoded picture, at most ENHANCE_PREVIEW_PX
- * on the long side: as it is (`plain`), and — when asked — enhanced the way a
- * bake would (`enhanced`, with the `params` it was painted with). Object URLs;
- * the caller revokes them. Null when the browser gives no 2D canvas.
+ * PHOTO.EDITOR.1 — the enhanced copy the photo editor shows in its cropper: the
+ * WHOLE picture (the same aspect), at most ENHANCE_COPY_PX on the long side,
+ * enhanced the way a bake would. Given `params`, those numbers are painted;
+ * without them the copy is analysed on `framed` — the area framed when the
+ * switch was turned on, in percent of the picture — or whole when there is
+ * none. An object URL (the caller revokes it) and the params it was painted
+ * with, which the bake then paints too. Null when the browser gives no 2D canvas.
  */
-export async function enhancePreviewCopies(
-  image: CanvasImageSource,
-  region: { x: number; y: number; width: number; height: number },
-  request: EnhanceRequest | null,
-): Promise<{ plain: string; enhanced: string | null; params: EnhanceParams | null } | null> {
-  const scale = Math.min(1, ENHANCE_PREVIEW_PX / Math.max(region.width, region.height));
+export async function enhancedCopy(
+  image: HTMLImageElement,
+  request: EnhanceRequest,
+): Promise<{ url: string; params: EnhanceParams } | null> {
+  const scale = Math.min(1, ENHANCE_COPY_PX / Math.max(image.naturalWidth, image.naturalHeight));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(region.width * scale));
-  canvas.height = Math.max(1, Math.round(region.height * scale));
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
-  ctx.drawImage(image, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
-  const plain = await canvasObjectUrl(canvas);
-  if (!request) return { plain, enhanced: null, params: null };
-  try {
-    const { params } = bakeEnhance(canvas, request);
-    return { plain, enhanced: await canvasObjectUrl(canvas), params };
-  } catch (err) {
-    URL.revokeObjectURL(plain);
-    throw err;
-  }
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const { params } = bakeEnhance(canvas, request);
+  return { url: await canvasObjectUrl(canvas), params };
 }

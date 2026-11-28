@@ -35,8 +35,19 @@ const checks = [
     absent:[/heroFadeColor/,
       /gradient\([^)\n]*\btransparent\b[^,)\n]*,\s*\$\{(?!heroBgValue\})/, /gradient\([^)\n]*\$\{(?!heroBgValue\})[^}\n]*\}[^,)\n]*,\s*transparent\b/,
       /\bmaskImage:[\s\S]*\bmaskImage:/, /const heroPanelPaint[^;]*[mM]askImage/] },
-  { name:'OVERLAY-CENTER', file:'components/EditableProfileView.tsx',
-    needs:[/items-center\s+justify-center\s+flex-1\s+p-6\s+gap-4\s+overflow-y-auto/] },
+  // PHOTO.EDITOR.1 re-lock: the hero photo overlay this rule pinned (the Edit
+  // Photo screen's centred column in EditableProfileView) is now the ONE photo
+  // editor, shell included, in HeroPhotoEditor.tsx. Same rule, new home: a
+  // full-screen layer on the same backdrop and z-order, its column centred
+  // (full width on a phone, at most 440px wider than 480px), and no second
+  // hero photo dialog growing back in EditableProfileView.
+  { name:'OVERLAY-CENTER', file:'components/HeroPhotoEditor.tsx',
+    needs:[/data-hero-photo-dialog=""/,
+      /fixed\s+inset-0\s+z-\[130\]\s+flex\s+flex-col\s+items-center\s+bg-black\/95/,
+      /flex\s+flex-col\s+w-full\s+min-\[481px\]:max-w-\[440px\]\s+flex-1\s+min-h-0/] },
+  { name:'OVERLAY-ONE-HOME', file:'components/EditableProfileView.tsx',
+    needs:[/<HeroPhotoEditor\b/],
+    absent:[/data-hero-photo-dialog/, /from 'react-easy-crop'/] },
   { name:'HERO-MT6', file:'pages/Editor.tsx',
     needs:[/lg:hidden -mx-4 -mt-6 min-h-screen bg-\[#0e0c09\]/] },
   { name:'STICKY-EDITOR-TOP', file:'pages/Editor.tsx',

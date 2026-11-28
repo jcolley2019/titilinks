@@ -270,7 +270,7 @@ const areaAt = (x, y) => areaPixels[y * AREA_W + x];
   assert.equal(loadHeroEnhanceCanvas(), first, 'the load is cached: one promise');
   const mod = await first;
   assert.equal(mod.analyzeForEnhance, canvasWork.analyzeForEnhance, 'it resolves to the canvas module');
-  for (const name of ['analyzeForEnhance', 'enhanceCanvas', 'bakeEnhance', 'enhancePreviewCopies', 'downsampleRgba']) {
+  for (const name of ['analyzeForEnhance', 'enhanceCanvas', 'bakeEnhance', 'enhancedCopy', 'downsampleRgba']) {
     assert.equal(typeof mod[name], 'function', `the canvas module exports ${name}`);
   }
 

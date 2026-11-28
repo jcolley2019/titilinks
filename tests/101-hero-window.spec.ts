@@ -13,12 +13,20 @@
 //      framed rectangle alone, and not the whole picture;
 //   3. framed == shown in the editor (default preset) and on public 402×874;
 //   4. on public 393×659 and 375×553 the framed window is still whole;
-//   5. the pencil's choose step previews the window the page shows, and Crop
-//      Image reopens on the framed window;
-//   6. a no-crop Save of a new pick drops both window keys;
+//   5. the pencil reopens the photo editor on the kept original, on the framed
+//      window; OK or X with nothing touched sends no request that writes;
+//   6. OK straight after a new pick stores the zoom-1 centred window (and no
+//      windowSource when the original did not upload), over a stale window;
 //   7. a full-screen page: 1 and 3 with the full-screen frame;
-//   8. a page with no window paints exactly what d4801ba painted (the inline
-//      style and data-hero-framing recorded at Stage 0, before any change).
+//   8. identity: a hero stored with Fit, one with Fill + posY and no window, one
+//      with a window, and a full-screen page paint exactly what they painted
+//      before PHOTO.EDITOR.1 (the inline style and data-hero-framing recorded
+//      on the unchanged source);
+//   9. a pick opens the photo editor directly, in English and in Spanish: no
+//      Fill, Fit, position slider, Crop Image, Back or Apply Crop.
+//
+// PHOTO.EDITOR.1: the two-step dialog (Edit Photo, then Crop Image) is ONE
+// screen, src/components/HeroPhotoEditor.tsx — "Apply Crop" above is its OK.
 //
 // Built the way HERO.FIT.0 measured. Battery account; the `pages` /
 // `pages_public` reads are the real row with the hero stamped on; EVERY write is
@@ -38,8 +46,9 @@ import { translations } from '../src/hooks/useLanguage';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 import { HERO_BOX_ASPECTS, heroDisplayRegion } from '../src/lib/hero-window';
 import { pictureFitSeed, writePictureFit } from '../src/lib/picture-fit';
+import { heroDialog, editorZoom, editorOk, editorNewPhoto, photoEditorReady } from './helpers/hero-window-harness';
 
-const EN = translations.en;
+const EN = translations.en as Record<string, string>;
 const SUPA = 'https://ohmvlypcbrfkuudcuqub.supabase.co';
 const AVATARS = `${SUPA}/storage/v1/object/public/avatars/`;
 const FIX_DIR = `${PINNED_TEST_USER_ID}/herofit2`;
@@ -62,6 +71,8 @@ type Harness = {
   patches: Record<string, unknown>[];
   uploads: { path: string; type: string; size: number }[];
   deletes: unknown[];
+  /** Refuse the kept ORIGINAL's upload (the display copy still lands). */
+  failOriginal?: boolean;
 };
 
 const wantsObject = (route: Route) =>
@@ -191,6 +202,7 @@ async function install(page: Page, h: Harness) {
     }
     if (req.method() !== 'POST') return route.fallback();
     const path = decodeURIComponent(new URL(req.url()).pathname.split('/storage/v1/object/avatars/')[1]);
+    if (h.failOriginal && path.includes('-original.')) return asJson(route, { error: 'refused by the spec' }, 500);
     const got = await page.evaluate(
       (p) => (window as unknown as { __heroUploads: Record<string, { b64: string; type: string }> }).__heroUploads?.[p] ?? null,
       path,
@@ -329,7 +341,7 @@ async function openPublic(page: Page, vp: { width: number; height: number }) {
   await page.waitForLoadState('networkidle');
 }
 
-const overlay = (page: Page) => page.locator('div[class*="z-[130]"]');
+const overlay = heroDialog;
 
 /** The framed window in the open cropper, in percent of its picture. ONE read. */
 const framedInCropper = (page: Page): Promise<Win> => page.evaluate(() => {
@@ -361,14 +373,12 @@ const pickRuler = (page: Page) => page
   .first()
   .setInputFiles({ name: 'ruler.png', mimeType: 'image/png', buffer: rulerPng() });
 
-/** Pick the ruler → Crop Image → zoom 1.5 → drag (+40, −60) → Apply Crop. */
+/** Pick the ruler → the photo editor → zoom 1.5 → drag (+40, −60) → OK. */
 async function cropAndApply(page: Page, h: Harness): Promise<Win> {
   await pickRuler(page);
-  await expect(page.getByTestId('hero-photo-preview')).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('button', { name: EN['editor.cropImage'] }).click();
-  await cropperReady(page);
+  await photoEditorReady(page);
   // Spec 41's slider driver: React listens for `input`, so set the value natively.
-  await overlay(page).locator('input[type=range]').evaluate((el) => {
+  await editorZoom(page).evaluate((el) => {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
     setter.call(el, '1.5');
     el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -395,7 +405,7 @@ async function cropAndApply(page: Page, h: Harness): Promise<Win> {
   await page.waitForTimeout(500);
   const framed = await framedInCropper(page);
   const before = h.patches.length;
-  await page.getByRole('button', { name: EN['editor.crop.applyCrop'] }).click();
+  await editorOk(page).click();
   await expect.poll(() => h.patches.length, { timeout: 60_000, message: 'the pages PATCH was captured' }).toBeGreaterThan(before);
   await expect(overlay(page)).toHaveCount(0, { timeout: 15_000 });
   return framed;
@@ -558,11 +568,29 @@ const STAGE0 = {
   widths: { hero: '402w,804w,1206w', full_bleed: '480w,960w,1440w' },
 } as const;
 
+// PHOTO.EDITOR.1: the same recording for two more heroes, made on the unchanged
+// source (7f018df) — a hero stored with Fit, and one stored with a window.
+const PE1_WINDOW = writePictureFit(null, {
+  mode: 'crop',
+  crop: { x: 12, y: 8, w: 60, h: (60 * SRC.width) / (canonicalHeroAspect() * SRC.height) },
+  aspect: canonicalHeroAspect(),
+});
+const PE1_IDENTITY = {
+  desktop: {
+    fit: { style: 'position: absolute; width: 82.4212%; height: 100%; object-fit: fill; left: 8.78939%; top: 0%; max-width: none;', attr: '1.00;50;25;fit;82.4,100.0,8.8,0.0', sizes: '(min-width: 768px) 402px, min(100vw, 640px)', widths: '402w,804w,1206w' },
+    window: { style: 'position: absolute; width: 166.667%; height: 202.213%; object-fit: fill; left: -20%; top: -16.1771%; max-width: none;', attr: '1.67;30;16;fill;166.7,202.2,-20.0,-16.2', sizes: '(min-width: 768px) 670px, calc(min(100vw, 640px) * 1.667)', widths: '670w,1340w,2010w' },
+  },
+  mobile: {
+    fit: { style: 'position: absolute; width: 82.421227%; height: 100%; object-fit: fill; left: 8.789386%; top: 0%; max-width: none;', attr: '1.00;50;25;fit;82.4,100.0,8.8,0.0', sizes: '(min-width: 768px) 402px, min(100vw, 640px)', widths: '402w,804w,1206w' },
+    window: { style: 'position: absolute; width: 166.666667%; height: 202.21328%; object-fit: fill; left: -20%; top: -16.177062%; max-width: none;', attr: '1.67;30;16;fill;166.7,202.2,-20.0,-16.2', sizes: '(min-width: 768px) 670px, calc(min(100vw, 640px) * 1.667)', widths: '670w,1340w,2010w' },
+  },
+} as const;
+
 test.describe('HERO.FIT.2 — the hero stores its framed window', () => {
   // An editor crop on the mobile project (WebKit at 3×) is slow, not flaky.
   test.setTimeout(240_000);
 
-  test('1. Apply Crop writes the window, Fill, centred, and drops a stale scale and posX', async ({ page }) => {
+  test('1. OK after a drag and a zoom writes the window, Fill, centred, and drops a stale scale and posX', async ({ page }) => {
     const flow = await cropFlow(page, 'hero');
     expect(heroConfigOf({ theme_json: { heroConfig: START_CONFIG } }).scale, 'control: the config started with a scale').toBe(1.2);
     expectWindowPatch(flow, 'hero');
@@ -617,79 +645,100 @@ test.describe('HERO.FIT.2 — the hero stores its framed window', () => {
     }
   });
 
-  test('5. the pencil previews what the page shows, and Crop Image reopens on the framed window', async ({ page }) => {
+  test('5. the pencil reopens on the kept original and the framed window; OK or X with nothing touched writes nothing', async ({ page }) => {
     const { flow, h } = await resume(page, 'hero');
     const displayName = h.avatarUrl!.split('/').pop()!;
     const originalName = h.originalUrl!.split('/').pop()!;
+    // Every request that could write, whatever it is aimed at.
+    const writes: string[] = [];
+    page.on('request', (req) => {
+      const u = req.url();
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method()) && /\/(rest|storage)\/v1\//.test(u) && !u.includes('/rpc/')) {
+        writes.push(`${req.method()} ${new URL(u).pathname}`);
+      }
+    });
     const frame = await openEditor(page);
     const onPage = shownInSource(await heroSettled(page, 'hero', FRAME, displayName), flow.region);
+    expectWin(onPage, flow.framed, 'control: the page shows the framed window');
+    // The editor page seeds its default blocks as it loads (swallowed by the
+    // harness): only what happens from the pencil on is the photo editor's.
+    await page.waitForTimeout(1_000);
+    writes.length = 0;
 
-    await frame.getByTitle(EN['editor.editCurrentPhoto']).first().click();
-    const preview = page.getByTestId('hero-photo-preview');
-    await expect(preview).toBeVisible({ timeout: 15_000 });
-    await expect.poll(
-      () => preview.evaluate((el) => {
-        const i = el.querySelector('img') as HTMLImageElement;
-        return i.complete && i.naturalWidth > 0 && !(el.getAttribute('data-hero-framing') || 'pending').includes('pending');
-      }),
-      { timeout: 30_000, message: 'the choose preview decoded and framed' },
-    ).toBe(true);
-    await page.waitForTimeout(500);
-    // The preview paints the page's own display file — never the kept original.
-    const pv = await preview.evaluate((el) => {
-      const b = el.getBoundingClientRect();
-      const img = el.querySelector('img') as HTMLImageElement;
-      const i = img.getBoundingClientRect();
-      // The picture is positioned in the padding box (the box has a border).
-      const left = b.left + el.clientLeft, top = b.top + el.clientTop;
-      return {
-        box: { x: left, y: top, w: el.clientWidth, h: el.clientHeight },
-        img: { x: i.left, y: i.top, w: i.width, h: i.height },
-        src: img.getAttribute('src') || '',
-      };
+    for (const leave of ['ok', 'x'] as const) {
+      await frame.getByTitle(EN['editor.editCurrentPhoto']).first().click();
+      await photoEditorReady(page);
+      // The cropper's picture is the kept original, on the framed window.
+      expect(await page.locator('.reactEasyCrop_Image').getAttribute('src'), 'the cropper holds the kept original').toContain(originalName);
+      expectWin(await framedInCropper(page), flow.framed, 'the cropper reopened on the framed window');
+      if (leave === 'ok') await editorOk(page).click();
+      else await overlay(page).getByRole('button', { name: EN['editor.cancel'], exact: true }).click();
+      await expect(overlay(page), `${leave}: the editor closed`).toHaveCount(0, { timeout: 15_000 });
+      await page.waitForTimeout(1_500);
+      expect(writes, `${leave}: no request that writes`).toEqual([]);
+      expect(h.patches, `${leave}: no pages PATCH`).toHaveLength(0);
+      expect(h.uploads, `${leave}: no upload`).toHaveLength(0);
+      expect(h.deletes, `${leave}: nothing deleted`).toHaveLength(0);
+    }
+    // …and the page still shows what it showed.
+    expectWin(shownInSource(await heroSettled(page, 'hero', FRAME, displayName), flow.region), flow.framed, 'the canvas is unchanged');
+  });
+
+  for (const failOriginal of [false, true]) {
+    test(`6${failOriginal ? 'b' : ''}. OK straight after a new pick stores the zoom-1 centred window${failOriginal ? ', alone when the original does not upload' : ' and windowSource'}`, async ({ page }) => {
+      // A page that already stores both keys (written the way the app writes
+      // them) and a stale scale: none of it survives a new pick.
+      const stored = writePictureFit(null, { mode: 'crop', crop: { x: 8, y: 2, w: 70, h: 96 }, aspect: canonicalHeroAspect() });
+      const h = newHarness('hero', { fit: 'fit', posX: 30, posY: 40, scale: 1.2, window: stored, windowSource: stored });
+      h.failOriginal = failOriginal;
+      h.files.set(PLACARD, { body: rulerPng(), type: 'image/png' });
+      h.avatarUrl = `${AVATARS}${PLACARD}`;
+      await install(page, h);
+      await openEditor(page);
+      await pickRuler(page);
+      await photoEditorReady(page);
+      await expect(editorZoom(page), 'the editor opens at zoom 1').toHaveValue('1');
+      // Zoom 1, centred: the largest window of the frame's shape, in the middle.
+      const frameH = (100 * SRC.width) / (canonicalHeroAspect() * SRC.height);
+      const centred: Win = { x: 0, y: (100 - frameH) / 2, w: 100, h: frameH };
+      const framed = await framedInCropper(page);
+      expectWin(framed, centred, 'the editor opens on the zoom-1 centred window');
+      await editorOk(page).click();
+      await expect.poll(() => h.patches.length, { timeout: 60_000, message: 'the pages PATCH was captured' }).toBe(1);
+      await expect(overlay(page)).toHaveCount(0, { timeout: 15_000 });
+
+      const cfg = heroConfigOf(h.patches[0]);
+      expect(cfg.fit, 'every save is Fill').toBe('fill');
+      expect(cfg.posX).toBe(50);
+      expect(cfg.posY).toBe(50);
+      expect(Object.keys(cfg), 'a stale scale does not ride on').not.toContain('scale');
+      expect(cfg.window, 'the window is stored').toBeTruthy();
+      expect(cfg.window, 'not the window the page stored before').not.toEqual(stored);
+      // The upload is the region heroDisplayRegion gives for that area.
+      const display = h.files.get(objectPath(h.patches[0].avatar_url as string))!;
+      const held = await decodeRuler(page, display);
+      const want = heroDisplayRegion(
+        { x: (framed.x / 100) * SRC.width, y: (framed.y / 100) * SRC.height, width: (framed.w / 100) * SRC.width, height: (framed.h / 100) * SRC.height },
+        SRC, HERO_BOX_ASPECTS.hero,
+      )!.region;
+      expectWin(pct(held), pct({ x0: want.x, x1: want.x + want.width, y0: want.y, y1: want.y + want.height }), 'the display file is the region for the centred area');
+      // The stored window, through that file, is the centred area.
+      const overFile = pictureFitSeed(cfg.window, canonicalHeroAspect()).crop!;
+      const W = held.x1 - held.x0, H = held.y1 - held.y0;
+      expectWin(pct({
+        x0: held.x0 + (overFile.x / 100) * W, x1: held.x0 + ((overFile.x + overFile.w) / 100) * W,
+        y0: held.y0 + (overFile.y / 100) * H, y1: held.y0 + ((overFile.y + overFile.h) / 100) * H,
+      }), centred, 'window, through the display file, == the centred area');
+      if (failOriginal) {
+        expect(Object.keys(cfg), 'no windowSource without a kept original').not.toContain('windowSource');
+        expect(h.patches[0].avatar_original_url, 'no original column without an upload').toBeUndefined();
+        expect(h.uploads.map((u) => (u.path.includes('-original.') ? 'original' : 'display'))).toEqual(['display']);
+      } else {
+        expectWin(pictureFitSeed(cfg.windowSource, canonicalHeroAspect()).crop!, centred, 'windowSource == the centred area');
+        expect(h.uploads.map((u) => (u.path.includes('-original.') ? 'original' : 'display')).sort()).toEqual(['display', 'original']);
+      }
     });
-    expect(pv.src, 'the preview is the display file').toContain(displayName);
-    expect(pv.src, 'the preview is not the kept original').not.toContain('-original');
-    const previewShows = shownInSource({ ...pv, attr: null, style: null, srcset: null, sizes: null, ready: true }, flow.region);
-    expectWin(previewShows, onPage, 'the choose preview == the page');
-    expectWin(previewShows, flow.framed, 'the choose preview == framed');
-    // The position slider is off, and says why.
-    await expect(overlay(page).locator('input[type=range]')).toBeDisabled();
-    await expect(overlay(page).getByText(EN['editor.hero.posCropped'])).toBeVisible();
-
-    // Crop Image: the cropper's picture is the kept original, on the framed window.
-    await page.getByRole('button', { name: EN['editor.cropImage'] }).click();
-    await cropperReady(page);
-    expect(await page.locator('.reactEasyCrop_Image').getAttribute('src'), 'the cropper holds the kept original').toContain(originalName);
-    expectWin(await framedInCropper(page), flow.framed, 'the cropper reopened on the framed window');
-    expect(h.patches, 'opening the dialog writes nothing').toHaveLength(0);
-  });
-
-  test('6. a no-crop Save of a new pick sends a config with neither window key', async ({ page }) => {
-    // A page that already stores both keys (written the way the app writes
-    // them), so this proves they are REMOVED, not merely never added.
-    const stored = writePictureFit(null, { mode: 'crop', crop: { x: 8, y: 2, w: 70, h: 96 }, aspect: canonicalHeroAspect() });
-    const h = newHarness('hero', { fit: 'fill', posX: 50, posY: 50, window: stored, windowSource: stored });
-    h.files.set(PLACARD, { body: rulerPng(), type: 'image/png' });
-    h.avatarUrl = `${AVATARS}${PLACARD}`;
-    await install(page, h);
-    await openEditor(page);
-    await pickRuler(page);
-    await expect(page.getByTestId('hero-photo-preview')).toBeVisible({ timeout: 30_000 });
-    // A new pick is positioned by the sliders, as before: nothing is locked.
-    await expect(overlay(page).locator('input[type=range]')).toBeEnabled();
-    await overlay(page).getByRole('button', { name: EN['editor.hero.save'], exact: true }).click();
-    await expect.poll(() => h.patches.length, { timeout: 60_000, message: 'the pages PATCH was captured' }).toBe(1);
-    const cfg = heroConfigOf(h.patches[0]);
-    expect(Object.keys(cfg)).not.toContain('window');
-    expect(Object.keys(cfg)).not.toContain('windowSource');
-    expect(cfg.fit).toBe('fill');
-    expect(typeof cfg.posY).toBe('number');
-    // The whole picture, bounded — today's un-cropped output path.
-    const display = h.files.get(objectPath(h.patches[0].avatar_url as string))!;
-    const held = await decodeRuler(page, display);
-    expectWin(pct(held), { x: 0, y: 0, w: 100, h: 100 }, 'the un-cropped display file is the whole picture');
-  });
+  }
 
   test('7. a full-screen page: the window is written and framed == shown', async ({ page }) => {
     const flow = await cropFlow(page, 'full_bleed');
@@ -705,29 +754,80 @@ test.describe('HERO.FIT.2 — the hero stores its framed window', () => {
     expectWin(shownInSource(await heroSettled(page, 'full_bleed', '', name), flow.region), flow.framed, 'public 402×874');
   });
 
-  test('8. identity: a page with no window paints exactly what it painted before', async ({ page }, testInfo) => {
+  test('8. identity: Fit, Fill + posY, a window and a full-screen page paint exactly what they painted before', async ({ page }, testInfo) => {
     const styles = testInfo.project.name === 'mobile' ? STAGE0.mobile : STAGE0.desktop;
-    for (const style of ['hero', 'full_bleed'] as Style[]) {
-      const h = newHarness(style, { fit: 'fill', posY: 25 });
+    const recorded = testInfo.project.name === 'mobile' ? PE1_IDENTITY.mobile : PE1_IDENTITY.desktop;
+    const heroes: { id: 'fit' | 'window' | 'hero' | 'full_bleed'; style: Style; cfg: Record<string, unknown> }[] = [
+      { id: 'hero', style: 'hero', cfg: { fit: 'fill', posY: 25 } },
+      { id: 'full_bleed', style: 'full_bleed', cfg: { fit: 'fill', posY: 25 } },
+      { id: 'fit', style: 'hero', cfg: { fit: 'fit', posY: 25 } },
+      { id: 'window', style: 'hero', cfg: { fit: 'fill', posX: 50, posY: 50, window: PE1_WINDOW } },
+    ];
+    for (const hero of heroes) {
+      const { style, id } = hero;
+      const h = newHarness(style, hero.cfg);
       const name = 'identity-ruler.png';
       h.files.set(`${FIX_DIR}/${name}`, { body: rulerPng(), type: 'image/png' });
       h.avatarUrl = `${AVATARS}${FIX_DIR}/${name}`;
       await page.unrouteAll({ behavior: 'ignoreErrors' });
       await install(page, h);
+      const want = id === 'fit' || id === 'window'
+        ? recorded[id]
+        : { style: styles[id], attr: STAGE0.attr[id], sizes: STAGE0.sizes[id], widths: STAGE0.widths[id] };
 
       await openPublic(page, { width: 402, height: 874 });
       const pub = await heroSettled(page, style, '', name);
-      expect(pub.style, `${style} · public · inline style`).toBe(styles[style]);
-      expect(pub.attr, `${style} · public · data-hero-framing`).toBe(STAGE0.attr[style]);
-      expect(pub.sizes, `${style} · public · sizes`).toBe(STAGE0.sizes[style]);
-      expect((pub.srcset || '').split(', ').map((c) => c.split(' ').pop()).join(','), `${style} · public · srcset widths`).toBe(STAGE0.widths[style]);
+      expect(pub.style, `${id} · public · inline style`).toBe(want.style);
+      expect(pub.attr, `${id} · public · data-hero-framing`).toBe(want.attr);
+      expect(pub.sizes, `${id} · public · sizes`).toBe(want.sizes);
+      expect((pub.srcset || '').split(', ').map((c) => c.split(' ').pop()).join(','), `${id} · public · srcset widths`).toBe(want.widths);
 
       await openEditor(page);
       const editor = await heroSettled(page, style, FRAME, name);
-      expect(editor.style, `${style} · editor · inline style`).toBe(styles[style]);
-      expect(editor.attr, `${style} · editor · data-hero-framing`).toBe(STAGE0.attr[style]);
-      expect(editor.srcset, `${style} · editor · no srcset`).toBeNull();
-      expect(h.patches, 'a no-window page writes nothing').toHaveLength(0);
+      expect(editor.style, `${id} · editor · inline style`).toBe(want.style);
+      expect(editor.attr, `${id} · editor · data-hero-framing`).toBe(want.attr);
+      expect(editor.srcset, `${id} · editor · no srcset`).toBeNull();
+      expect(h.patches, 'looking at a page writes nothing').toHaveLength(0);
     }
   });
+
+  for (const lang of ['en', 'es'] as const) {
+    test(`9. a pick opens the photo editor directly · ${lang}: zoom, New photo and OK — no Fill, Fit, position slider, Crop Image, Back or Apply Crop`, async ({ page }) => {
+      const T = translations[lang] as Record<string, string>;
+      await page.addInitScript((l) => { try { window.localStorage.setItem('titilinks-language', l); } catch { /* storage disabled */ } }, lang);
+      // The app syncs a chosen language to the profile: answered here, never sent.
+      await page.route('**/rest/v1/rpc/set_my_language*', (route) => route.fulfill({ status: 204, body: '' }));
+      const h = newHarness('hero', { fit: 'fill', posY: 25 });
+      h.files.set(PLACARD, { body: rulerPng(), type: 'image/png' });
+      h.avatarUrl = `${AVATARS}${PLACARD}`;
+      await install(page, h);
+      await openEditor(page);
+      await pickRuler(page);
+      // ONE screen, straight away: the cropper is up with no step in between.
+      await photoEditorReady(page);
+      const dlg = overlay(page);
+      await expect(dlg).toHaveCount(1);
+      await expect(dlg.getByText(T['editor.editPhoto'], { exact: true }), 'the header').toBeVisible();
+      await expect(dlg.getByText(T['editor.crop.zoom'], { exact: true }), 'the Zoom row').toBeVisible();
+      await expect(editorNewPhoto(page)).toHaveText(T['editor.hero.newPhoto']);
+      await expect(editorOk(page)).toHaveText(T['editor.hero.ok']);
+      await expect(dlg.getByText(T['editor.hero.autoEnhance'], { exact: true }), 'the Auto enhance row').toBeVisible();
+      // Its controls are exactly: X, New photo, OK; the zoom slider; the switch.
+      await expect(dlg.getByRole('button'), 'three buttons: X, New photo, OK').toHaveCount(3);
+      await expect(dlg.locator('input[type=range]'), 'one slider: zoom').toHaveCount(1);
+      await expect(dlg.getByRole('switch')).toHaveCount(1);
+      await expect(dlg.getByRole('switch'), 'the switch starts off').toHaveAttribute('aria-checked', 'false');
+      // The labels of what is gone, as literals in both languages (their keys are gone with them).
+      const GONE = [
+        'Fill', 'Fit', 'Top', 'Bottom', 'Left', 'Right', 'Crop Image', 'Use Original', 'Back', 'Apply Crop', 'Save',
+        'Rellenar', 'Ajustar', 'Arriba', 'Abajo', 'Izquierda', 'Derecha', 'Recortar Imagen', 'Recortar imagen', 'Usar original', 'Atrás', 'Aplicar recorte', 'Guardar',
+      ];
+      for (const label of GONE) {
+        await expect(dlg.getByText(label, { exact: true }), `no "${label}"`).toHaveCount(0);
+      }
+      await expect(page.getByTestId('hero-photo-preview'), 'no first screen').toHaveCount(0);
+      expect(h.patches, 'opening the editor writes nothing').toHaveLength(0);
+      expect(h.uploads, 'and uploads nothing').toHaveLength(0);
+    });
+  }
 });

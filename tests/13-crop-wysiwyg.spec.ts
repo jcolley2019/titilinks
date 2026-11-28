@@ -63,19 +63,19 @@ test.describe('crop WYSIWYG — frame aspect equals hero-container aspect (CROP.
     expect(canonicalHeroAspect()).toBeCloseTo(oldAtPhone, 2);
   });
 
-  // (3) LIVE WIRING — drive the authenticated editor, open the real crop modal,
-  // and measure react-easy-crop's rendered crop frame. It must render at a
-  // canonical DEVICE aspect (portrait), never a window ratio. This proves the
-  // component actually consumes canonicalHeroAspect()/canonicalFullBleedAspect(),
-  // not just that those functions are correct. Stops BEFORE "Apply Crop" so no
-  // Supabase upload occurs.
+  // (3) LIVE WIRING — drive the authenticated editor, open the real photo editor
+  // (PHOTO.EDITOR.1: a pick opens it directly), and measure react-easy-crop's
+  // rendered crop frame. It must render at a canonical DEVICE aspect (portrait),
+  // never a window ratio. This proves the component actually consumes
+  // canonicalHeroAspect()/canonicalFullBleedAspect(), not just that those
+  // functions are correct. Stops BEFORE "OK" so no Supabase upload occurs.
   test('the live crop modal renders its frame at a canonical device aspect', async ({ page }) => {
     await page.goto('/dashboard/editor');
     await page.waitForLoadState('networkidle');
 
     // A real 600×600 PNG minted in-page, then handed to the hidden photo input
     // (the one input that accepts both image and video — the combined hero media
-    // picker). setInputFiles fires React's onChange → the "choose" overlay opens.
+    // picker). setInputFiles fires React's onChange → the photo editor opens.
     const dataUrl = await page.evaluate(() => {
       const c = document.createElement('canvas');
       c.width = 600;
@@ -94,8 +94,8 @@ test.describe('crop WYSIWYG — frame aspect equals hero-container aspect (CROP.
       .first()
       .setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer });
 
-    // Choose step → open the manual (react-easy-crop) step.
-    await page.getByRole('button', { name: 'Crop Image' }).click();
+    // The photo editor is one screen: the cropper is up as soon as it opens.
+    await expect(page.getByTestId('hero-editor-ok')).toBeVisible();
 
     const cropArea = page.locator('.reactEasyCrop_CropArea');
     await expect(cropArea).toBeVisible();

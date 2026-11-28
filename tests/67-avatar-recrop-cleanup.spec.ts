@@ -69,9 +69,10 @@ function nameOf(url: string | null, label: string): string {
 }
 
 /**
- * Pick a fresh photo and save it from the CHOOSE step — the plain "Save"
- * (no manual crop). A fresh pick sets photoOriginalFile, so this uploads TWO
- * objects: the display image and the full-size original kept for re-cropping.
+ * Pick a fresh photo and save it from the photo editor with OK, as it opens
+ * (PHOTO.EDITOR.1: zoom 1, centred). A fresh pick sets photoOriginalFile, so
+ * this uploads TWO objects: the display image and the full-size original kept
+ * for re-cropping.
  */
 async function saveFreshPhoto(page: Page, fill: string): Promise<void> {
   // A real 600×600 PNG minted in-page, handed to the hidden combined
@@ -96,9 +97,11 @@ async function saveFreshPhoto(page: Page, fill: string): Promise<void> {
     .first()
     .setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer });
 
-  const overlay = page.locator('[class*="z-[130]"]');
+  // PHOTO.EDITOR.1: the pick opens the photo editor directly; OK saves it.
+  const overlay = page.locator('[data-hero-photo-dialog]');
   await expect(overlay).toBeVisible();
-  await overlay.getByRole('button', { name: T['editor.hero.save'], exact: true }).click();
+  await expect(overlay.locator('.reactEasyCrop_CropArea')).toBeVisible();
+  await overlay.getByTestId('hero-editor-ok').click();
   await expect(page.getByText(T['editor.hero.photoUpdated'], { exact: true }))
     .toBeVisible({ timeout: 30_000 });
 }

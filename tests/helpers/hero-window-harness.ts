@@ -13,6 +13,7 @@
 import { PNG } from 'pngjs';
 import { expect, type Page, type Route } from '../fixtures';
 import { TEST_HANDLE } from './auth';
+import { HERO_BOX_ASPECTS, heroDisplayRegion } from '../../src/lib/hero-window';
 
 export const SUPA = 'https://ohmvlypcbrfkuudcuqub.supabase.co';
 export const AVATARS = `${SUPA}/storage/v1/object/public/avatars/`;
@@ -263,8 +264,62 @@ export async function openPublic(page: Page, vp: { width: number; height: number
   await page.waitForLoadState('networkidle');
 }
 
-/** The editor's hero photo dialog (portalled to the body). */
-export const heroDialog = (page: Page) => page.locator('div[class*="z-[130]"]');
+/** The photo editor (PHOTO.EDITOR.1): ONE component, portalled to the body, in the editor and in sign-up. */
+export const heroDialog = (page: Page) => page.locator('[data-hero-photo-dialog]');
+export const editorZoom = (page: Page) => heroDialog(page).getByTestId('hero-editor-zoom');
+export const editorOk = (page: Page) => heroDialog(page).getByTestId('hero-editor-ok');
+export const editorNewPhoto = (page: Page) => heroDialog(page).getByTestId('hero-editor-new-photo');
+export const enhanceRow = (page: Page) => heroDialog(page).getByTestId('hero-enhance-row');
+export const enhanceSwitch = (page: Page) => heroDialog(page).getByTestId('hero-enhance-switch');
+export const enhanceStrength = (page: Page) => heroDialog(page).getByTestId('hero-enhance-strength');
+
+/** The photo editor is open and its cropper has laid its picture out. */
+export async function photoEditorReady(page: Page) {
+  await expect(editorOk(page)).toBeVisible({ timeout: 30_000 });
+  await cropperReady(page);
+}
+
+/** Set a range input the way React hears it (spec 41's slider driver). */
+export async function setRange(range: ReturnType<Page['locator']>, value: number) {
+  await range.evaluate((el, v) => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    setter.call(el, String(v));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+  await expect(range).toHaveValue(String(value));
+}
+
+/**
+ * What the cropper is showing: 'on' = the enhanced copy, 'original' = the real
+ * source while the photo is held, 'off' = the real source. Waits for that
+ * picture to be decoded and laid out.
+ */
+export async function editorShows(page: Page, state: 'on' | 'original' | 'off') {
+  await expect(heroDialog(page)).toHaveAttribute('data-enhance-preview', state, { timeout: 30_000 });
+  await expect.poll(
+    () => page.locator('.reactEasyCrop_Image').evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0),
+    { timeout: 30_000, message: 'the cropper picture decoded' },
+  ).toBe(true);
+  await cropperStill(page);
+}
+
+/** The cropper picture's source and natural size. */
+export const cropperPicture = (page: Page): Promise<{ src: string; w: number; h: number }> =>
+  page.locator('.reactEasyCrop_Image').evaluate((el) => {
+    const i = el as HTMLImageElement;
+    return { src: i.currentSrc || i.src, w: i.naturalWidth, h: i.naturalHeight };
+  });
+
+/** The largest difference between two framed windows, in percent of the picture. */
+export const winDrift = (a: Win, b: Win) =>
+  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.w - b.w), Math.abs(a.h - b.h));
+
+/** Press on the middle of the crop frame and keep still (hold to compare). Release with page.mouse.up(). */
+export async function holdPhoto(page: Page) {
+  const box = (await page.locator('.reactEasyCrop_CropArea').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+}
 
 /** The editor's hero file input (photo or video). */
 export const pickHeroFile = (page: Page, file: { name: string; mimeType: string; buffer: Buffer }) => page
@@ -522,6 +577,234 @@ export const pictureLook = (page: Page, src: StoredFile | string): Promise<{ w: 
     return { w, h, lum: sum / (d.length / 4) };
   }, typeof src === 'string' ? src : { b64: src.body.toString('base64'), mime: src.type });
 
+// ── measuring pictures ───────────────────────────────────────────────────────
+
+/** A picture's size, mean colour and an 8×8 grid of block means (r, g, b each). */
+export type Measured = { w: number; h: number; mean: [number, number, number]; blocks: number[] };
+const MEASURE_GRID = 8;
+
+/**
+ * Measure a picture in the page. `src` is a file's bytes, or a selector for an
+ * <img> already on the page (read off the element: its object URL may be
+ * revoked the moment the app replaces it). `cut` measures only that part of it
+ * (percent of the picture) — the framed area of the cropper's whole picture.
+ */
+export const measurePicture = (page: Page, src: StoredFile | string, cut?: Win | null): Promise<Measured> =>
+  page.evaluate(async ({ from, grid, cut }) => {
+    let img: HTMLImageElement;
+    if (typeof from === 'string') {
+      img = document.querySelector(from) as HTMLImageElement;
+      if (!img.complete || !img.naturalWidth) await img.decode();
+    } else {
+      img = new Image();
+      img.src = `data:${from.mime};base64,${from.b64}`;
+      await img.decode();
+    }
+    const sx = cut ? (cut.x / 100) * img.naturalWidth : 0, sy = cut ? (cut.y / 100) * img.naturalHeight : 0;
+    const sw = cut ? (cut.w / 100) * img.naturalWidth : img.naturalWidth, sh = cut ? (cut.h / 100) * img.naturalHeight : img.naturalHeight;
+    const w = Math.max(1, Math.round(sw)), h = Math.max(1, Math.round(sh));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    const blocks: number[] = [];
+    const total = [0, 0, 0];
+    for (let by = 0; by < grid; by++) for (let bx = 0; bx < grid; bx++) {
+      const x0 = Math.floor((bx * w) / grid), x1 = Math.floor(((bx + 1) * w) / grid);
+      const y0 = Math.floor((by * h) / grid), y1 = Math.floor(((by + 1) * h) / grid);
+      const sum = [0, 0, 0];
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        const i = (y * w + x) * 4;
+        sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2];
+      }
+      const n = Math.max(1, (x1 - x0) * (y1 - y0));
+      for (let k = 0; k < 3; k++) { blocks.push(sum[k] / n); total[k] += sum[k]; }
+    }
+    return { w, h, mean: [total[0] / (w * h), total[1] / (w * h), total[2] / (w * h)] as [number, number, number], blocks };
+  }, { from: typeof src === 'string' ? src : { b64: src.body.toString('base64'), mime: src.type }, grid: MEASURE_GRID, cut: cut ?? null });
+
+/**
+ * A from-scratch bake, in the page, with the app's own module: `region` of a
+ * source picture drawn at `out` size, then enhanced (or not), then measured.
+ */
+export const scratchBake = (
+  page: Page,
+  source: StoredFile,
+  region: { x: number; y: number; width: number; height: number } | null,
+  out: { w: number; h: number },
+  enhance: { strength: number; params: unknown } | null,
+): Promise<Measured> => page.evaluate(async ({ b64, mime, region, out, enhance, grid }) => {
+  // A string the bundler cannot follow: the spec is typechecked without the app's module graph.
+  const path = '/src/lib/hero-enhance-canvas.ts';
+  const mod = await import(/* @vite-ignore */ path);
+  const img = new Image();
+  img.src = `data:${mime};base64,${b64}`;
+  await img.decode();
+  const r = region ?? { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
+  const c = document.createElement('canvas');
+  c.width = out.w; c.height = out.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, r.x, r.y, r.width, r.height, 0, 0, out.w, out.h);
+  if (enhance) mod.enhanceCanvas(c, enhance.params, enhance.strength);
+  const d = ctx.getImageData(0, 0, out.w, out.h).data;
+  const w = out.w, h = out.h;
+  const blocks: number[] = [];
+  const total = [0, 0, 0];
+  for (let by = 0; by < grid; by++) for (let bx = 0; bx < grid; bx++) {
+    const x0 = Math.floor((bx * w) / grid), x1 = Math.floor(((bx + 1) * w) / grid);
+    const y0 = Math.floor((by * h) / grid), y1 = Math.floor(((by + 1) * h) / grid);
+    const sum = [0, 0, 0];
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = (y * w + x) * 4;
+      sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2];
+    }
+    const n = Math.max(1, (x1 - x0) * (y1 - y0));
+    for (let k = 0; k < 3; k++) { blocks.push(sum[k] / n); total[k] += sum[k]; }
+  }
+  return { w, h, mean: [total[0] / (w * h), total[1] / (w * h), total[2] / (w * h)] as [number, number, number], blocks };
+}, { b64: source.body.toString('base64'), mime: source.type, region, out, enhance, grid: MEASURE_GRID });
+
+/** The largest difference between two pictures' block means, in levels (per channel). */
+export const worstBlock = (a: Measured, b: Measured) => a.blocks.reduce((m, v, i) => Math.max(m, Math.abs(v - b.blocks[i])), 0);
+export const lumOf = (m: Measured) => 0.2126 * m.mean[0] + 0.7152 * m.mean[1] + 0.0722 * m.mean[2];
+export const worstMean = (a: Measured, b: Measured) => Math.max(...a.mean.map((v, i) => Math.abs(v - b.mean[i])));
+
+/** The cropper's own <img>. */
+export const CROPPER_IMG = '.reactEasyCrop_Image';
+
+/** The display region heroDisplayRegion gives for a framed window (percent) over a picture of `size`. */
+export function regionFor(framed: Win, size: { width: number; height: number }, style: Style) {
+  const got = heroDisplayRegion(
+    { x: (framed.x / 100) * size.width, y: (framed.y / 100) * size.height, width: (framed.w / 100) * size.width, height: (framed.h / 100) * size.height },
+    size, HERO_BOX_ASPECTS[style],
+  );
+  expect(got, 'the framed rectangle resolves').toBeTruthy();
+  return got!;
+}
+
+// ── the photo editor's layout ────────────────────────────────────────────────
+
+type Box = { top: number; bottom: number; left: number; right: number; width: number; height: number };
+export type EditorLayout = {
+  vw: number; vh: number; docW: number; docH: number;
+  /** The dialog scrolls nowhere: nothing in it is taller or wider than its box. */
+  scrolls: boolean;
+  parts: Record<string, Box | null>;
+};
+
+/** Every part of the open photo editor, and the viewport, read in ONE evaluate. */
+export const readEditorLayout = (page: Page, labels: { title: string; caption: string }): Promise<EditorLayout> =>
+  page.evaluate(({ title, caption }) => {
+    const root = document.querySelector('[data-hero-photo-dialog]') as HTMLElement;
+    const box = (el: Element | null | undefined): Box | null => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height };
+    };
+    const id = (t: string) => root.querySelector(`[data-testid="${t}"]`);
+    const text = (t: string) => [...root.querySelectorAll('p, span, h2, label')].find((e) => e.textContent?.trim() === t);
+    let scrolls = false;
+    for (const el of [root, ...root.querySelectorAll<HTMLElement>('*')]) {
+      const st = getComputedStyle(el);
+      const canY = /(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 1;
+      const canX = /(auto|scroll)/.test(st.overflowX) && el.scrollWidth > el.clientWidth + 1;
+      if (canY || canX) scrolls = true;
+    }
+    return {
+      vw: window.innerWidth, vh: window.innerHeight,
+      docW: document.documentElement.scrollWidth, docH: document.documentElement.scrollHeight,
+      scrolls,
+      parts: {
+        title: box(text(title)),
+        close: box(root.querySelector('button[aria-label]')),
+        cropper: box(root.querySelector('.reactEasyCrop_Container')),
+        frame: box(root.querySelector('.reactEasyCrop_CropArea')),
+        zoom: box(id('hero-editor-zoom')),
+        zoomRow: box(id('hero-editor-zoom')?.parentElement),
+        enhanceRow: box(id('hero-enhance-row')),
+        switch: box(id('hero-enhance-switch')),
+        strength: box(id('hero-enhance-strength')),
+        caption: box(text(caption)),
+        newPhoto: box(id('hero-editor-new-photo')),
+        ok: box(id('hero-editor-ok')),
+      },
+    };
+  }, labels);
+
+/** Every control is fully on screen, in order, with nothing to scroll. `on`: the switch is on. */
+export function expectEditorFits(m: EditorLayout, at: string, on: boolean) {
+  const need = ['title', 'close', 'cropper', 'frame', 'zoom', 'enhanceRow', 'switch', 'newPhoto', 'ok', ...(on ? ['strength', 'caption'] : [])];
+  for (const name of need) {
+    const b = m.parts[name];
+    expect(b, `${at}: ${name} is in the editor`).toBeTruthy();
+    expect(b!.top, `${at}: ${name} top is on screen`).toBeGreaterThanOrEqual(0);
+    expect(b!.bottom, `${at}: ${name} bottom is on screen`).toBeLessThanOrEqual(m.vh + 0.5);
+    expect(b!.left, `${at}: ${name} left is on screen`).toBeGreaterThanOrEqual(0);
+    expect(b!.right, `${at}: ${name} right is on screen`).toBeLessThanOrEqual(m.vw + 0.5);
+    expect(b!.height, `${at}: ${name} has a height`).toBeGreaterThan(0);
+  }
+  if (!on) {
+    expect(m.parts.strength, `${at}: no Strength slider while the switch is off`).toBeNull();
+    expect(m.parts.caption, `${at}: no hold caption while the switch is off`).toBeNull();
+  }
+  const P = m.parts as Record<string, Box>;
+  // Top to bottom: header, picture, Zoom, Auto enhance, the two buttons.
+  expect(P.title.bottom, `${at}: the picture is under the header`).toBeLessThanOrEqual(P.cropper.top + 0.5);
+  expect(P.cropper.bottom, `${at}: Zoom is under the picture`).toBeLessThanOrEqual(P.zoom.top + 0.5);
+  expect(P.zoomRow.bottom, `${at}: Auto enhance is under Zoom`).toBeLessThanOrEqual(P.enhanceRow.top + 0.5);
+  expect(P.enhanceRow.bottom, `${at}: the buttons are under Auto enhance`).toBeLessThanOrEqual(P.ok.top + 0.5);
+  expect(Math.abs(P.newPhoto.top - P.ok.top), `${at}: New photo and OK are one row`).toBeLessThan(1);
+  expect(P.newPhoto.right, `${at}: New photo is left of OK`).toBeLessThanOrEqual(P.ok.left);
+  expect(P.cropper.height, `${at}: the picture keeps at least 180 px`).toBeGreaterThanOrEqual(180);
+  // The whole crop frame is inside the picture area.
+  expect(P.frame.top, `${at}: the frame is inside the picture area`).toBeGreaterThanOrEqual(P.cropper.top - 0.5);
+  expect(P.frame.bottom, `${at}: the frame is inside the picture area`).toBeLessThanOrEqual(P.cropper.bottom + 0.5);
+  expect(m.scrolls, `${at}: nothing in the editor scrolls`).toBe(false);
+  expect(m.docW, `${at}: no sideways scroll`).toBeLessThanOrEqual(m.vw);
+  // Wider than 480 px the column is at most 440 px wide, centred.
+  if (m.vw > 480) {
+    expect(P.cropper.width, `${at}: the column is at most 440 px wide`).toBeLessThanOrEqual(440);
+    expect(Math.abs((P.cropper.left + P.cropper.right) / 2 - m.vw / 2), `${at}: the column is centred`).toBeLessThan(1);
+  } else {
+    expect(P.cropper.width, `${at}: full width on a phone`).toBeGreaterThanOrEqual(m.vw - 1);
+  }
+}
+
+/**
+ * A valid GIF of `w` × `h` (one frame, two colours, a checker of 8 px squares)
+ * big enough to sit in the cropper like a real one. Uncompressed LZW: a clear
+ * code before every pair of pixels keeps every code 3 bits wide.
+ */
+export function checkerGif(w: number, h: number): Buffer {
+  const bits: number[] = [];
+  const push = (code: number) => { for (let i = 0; i < 3; i++) bits.push((code >> i) & 1); };
+  let n = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (n % 2 === 0) push(4);
+    push(((x >> 3) + (y >> 3)) & 1);
+    n++;
+  }
+  push(5);
+  const data: number[] = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    let b = 0;
+    for (let j = 0; j < 8; j++) b |= (bits[i + j] ?? 0) << j;
+    data.push(b);
+  }
+  const out: number[] = [
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, w & 255, w >> 8, h & 255, h >> 8, 0x81, 0, 0,
+    0x30, 0x40, 0x60, 0xd0, 0xa0, 0x60, 0, 0, 0, 0, 0, 0,
+    0x2c, 0, 0, 0, 0, w & 255, w >> 8, h & 255, h >> 8, 0, 2,
+  ];
+  for (let i = 0; i < data.length; i += 255) {
+    const chunk = data.slice(i, i + 255);
+    out.push(chunk.length, ...chunk);
+  }
+  out.push(0, 0x3b);
+  return Buffer.from(out);
+}
+
 // ── the cropper ──────────────────────────────────────────────────────────────
 
 /** The framed window in the open cropper, in percent of its picture. ONE read. */
@@ -664,16 +947,12 @@ export async function toOnboardingStepTwo(page: Page, style: Style, desktop: boo
   return scope;
 }
 
-/** Pick a picture in step 2 and open the crop modal on it. */
+/** Pick a picture in step 2: the photo editor opens on it straight away. */
 export async function openOnboardingCrop(
   page: Page,
   scope: ReturnType<Page['locator']> | Page,
   file: { name: string; mimeType: string; buffer: Buffer },
-  T: Record<string, string>,
 ) {
   await scope.locator('input[type="file"]').setInputFiles(file);
-  const cropImage = page.getByRole('button', { name: T['onboardingFlow.cropImage'], exact: true });
-  await expect(cropImage).toBeVisible({ timeout: 15_000 });
-  await cropImage.click();
-  await cropperReady(page);
+  await photoEditorReady(page);
 }

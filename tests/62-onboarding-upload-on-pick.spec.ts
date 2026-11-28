@@ -142,12 +142,14 @@ async function toStepTwo(page: Page, desktop: boolean): Promise<Locator | Page> 
   return scope;
 }
 
-/** Pick the photo and accept it unchanged, leaving step 2 on screen. */
+/** Pick the photo and accept it as the photo editor opens on it (PHOTO.EDITOR.1: OK), leaving step 2 on screen. */
 async function pickPhoto(page: Page, scope: Locator | Page, buf: Buffer) {
   await scope.locator('input[type="file"]').setInputFiles({ name: 'pick.jpg', mimeType: 'image/jpeg', buffer: buf });
-  const useOriginal = page.getByRole('button', { name: T['onboardingFlow.useOriginal'], exact: true });
-  await expect(useOriginal).toBeVisible({ timeout: 15_000 });
-  await useOriginal.click();
+  const ok = page.getByTestId('hero-editor-ok');
+  await expect(ok).toBeVisible({ timeout: 15_000 });
+  // The cropper reports its framed area once the picture has loaded: OK needs it.
+  await expect(page.locator('.reactEasyCrop_CropArea')).toBeVisible({ timeout: 15_000 });
+  await ok.click();
   await expect(scope.getByText(T['onboardingFlow.changePhoto'], { exact: true })).toBeVisible({ timeout: 15_000 });
 }
 

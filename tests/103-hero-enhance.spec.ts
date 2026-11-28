@@ -1,33 +1,44 @@
-// PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen.
+// PHOTO.POLISH.1 — Auto enhance in the photo editor.
 //
-// A switch with a strength slider on the pencil dialog's first screen. The kept
-// original is never changed; the DISPLAY file is what gets enhanced, and the
-// hero config stores `enhance` { strength, params } beside the window:
+// A switch with a strength slider in the hero photo editor (PHOTO.EDITOR.1: ONE
+// screen, src/components/HeroPhotoEditor.tsx — the enhanced look is shown in the
+// cropper itself). The kept original is never changed; the DISPLAY file is what
+// gets enhanced, and the hero config stores `enhance` { strength, params }
+// beside the window:
 //
-//   1. new pick, switch on, Save: the display upload is brighter than the
+//   1. new pick, switch on, OK: the display upload is brighter than the
 //      un-enhanced bake, the original upload is byte-identical to the one sent
-//      with the switch off, and the PATCH carries `enhance`;
-//   2. Crop + Apply with the switch on: window, windowSource and enhance are
-//      stored, and the upload is the region, enhanced;
-//   3. the pencil reopens with the switch on at the stored strength; strength to
-//      50, Save: ONE new display upload, made from the ORIGINAL (it matches a
-//      from-scratch 0.5 bake, so nothing compounds), the window is unchanged,
-//      windowSource is untouched, and the superseded display object is deleted;
-//   4. switch off, Save: the upload matches the un-enhanced bake; the key is gone;
-//   5. nothing changed, Save: no upload;
-//   6. hold shows the un-enhanced picture and release returns; the preview's
-//      mean colour matches what the page then shows;
-//   7. a GIF pick and a slot with no kept original show no row — nor does a
-//      hero cropped before windows were stored (its display file is a cut of
-//      the original with no record of where, so there is nothing to bake from).
+//      with the switch off, and the PATCH carries `enhance` and the window;
+//   2. switch on, drag and zoom, OK: window, windowSource and enhance are
+//      stored, the upload is the region, enhanced, and the drag did not
+//      re-analyse (the params are the ones a save with no drag stores);
+//   3. the pencil reopens on the stored frame with the switch on at the stored
+//      strength; strength to 50, OK: ONE new display upload, made from the
+//      ORIGINAL (it matches a from-scratch 0.5 bake, so nothing compounds), the
+//      window is unchanged, windowSource is untouched, and the superseded
+//      display object is deleted;
+//   4. switch off, OK: the upload matches the un-enhanced bake; the key is gone;
+//   5. nothing changed, OK: no upload and no write at all;
+//   6. switch on at 50: hold shows the real source and release returns; OK
+//      stores 0.5, and the upload is the framed region of what the editor
+//      showed — a from-scratch bake with the stored params, within 2 levels;
+//  6b. the switch, the strength slider and a hold never move the framed area;
+//   7. a GIF: no drag, no zoom, no row, one caption, saved as picked; a slot
+//      with no kept original opens on the display file with no row;
 //
 // PHOTO.POLISH.2:
-//   8. Page 2's OWN hero (not inheriting): switch on, Save — the write goes to
+//   8. Page 2's OWN hero (not inheriting): switch on, OK — the write goes to
 //      theme_json.avatar_url_page2 and heroConfig_page2 with `enhance`, and
 //      Page 1's picture column and hero slot are untouched;
 //   9. the canvas work is a lazy chunk: the public page never requests
 //      hero-enhance-canvas (nor the heavy half of auto-enhance), and the editor
 //      requests it once, only when the row is used.
+//
+// PHOTO.EDITOR.1:
+//  10. New photo inside the editor: a new pick, the switch back to off, the
+//      frame reset;
+//  11. the editor fits: every control on screen with no scrolling at 375x553,
+//      393x659 and 1440x900, switch off and on, hero and full-screen.
 //
 // Built like spec 101. Battery account; reads patched; EVERY write is captured
 // and fulfilled in tests/helpers/hero-window-harness.ts — no real hero save, and
@@ -37,25 +48,28 @@ import { PNG } from 'pngjs';
 import { test, expect, type Page } from './fixtures';
 import { PINNED_TEST_USER_ID } from './helpers/auth';
 import { translations } from '../src/hooks/useLanguage';
-import { canonicalHeroAspect } from '../src/lib/device-presets';
-import { HERO_BOX_ASPECTS, heroDisplayRegion } from '../src/lib/hero-window';
+import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 import { pictureFitSeed } from '../src/lib/picture-fit';
 import { readHeroEnhance, type HeroEnhance } from '../src/lib/hero-enhance';
 import { isIdentity } from '../src/lib/auto-enhance';
 import {
-  AVATARS, FRAME, DIM,
+  AVATARS, FRAME, DIM, SRC,
   installEditor, newEditorHarness, cloneEditorHarness, openEditor, openPublic, heroDialog, pickHeroFile,
-  cropperReady, zoomAndDrag, heroSettled, objectPath, dimPng,
-  type EditorHarness, type StoredFile, type Win,
+  zoomAndDrag, heroSettled, objectPath, dimPng, rulerPng, decodeRuler, pct, expectWin, framedInCropper,
+  photoEditorReady, editorZoom, editorOk, editorNewPhoto, enhanceRow, enhanceSwitch, enhanceStrength,
+  editorShows, setRange, cropperPicture, winDrift, holdPhoto, checkerGif,
+  measurePicture, scratchBake, worstBlock, lumOf, worstMean, regionFor, CROPPER_IMG,
+  readEditorLayout, expectEditorFits,
+  type EditorHarness, type StoredFile, type Style, type Win,
 } from './helpers/hero-window-harness';
 
 const EN = translations.en as Record<string, string>;
 const FIX_DIR = `${PINNED_TEST_USER_ID}/photopolish1`;
 const PLACARD = `${FIX_DIR}/before.png`;
-const GRID = 8;
 
 // The dim, photo-like picture is the harness's (dimPng): spec 102 uses it too.
 const DIM_FILE = () => ({ name: 'dim.png', mimeType: 'image/png', buffer: dimPng() });
+const RULER_FILE = () => ({ name: 'ruler.png', mimeType: 'image/png', buffer: rulerPng() });
 
 /** A square cut: not the kept original's shape. */
 function squarePng(): Buffer {
@@ -64,130 +78,23 @@ function squarePng(): Buffer {
   return PNG.sync.write(png);
 }
 
-/** A valid 2×2 GIF (one frame). */
-const GIF_FILE = {
-  name: 'tiny.gif', mimeType: 'image/gif',
-  buffer: Buffer.from('R0lGODlhAgACAIAAAP8AAAAA/ywAAAAAAgACAAACAoRRADs=', 'base64'),
-};
+/** A valid GIF, big enough to sit in the cropper like a real one. */
+const GIF_BYTES = checkerGif(120, 180);
+const GIF_FILE = { name: 'checker.gif', mimeType: 'image/gif', buffer: GIF_BYTES };
 
-// ── reading pictures ─────────────────────────────────────────────────────────
-type Measured = { w: number; h: number; mean: [number, number, number]; blocks: number[] };
+// ── reading pictures (the harness's measuring helpers) ───────────────────────
+const measureFile = (page: Page, f: StoredFile) => measurePicture(page, f);
+const lum = lumOf;
 
-/** A picture's size, mean colour and an 8×8 grid of block means (r, g, b each). */
-/**
- * `src` is a file's bytes, or 'preview': the choose preview's own <img>, read
- * off the element (its object URL is revoked the moment the app replaces it).
- */
-const measure = (page: Page, src: { b64: string; mime: string } | 'preview'): Promise<Measured> =>
-  page.evaluate(async ({ src, grid }) => {
-    let img: HTMLImageElement;
-    if (src === 'preview') {
-      img = document.querySelector('[data-testid="hero-photo-preview"] img') as HTMLImageElement;
-      if (!img.complete || !img.naturalWidth) await img.decode();
-    } else {
-      img = new Image();
-      img.src = `data:${src.mime};base64,${src.b64}`;
-      await img.decode();
-    }
-    const w = img.naturalWidth, h = img.naturalHeight;
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(img, 0, 0);
-    const d = ctx.getImageData(0, 0, w, h).data;
-    const blocks: number[] = [];
-    const total = [0, 0, 0];
-    for (let by = 0; by < grid; by++) for (let bx = 0; bx < grid; bx++) {
-      const x0 = Math.floor((bx * w) / grid), x1 = Math.floor(((bx + 1) * w) / grid);
-      const y0 = Math.floor((by * h) / grid), y1 = Math.floor(((by + 1) * h) / grid);
-      const s = [0, 0, 0];
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-        const i = (y * w + x) * 4;
-        s[0] += d[i]; s[1] += d[i + 1]; s[2] += d[i + 2];
-      }
-      const n = (x1 - x0) * (y1 - y0);
-      for (let k = 0; k < 3; k++) { blocks.push(s[k] / n); total[k] += s[k]; }
-    }
-    return { w, h, mean: [total[0] / (w * h), total[1] / (w * h), total[2] / (w * h)] as [number, number, number], blocks };
-  }, { src, grid: GRID });
-
-const measureFile = (page: Page, f: StoredFile) => measure(page, { b64: f.body.toString('base64'), mime: f.type });
-
-/**
- * A from-scratch bake, in the page, with the app's own module: `region` of the
- * kept original drawn at `out` size, then enhanced (or not), then measured.
- */
-const scratchBake = (
-  page: Page,
-  original: StoredFile,
-  region: { x: number; y: number; width: number; height: number } | null,
-  out: { w: number; h: number },
-  enhance: HeroEnhance | null,
-): Promise<Measured> => page.evaluate(async ({ b64, mime, region, out, enhance, grid }) => {
-  // A string the bundler cannot follow: the spec is typechecked without the app's module graph.
-  const path = '/src/lib/hero-enhance-canvas.ts';
-  const mod = await import(/* @vite-ignore */ path);
-  const img = new Image();
-  img.src = `data:${mime};base64,${b64}`;
-  await img.decode();
-  const r = region ?? { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
-  const c = document.createElement('canvas');
-  c.width = out.w; c.height = out.h;
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.drawImage(img, r.x, r.y, r.width, r.height, 0, 0, out.w, out.h);
-  if (enhance) mod.enhanceCanvas(c, enhance.params, enhance.strength);
-  const d = ctx.getImageData(0, 0, out.w, out.h).data;
-  const w = out.w, h = out.h;
-  const blocks: number[] = [];
-  const total = [0, 0, 0];
-  for (let by = 0; by < grid; by++) for (let bx = 0; bx < grid; bx++) {
-    const x0 = Math.floor((bx * w) / grid), x1 = Math.floor(((bx + 1) * w) / grid);
-    const y0 = Math.floor((by * h) / grid), y1 = Math.floor(((by + 1) * h) / grid);
-    const s = [0, 0, 0];
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const i = (y * w + x) * 4;
-      s[0] += d[i]; s[1] += d[i + 1]; s[2] += d[i + 2];
-    }
-    const n = (x1 - x0) * (y1 - y0);
-    for (let k = 0; k < 3; k++) { blocks.push(s[k] / n); total[k] += s[k]; }
-  }
-  return { w, h, mean: [total[0] / (w * h), total[1] / (w * h), total[2] / (w * h)] as [number, number, number], blocks };
-}, { b64: original.body.toString('base64'), mime: original.type, region, out, enhance, grid: GRID });
-
-/** The largest difference between two pictures' block means, in levels. */
-const worstBlock = (a: Measured, b: Measured) => a.blocks.reduce((m, v, i) => Math.max(m, Math.abs(v - b.blocks[i])), 0);
-const lum = (m: Measured) => 0.2126 * m.mean[0] + 0.7152 * m.mean[1] + 0.0722 * m.mean[2];
-const worstMean = (a: Measured, b: Measured) => Math.max(...a.mean.map((v, i) => Math.abs(v - b.mean[i])));
-
-// ── driving the dialog ───────────────────────────────────────────────────────
-const row = (page: Page) => heroDialog(page).getByTestId('hero-enhance-row');
-const toggle = (page: Page) => heroDialog(page).getByTestId('hero-enhance-switch');
-const strength = (page: Page) => heroDialog(page).getByTestId('hero-enhance-strength');
-const preview = (page: Page) => page.getByTestId('hero-photo-preview');
-const saveButton = (page: Page) => heroDialog(page).getByRole('button', { name: EN['editor.hero.save'], exact: true });
-
-/** The choose preview is painting the copy named by `state` ('on' = enhanced, 'original' = held). */
-async function previewShows(page: Page, state: 'on' | 'original' | 'off') {
-  await expect(preview(page)).toHaveAttribute('data-enhance-preview', state, { timeout: 30_000 });
-  await expect.poll(
-    () => preview(page).evaluate((el) => { const i = el.querySelector('img') as HTMLImageElement; return i.complete && i.naturalWidth > 0; }),
-    { timeout: 30_000, message: 'the preview picture decoded' },
-  ).toBe(true);
-}
-const previewSrc = (page: Page) => preview(page).evaluate((el) => (el.querySelector('img') as HTMLImageElement).currentSrc || (el.querySelector('img') as HTMLImageElement).src);
-
-async function setStrength(page: Page, value: number) {
-  await strength(page).evaluate((el, v) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
-    setter.call(el, String(v));
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }, value);
-  await expect(strength(page)).toHaveValue(String(value));
-}
+// ── driving the photo editor ─────────────────────────────────────────────────
+const row = enhanceRow;
+const toggle = enhanceSwitch;
+const strength = enhanceStrength;
+const setStrength = (page: Page, value: number) => setRange(strength(page), value);
 
 async function pickDim(page: Page) {
   await pickHeroFile(page, DIM_FILE());
-  await expect(preview(page)).toBeVisible({ timeout: 30_000 });
+  await photoEditorReady(page);
   await expect(row(page)).toBeVisible({ timeout: 15_000 });
 }
 
@@ -195,7 +102,7 @@ async function openPencil(page: Page) {
   const frame = await openEditor(page);
   await heroSettled(page, 'hero', FRAME);
   await frame.getByTitle(EN['editor.editCurrentPhoto']).first().click();
-  await expect(preview(page)).toBeVisible({ timeout: 15_000 });
+  await photoEditorReady(page);
 }
 
 async function waitPatch(page: Page, h: EditorHarness, count: number) {
@@ -216,10 +123,15 @@ function startHarness(): EditorHarness {
   return h;
 }
 
+type PxRegion = { x: number; y: number; width: number; height: number };
+
 // ── shared flows (one real run each; a failed flow caches nothing) ───────────
-type PickFlow = { h: EditorHarness; display: StoredFile; original: StoredFile; patch: Record<string, unknown> };
+type PickFlow = {
+  h: EditorHarness; display: StoredFile; original: StoredFile; patch: Record<string, unknown>;
+  framed: Win; region: PxRegion;
+};
 const pickFlows: Partial<Record<'off' | 'on', PickFlow>> = {};
-/** New pick → (switch on) → Save. */
+/** New pick → (switch on) → OK, with the frame left where the editor opened it. */
 async function pickFlow(page: Page, mode: 'off' | 'on'): Promise<PickFlow> {
   const cached = pickFlows[mode];
   if (cached) return cached;
@@ -234,11 +146,12 @@ async function pickFlow(page: Page, mode: 'off' | 'on'): Promise<PickFlow> {
     await toggle(page).click();
     await expect(strength(page), 'the slider starts at 100').toHaveValue('100');
     await expect(heroDialog(page).getByText(EN['editor.hero.holdToCompare'])).toBeVisible();
-    await previewShows(page, 'on');
+    await editorShows(page, 'on');
   }
-  await saveButton(page).click();
+  const framed = await framedInCropper(page);
+  await editorOk(page).click();
   await waitPatch(page, h, 1);
-  const flow = { h, display: displayOf(h), original: originalOf(h), patch: h.patches[0] };
+  const flow = { h, display: displayOf(h), original: originalOf(h), patch: h.patches[0], framed, region: regionFor(framed, DIM, 'hero').region };
   pickFlows[mode] = flow;
   return flow;
 }
@@ -246,11 +159,11 @@ async function pickFlow(page: Page, mode: 'off' | 'on'): Promise<PickFlow> {
 type CropFlow = {
   h: EditorHarness; framed: Win; patch: Record<string, unknown>;
   display: StoredFile; original: StoredFile;
-  region: { x: number; y: number; width: number; height: number };
+  region: PxRegion;
   enhance: HeroEnhance;
 };
 let cropFlowCache: CropFlow | null = null;
-/** New pick → switch on → Crop Image → zoom 1.5, off-centre → Apply Crop. */
+/** New pick → switch on → zoom 1.5, off-centre → OK. */
 async function cropFlow(page: Page): Promise<CropFlow> {
   if (cropFlowCache) return cropFlowCache;
   await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -259,20 +172,14 @@ async function cropFlow(page: Page): Promise<CropFlow> {
   await openEditor(page);
   await pickDim(page);
   await toggle(page).click();
-  await previewShows(page, 'on');
-  await page.getByRole('button', { name: EN['editor.cropImage'] }).click();
-  await cropperReady(page);
-  const framed = await zoomAndDrag(page, heroDialog(page).locator('input[type=range]'), 1.5, 30, -40);
-  await page.getByRole('button', { name: EN['editor.crop.applyCrop'] }).click();
+  await editorShows(page, 'on');
+  const framed = await zoomAndDrag(page, editorZoom(page), 1.5, 30, -40);
+  await editorOk(page).click();
   await waitPatch(page, h, 1);
   const patch = h.patches[0];
-  const want = heroDisplayRegion(
-    { x: (framed.x / 100) * DIM.width, y: (framed.y / 100) * DIM.height, width: (framed.w / 100) * DIM.width, height: (framed.h / 100) * DIM.height },
-    DIM, HERO_BOX_ASPECTS.hero,
-  )!;
-  expect(want, 'the framed rectangle resolves').toBeTruthy();
+  const want = regionFor(framed, DIM, 'hero');
   const enhance = readHeroEnhance(heroConfigOf(patch))!;
-  expect(enhance, 'the Apply PATCH carries enhance').toBeTruthy();
+  expect(enhance, 'the OK PATCH carries enhance').toBeTruthy();
   cropFlowCache = { h, framed, patch, display: displayOf(h), original: originalOf(h), region: want.region, enhance };
   return cropFlowCache;
 }
@@ -286,15 +193,15 @@ async function resumeCrop(page: Page): Promise<{ flow: CropFlow; h: EditorHarnes
   return { flow, h };
 }
 
-test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => {
+test.describe('PHOTO.POLISH.1 — Auto enhance in the photo editor', () => {
   // A hero save on the mobile project (WebKit at 3×) is slow, not flaky.
   test.setTimeout(300_000);
 
-  test('1. new pick, switch on, Save: a brighter display file, the same original, and enhance on the PATCH', async ({ page }) => {
+  test('1. new pick, switch on, OK: a brighter display file, the same original, and enhance on the PATCH', async ({ page }) => {
     const off = await pickFlow(page, 'off');
     const on = await pickFlow(page, 'on');
 
-    // Switch off: today's save — no key.
+    // Switch off: no key.
     expect(Object.keys(heroConfigOf(off.patch)), 'no enhance key with the switch off').not.toContain('enhance');
     expect(uploadKinds(off.h)).toEqual(['display', 'original']);
     expect(uploadKinds(on.h)).toEqual(['display', 'original']);
@@ -304,25 +211,34 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(stored, 'the PATCH carries enhance').toBeTruthy();
     expect(stored!.strength).toBe(1);
     expect(isIdentity(stored!.params), 'the dim picture has something to enhance').toBe(false);
-    expect(Object.keys(heroConfigOf(on.patch)), 'a no-crop save stores no window').not.toContain('window');
+    // PHOTO.EDITOR.1: every save stores the framed window, switch on or off.
+    for (const flow of [off, on]) {
+      const cfg = heroConfigOf(flow.patch);
+      expect(cfg.fit).toBe('fill');
+      expect(cfg.window, 'the window is stored').toBeTruthy();
+      expect(cfg.windowSource, 'windowSource is stored').toBeTruthy();
+      expectWin(pictureFitSeed(cfg.windowSource, canonicalHeroAspect()).crop!, flow.framed, 'windowSource == the area the editor opened on');
+    }
 
     // The original is the same bytes either way: it is never enhanced.
     expect(on.original.body.equals(off.original.body), 'the kept original is byte-identical with the switch on and off').toBe(true);
 
     // The display file is brighter than the un-enhanced bake, and is exactly
-    // the whole picture enhanced with the stored numbers.
+    // the region for the zoom-1 centred area, enhanced with the stored numbers.
     const plain = await measureFile(page, off.display);
     const bright = await measureFile(page, on.display);
     expect([bright.w, bright.h], 'the same size as the un-enhanced bake').toEqual([plain.w, plain.h]);
+    expect(Math.abs(plain.w - off.region.width), 'the file is the region: width').toBeLessThanOrEqual(2);
+    expect(Math.abs(plain.h - off.region.height), 'the file is the region: height').toBeLessThanOrEqual(2);
     expect(lum(bright), `enhanced ${lum(bright).toFixed(1)} vs plain ${lum(plain).toFixed(1)}`).toBeGreaterThan(lum(plain) + 8);
-    const scratch = await scratchBake(page, on.original, null, { w: bright.w, h: bright.h }, stored);
-    expect(worstBlock(bright, scratch), 'the upload == the whole picture, enhanced with the stored params').toBeLessThan(2);
-    const scratchPlain = await scratchBake(page, off.original, null, { w: plain.w, h: plain.h }, null);
+    const scratch = await scratchBake(page, on.original, on.region, { w: bright.w, h: bright.h }, stored);
+    expect(worstBlock(bright, scratch), 'the upload == the region, enhanced with the stored params').toBeLessThan(2);
+    const scratchPlain = await scratchBake(page, off.original, off.region, { w: plain.w, h: plain.h }, null);
     expect(worstBlock(plain, scratchPlain), 'control: the switch-off upload == the plain bake').toBeLessThan(2);
     expect(on.h.aiCalls, 'nothing reached ai-enhance').toEqual([]);
   });
 
-  test('2. Crop + Apply with the switch on: window, windowSource and enhance stored; the upload is the region, enhanced', async ({ page }) => {
+  test('2. switch on, drag and zoom, OK: window, windowSource and enhance stored; the upload is the region, enhanced; the drag did not re-analyse', async ({ page }) => {
     const flow = await cropFlow(page);
     const cfg = heroConfigOf(flow.patch);
     expect(cfg.window, 'window is stored').toBeTruthy();
@@ -345,11 +261,15 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(lum(got), 'brighter than the region left alone').toBeGreaterThan(lum(plain) + 8);
     // The kept original is the picture as picked: not enhanced.
     const orig = await measureFile(page, flow.original);
-    const pickedPlain = await measure(page, { b64: dimPng().toString('base64'), mime: 'image/png' });
+    const pickedPlain = await measurePicture(page, { body: dimPng(), type: 'image/png' });
     expect(worstBlock(orig, pickedPlain), 'the kept original is the picture as picked').toBeLessThan(2);
+    // The switch analysed ONCE, on the area framed when it was turned on (the
+    // area the editor opened on): the zoom and the drag after it changed nothing.
+    const untouched = await pickFlow(page, 'on');
+    expect(flow.enhance.params, 'the same params as a save with no drag').toEqual(readHeroEnhance(heroConfigOf(untouched.patch))!.params);
   });
 
-  test('3. the pencil reopens on the stored strength; strength 50, Save: one upload from the original, nothing compounds', async ({ page }) => {
+  test('3. the pencil reopens on the stored frame and strength; strength 50, OK: one upload from the original, nothing compounds', async ({ page }) => {
     const { flow, h } = await resumeCrop(page);
     const oldDisplay = objectPath(h.avatarUrl!);
     const before = heroConfigOf(flow.patch);
@@ -357,11 +277,13 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     await expect(row(page)).toBeVisible({ timeout: 15_000 });
     await expect(toggle(page), 'the switch reopens on').toHaveAttribute('aria-checked', 'true');
     await expect(strength(page), 'at the stored strength').toHaveValue('100');
-    await previewShows(page, 'on');
+    await editorShows(page, 'on');
+    expectWin(await framedInCropper(page), flow.framed, 'the editor reopened on the stored frame');
 
     await setStrength(page, 50);
-    await previewShows(page, 'on');
-    await saveButton(page).click();
+    await editorShows(page, 'on');
+    expect(winDrift(await framedInCropper(page), flow.framed), 'a strength change does not move the frame').toBeLessThan(0.2);
+    await editorOk(page).click();
     await waitPatch(page, h, 1);
 
     // ONE new display upload; the original is not re-sent.
@@ -394,16 +316,17 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(JSON.stringify(h.deletes), 'the kept original survives').not.toContain('-original.');
   });
 
-  test('4. switch off, Save: the upload matches the un-enhanced bake; the key is gone', async ({ page }) => {
+  test('4. switch off, OK: the upload matches the un-enhanced bake; the key is gone', async ({ page }) => {
     const { flow, h } = await resumeCrop(page);
     const oldDisplay = objectPath(h.avatarUrl!);
     await openPencil(page);
     await expect(toggle(page)).toHaveAttribute('aria-checked', 'true');
+    await editorShows(page, 'on');
     await toggle(page).click();
     await expect(toggle(page)).toHaveAttribute('aria-checked', 'false');
     await expect(strength(page), 'no slider while off').toHaveCount(0);
-    await previewShows(page, 'off');
-    await saveButton(page).click();
+    await editorShows(page, 'off');
+    await editorOk(page).click();
     await waitPatch(page, h, 1);
 
     expect(uploadKinds(h)).toEqual(['display']);
@@ -418,126 +341,187 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(JSON.stringify(h.deletes)).toContain(oldDisplay);
   });
 
-  test('5. nothing changed, Save: no upload', async ({ page }) => {
-    const { flow, h } = await resumeCrop(page);
+  test('5. nothing changed, OK: no upload and no write at all', async ({ page }) => {
+    const { h } = await resumeCrop(page);
     await openPencil(page);
     await expect(toggle(page)).toHaveAttribute('aria-checked', 'true');
     await expect(strength(page)).toHaveValue('100');
-    await previewShows(page, 'on');
-    await saveButton(page).click();
-    await waitPatch(page, h, 1);
+    await editorShows(page, 'on');
+    // Looking is not touching: a hold to compare, and the strength there and back.
+    await holdPhoto(page);
+    await editorShows(page, 'original');
+    await page.mouse.up();
+    await editorShows(page, 'on');
+    await setStrength(page, 60);
+    await setStrength(page, 100);
+    await editorShows(page, 'on');
+    await editorOk(page).click();
+    await expect(heroDialog(page), 'the editor closed').toHaveCount(0, { timeout: 15_000 });
+    await page.waitForTimeout(1_500);
     expect(h.uploads, 'no upload').toHaveLength(0);
     expect(h.deletes, 'nothing deleted').toHaveLength(0);
-    expect(h.patches[0].avatar_url, 'the picture column is not written').toBeUndefined();
-    // The config-only write keeps what was stored.
-    const cfg = heroConfigOf(h.patches[0]);
-    expect(readHeroEnhance(cfg), 'enhance rides through a config-only save').toEqual(flow.enhance);
-    expect(cfg.window).toEqual(heroConfigOf(flow.patch).window);
+    expect(h.patches, 'no pages PATCH').toHaveLength(0);
   });
 
-  test('6. hold shows the un-enhanced picture and release returns; the preview matches what the page then shows', async ({ page }) => {
+  test('6. switch on at 50, hold shows the source and release returns; OK stores 0.5 and uploads what the editor showed', async ({ page }) => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     const h = startHarness();
     await installEditor(page, h);
     await openEditor(page);
     await pickDim(page);
-    await previewShows(page, 'off');
-    const offSrc = await previewSrc(page);
-    const offLook = await measure(page, 'preview');
+    await editorShows(page, 'off');
+    const offPic = await cropperPicture(page);
+    expect([offPic.w, offPic.h], 'switch off: the cropper holds the real source').toEqual([DIM.width, DIM.height]);
+    const offLook = await measurePicture(page, CROPPER_IMG);
 
     await toggle(page).click();
-    await previewShows(page, 'on');
-    const onSrc = await previewSrc(page);
-    expect(onSrc, 'the enhanced copy is another picture').not.toBe(offSrc);
-    const onLook = await measure(page, 'preview');
-    expect(Math.max(onLook.w, onLook.h), 'the preview copy is at most 800 px').toBeLessThanOrEqual(800);
-    expect(lum(onLook), 'the preview is brighter with the switch on').toBeGreaterThan(lum(offLook) + 8);
+    await editorShows(page, 'on');
+    const onPic = await cropperPicture(page);
+    expect(onPic.src, 'the enhanced copy is another picture').not.toBe(offPic.src);
+    expect(Math.max(onPic.w, onPic.h), 'the enhanced copy is at most 1600 px on its long side').toBeLessThanOrEqual(1600);
+    expect(Math.abs(onPic.w / onPic.h / (DIM.width / DIM.height) - 1), 'the WHOLE picture, the same shape').toBeLessThan(0.005);
+    const onLook = await measurePicture(page, CROPPER_IMG);
+    expect(lum(onLook), 'the editor is brighter with the switch on').toBeGreaterThan(lum(offLook) + 8);
 
-    // Press and hold: the un-enhanced copy; release: the enhanced one again.
-    const box = (await preview(page).boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await previewShows(page, 'original');
-    const heldLook = await measure(page, 'preview');
-    expect(worstMean(heldLook, offLook), 'held: the un-enhanced picture').toBeLessThan(3);
+    // Press and hold: the real source; release: the enhanced copy again.
+    await holdPhoto(page);
+    await editorShows(page, 'original');
+    expect((await cropperPicture(page)).src, 'held: the real source').toBe(offPic.src);
+    expect(worstMean(await measurePicture(page, CROPPER_IMG), offLook), 'held: the un-enhanced picture').toBeLessThan(1);
     await page.mouse.up();
-    await previewShows(page, 'on');
-    expect(await previewSrc(page), 'released: the enhanced copy is back').toBe(onSrc);
+    await editorShows(page, 'on');
+    expect((await cropperPicture(page)).src, 'released: the enhanced copy is back').toBe(onPic.src);
 
     // The slider is live: 50 sits between off and full.
     await setStrength(page, 50);
-    await expect.poll(async () => (await previewSrc(page)) !== onSrc, { timeout: 15_000, message: 'the preview was re-made' }).toBe(true);
-    await previewShows(page, 'on');
-    const halfLook = await measure(page, 'preview');
+    await expect.poll(async () => (await cropperPicture(page)).src !== onPic.src, { timeout: 15_000, message: 'the enhanced copy was re-made' }).toBe(true);
+    await editorShows(page, 'on');
+    const halfLook = await measurePicture(page, CROPPER_IMG);
     expect(lum(halfLook)).toBeGreaterThan(lum(offLook) + 3);
     expect(lum(halfLook)).toBeLessThan(lum(onLook) - 3);
-    await setStrength(page, 100);
-    await expect.poll(async () => {
-      try { return worstMean(await measure(page, 'preview'), onLook); } catch { return 255; }
-    }, { timeout: 15_000, message: 'back at 100 the preview is the full-strength look again' }).toBeLessThan(1);
-    await previewShows(page, 'on');
-    const shownLook = await measure(page, 'preview');
 
-    // Save: what the page then shows has the preview's mean colour.
-    await saveButton(page).click();
+    // OK: what is uploaded is the framed region of what the editor showed.
+    const framed = await framedInCropper(page);
+    const want = regionFor(framed, DIM, 'hero');
+    const cut: Win = {
+      x: (100 * want.region.x) / DIM.width, y: (100 * want.region.y) / DIM.height,
+      w: (100 * want.region.width) / DIM.width, h: (100 * want.region.height) / DIM.height,
+    };
+    const shownLook = await measurePicture(page, CROPPER_IMG, cut);
+    await editorOk(page).click();
     await waitPatch(page, h, 1);
+    const stored = readHeroEnhance(heroConfigOf(h.patches[0]))!;
+    expect(stored, 'enhance is stored').toBeTruthy();
+    expect(stored.strength, 'the strength the slider showed').toBe(0.5);
     const name = h.avatarUrl!.split('/').pop()!;
     const hero = await heroSettled(page, 'hero', FRAME, name);
     expect(hero.src, 'the canvas shows the file just saved').toContain(name);
     const pageLook = await measureFile(page, displayOf(h));
-    expect(worstMean(shownLook, pageLook), `preview ${shownLook.mean.map((v) => v.toFixed(1))} vs page ${pageLook.mean.map((v) => v.toFixed(1))}`).toBeLessThan(3);
-    expect(readHeroEnhance(heroConfigOf(h.patches[0]))?.strength).toBe(1);
+    expect(worstMean(shownLook, pageLook), `editor ${shownLook.mean.map((v) => v.toFixed(1))} vs page ${pageLook.mean.map((v) => v.toFixed(1))}`).toBeLessThan(3);
+    // …and it is exactly a from-scratch bake of the region with the stored params.
+    const scratch = await scratchBake(page, originalOf(h), want.region, { w: pageLook.w, h: pageLook.h }, stored);
+    expect(worstBlock(pageLook, scratch), 'the upload == a from-scratch bake with the stored params (levels per channel)').toBeLessThan(2);
   });
 
-  test('7. a GIF pick and a slot with no kept original show no row', async ({ page }) => {
-    // A GIF pick: saved as picked, never re-encoded — nothing to enhance.
+  test('6b. the switch, the strength slider and a hold never move the framed area', async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    const h = startHarness();
+    await installEditor(page, h);
+    await openEditor(page);
+    await pickDim(page);
+    const framed = await zoomAndDrag(page, editorZoom(page), 1.8, 25, -35);
+    const still = async (what: string) =>
+      expect(winDrift(await framedInCropper(page), framed), `${what}: the framed area moved (percent of the picture)`).toBeLessThan(0.2);
+
+    await toggle(page).click();
+    await editorShows(page, 'on');
+    await still('switch on');
+    await setStrength(page, 30);
+    await editorShows(page, 'on');
+    await page.waitForTimeout(600);
+    await still('strength 30');
+    await holdPhoto(page);
+    await editorShows(page, 'original');
+    await still('held');
+    await page.mouse.up();
+    await editorShows(page, 'on');
+    await still('released');
+    await toggle(page).click();
+    await editorShows(page, 'off');
+    await still('switch off');
+    await toggle(page).click();
+    await editorShows(page, 'on');
+    await still('switch on again');
+    await expect(editorZoom(page), 'the zoom is where it was left').toHaveValue('1.8');
+    expect(h.patches, 'looking writes nothing').toHaveLength(0);
+  });
+
+  test('7. a GIF is shown as the page will show it and saved as picked; no kept original, no Auto enhance row', async ({ page }) => {
+    // A GIF pick: no drag, no zoom, no row, one caption — and OK saves it as picked.
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     const h = startHarness();
     await installEditor(page, h);
     await openEditor(page);
     await pickHeroFile(page, GIF_FILE);
-    await expect(preview(page)).toBeVisible({ timeout: 30_000 });
-    await expect(saveButton(page)).toBeVisible();
+    await photoEditorReady(page);
     await expect(row(page), 'no row for a GIF').toHaveCount(0);
-    await heroDialog(page).getByRole('button', { name: EN['editor.cancel'], exact: true }).click();
-    await expect(heroDialog(page)).toHaveCount(0);
+    await expect(heroDialog(page).getByText(EN['editor.hero.gifNoCrop'], { exact: true }), 'the caption').toBeVisible();
+    await expect(editorZoom(page), 'the zoom slider is disabled').toBeDisabled();
+    const gifFramed = await framedInCropper(page);
+    const box = (await page.locator('.reactEasyCrop_CropArea').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 30, { steps: 6 });
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    expect(winDrift(await framedInCropper(page), gifFramed), 'a GIF does not drag').toBe(0);
+    await editorOk(page).click();
+    await waitPatch(page, h, 1);
+    const gifCfg = heroConfigOf(h.patches[0]);
+    expect(gifCfg.fit).toBe('fill');
+    expect(gifCfg.posX).toBe(50);
+    expect(gifCfg.posY).toBe(50);
+    for (const key of ['window', 'windowSource', 'enhance']) expect(Object.keys(gifCfg), `a GIF stores no ${key}`).not.toContain(key);
+    expect(uploadKinds(h)).toEqual(['display', 'original']);
+    for (const u of h.uploads) {
+      expect(u.type, `${u.path} is uploaded as a GIF`).toBe('image/gif');
+      expect(h.files.get(u.path)!.body.equals(GIF_BYTES), `${u.path} is the GIF as picked`).toBe(true);
+    }
 
-    // The pencil on a hero with no kept original: no un-enhanced source.
-    expect(h.originalUrl, 'control: this slot has no kept original').toBeNull();
-    await page.getByTestId('device-frame').getByTitle(EN['editor.editCurrentPhoto']).first().click();
-    await expect(preview(page)).toBeVisible({ timeout: 15_000 });
-    await expect(saveButton(page)).toBeVisible();
+    // The pencil on a hero with no kept original: the display file, and no row
+    // (its pixels may already be enhanced).
+    const h1 = startHarness();
+    expect(h1.originalUrl, 'control: this slot has no kept original').toBeNull();
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await installEditor(page, h1);
+    await openPencil(page);
+    expect((await cropperPicture(page)).src, 'the cropper holds the display file').toContain(PLACARD.split('/').pop()!);
     await page.waitForTimeout(1_500);
     await expect(row(page), 'no row without a kept original').toHaveCount(0);
-    expect(h.patches, 'looking writes nothing').toHaveLength(0);
+    await expect(editorZoom(page)).toBeEnabled();
+    expect(h1.patches, 'looking writes nothing').toHaveLength(0);
 
-    // A hero cropped before windows were stored: a kept original, but the
-    // display file is a cut of it and nothing records which — no row.
-    const h3 = startHarness();
-    h3.files.set(`${FIX_DIR}/legacy-crop.png`, { body: squarePng(), type: 'image/png' });
-    h3.avatarUrl = `${AVATARS}${FIX_DIR}/legacy-crop.png`;
-    h3.files.set(`${FIX_DIR}/kept-original.png`, { body: dimPng(), type: 'image/png' });
-    h3.originalUrl = `${AVATARS}${FIX_DIR}/kept-original.png`;
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await installEditor(page, h3);
-    await openPencil(page);
-    await expect(saveButton(page)).toBeVisible();
-    await page.waitForTimeout(2_500);
-    await expect(row(page), 'no row for a cut with no stored window').toHaveCount(0);
-    expect(h3.patches, 'looking writes nothing').toHaveLength(0);
-
-    // Control: the same slot WITH a kept original shows the row.
-    const h2 = startHarness();
-    h2.files.set(`${FIX_DIR}/kept-original.png`, { body: dimPng(), type: 'image/png' });
-    h2.originalUrl = `${AVATARS}${FIX_DIR}/kept-original.png`;
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await installEditor(page, h2);
-    await openPencil(page);
-    await expect(row(page), 'control: with a kept original the row shows').toBeVisible({ timeout: 15_000 });
-    await expect(toggle(page)).toHaveAttribute('aria-checked', 'false');
+    // With a kept original the row shows — also for a hero cut before windows
+    // were stored: OK bakes its own region from the kept original now.
+    for (const legacyCut of [true, false]) {
+      const h2 = startHarness();
+      if (legacyCut) {
+        h2.files.set(`${FIX_DIR}/legacy-crop.png`, { body: squarePng(), type: 'image/png' });
+        h2.avatarUrl = `${AVATARS}${FIX_DIR}/legacy-crop.png`;
+      }
+      h2.files.set(`${FIX_DIR}/kept-original.png`, { body: dimPng(), type: 'image/png' });
+      h2.originalUrl = `${AVATARS}${FIX_DIR}/kept-original.png`;
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await installEditor(page, h2);
+      await openPencil(page);
+      expect((await cropperPicture(page)).src, 'the cropper holds the kept original').toContain('kept-original.png');
+      await expect(row(page), 'with a kept original the row shows').toBeVisible({ timeout: 15_000 });
+      await expect(toggle(page)).toHaveAttribute('aria-checked', 'false');
+      expect(h2.patches, 'looking writes nothing').toHaveLength(0);
+    }
   });
 
-  test('8. Page 2\'s own hero: switch on, Save writes avatar_url_page2 and heroConfig_page2 with enhance; Page 1\'s slot is untouched', async ({ page }) => {
+  test('8. Page 2\'s own hero: switch on, OK writes avatar_url_page2 and heroConfig_page2 with enhance; Page 1\'s slot is untouched', async ({ page }) => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     const h = startHarness();
     const page1Config = { ...h.heroConfig };
@@ -556,8 +540,9 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     await pickDim(page);
     await expect(toggle(page), 'the switch starts off').toHaveAttribute('aria-checked', 'false');
     await toggle(page).click();
-    await previewShows(page, 'on');
-    await saveButton(page).click();
+    await editorShows(page, 'on');
+    const framed = await framedInCropper(page);
+    await editorOk(page).click();
     await waitPatch(page, h, 1);
 
     // ONE write, to the theme alone: Page 2's hero lives in theme_json.
@@ -570,25 +555,30 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(objectPath(theme.avatar_url_page2 as string), 'avatar_url_page2 is the display upload').toBe(displayUpload.path);
     expect(objectPath(theme.avatar_original_url_page2 as string), 'avatar_original_url_page2 is the kept original').toBe(originalUpload.path);
 
-    // Page 2's slot carries enhance; Page 1's slot is exactly what it was.
-    const stored = readHeroEnhance(theme.heroConfig_page2);
+    // Page 2's slot carries enhance and its window; Page 1's slot is exactly what it was.
+    const slot = theme.heroConfig_page2 as Record<string, unknown>;
+    const stored = readHeroEnhance(slot);
     expect(stored, 'heroConfig_page2 carries enhance').toBeTruthy();
     expect(stored!.strength).toBe(1);
     expect(isIdentity(stored!.params), 'the dim picture has something to enhance').toBe(false);
+    expect(slot.fit).toBe('fill');
+    expect(slot.window, 'Page 2\'s slot carries its window').toBeTruthy();
+    expectWin(pictureFitSeed(slot.windowSource, canonicalHeroAspect()).crop!, framed, 'Page 2\'s windowSource == framed');
     expect(theme.heroConfig, 'Page 1\'s hero slot is untouched').toEqual(page1Config);
     expect(readHeroEnhance(theme.heroConfig), 'no enhance on Page 1').toBeNull();
     expect(h.avatarUrl, 'Page 1\'s picture is untouched').toBe(page1Picture);
     expect(JSON.stringify(h.deletes), 'Page 1\'s file is not deleted').not.toContain(PLACARD);
 
-    // The upload is the whole picture, enhanced with the stored numbers; the kept original is not.
+    // The upload is the framed region, enhanced with the stored numbers; the kept original is not.
+    const region = regionFor(framed, DIM, 'hero').region;
     const display = h.files.get(displayUpload.path)!;
     const original = h.files.get(originalUpload.path)!;
     const got = await measureFile(page, display);
-    const scratch = await scratchBake(page, original, null, { w: got.w, h: got.h }, stored);
-    expect(worstBlock(got, scratch), 'the upload == the whole picture, enhanced with the stored params').toBeLessThan(2);
-    const plain = await scratchBake(page, original, null, { w: got.w, h: got.h }, null);
-    expect(lum(got), 'brighter than the picture left alone').toBeGreaterThan(lum(plain) + 8);
-    const picked = await measure(page, { b64: dimPng().toString('base64'), mime: 'image/png' });
+    const scratch = await scratchBake(page, original, region, { w: got.w, h: got.h }, stored);
+    expect(worstBlock(got, scratch), 'the upload == the region, enhanced with the stored params').toBeLessThan(2);
+    const plain = await scratchBake(page, original, region, { w: got.w, h: got.h }, null);
+    expect(lum(got), 'brighter than the region left alone').toBeGreaterThan(lum(plain) + 8);
+    const picked = await measurePicture(page, { body: dimPng(), type: 'image/png' });
     expect(worstBlock(await measureFile(page, original), picked), 'the kept original is the picture as picked').toBeLessThan(2);
     expect(h.aiCalls, 'nothing reached ai-enhance').toEqual([]);
   });
@@ -602,7 +592,7 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     const seen: string[] = [];
     page.on('request', (req) => {
       const p = new URL(req.url()).pathname;
-      if (p.startsWith('/src/lib/')) seen.push(p);
+      if (p.startsWith('/src/lib/') || p.startsWith('/src/components/')) seen.push(p);
     });
     const requests = (file: string) => seen.filter((p) => p === `/src/lib/${file}`).length;
 
@@ -617,26 +607,98 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     expect(requests('hero-enhance-canvas.ts'), 'the public page does not request the canvas chunk').toBe(0);
     expect(requests('auto-enhance.ts'), 'nor the heavy half of the enhancement').toBe(0);
 
-    // The editor: not on load, not when the Edit Photo screen opens…
+    // The editor: not on load, not when the photo editor opens…
     seen.length = 0;
     await openEditor(page);
     await pickDim(page);
-    await previewShows(page, 'off');
+    await editorShows(page, 'off');
     await page.waitForTimeout(1_000);
     expect(requests('hero-enhance.ts'), 'control: the editor loaded the stored-key module').toBe(1);
     expect(requests('hero-enhance-canvas.ts'), 'the row on screen, unused: no canvas chunk yet').toBe(0);
     expect(requests('auto-enhance.ts')).toBe(0);
     // …but once the row is used.
     await toggle(page).click();
-    await previewShows(page, 'on');
+    await editorShows(page, 'on');
     expect(requests('hero-enhance-canvas.ts'), 'the switch fetched the canvas chunk').toBe(1);
     expect(requests('auto-enhance.ts'), 'and the heavy half with it').toBe(1);
     // One cached load: using the row again fetches nothing.
     await toggle(page).click();
-    await previewShows(page, 'off');
+    await editorShows(page, 'off');
     await toggle(page).click();
-    await previewShows(page, 'on');
+    await editorShows(page, 'on');
     expect(requests('hero-enhance-canvas.ts'), 'one load, kept').toBe(1);
     expect(h.patches, 'looking writes nothing').toHaveLength(0);
   });
+
+  test('10. New photo inside the editor: a new pick, the switch back to off, the frame reset', async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    const h = startHarness();
+    await installEditor(page, h);
+    await openEditor(page);
+    await pickDim(page);
+    await toggle(page).click();
+    await editorShows(page, 'on');
+    await setStrength(page, 40);
+    const moved = await zoomAndDrag(page, editorZoom(page), 2, 30, -30);
+    expect(moved.w, 'control: zoomed in on the first pick').toBeLessThan(60);
+
+    // New photo: the gallery opens; the pick lands back in the same editor.
+    const chooser = page.waitForEvent('filechooser');
+    await editorNewPhoto(page).click();
+    await (await chooser).setFiles(RULER_FILE());
+    await expect.poll(async () => (await cropperPicture(page)).w, { timeout: 30_000, message: 'the cropper holds the new pick' }).toBe(SRC.width);
+    await photoEditorReady(page);
+    await expect(heroDialog(page), 'still ONE editor').toHaveCount(1);
+    await expect(toggle(page), 'the switch is back to off').toHaveAttribute('aria-checked', 'false');
+    await expect(strength(page), 'no slider while off').toHaveCount(0);
+    await editorShows(page, 'off');
+    await expect(editorZoom(page), 'the zoom is back to 1').toHaveValue('1');
+    const frameH = (100 * SRC.width) / (canonicalHeroAspect() * SRC.height);
+    const centred: Win = { x: 0, y: (100 - frameH) / 2, w: 100, h: frameH };
+    expectWin(await framedInCropper(page), centred, 'the frame is reset to the centred area of the new picture');
+    expect(h.patches, 'nothing was written by the first pick').toHaveLength(0);
+    expect(h.uploads, 'and nothing uploaded').toHaveLength(0);
+
+    // OK saves the NEW picture, un-enhanced, with a fresh strength for next time.
+    await editorOk(page).click();
+    await waitPatch(page, h, 1);
+    const cfg = heroConfigOf(h.patches[0]);
+    expect(readHeroEnhance(cfg), 'no enhancement rode over from the first pick').toBeNull();
+    const held = await decodeRuler(page, displayOf(h));
+    const want = regionFor(centred, SRC, 'hero').region;
+    expectWin(pct(held), pct({ x0: want.x, x1: want.x + want.width, y0: want.y, y1: want.y + want.height }), 'the upload is cut from the new pick');
+  });
+
+  for (const style of ['hero', 'full_bleed'] as Style[]) {
+    test(`11. the editor fits · ${style}: every control on screen with no scrolling at 375x553, 393x659 and 1440x900, switch off and on`, async ({ page }) => {
+      const labels = { title: EN['editor.editPhoto'], caption: EN['editor.hero.holdToCompare'] };
+      for (const vp of [{ width: 375, height: 553 }, { width: 393, height: 659 }, { width: 1440, height: 900 }]) {
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+        const h = newEditorHarness(style, { fit: 'fill', posY: 25 }, 'photopolish1-links-block');
+        h.files.set(PLACARD, { body: dimPng(), type: 'image/png' });
+        h.avatarUrl = `${AVATARS}${PLACARD}`;
+        await installEditor(page, h);
+        await openEditor(page);
+        await pickDim(page);
+        // The editor is a full-screen layer: it is measured at the size asked for.
+        await page.setViewportSize(vp);
+        await editorShows(page, 'off');
+        for (const on of [false, true]) {
+          if (on) {
+            await toggle(page).click();
+            await editorShows(page, 'on');
+          }
+          const at = `${style} ${vp.width}x${vp.height}, switch ${on ? 'on' : 'off'}`;
+          const m = await readEditorLayout(page, labels);
+          expect([m.vw, m.vh], `${at}: the viewport`).toEqual([vp.width, vp.height]);
+          expectEditorFits(m, at, on);
+          // The frame is the page's shape.
+          const shape = m.parts.frame!.width / m.parts.frame!.height;
+          const wantShape = style === 'hero' ? canonicalHeroAspect() : canonicalFullBleedAspect();
+          expect(Math.abs(shape / wantShape - 1), `${at}: the frame is the ${style} shape`).toBeLessThan(0.01);
+        }
+        expect(h.patches, 'looking writes nothing').toHaveLength(0);
+      }
+    });
+  }
 });
