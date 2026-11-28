@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InlineColorPicker } from '@/components/ui/color-picker';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -400,20 +401,10 @@ export function HeroCardEditor({ blockId, open, onOpenChange, onSave, panelMode 
             {/* Text Color */}
             <div className="space-y-3">
               <Label>{t('design.textColor')}</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={config.text_color}
-                  onChange={(e) => setConfig({ ...config, text_color: e.target.value })}
-                  className="h-10 w-14 rounded border border-border cursor-pointer"
-                />
-                <Input
-                  value={config.text_color}
-                  onChange={(e) => setConfig({ ...config, text_color: e.target.value })}
-                  className="flex-1 font-mono text-sm"
-                  placeholder="#ffffff"
-                />
-              </div>
+              <InlineColorPicker
+                value={config.text_color}
+                onChange={(c) => setConfig({ ...config, text_color: c })}
+              />
             </div>
 
             {/* Overlay Opacity */}

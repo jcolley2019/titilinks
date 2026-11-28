@@ -88,6 +88,7 @@ import { suggestHandles } from '@/lib/handle-suggest';
 // same Switch, the same text-block label derivation) rather than inventing a
 // second toggle control.
 import { Switch } from '@/components/ui/switch';
+import { InlineColorPicker } from '@/components/ui/color-picker';
 import { parseTextConfig } from '@/lib/text-block-config';
 import { usePlanLock } from '@/hooks/usePlanLock';
 import { PlanLockTag } from '@/components/PlanLock';
@@ -216,10 +217,18 @@ const TYPO_TABS: { key: TypoTab; labelKey: string }[] = [
 const hubChipClass = (active: boolean) =>
   `rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all ${active ? 'border-[#C9A55C] bg-black/30 text-white' : 'border-white/10 text-white/60 hover:border-white/25'}`;
 
-// <input type="color"> only accepts #rrggbb. handleColor defaults to the
-// 8-digit '#ffffff99', so the swatch shows its opaque form while the hex field
-// beside it keeps the full value.
+// COLOR.PICK.1 — the Color tab's shared picker edits #rrggbb only. handleColor
+// defaults to the 8-digit '#ffffff99': the picker is shown its first seven
+// characters and every pick or quick colour puts the draft's alpha suffix back.
 const swatchHex = (v: string) => (/^#[0-9a-f]{6}/i.test(v) ? v.slice(0, 7) : '#ffffff');
+const alphaSuffix = (v: string) => /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(v)?.[1] ?? '';
+// The hex box reports '#rgb' as well as '#rrggbb'; drafts always hold six digits.
+const sixDigitHex = (c: string) => {
+  const h = c.replace('#', '').toLowerCase();
+  return `#${h.length === 3 ? h.replace(/./g, (d) => d + d) : h}`;
+};
+// The Color tab's quick colours: the Effects tab's outline colours.
+const QUICK_COLOURS = [['Black', '#000000'], ['White', '#ffffff'], ['Gold', '#c9a55c']] as const;
 
 /**
  * TL.BLOCK.1 — pick which of several same-type blocks the editor should open.
@@ -535,6 +544,15 @@ export function ProfileDashboard({
   // Name & Handle hub — drafts are seeded when the hub opens (not on every
   // themeJson refresh) so a save's onRefresh can't clobber in-progress edits.
   const [typoTab, setTypoTab] = useState<TypoTab>('name');
+  // COLOR.PICK.1 — which draft the Color tab's one picker colours (Name on open),
+  // and the hex box's last raw report, so a half-typed '#12A' stays as typed.
+  const [colorTarget, setColorTarget] = useState<'name' | 'handle'>('name');
+  const [colorEcho, setColorEcho] = useState<string | null>(null);
+  useEffect(() => {
+    if (typoTab !== 'color') return;
+    setColorTarget('name');
+    setColorEcho(null);
+  }, [typoTab]);
   const [nameDraft, setNameDraft] = useState('');
   // TL.HANDLE.2 — Username draft + its availability, the onboarding check.
   const [handleDraft, setHandleDraft] = useState('');
@@ -2232,33 +2250,42 @@ export function ProfileDashboard({
                     </div>
                   )}
 
-                  {typoTab === 'color' && (
-                    <div className="space-y-5">
-                      {([
-                        { key: 'nameColor', labelKey: 'typoHub.nameColor', draft: nameColorDraft, set: setNameColorDraft },
-                        { key: 'handleColor', labelKey: 'typoHub.handleColor', draft: handleColorDraft, set: setHandleColorDraft },
-                      ] as const).map((row) => (
-                        <div key={row.key}>
-                          <label className="text-white/40 text-[10px] block mb-1">{t(row.labelKey)}</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={swatchHex(row.draft)}
-                              onChange={(e) => row.set(e.target.value)}
-                              className="h-10 w-12 flex-shrink-0 rounded-lg bg-white/5 border border-white/10 cursor-pointer"
-                            />
-                            <input
-                              type="text"
-                              value={row.draft}
-                              placeholder="#FFFFFF"
-                              onChange={(e) => row.set(e.target.value)}
-                              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono uppercase placeholder:text-white/30 focus:outline-none focus:border-[#C9A55C]/50 truncate"
-                            />
-                          </div>
+                  {/* COLOR.PICK.1 — two chips choose the draft, ONE shared picker
+                      colours it, three quick colours under it. Draft-only like
+                      every hub control: the single write lives in handleHubSave. */}
+                  {typoTab === 'color' && (() => {
+                    const draft = colorTarget === 'name' ? nameColorDraft : handleColorDraft;
+                    const setDraft = colorTarget === 'name' ? setNameColorDraft : setHandleColorDraft;
+                    const shown = swatchHex(draft);
+                    const pickerValue = colorEcho && sixDigitHex(colorEcho) === shown.toLowerCase() ? colorEcho : shown;
+                    const pick = (c: string) => {
+                      setColorEcho(c);
+                      setDraft(sixDigitHex(c) + (colorTarget === 'handle' ? alphaSuffix(draft) : ''));
+                    };
+                    return (
+                      <div className="space-y-5">
+                        <div className="grid grid-cols-2 gap-2">
+                          {([['name', 'typoHub.nameColor'], ['handle', 'typoHub.handleColor']] as const).map(([v, labelKey]) => (
+                            <button key={v} type="button" aria-pressed={colorTarget === v}
+                              onClick={() => { setColorTarget(v); setColorEcho(null); }}
+                              className={`${hubChipClass(colorTarget === v)} truncate`}>
+                              {t(labelKey)}
+                            </button>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <InlineColorPicker value={pickerValue} onChange={pick} />
+                        <div className="grid grid-cols-3 gap-2">
+                          {QUICK_COLOURS.map(([label, c]) => (
+                            <button key={label} type="button" aria-pressed={shown.toLowerCase() === c}
+                              onClick={() => pick(c)}
+                              className={`${hubChipClass(shown.toLowerCase() === c)} truncate`}>
+                              {t(`dashboard.textFx.color${label}`)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {typoTab === 'effects' && (() => {
                     const fx = fxDraft;

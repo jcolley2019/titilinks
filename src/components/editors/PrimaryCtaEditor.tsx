@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InlineColorPicker } from '@/components/ui/color-picker';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -333,15 +334,14 @@ export function PrimaryCtaEditor({ blockId, open, onOpenChange, onSave, panelMod
                     className="py-2"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('primaryCtaEditor.borderColor')}</Label>
-                  <Input
-                    type="color"
-                    value={styleConfig.border_color || '#ffffff'}
-                    onChange={(e) => setStyleConfig(prev => ({ ...prev, border_color: e.target.value }))}
-                    className="h-8 p-1 w-full"
-                  />
-                </div>
+              </div>
+              {/* COLOR.PICK.1 — the border colour gets its own full-width row. */}
+              <div className="space-y-1">
+                <Label className="text-xs">{t('primaryCtaEditor.borderColor')}</Label>
+                <InlineColorPicker
+                  value={styleConfig.border_color || '#ffffff'}
+                  onChange={(c) => setStyleConfig(prev => ({ ...prev, border_color: c }))}
+                />
               </div>
 
               {/* Background Opacity & Letter Spacing */}

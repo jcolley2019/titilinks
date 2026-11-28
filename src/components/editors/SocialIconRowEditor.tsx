@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InlineColorPicker } from '@/components/ui/color-picker';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -519,18 +520,11 @@ export function SocialIconRowEditor({ blockId, open, onOpenChange, onSave, panel
               </div>
 
               {!config.use_theme_color && (
-                <div className="flex items-center gap-3">
+                <div className="space-y-2">
                   <Label className="text-xs">{t('socialIconRowEditor.customColor')}</Label>
-                  <input
-                    type="color"
+                  <InlineColorPicker
                     value={config.custom_color}
-                    onChange={(e) => setConfig({ ...config, custom_color: e.target.value })}
-                    className="h-8 w-12 rounded border border-border cursor-pointer"
-                  />
-                  <Input
-                    value={config.custom_color}
-                    onChange={(e) => setConfig({ ...config, custom_color: e.target.value })}
-                    className="flex-1 h-8 font-mono text-xs"
+                    onChange={(c) => setConfig({ ...config, custom_color: c })}
                   />
                 </div>
               )}

@@ -244,6 +244,13 @@ const checks = [
   // the key strings at all (comments included), and that file must still
   // contain both.
   { name:'PICTURE-FIT-ONE-MODULE', pictureFitOneModule:true },
+  // COLOR.PICK.1: one colour picker everywhere. Every colour control under
+  // src/components is the shared InlineColorPicker (components/ui/
+  // color-picker.tsx, the Links editor's): the native colour input opens an OS
+  // dialog that looks different on every platform, cannot be styled to the
+  // panel and takes #rrggbb only. A `type="color"` anywhere under
+  // src/components (comments included) is that second picker growing back.
+  { name:'NO-NATIVE-COLOUR', noNativeColour:true },
   // TL.HYG.1 (AUDIT_rev6 §4.4): tests/ is typechecked. Nothing else compiles
   // the specs — Playwright's Babel transform strips types without checking
   // them, and tsconfig.app.json includes src/ only — so a wrong-shaped test
@@ -687,6 +694,30 @@ for (const c of checks) {
       console.error(`      write with writePictureFit, so junk resolves to cover and crop and fit never mix.`);
     } else {
       console.log(`ok ${c.name} (${scanned} files in src/ scanned; ${KEYS.join(' / ')} appear only in ${OWNER})`);
+    }
+    continue;
+  }
+  if (c.noNativeColour) {
+    const NATIVE = /\btype\s*=\s*\{?\s*["'`]color["'`]/;
+    const walkSrc = (dir) => readdirSync(dir).flatMap((name) => {
+      const p = `${dir}/${name}`;
+      return statSync(p).isDirectory() ? walkSrc(p) : /\.(tsx?|jsx?)$/.test(p) ? [p] : [];
+    });
+    const bad = [];
+    let scanned = 0;
+    for (const f of walkSrc('src/components')) {
+      scanned++;
+      readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+        if (NATIVE.test(line)) bad.push(`${f}:${i + 1}  ${line.trim().slice(0, 90)}`);
+      });
+    }
+    if (bad.length) {
+      failed++;
+      console.error(`x ${c.name} - a native colour input is back under src/components (COLOR.PICK.1)`);
+      bad.forEach((b) => console.error(`      ${b}`));
+      console.error(`      Use InlineColorPicker from src/components/ui/color-picker.tsx: one picker everywhere.`);
+    } else {
+      console.log(`ok ${c.name} (${scanned} files in src/components scanned; no type="color")`);
     }
     continue;
   }

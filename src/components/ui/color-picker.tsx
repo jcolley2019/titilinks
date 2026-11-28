@@ -14,7 +14,7 @@ interface ColorPickerProps {
 /**
  * Modern in-page color picker: a swatch button that opens a popover with a live
  * react-colorful picker + hex input. Updates immediately (no OS dialog), and
- * closes on click-outside. Drop-in replacement for `<input type="color">`.
+ * closes on click-outside. Drop-in replacement for the browser's native colour input.
  */
 export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
   return (
