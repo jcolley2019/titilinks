@@ -24,6 +24,20 @@
 //      avatar_original_url and the window made for that file; with no uploaded
 //      URL (6b) the update carries the theme alone, with no window.
 //
+// PHOTO.POLISH.2 — the sign-up photo step gets the Auto enhance switch (off by
+// default), in the first photo modal:
+//   7. switch on then Use Original: the display upload is brighter than the same
+//      flow with the switch off, the original upload is byte-identical either
+//      way, and the insert's heroConfig holds the enhancement ALONE (off: no
+//      heroConfig at all);
+//   8. switch on then Crop Image + Apply Crop: the same, with the window beside
+//      the enhancement (off: the window config, no enhancement);
+//   9. a GIF shows no switch and is kept as picked;
+//  10. the modal fits: picture, switch row and both buttons on screen at
+//      375x553, 393x659 and desktop, switch off and on.
+// And in 3: an uncropped 2000x3000 pick now uploads at 1667x2500 (the hero cap),
+// no longer through the old 800 px JPEG path.
+//
 // Built like spec 62 (onboarding, mocked) and spec 101 (ruler picture, captured
 // writes). Battery account; reads patched; EVERY write is captured and fulfilled
 // in tests/helpers/hero-window-harness.ts — no real hero save, no real sign-up,
@@ -34,14 +48,17 @@ import { translations } from '../src/hooks/useLanguage';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '../src/lib/device-presets';
 import { HERO_BOX_ASPECTS, heroDisplayRegion } from '../src/lib/hero-window';
 import { pictureFitSeed } from '../src/lib/picture-fit';
+import { readHeroEnhance, writeHeroEnhance } from '../src/lib/hero-enhance';
+import { isIdentity } from '../src/lib/auto-enhance';
+import { HERO_MAX_PX } from '../src/lib/crop';
 import {
-  AVATARS, FRAME, SRC,
+  AVATARS, FRAME, SRC, DIM,
   installEditor, installOnboarding, newEditorHarness, openEditor, heroDialog, pickHeroFile,
   toOnboardingStepTwo, openOnboardingCrop,
   rulerPng, decodeRuler, pct, expectWin,
   cropperReady, cropperStill, cropFrameShape, zoomAndDrag, heroSettled, shownInSource,
-  objectPath,
-  type OnboardingHarness, type Region, type Style, type Win,
+  objectPath, dimPng, pictureLook,
+  type OnboardingHarness, type Region, type StoredFile, type Style, type Win,
 } from './helpers/hero-window-harness';
 
 const EN = translations.en as Record<string, string>;
@@ -82,7 +99,7 @@ async function onboardingCrop(page: Page, style: Style, desktop: boolean, failOr
 }
 
 /** Step 2's Continue, then step 3's: the `pages` insert, captured. */
-async function finishToInsert(page: Page, c: OnbCrop, uploads: number) {
+async function finishToInsert(page: Page, c: Pick<OnbCrop, 'h' | 'scope'>, uploads: number) {
   await expect.poll(() => c.h.uploads.length, { timeout: 60_000, message: 'the pick-time uploads landed' }).toBe(uploads);
   await page.getByTestId('onb-continue').click();
   // Step 2 has left (its Continue is the only one with this test id) and step 3 is up.
@@ -117,6 +134,84 @@ function windowThroughFile(windowJson: unknown, style: Style, region: Region): W
     x0: region.x0 + (over!.x / 100) * W, x1: region.x0 + ((over!.x + over!.w) / 100) * W,
     y0: region.y0 + (over!.y / 100) * H, y1: region.y0 + ((over!.y + over!.h) / 100) * H,
   });
+}
+
+// ── PHOTO.POLISH.2: Auto enhance in the first photo modal ────────────────────
+const DIM_FILE = () => ({ name: 'dim.png', mimeType: 'image/png', buffer: dimPng() });
+const enhanceRow = (page: Page) => page.getByTestId('onb-enhance-row');
+const enhanceSwitch = (page: Page) => page.getByTestId('onb-enhance-switch');
+const photoPreview = (page: Page) => page.getByTestId('onb-photo-preview');
+const PREVIEW_IMG = '[data-testid="onb-photo-preview"] img';
+
+/**
+ * A wizard run that starts clean IN THIS PAGE (a test may make two, to compare
+ * them): the previous run's routes and its saved wizard state are dropped, then
+ * the wizard is driven to step 2.
+ */
+async function freshStepTwo(page: Page, desktop: boolean, viewport?: { width: number; height: number }) {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await page.evaluate(() => { try { window.sessionStorage.clear(); } catch { /* no storage on this document */ } }).catch(() => {});
+  if (viewport) await page.setViewportSize(viewport);
+  else if (desktop) await page.setViewportSize({ width: 1440, height: 900 });
+  const h = await installOnboarding(page);
+  const scope = await toOnboardingStepTwo(page, 'hero', desktop, EN);
+  return { h, scope };
+}
+
+/** The modal's picture is decoded and in the state asked for. */
+async function modalShows(page: Page, state: 'on' | 'off') {
+  await expect(photoPreview(page)).toHaveAttribute('data-enhance-preview', state, { timeout: 30_000 });
+  await expect.poll(
+    () => page.locator(PREVIEW_IMG).evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0),
+    { timeout: 30_000, message: 'the modal picture decoded' },
+  ).toBe(true);
+}
+
+type EnhanceFlow = {
+  h: OnboardingHarness;
+  display: StoredFile; original: StoredFile; displayPath: string;
+  insert: Record<string, unknown>;
+  /** The modal picture's mean luminance when its button was pressed. */
+  modalLum: number;
+};
+
+/** Step 2 → pick the dim picture → (switch on) → Use Original, or Crop Image + Apply Crop → the page insert. */
+async function enhanceFlow(page: Page, desktop: boolean, how: 'original' | 'crop', on: boolean): Promise<EnhanceFlow> {
+  const { h, scope } = await freshStepTwo(page, desktop);
+  await scope.locator('input[type="file"]').setInputFiles(DIM_FILE());
+  await expect(enhanceRow(page)).toBeVisible({ timeout: 15_000 });
+  await expect(enhanceRow(page), 'the row is labelled Auto enhance').toContainText(EN['editor.hero.autoEnhance']);
+  await expect(enhanceSwitch(page), 'the switch starts off').toHaveAttribute('aria-checked', 'false');
+  await modalShows(page, 'off');
+  const offLook = await pictureLook(page, PREVIEW_IMG);
+  let modalLum = offLook.lum;
+  if (on) {
+    await enhanceSwitch(page).click();
+    await expect(enhanceSwitch(page)).toHaveAttribute('aria-checked', 'true');
+    await modalShows(page, 'on');
+    const onLook = await pictureLook(page, PREVIEW_IMG);
+    expect(Math.max(onLook.w, onLook.h), 'the modal shows a preview-size copy').toBeLessThanOrEqual(800);
+    expect(onLook.lum, `the modal picture is brighter with the switch on (${onLook.lum.toFixed(1)} vs ${offLook.lum.toFixed(1)})`).toBeGreaterThan(offLook.lum + 8);
+    modalLum = onLook.lum;
+  }
+  if (how === 'crop') {
+    await page.getByRole('button', { name: EN['onboardingFlow.cropImage'], exact: true }).click();
+    await cropperReady(page);
+    await expect(enhanceRow(page), 'the crop modal itself has no switch').toHaveCount(0);
+    await zoomAndDrag(page, cropModal(page).locator('input[type=range]'), 1.5, 40, -60);
+    await page.getByRole('button', { name: EN['onboardingFlow.applyCrop'], exact: true }).click();
+  } else {
+    await page.getByRole('button', { name: EN['onboardingFlow.useOriginal'], exact: true }).click();
+  }
+  await expect(scope.getByText(EN['onboardingFlow.changePhoto'], { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => h.uploads.length, { timeout: 60_000, message: 'both copies uploaded' }).toBe(2);
+  const displayPath = h.uploads.find((u) => !u.path.includes('-original.'))!.path;
+  const originalPath = h.uploads.find((u) => u.path.includes('-original.'))!.path;
+  const insert = await finishToInsert(page, { h, scope }, 2);
+  expect(objectPath(insert.avatar_url as string), 'the row points at the display upload').toBe(displayPath);
+  expect(objectPath(insert.avatar_original_url as string), 'and at the kept original').toBe(originalPath);
+  expect(h.aiCalls, 'nothing reached ai-enhance').toEqual([]);
+  return { h, display: h.files.get(displayPath)!, original: h.files.get(originalPath)!, displayPath, insert, modalLum };
 }
 
 test.describe('HERO.FIT.3 — onboarding uses the hero window; the editor crop step is manual', () => {
@@ -202,7 +297,14 @@ test.describe('HERO.FIT.3 — onboarding uses the hero window; the editor crop s
     // …and the display copy on the row is the whole picture, as today.
     const display = c.h.files.get(objectPath(insert.avatar_url as string))!;
     expect(display, 'the row points at an upload this session made').toBeTruthy();
-    expectWin(pct(await decodeRuler(page, display)), { x: 0, y: 0, w: 100, h: 100 }, 'the uncropped display file is the whole picture');
+    const whole = await decodeRuler(page, display);
+    expectWin(pct(whole), { x: 0, y: 0, w: 100, h: 100 }, 'the uncropped display file is the whole picture');
+    // PHOTO.POLISH.2: baked through the one hero output path — the hero cap on
+    // the long side (2000x3000 → 1667x2500), no longer an 800 px JPEG.
+    expect(HERO_MAX_PX, 'control: the hero cap').toBe(2500);
+    expect([whole.fileW, whole.fileH], 'a 2000x3000 pick uploads at 1667x2500').toEqual([1667, 2500]);
+    expect(display.type, 'encoded as every hero file is').toBe('image/webp');
+    expect(readHeroEnhance(heroConfigOf(insert)), 'the switch was never touched: no enhancement').toBeNull();
     if (desktop) {
       // The preview paints it as a no-window hero: cover, the whole width.
       const shown = await heroSettled(page, 'hero', FRAME, 'data:');
@@ -291,6 +393,152 @@ test.describe('HERO.FIT.3 — onboarding uses the hero window; the editor crop s
     expect(cfg?.window, 'no window').toBeUndefined();
     expect(cfg?.windowSource, 'no windowSource').toBeUndefined();
     expect(c.h.aiCalls).toEqual([]);
+  });
+
+  test('7. Auto enhance · Use Original: a brighter display file, the same original, and heroConfig holding the enhancement alone', async ({ page }, testInfo) => {
+    const desktop = isDesktop(testInfo.project.name);
+    const off = await enhanceFlow(page, desktop, 'original', false);
+    const on = await enhanceFlow(page, desktop, 'original', true);
+
+    // Switch off: no hero config at all, as before.
+    expect(heroConfigOf(off.insert), 'switch off: no heroConfig').toBeNull();
+    // Switch on: the hero config holds the enhancement and nothing else.
+    const cfg = heroConfigOf(on.insert)!;
+    expect(cfg, 'switch on: the insert carries heroConfig').toBeTruthy();
+    const stored = readHeroEnhance(cfg);
+    expect(stored, 'heroConfig carries the enhancement').toBeTruthy();
+    expect(stored!.strength, 'baked at full strength').toBe(1);
+    expect(isIdentity(stored!.params), 'the dim picture has something to enhance').toBe(false);
+    expect(Object.keys(writeHeroEnhance(cfg, null)), 'the enhancement is the only key (no window on an uncropped photo)').toEqual([]);
+
+    // The kept original is the same bytes either way: it is never enhanced.
+    expect(on.original.body.equals(off.original.body), 'the kept original is byte-identical with the switch on and off').toBe(true);
+
+    // The display file: the whole picture at its own size, brighter with the switch on.
+    const plain = await pictureLook(page, off.display);
+    const bright = await pictureLook(page, on.display);
+    expect([plain.w, plain.h], 'switch off: the whole picture, not capped at 800 px').toEqual([DIM.width, DIM.height]);
+    expect([bright.w, bright.h], 'the same size with the switch on').toEqual([plain.w, plain.h]);
+    expect(bright.lum, `enhanced ${bright.lum.toFixed(1)} vs plain ${plain.lum.toFixed(1)}`).toBeGreaterThan(plain.lum + 8);
+    expect(on.display.type).toBe('image/webp');
+    // What the modal showed is what was baked (both read the whole picture).
+    expect(Math.abs(on.modalLum - bright.lum), `modal ${on.modalLum.toFixed(1)} vs baked ${bright.lum.toFixed(1)}`).toBeLessThan(3);
+    expect(Math.abs(off.modalLum - plain.lum), 'control: off, the modal showed the picture as it is').toBeLessThan(3);
+
+    // The phone preview (a ≥lg surface) is showing the enhanced file.
+    if (desktop) {
+      await heroSettled(page, 'hero', FRAME, 'data:');
+      const shown = await pictureLook(page, `${FRAME} [data-testid="hero-sticky"] [data-hero-framing] img`);
+      expect(Math.abs(shown.lum - bright.lum), 'the phone preview shows the enhanced display copy').toBeLessThan(3);
+    }
+  });
+
+  test('8. Auto enhance · Crop Image + Apply Crop: a brighter display file, the same original, and enhance beside the window', async ({ page }, testInfo) => {
+    const desktop = isDesktop(testInfo.project.name);
+    const off = await enhanceFlow(page, desktop, 'crop', false);
+    const on = await enhanceFlow(page, desktop, 'crop', true);
+
+    // Switch off: the window config, key for key, and no enhancement.
+    const offCfg = heroConfigOf(off.insert)!;
+    expect(Object.keys(offCfg).sort(), 'switch off: today\'s hero config').toEqual(['fit', 'posX', 'posY', 'window', 'windowSource']);
+    expect(readHeroEnhance(offCfg), 'switch off: no enhancement').toBeNull();
+
+    // Switch on: the same window config with the enhancement beside it.
+    const cfg = heroConfigOf(on.insert)!;
+    const stored = readHeroEnhance(cfg);
+    expect(stored, 'heroConfig carries the enhancement').toBeTruthy();
+    expect(stored!.strength, 'baked at full strength').toBe(1);
+    expect(isIdentity(stored!.params)).toBe(false);
+    const rest = writeHeroEnhance(cfg, null);
+    expect(Object.keys(rest).sort(), 'the window config rides with it').toEqual(['fit', 'posX', 'posY', 'window', 'windowSource']);
+    expect(rest.fit).toBe('fill');
+    expect(pictureFitSeed(rest.window, frameAspect('hero')).crop, 'the window reads back as a window').toBeTruthy();
+    expect(pictureFitSeed(rest.windowSource, frameAspect('hero')).crop, 'so does windowSource').toBeTruthy();
+
+    // The kept original is the same bytes either way.
+    expect(on.original.body.equals(off.original.body), 'the kept original is byte-identical with the switch on and off').toBe(true);
+
+    // The display file: a cut of the picture (the same cut both times), brighter with the switch on.
+    const plain = await pictureLook(page, off.display);
+    const bright = await pictureLook(page, on.display);
+    expect(plain.w * plain.h, 'a cut, not the whole picture').toBeLessThan(DIM.width * DIM.height * 0.9);
+    expect(Math.abs(bright.w - plain.w), 'the same cut: width').toBeLessThanOrEqual(8);
+    expect(Math.abs(bright.h - plain.h), 'the same cut: height').toBeLessThanOrEqual(8);
+    expect(bright.lum, `enhanced ${bright.lum.toFixed(1)} vs plain ${plain.lum.toFixed(1)}`).toBeGreaterThan(plain.lum + 8);
+  });
+
+  test('9. a GIF shows no Auto enhance switch and is kept as picked', async ({ page }, testInfo) => {
+    const desktop = isDesktop(testInfo.project.name);
+    const { h, scope } = await freshStepTwo(page, desktop);
+    // A valid 2x2 GIF (one frame).
+    const gif = Buffer.from('R0lGODlhAgACAIAAAP8AAAAA/ywAAAAAAgACAAACAoRRADs=', 'base64');
+    await scope.locator('input[type="file"]').setInputFiles({ name: 'tiny.gif', mimeType: 'image/gif', buffer: gif });
+    const useOriginal = page.getByRole('button', { name: EN['onboardingFlow.useOriginal'], exact: true });
+    await expect(useOriginal).toBeVisible({ timeout: 15_000 });
+    await expect(photoPreview(page)).toBeVisible();
+    await expect(enhanceRow(page), 'no row for a GIF').toHaveCount(0);
+    await expect(enhanceSwitch(page)).toHaveCount(0);
+    await useOriginal.click();
+    await expect(scope.getByText(EN['onboardingFlow.changePhoto'], { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => h.uploads.length, { timeout: 60_000 }).toBe(2);
+    for (const u of h.uploads) {
+      expect(u.type, `${u.path} is uploaded as a GIF`).toBe('image/gif');
+      expect(h.files.get(u.path)!.body.equals(gif), `${u.path} is the GIF as picked`).toBe(true);
+    }
+    const insert = await finishToInsert(page, { h, scope }, 2);
+    expect(heroConfigOf(insert), 'no heroConfig for a GIF').toBeNull();
+  });
+
+  test('10. the first photo modal fits: picture, Auto enhance row and both buttons on screen, switch off and on', async ({ page }, testInfo) => {
+    const desktopProject = isDesktop(testInfo.project.name);
+    const sizes = [
+      { width: 375, height: 553, wide: false },
+      { width: 393, height: 659, wide: false },
+      // The wizard's desktop layout is a Chromium-project surface.
+      ...(desktopProject ? [{ width: 1440, height: 900, wide: true }] : []),
+    ];
+    /** Every part of the modal, and the viewport, read in one evaluate. */
+    const read = () => page.evaluate(({ crop, original }) => {
+      const box = (el: Element | null | undefined) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height };
+      };
+      const btn = (label: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === label);
+      return {
+        vw: window.innerWidth, vh: window.innerHeight, docW: document.documentElement.scrollWidth,
+        picture: box(document.querySelector('[data-testid="onb-photo-preview"]')),
+        row: box(document.querySelector('[data-testid="onb-enhance-row"]')),
+        toggle: box(document.querySelector('[data-testid="onb-enhance-switch"]')),
+        crop: box(btn(crop)), original: box(btn(original)),
+      };
+    }, { crop: EN['onboardingFlow.cropImage'], original: EN['onboardingFlow.useOriginal'] });
+
+    for (const size of sizes) {
+      const { scope } = await freshStepTwo(page, size.wide, { width: size.width, height: size.height });
+      await scope.locator('input[type="file"]').setInputFiles(DIM_FILE());
+      await expect(enhanceRow(page)).toBeVisible({ timeout: 15_000 });
+      for (const state of ['off', 'on'] as const) {
+        if (state === 'on') await enhanceSwitch(page).click();
+        await modalShows(page, state);
+        const at = `${size.width}x${size.height}, switch ${state}`;
+        const m = await read();
+        expect([m.vw, m.vh], `${at}: the viewport`).toEqual([size.width, size.height]);
+        for (const [name, b] of Object.entries({ picture: m.picture, row: m.row, switch: m.toggle, 'Crop Image': m.crop, 'Use Original': m.original })) {
+          expect(b, `${at}: ${name} is in the modal`).toBeTruthy();
+          expect(b!.top, `${at}: ${name} top is on screen`).toBeGreaterThanOrEqual(0);
+          expect(b!.bottom, `${at}: ${name} bottom is on screen`).toBeLessThanOrEqual(m.vh);
+          expect(b!.left, `${at}: ${name} left is on screen`).toBeGreaterThanOrEqual(0);
+          expect(b!.right, `${at}: ${name} right is on screen`).toBeLessThanOrEqual(m.vw);
+        }
+        // In order, top to bottom: picture, row, Crop Image, Use Original.
+        expect(m.picture!.bottom, `${at}: the row is under the picture`).toBeLessThanOrEqual(m.row!.top);
+        expect(m.row!.bottom, `${at}: Crop Image is under the row`).toBeLessThanOrEqual(m.crop!.top);
+        expect(m.crop!.bottom, `${at}: Use Original is under Crop Image`).toBeLessThanOrEqual(m.original!.top);
+        expect(m.picture!.height, `${at}: the picture keeps a usable height`).toBeGreaterThanOrEqual(120);
+        expect(m.docW, `${at}: no sideways scroll`).toBeLessThanOrEqual(m.vw);
+      }
+    }
   });
 
   // HERO.FIT.3c: the editor crop step is manual only — drag, zoom, Back, Apply Crop.

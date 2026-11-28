@@ -74,7 +74,7 @@ import { safeHref } from '@/lib/safe-url';
 import { sampleHeroBand, needsNameScrim } from '@/lib/hero-luminance';
 import { HERO_BOX_ASPECTS, heroDisplayRegion, resolveHeroWindowFraming } from '@/lib/hero-window';
 import { pictureFitSeed, pictureFitSourceAspect, writePictureFit } from '@/lib/picture-fit';
-import { readHeroEnhance, writeHeroEnhance, analyzeForEnhance, enhanceCanvas, type HeroEnhance, type HeroEnhanceRect } from '@/lib/hero-enhance';
+import { readHeroEnhance, writeHeroEnhance, loadHeroEnhanceCanvas, type HeroEnhance } from '@/lib/hero-enhance';
 import type { EnhanceParams } from '@/lib/auto-enhance';
 import { Switch } from '@/components/ui/switch';
 import { analyzeImageForLogo } from '@/lib/logo-detect';
@@ -117,31 +117,6 @@ import { PlanLockTag } from '@/components/PlanLock';
 
 // HERO.FIT.3 — the hero cropper's max zoom, named once: the Cropper and its zoom slider read it.
 const HERO_CROP_MAX_ZOOM = 3;
-
-// PHOTO.POLISH.1 — the long side of the choose preview's Auto enhance copies.
-const HERO_ENHANCE_PREVIEW_PX = 800;
-/** A canvas as an object URL (the caller revokes it). */
-const canvasObjectUrl = (canvas: HTMLCanvasElement): Promise<string> =>
-  new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(URL.createObjectURL(blob)) : reject(new Error('Preview failed'))),
-      'image/jpeg',
-      0.92,
-    );
-  });
-/** A framed window (percent of the picture) as a rectangle in a canvas's pixels. */
-const windowOnCanvas = (
-  canvas: HTMLCanvasElement,
-  win: { x: number; y: number; w: number; h: number } | null,
-): HeroEnhanceRect | null =>
-  win
-    ? {
-        x: (win.x / 100) * canvas.width,
-        y: (win.y / 100) * canvas.height,
-        width: (win.w / 100) * canvas.width,
-        height: (win.h / 100) * canvas.height,
-      }
-    : null;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -2908,35 +2883,30 @@ export function EditableProfileView({
     }
     let cancelled = false;
     const source = photoPreview;
+    // PHOTO.POLISH.2: the canvas work is a lazy chunk. Start fetching it now, so
+    // it arrives while the debounce and the picture load run (a failure
+    // surfaces in the timer).
+    loadHeroEnhanceCanvas().catch(() => {});
     const timer = window.setTimeout(async () => {
       try {
-        const img = await loadEnhanceSource(source);
+        const [img, { enhancePreviewCopies }] = await Promise.all([loadEnhanceSource(source), loadHeroEnhanceCanvas()]);
         if (cancelled) return;
         const geo = enhanceGeometry({ width: img.naturalWidth, height: img.naturalHeight });
-        const scale = Math.min(1, HERO_ENHANCE_PREVIEW_PX / Math.max(geo.region.width, geo.region.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(geo.region.width * scale));
-        canvas.height = Math.max(1, Math.round(geo.region.height * scale));
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return;
-        ctx.drawImage(img, geo.region.x, geo.region.y, geo.region.width, geo.region.height, 0, 0, canvas.width, canvas.height);
-        const plain = await canvasObjectUrl(canvas);
-        let enhanced: string | null = null;
-        let params: EnhanceParams | null = null;
-        if (enhanceOn) {
-          params = !enhanceSwitchTouched && dialogEnhanceStored
-            ? dialogEnhanceStored.params
-            : analyzeForEnhance(canvas, windowOnCanvas(canvas, geo.window));
-          enhanceCanvas(canvas, params, enhanceStrength / 100);
-          enhanced = await canvasObjectUrl(canvas);
-        }
+        // Switch on: the stored numbers while it is untouched, else analysed on
+        // the framed window.
+        const copies = await enhancePreviewCopies(img, geo.region, enhanceOn ? {
+          strength: enhanceStrength / 100,
+          params: !enhanceSwitchTouched && dialogEnhanceStored ? dialogEnhanceStored.params : null,
+          framed: geo.window,
+        } : null);
+        if (!copies) return;
         if (cancelled) {
-          URL.revokeObjectURL(plain);
-          if (enhanced) URL.revokeObjectURL(enhanced);
+          URL.revokeObjectURL(copies.plain);
+          if (copies.enhanced) URL.revokeObjectURL(copies.enhanced);
           return;
         }
-        enhancePreviewParams.current = params;
-        setEnhancePreview({ plain, enhanced });
+        enhancePreviewParams.current = copies.params;
+        setEnhancePreview({ plain: copies.plain, enhanced: copies.enhanced });
       } catch (err) {
         console.error('[ENHANCE] preview failed:', (err as any)?.name, (err as any)?.message, err);
       }
@@ -2978,14 +2948,14 @@ export function EditableProfileView({
       const geo = enhanceGeometry({ width: img.naturalWidth, height: img.naturalHeight });
       const baked: { value: HeroEnhance | null } = { value: null };
       const strength = enhanceWanted;
-      const hook = strength == null ? undefined : (canvas: HTMLCanvasElement) => {
+      const hook = strength == null ? undefined : async (canvas: HTMLCanvasElement) => {
         // A strength change keeps the stored numbers; a fresh switch-on uses
         // the ones the preview showed (analysed on the framed window).
-        const params = !enhanceSwitchTouched && dialogEnhanceStored
-          ? dialogEnhanceStored.params
-          : enhancePreviewParams.current ?? analyzeForEnhance(canvas, windowOnCanvas(canvas, geo.window));
-        enhanceCanvas(canvas, params, strength);
-        baked.value = { strength, params };
+        baked.value = (await loadHeroEnhanceCanvas()).bakeEnhance(canvas, {
+          strength,
+          params: !enhanceSwitchTouched && dialogEnhanceStored ? dialogEnhanceStored.params : enhancePreviewParams.current,
+          framed: geo.window,
+        });
       };
       if (geo.window) {
         const heroWindow = writePictureFit(null, { mode: 'crop', crop: geo.window, aspect: cropFrameAspect });
@@ -3712,12 +3682,12 @@ export function EditableProfileView({
                                 // the framed window, never the margin.
                                 const baked: { value: HeroEnhance | null } = { value: null };
                                 const strength = enhanceWanted;
-                                const croppedFile = await getCroppedImage(photoPreview, display.region, strength == null ? undefined : (canvas) => {
-                                  const params = !enhanceSwitchTouched && dialogEnhanceStored
-                                    ? dialogEnhanceStored.params
-                                    : analyzeForEnhance(canvas, windowOnCanvas(canvas, display.window));
-                                  enhanceCanvas(canvas, params, strength);
-                                  baked.value = { strength, params };
+                                const croppedFile = await getCroppedImage(photoPreview, display.region, strength == null ? undefined : async (canvas) => {
+                                  baked.value = (await loadHeroEnhanceCanvas()).bakeEnhance(canvas, {
+                                    strength,
+                                    params: !enhanceSwitchTouched && dialogEnhanceStored ? dialogEnhanceStored.params : null,
+                                    framed: display.window,
+                                  });
                                 });
                                 // The cropper keeps its real source (photoPreview,
                                 // photoFile) until the save lands: a failed save

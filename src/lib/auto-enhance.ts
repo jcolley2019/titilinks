@@ -27,52 +27,32 @@
 // The tone curve is monotone at every combination of caps: a brighter input
 // never ends darker than a darker one.
 
-export interface EnhanceParams {
-  /** Levels: the luminance (0..1) that becomes black. */
-  blackPoint: number;
-  /** Levels: the luminance (0..1) that becomes white. */
-  whitePoint: number;
-  /** Midtone gamma after levels: out = in^(1/gamma), so above 1 brightens. */
-  gamma: number;
-  /** Shadows lift: the tone curve's largest raise, reached at input 1/3. */
-  shadows: number;
-  /** Highlight recovery: the tone curve's largest pull-down, at input 2/3. */
-  highlights: number;
-  /** White-balance gains per channel, applied first. 1 = untouched. */
-  gainR: number;
-  gainG: number;
-  gainB: number;
-  /** Saturation boost for dull pixels (0 = none). */
-  vibrance: number;
-  /** Unsharp-mask amount on luminance (0 = none). */
-  sharpen: number;
-}
+// PHOTO.POLISH.2 — the params, their hard caps and sanitizeParams / isIdentity /
+// scaleParams live in ./auto-enhance-params (the light half, safe on the public
+// page's path). They are re-exported here, so this file is still the whole
+// library; everything below is the heavy half: the analysis and the pixels.
+import {
+  IDENTITY_PARAMS,
+  sanitizeParams,
+  isIdentity,
+  GAMMA_MIN,
+  GAMMA_MAX,
+  SHADOWS_MAX,
+  HIGHLIGHTS_MAX,
+  WB_MAX_SHIFT,
+  VIBRANCE_MAX,
+  type EnhanceParams,
+} from './auto-enhance-params';
 
-export const IDENTITY_PARAMS: Readonly<EnhanceParams> = Object.freeze({
-  blackPoint: 0,
-  whitePoint: 1,
-  gamma: 1,
-  shadows: 0,
-  highlights: 0,
-  gainR: 1,
-  gainG: 1,
-  gainB: 1,
-  vibrance: 0,
-  sharpen: 0,
-});
+export * from './auto-enhance-params';
 
 // ── Caps ─────────────────────────────────────────────────────────────────────
-// Hard limits. The analysis never asks for more, and sanitizeParams clamps any
-// params to them, so no stored or hand-made set can exceed them either.
+// The analysis's own thresholds. The hard limits (the *_MAX / *_MIN constants
+// sanitizeParams clamps any params to) are in ./auto-enhance-params; the
+// analysis never asks for more than they allow.
 
 /** Levels read the luminance histogram this far in from each end. Tuned inside the 0.5% cap: a quarter-percent per end keeps the two ends together well under the 1-point clipping budget. */
 export const LEVELS_CLIP_SHARE = 0.0025;
-/** Highest black point: a picture whose darkest tones sit above a third is pale on purpose (fog, high key), not washed out. */
-export const LEVELS_MAX_BLACK = 0.35;
-/** Lowest white point: a picture whose brightest tones sit under 45% is a night scene, not a slip of exposure. */
-export const LEVELS_MIN_WHITE = 0.45;
-/** Largest levels stretch (contrast ×3): past it the noise and banding of a very flat picture are stretched with it. */
-export const LEVELS_MAX_GAIN = 3;
 /** An end within this of black or white (≈ 10/255) is a healthy photo and stays put. */
 export const LEVELS_DEADBAND = 0.04;
 /** A raised black is a fault (haze, a washed-out scan): past the dead band the black point eases to the full move by twice the band. */
@@ -80,17 +60,11 @@ export const LEVELS_BLACK_EASE = 2 * LEVELS_DEADBAND;
 /** A lowered white is often a choice (a moody photo holds no pure white): the white point eases in slowly and is only moved in full this far from white. */
 export const LEVELS_WHITE_EASE = 0.4;
 
-/** Darkest midtone correction: brighter than this is a high-key choice, not a fault. */
-export const GAMMA_MIN = 0.75;
-/** Brightest midtone correction: past it shadows go milky and noise shows. */
-export const GAMMA_MAX = 1.35;
 /** Exposure is read off the bright tenth of the picture, not the median: a low-key photo (a dark room, a bright face) keeps a bright top tenth and is left alone; an underexposed one has none. Below this the top tenth is dim. */
 export const KEY_BRIGHT = 0.4;
 /** Darkening needs even the darkest tenth above this: a picture with no shadows at all. */
 export const KEY_DARK = 0.4;
 
-/** Largest shadows lift: more and blacks turn grey. */
-export const SHADOWS_MAX = 0.25;
 /** Luminance below which a pixel counts as shadow for the lift. */
 export const SHADOW_ZONE = 0.2;
 /** Share of shadow pixels a picture must have for the lift. */
@@ -98,8 +72,6 @@ export const SHADOW_TRIGGER = 0.3;
 /** The lift only picks up where the gamma cap stopped: lift per unit the bright tenth is still short of KEY_BRIGHT. */
 export const SHADOW_RATE = 2;
 
-/** Largest highlight recovery: more and bright skies go dull grey. */
-export const HIGHLIGHTS_MAX = 0.2;
 /** Luminance above which a pixel counts as highlight. */
 export const HIGHLIGHT_ZONE = 0.9;
 /** Share of highlight pixels a picture may have before recovery starts. */
@@ -107,8 +79,6 @@ export const HIGHLIGHT_TRIGGER = 0.2;
 /** Recovery per unit of highlight share over the trigger. */
 export const HIGHLIGHT_RATE = 0.8;
 
-/** Largest white-balance shift per channel (±10%): a real cast is rarely more, and a wrong guess this size is still mild. */
-export const WB_MAX_SHIFT = 0.1;
 /** Casts under ±2% are left alone: a correction that small is a guess, not a fix. */
 export const WB_DEADBAND = 0.02;
 /** Warm light is kept up to about 8% (log units): candle-light, golden hour and tungsten moods are usually meant. Cool and green casts are corrected in full. */
@@ -122,15 +92,11 @@ export const WB_DOMINANT_SAT = 0.35;
 /** When one 60° hue window holds this share of the picture in strong colour, it is a sunset or stage lighting, not a cast: no white balance. */
 export const WB_DOMINANT_SHARE = 0.4;
 
-/** Largest vibrance boost: more and colours turn cartoonish. */
-export const VIBRANCE_MAX = 0.2;
 /** Median saturation of the colourful pixels below which a picture reads as dull. */
 export const VIBRANCE_TARGET = 0.3;
 /** Skin hues get this share of the boost: faces go orange fast. */
 export const VIBRANCE_SKIN_FACTOR = 0.5;
 
-/** Largest sharpen amount: more and edges grow halos. */
-export const SHARPEN_MAX = 0.35;
 /** What Auto applies to a photo. Gentle: the analysis reads a downsample and cannot judge full-size detail. */
 export const SHARPEN_AUTO = 0.2;
 /** Luminance differences under this (in 0..255) are grain, not detail, and are not sharpened. */
@@ -140,63 +106,7 @@ export const SHARPEN_THRESHOLD = 4;
 export const GRAPHIC_COVERAGE = 0.9;
 const GRAPHIC_TOP_COLORS = 8;
 
-const IDENTITY_EPS = 1e-6;
-const KEYS = Object.keys(IDENTITY_PARAMS) as (keyof EnhanceParams)[];
-
-// ── Params ───────────────────────────────────────────────────────────────────
-
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
-const num = (v: unknown, fallback: number) =>
-  typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-
-/** Any params → a complete set inside every cap. Absent or junk fields are identity. */
-export function sanitizeParams(params: Partial<EnhanceParams> | null | undefined): EnhanceParams {
-  const p = (params && typeof params === 'object' ? params : {}) as Partial<Record<keyof EnhanceParams, unknown>>;
-  let blackPoint = clamp(num(p.blackPoint, 0), 0, LEVELS_MAX_BLACK);
-  let whitePoint = clamp(num(p.whitePoint, 1), LEVELS_MIN_WHITE, 1);
-  const minRange = 1 / LEVELS_MAX_GAIN;
-  if (whitePoint - blackPoint < minRange) {
-    // Too steep a stretch: widen around its middle. Inside the two end caps
-    // this always lands inside them again (bp ≤ 0.35 and wp ≥ 0.45).
-    const mid = (blackPoint + whitePoint) / 2;
-    blackPoint = Math.max(0, mid - minRange / 2);
-    whitePoint = blackPoint + minRange;
-    if (whitePoint > 1) {
-      whitePoint = 1;
-      blackPoint = 1 - minRange;
-    }
-  }
-  const gain = (v: unknown) => clamp(num(v, 1), 1 - WB_MAX_SHIFT, 1 + WB_MAX_SHIFT);
-  return {
-    blackPoint,
-    whitePoint,
-    gamma: clamp(num(p.gamma, 1), GAMMA_MIN, GAMMA_MAX),
-    shadows: clamp(num(p.shadows, 0), 0, SHADOWS_MAX),
-    highlights: clamp(num(p.highlights, 0), 0, HIGHLIGHTS_MAX),
-    gainR: gain(p.gainR),
-    gainG: gain(p.gainG),
-    gainB: gain(p.gainB),
-    vibrance: clamp(num(p.vibrance, 0), 0, VIBRANCE_MAX),
-    sharpen: clamp(num(p.sharpen, 0), 0, SHARPEN_MAX),
-  };
-}
-
-/** True when the params (after the caps) change nothing. */
-export function isIdentity(params: Partial<EnhanceParams> | null | undefined): boolean {
-  const p = sanitizeParams(params);
-  return KEYS.every((k) => Math.abs(p[k] - IDENTITY_PARAMS[k]) < IDENTITY_EPS);
-}
-
-/** Strength 0..1, linear toward identity: 0 is identity, 1 is the params themselves. */
-export function scaleParams(params: Partial<EnhanceParams> | null | undefined, strength: number): EnhanceParams {
-  const s = clamp(num(strength, 0), 0, 1);
-  if (s === 0) return { ...IDENTITY_PARAMS };
-  const p = sanitizeParams(params);
-  if (s === 1) return p;
-  const out = { ...p };
-  for (const k of KEYS) out[k] = IDENTITY_PARAMS[k] + (p[k] - IDENTITY_PARAMS[k]) * s;
-  return out;
-}
 
 // ── Tone curve ───────────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@
 // it, so what the phone shows and what the DB gets can never drift.
 import { BLOCK_PRESETS } from './block-presets';
 import { pictureFitSourceAspect } from './picture-fit';
+import { writeHeroEnhance, type HeroEnhance } from './hero-enhance';
 import type { OnboardingState } from '@/components/onboarding/useOnboardingWizard';
 import type { BlockWithItems } from '@/components/blocks/types';
 import type { ThemeTypography } from '@/lib/theme-defaults';
@@ -70,13 +71,20 @@ export function buildOnboardingTheme(state: OnboardingState) {
   // when that original really uploaded (it is what reopens the cropper). With
   // no usable window the theme is exactly what it always was.
   const usable = (win: unknown): win is { [key: string]: Json } => pictureFitSourceAspect(win) != null;
-  const heroConfig = usable(state.avatarWindow) ? {
+  const windowConfig = usable(state.avatarWindow) ? {
     fit: 'fill' as const,
     posX: 50,
     posY: 50,
     window: state.avatarWindow,
     ...(state.avatarOriginalUrl && usable(state.avatarWindowSource) ? { windowSource: state.avatarWindowSource } : {}),
   } : null;
+  // PHOTO.POLISH.2 — a display copy baked with Auto enhance carries the value
+  // beside the window, written the one way it is written anywhere
+  // (writeHeroEnhance). An uncropped, enhanced photo gets a hero config that
+  // holds that key alone. With no enhancement the config is the window's, key
+  // for key, and with neither there is no hero config at all.
+  const enhanced = writeHeroEnhance(windowConfig, state.avatarEnhance as HeroEnhance | null | undefined) as { [key: string]: Json };
+  const heroConfig = Object.keys(enhanced).length > 0 ? enhanced : null;
 
   return {
     background: backgroundJson,

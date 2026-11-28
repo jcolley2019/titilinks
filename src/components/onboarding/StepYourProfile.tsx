@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Check, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getCroppedImage, cropErrorCauseKey } from '@/lib/crop';
+import { getCroppedImage, boundHeroImage, cropErrorCauseKey, type HeroCanvasHook } from '@/lib/crop';
 import { validateHandle } from '@/lib/handle-rules';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
@@ -12,6 +12,9 @@ import { beginAvatarUpload } from '@/lib/onboarding-upload';
 import { canonicalHeroAspect, canonicalFullBleedAspect } from '@/lib/device-presets';
 import { HERO_BOX_ASPECTS, heroDisplayRegion } from '@/lib/hero-window';
 import { writePictureFit } from '@/lib/picture-fit';
+import { loadHeroEnhanceCanvas, type HeroEnhance } from '@/lib/hero-enhance';
+import type { EnhanceWindow } from '@/lib/hero-enhance-canvas';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   state: OnboardingState;
@@ -32,42 +35,9 @@ interface Props {
 // the remount cannot forget it; a keystroke moves off it and re-checks.
 let lastAvailableHandle: string | null = null;
 
-function compressImage(file: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const maxSize = 800;
-      let { width, height } = img;
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = Math.round((height / width) * maxSize);
-          width = maxSize;
-        } else {
-          width = Math.round((width / height) * maxSize);
-          height = maxSize;
-        }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject(new Error('Canvas not supported')); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error('Compression failed')); return; }
-          resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-        },
-        'image/jpeg',
-        0.8
-      );
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
-    img.src = url;
-  });
-}
+// PHOTO.POLISH.2 — the first photo modal's picture: at most 300px tall, less on
+// a short screen (see the modal for the arithmetic).
+const PREVIEW_MAX_HEIGHT = 'clamp(120px, calc(100dvh - 352px), 300px)';
 
 // TL.ONB.PHOTO.1 / MEDIA.PHOTO.2 — what onboarding keeps as the ORIGINAL: the
 // shared prepared master (src/lib/prepare-image.ts — WebP ≤ 4096 px, EXIF/GPS
@@ -104,6 +74,64 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
   // editor's crop step, so a crop made here and one made there are one thing.
   const isFullBleed = state.pageStyle === 'full_bleed';
   const cropFrameAspect = isFullBleed ? canonicalFullBleedAspect() : canonicalHeroAspect();
+  // PHOTO.POLISH.2 — Auto enhance on the picked photo: the switch in the first
+  // photo modal, off for every new pick. Whichever button follows, the DISPLAY
+  // copy is baked enhanced at full strength; the kept original never changes.
+  // A GIF is kept as picked (it would stop moving), so it gets no switch.
+  const [enhanceOn, setEnhanceOn] = useState(false);
+  const isGif = rawFile?.type === 'image/gif';
+  // The modal's enhanced look: a preview-size copy of the whole pick, as the
+  // editor's Edit Photo preview makes it. An object URL, revoked when replaced.
+  const [enhancedPreview, setEnhancedPreview] = useState<string | null>(null);
+  const pickOpen = modalStep !== 'none';
+  useEffect(() => {
+    if (!pickOpen || !rawImageSrc || !enhanceOn || isGif) {
+      setEnhancedPreview(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ enhancePreviewCopies }, img] = await Promise.all([
+          loadHeroEnhanceCanvas(),
+          new Promise<HTMLImageElement>((resolve, reject) => {
+            const el = new Image();
+            el.onload = () => resolve(el);
+            el.onerror = () => reject(new Error('Image load failed'));
+            el.src = rawImageSrc;
+          }),
+        ]);
+        if (cancelled) return;
+        const copies = await enhancePreviewCopies(img, { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight }, { strength: 1 });
+        if (!copies) return;
+        URL.revokeObjectURL(copies.plain);
+        if (cancelled) {
+          if (copies.enhanced) URL.revokeObjectURL(copies.enhanced);
+          return;
+        }
+        setEnhancedPreview(copies.enhanced);
+      } catch (err) {
+        // The modal keeps showing the photo as picked; the bake reports its own failure.
+        console.error('[ENHANCE] onboarding preview failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pickOpen, rawImageSrc, enhanceOn, isGif]);
+  useEffect(() => {
+    if (!enhancedPreview) return;
+    return () => URL.revokeObjectURL(enhancedPreview);
+  }, [enhancedPreview]);
+  /**
+   * With the switch on: the last word on a display canvas before it is encoded.
+   * Enhanced at full strength, analysed on the framed window over the canvas
+   * or, with none, on the whole picture. The holder receives what to store.
+   */
+  const enhanceHook = (baked: { value: HeroEnhance | null }, framed: EnhanceWindow | null): HeroCanvasHook | undefined =>
+    enhanceOn && !isGif
+      ? async (canvas) => {
+          baked.value = (await loadHeroEnhanceCanvas()).bakeEnhance(canvas, { strength: 1, framed });
+        }
+      : undefined;
 
   useEffect(() => {
     if (!state.displayName && user?.user_metadata?.full_name) {
@@ -176,6 +204,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       setRawImageSrc(reader.result as string);
       setRawFile(file);
       setModalStep('preview');
+      setEnhanceOn(false); // PHOTO.POLISH.2: off for every new pick
       setCrop({ x: 0, y: 0 });
       setZoom(1);
       setCroppedAreaPixels(null);
@@ -220,15 +249,32 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       // the display copy is derived from it (never from the raw bytes, which
       // used to ship untouched under 1 MB — EXIF/GPS included, audit §1 #5).
       const originalFile = await prepareOriginal(rawFile);
+      // PHOTO.POLISH.2 — the display copy is the prepared original through the
+      // one output path every hero file takes (boundHeroImage: the hero cap,
+      // WebP), enhanced on the way when the switch is on, with the params read
+      // off the whole picture. It replaces an 800 px JPEG, which was soft on a
+      // phone. A GIF stays as picked, as it does in the editor.
       let processedFile = originalFile;
-      if (originalFile.size > 1 * 1024 * 1024) {
-        processedFile = await compressImage(originalFile);
+      const baked: { value: HeroEnhance | null } = { value: null };
+      if (originalFile.type !== 'image/gif') {
+        const src = URL.createObjectURL(originalFile);
+        try {
+          processedFile = await boundHeroImage(src, enhanceHook(baked, null));
+        } catch (err) {
+          // Never dead-end on the display bake: ship the prepared original as it is.
+          console.error('[ONB] display copy bake failed (using the prepared original):', err);
+          processedFile = originalFile;
+          baked.value = null;
+        } finally {
+          URL.revokeObjectURL(src);
+        }
       }
+      const avatarEnhance = baked.value;
       updateField('avatarFile', processedFile);
       updateField('avatarOriginalFile', originalFile);
       kickOffUpload(processedFile, originalFile);
       const reader = new FileReader();
-      reader.onloadend = () => showPhoto(reader.result as string, null, null);
+      reader.onloadend = () => showPhoto(reader.result as string, null, null, avatarEnhance);
       reader.readAsDataURL(processedFile);
     } finally {
       setCompressing(false);
@@ -238,11 +284,13 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
   // HERO.FIT.3 — the photo on screen and the window that frames it change in
   // ONE update: a window belongs to exactly one display file, so the preview
   // must never paint the new file under the old window (or the reverse). An
-  // uncropped photo carries no window.
-  const showPhoto = (preview: string, avatarWindow: unknown, avatarWindowSource: unknown) => {
+  // uncropped photo carries no window. PHOTO.POLISH.2: the Auto enhance baked
+  // into that file travels in the same update, and is cleared the same way.
+  const showPhoto = (preview: string, avatarWindow: unknown, avatarWindowSource: unknown, avatarEnhance: HeroEnhance | null) => {
     updateField('avatarPreview', preview);
     updateField('avatarWindow', avatarWindow);
     updateField('avatarWindowSource', avatarWindowSource);
+    updateField('avatarEnhance', avatarEnhance);
   };
 
   const handleApplyCrop = async () => {
@@ -266,7 +314,11 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
             aspect: cropFrameAspect,
           })
         : null;
-      const croppedFile = await getCroppedImage(rawImageSrc, display.region);
+      // PHOTO.POLISH.2: with the switch on the region is enhanced before it is
+      // encoded, the params read off the framed window — never the margin.
+      const baked: { value: HeroEnhance | null } = { value: null };
+      const croppedFile = await getCroppedImage(rawImageSrc, display.region, enhanceHook(baked, display.window));
+      const avatarEnhance = baked.value;
       updateField('avatarFile', croppedFile);
       // TL.ONB.PHOTO.1 — the ORIGINAL is the uncropped pick, exactly as the
       // editor stores photoOriginalFile beside its crop.
@@ -277,7 +329,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
       }
       kickOffUpload(croppedFile, originalFile);
       const reader = new FileReader();
-      reader.onloadend = () => showPhoto(reader.result as string, avatarWindow, avatarWindowSource);
+      reader.onloadend = () => showPhoto(reader.result as string, avatarWindow, avatarWindowSource, avatarEnhance);
       reader.readAsDataURL(croppedFile);
     } catch (err) {
       // CROP.3a error truth: log the real cause (name+message), tell the user
@@ -290,7 +342,7 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
         updateField('avatarOriginalFile', rawFile);
         kickOffUpload(rawFile, rawFile);
         const reader = new FileReader();
-        reader.onloadend = () => showPhoto(reader.result as string, null, null);
+        reader.onloadend = () => showPhoto(reader.result as string, null, null, null);
         reader.readAsDataURL(rawFile);
       }
     } finally {
@@ -531,9 +583,40 @@ export function StepYourProfile({ state, updateField, onNext, onPrev, user, t, u
               </button>
             </div>
             <div className="p-4">
-              <div className="rounded-xl overflow-hidden bg-white/5 mb-4" style={{ maxHeight: '300px' }}>
-                <img src={rawImageSrc} alt={t('onboardingFlow.previewAlt')} className="w-full h-full object-contain" style={{ maxHeight: '300px' }} />
+              {/* PHOTO.POLISH.2: the picture takes the height the screen can
+                  spare — the viewport less everything else in this modal (its
+                  96px of outer padding, the header, the Auto enhance row, the
+                  two buttons and the gaps: 352px in all) — so both buttons stay
+                  on screen on a short phone. With the switch on it shows the
+                  enhanced look. */}
+              <div
+                data-testid="onb-photo-preview"
+                data-enhance-preview={enhanceOn && enhancedPreview ? 'on' : 'off'}
+                className="rounded-xl overflow-hidden bg-white/5 mb-4"
+                style={{ maxHeight: PREVIEW_MAX_HEIGHT }}
+              >
+                <img
+                  src={enhanceOn && enhancedPreview ? enhancedPreview : rawImageSrc}
+                  alt={t('onboardingFlow.previewAlt')}
+                  className="w-full h-full object-contain"
+                  style={{ maxHeight: PREVIEW_MAX_HEIGHT }}
+                />
               </div>
+              {/* PHOTO.POLISH.2 — Auto enhance: the editor's switch, off by default. */}
+              {!isGif && (
+                <div data-testid="onb-enhance-row" className="flex items-center justify-between gap-3 mb-4">
+                  <label htmlFor="onb-enhance-switch" className="min-w-0 truncate text-white/80 text-sm font-semibold font-body">
+                    {t('editor.hero.autoEnhance')}
+                  </label>
+                  <Switch
+                    id="onb-enhance-switch"
+                    data-testid="onb-enhance-switch"
+                    checked={enhanceOn}
+                    onCheckedChange={setEnhanceOn}
+                    className="data-[state=checked]:bg-[#C9A55C] data-[state=unchecked]:bg-white/20"
+                  />
+                </div>
+              )}
               <button
                 onClick={() => setModalStep('crop')}
                 className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold font-body mb-2 hover:bg-white/10 transition-colors"

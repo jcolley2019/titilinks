@@ -1,24 +1,33 @@
 // PHOTO.POLISH.1 — unit test for the hero's Auto enhance glue (src/lib/hero-enhance.ts).
+// PHOTO.POLISH.2 — the glue is two modules now: hero-enhance.ts keeps the stored
+// key (and the one door to the canvas work), hero-enhance-canvas.ts does the
+// canvas work in a lazy chunk. Both are tested here.
 //
 // The repo has no unit-test runner; pure checks are standalone .mjs scripts run
 // via `npx tsx` (see auto-enhance.test.mjs). Wired into `npm run guard` right
 // after auto-enhance.test.mjs.
 // Run: `npx tsx scripts/hero-enhance.test.mjs`.
 //
-// The module reads and writes one stored key and does two things to a canvas.
+// The modules read and write one stored key and do two things to a canvas.
 // The canvas here is a plain object over an RGBA array (getImageData /
 // putImageData only), so everything runs with no browser.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   readHeroEnhance,
   writeHeroEnhance,
   sameHeroEnhance,
+  loadHeroEnhanceCanvas,
+} from '../src/lib/hero-enhance';
+import * as canvasWork from '../src/lib/hero-enhance-canvas';
+import {
   analyzeForEnhance,
   enhanceCanvas,
+  bakeEnhance,
   downsampleRgba,
   ENHANCE_ANALYSIS_PX,
-} from '../src/lib/hero-enhance';
+} from '../src/lib/hero-enhance-canvas';
 import {
   analyzePhoto,
   applyEnhance,
@@ -213,6 +222,69 @@ const areaAt = (x, y) => areaPixels[y * AREA_W + x];
   // Alpha is kept.
   assert.ok(full.data.every((v, i) => i % 4 !== 3 || v === 255), 'alpha is kept');
   ok('enhanceCanvas: strength 0 changes no pixel, strength 1 == applyEnhance, in place, repeatable');
+}
+
+// ── 4. bakeEnhance: what every bake and preview does ─────────────────────────
+{
+  // The area inside a black margin, as a display file holds a framed window.
+  const MX = 180, MY = 120;
+  const W = AREA_W + 2 * MX, H = AREA_H + MY + 200;
+  const inMargin = () => fakeCanvas(W, H, (x, y) =>
+    x >= MX && x < MX + AREA_W && y >= MY && y < MY + AREA_H ? areaAt(x - MX, y - MY) : [0, 0, 0]);
+  // The framed window in PERCENT of the canvas, as heroDisplayRegion gives it.
+  const framed = { x: (100 * MX) / W, y: (100 * MY) / H, w: (100 * AREA_W) / W, h: (100 * AREA_H) / H };
+  const wantParams = analyzeForEnhance(fakeCanvas(AREA_W, AREA_H, areaAt), null);
+
+  // No params: analysed on the framed window (never the margin), painted, returned.
+  const baked = inMargin();
+  const value = bakeEnhance(baked, { strength: 1, framed });
+  assert.deepEqual(value, { strength: 1, params: wantParams }, 'the value to store: the strength asked for, the params of the framed window');
+  assert.deepEqual(baked.reads[0], { x: MX, y: MY, w: AREA_W, h: AREA_H }, 'the analysis read the framed rectangle only');
+  const byHand = inMargin();
+  enhanceCanvas(byHand, wantParams, 1);
+  assert.ok(sameBytes(baked.data, byHand.data), 'the canvas is enhanced with those params, in place');
+  assert.ok(!sameBytes(baked.data, inMargin().data), 'control: the bake changed the picture');
+  assert.deepEqual(readHeroEnhance(writeHeroEnhance(null, value)), value, 'what bakeEnhance returns is storable as it is');
+
+  // No window: the whole picture.
+  const whole = inMargin();
+  assert.deepEqual(bakeEnhance(whole, { strength: 1 }).params, analyzeForEnhance(inMargin(), null), 'no window → analysed whole');
+  assert.deepEqual(bakeEnhance(inMargin(), { strength: 1, framed: null, params: null }).params, analyzeForEnhance(inMargin(), null), 'null window and null params → analysed whole');
+
+  // Given params: those numbers, no analysis (a re-bake must not shift the colour).
+  const given = { ...wantParams, gamma: 1.2 };
+  const rebaked = inMargin();
+  const kept = bakeEnhance(rebaked, { strength: 0.5, params: given, framed });
+  assert.deepEqual(kept, { strength: 0.5, params: given }, 'given params are returned untouched, with the strength asked for');
+  assert.equal(rebaked.reads.length, 1, 'given params: the only read is the paint, not an analysis');
+  const halfByHand = inMargin();
+  enhanceCanvas(halfByHand, given, 0.5);
+  assert.ok(sameBytes(rebaked.data, halfByHand.data), 'given params are painted at the strength asked for');
+  ok('bakeEnhance: analysed on the framed window (or whole), given params re-used, the stored value returned');
+}
+
+// ── 5. the split: one door, nothing heavy on the public page's path ──────────
+{
+  // loadHeroEnhanceCanvas is the cached door to the canvas module.
+  const first = loadHeroEnhanceCanvas();
+  assert.equal(loadHeroEnhanceCanvas(), first, 'the load is cached: one promise');
+  const mod = await first;
+  assert.equal(mod.analyzeForEnhance, canvasWork.analyzeForEnhance, 'it resolves to the canvas module');
+  for (const name of ['analyzeForEnhance', 'enhanceCanvas', 'bakeEnhance', 'enhancePreviewCopies', 'downsampleRgba']) {
+    assert.equal(typeof mod[name], 'function', `the canvas module exports ${name}`);
+  }
+
+  // hero-enhance.ts is on the public page's path: its only static import is the
+  // light params module, and the canvas module is reached by import() alone.
+  const src = (name) => readFileSync(new URL(`../src/lib/${name}`, import.meta.url), 'utf8');
+  const staticImports = (text) => [...text.matchAll(/^(?:import|export)\s[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
+  assert.deepEqual(staticImports(src('hero-enhance.ts')), ['./auto-enhance-params'], 'hero-enhance.ts statically imports the light params module only');
+  assert.equal((src('hero-enhance.ts').match(/(?<!typeof )import\('\.\/hero-enhance-canvas'\)/g) || []).length, 1, 'ONE dynamic import of the canvas module');
+  assert.deepEqual(staticImports(src('auto-enhance-params.ts')), [], 'the light params module imports nothing');
+  // The stored key is still named in one module only.
+  assert.ok(/const KEY = 'enhance';/.test(src('hero-enhance.ts')), 'control: hero-enhance.ts names the key');
+  assert.ok(!/['"]enhance['"]/.test(src('hero-enhance-canvas.ts')), 'the canvas module does not name the stored key');
+  ok('the split: one cached door to the canvas module; hero-enhance.ts pulls in only the light params');
 }
 
 console.log(`\n${passed} hero-enhance checks passed`);

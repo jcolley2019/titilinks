@@ -347,7 +347,8 @@ export default function OnboardingFlow() {
           // HERO.FIT.3b — the photo and its window travel together. A photo
           // changed after going Back must reach the page, and a window made for
           // the new file must never land over the old one. With no uploaded URL
-          // neither column is touched and the theme carries no window. Never a
+          // neither column is touched and the theme carries no window (and, since
+          // PHOTO.POLISH.2, no enhancement: both describe one display file). Never a
           // data: URL.
           const uploadedUrl = state.avatarUploadedUrl;
           const hasUpload = typeof uploadedUrl === 'string' && /^https?:\/\//i.test(uploadedUrl);
@@ -356,7 +357,7 @@ export default function OnboardingFlow() {
             avatar_url: uploadedUrl,
             avatar_original_url: state.avatarOriginalUrl || null,
           } : {
-            theme_json: buildOnboardingTheme({ ...state, avatarWindow: null, avatarWindowSource: null }),
+            theme_json: buildOnboardingTheme({ ...state, avatarWindow: null, avatarWindowSource: null, avatarEnhance: null }),
           }).eq('id', existingPage.id);
           if (themeError) throw themeError;
         }

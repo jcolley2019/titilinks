@@ -28,6 +28,11 @@ export interface OnboardingState {
   // the photo was not cropped.
   avatarWindow: unknown | null;
   avatarWindowSource: unknown | null;
+  // PHOTO.POLISH.2 — the Auto enhance baked into the display copy ({ strength,
+  // params }, read only through hero-enhance.ts), or null when the switch was
+  // off. Plain JSON, so it survives the sessionStorage round-trip. It belongs
+  // to one display file, exactly as the window does: set with it, cleared with it.
+  avatarEnhance: unknown | null;
   backgroundColor: string;
   backgroundType: 'solid' | 'gradient';
   gradientStart: string;
@@ -74,6 +79,7 @@ const initialState: OnboardingState = {
   avatarOriginalUrl: null,
   avatarWindow: null,
   avatarWindowSource: null,
+  avatarEnhance: null,
   backgroundColor: '#0e0c09',
   backgroundType: 'solid',
   gradientStart: '#667eea',

@@ -26,6 +26,8 @@ import { BLOCK_PRESETS } from '../src/lib/block-presets';
 import { writePictureFit } from '../src/lib/picture-fit';
 import { resolveHeroWindowFraming } from '../src/lib/hero-window';
 import { canonicalHeroAspect } from '../src/lib/device-presets';
+import { readHeroEnhance, writeHeroEnhance } from '../src/lib/hero-enhance';
+import { sanitizeParams } from '../src/lib/auto-enhance';
 
 let passed = 0;
 const ok = (m) => { passed++; console.log(`ok ${m}`); };
@@ -164,6 +166,68 @@ ok('no usable window → the theme is byte-identical to today\'s (8 shapes of "n
 ok('a window + an uploaded original → heroConfig { fill, 50, 50, window, windowSource }');
 ok('a window with no uploaded original → heroConfig carries the window alone');
 
+// ── PHOTO.POLISH.2: the Auto enhance baked into the display copy ─────────────
+// A photo accepted with the switch on carries the value into the hero config,
+// beside the window when it was cropped and alone when it was not. The value is
+// written and read the one way it is anywhere (hero-enhance.ts) — the stored
+// key is never spelled out here.
+const avatarEnhance = { strength: 1, params: sanitizeParams({ gamma: 1.2, shadows: 0.1, vibrance: 0.05, sharpen: 0.2 }) };
+assert.ok(readHeroEnhance(writeHeroEnhance(null, avatarEnhance)), 'control: the value is storable');
+const ORIGINAL_URL = 'https://fixture.titilinks.test/original.webp';
+/** A wizard state holding a cropped, enhanced photo whose original uploaded. */
+const croppedEnhanced = (base) => ({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL, avatarEnhance });
+
+for (const base of [stateA, stateB]) {
+  const plain = buildOnboardingTheme(base);
+  const windowed = buildOnboardingTheme({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL });
+  const windowConfig = { fit: 'fill', posX: 50, posY: 50, window: avatarWindow, windowSource: avatarWindowSource };
+  assert.deepEqual(windowed.heroConfig, windowConfig, 'control: the window-only hero config');
+
+  // Null (or nothing usable): byte-identical to today's theme, with a window and without.
+  for (const none of [null, undefined, {}, 'on', [], { strength: 1 }, { strength: 0, params: avatarEnhance.params }, { strength: NaN, params: avatarEnhance.params }]) {
+    const themed = buildOnboardingTheme({ ...base, avatarEnhance: none });
+    assert.equal(JSON.stringify(themed), JSON.stringify(plain), `${base.pageStyle}: avatarEnhance ${JSON.stringify(none)} leaves the theme byte-identical`);
+    assert.equal('heroConfig' in themed, false, `${base.pageStyle}: no heroConfig key at all`);
+    const themedWindow = buildOnboardingTheme({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL, avatarEnhance: none });
+    assert.equal(JSON.stringify(themedWindow), JSON.stringify(windowed), `${base.pageStyle}: with a window, avatarEnhance ${JSON.stringify(none)} leaves the theme byte-identical`);
+  }
+
+  // Enhanced, not cropped: a hero config holding that one key.
+  const alone = buildOnboardingTheme({ ...base, avatarEnhance });
+  assert.deepEqual(alone, { ...plain, heroConfig: writeHeroEnhance(null, avatarEnhance) });
+  assert.equal(Object.keys(alone.heroConfig).length, 1, `${base.pageStyle}: enhance without a window is the only key`);
+  assert.deepEqual(readHeroEnhance(alone.heroConfig), avatarEnhance, 'the value reads back');
+  // A leftover source window with no painting window changes nothing about that.
+  assert.deepEqual(
+    buildOnboardingTheme({ ...base, avatarEnhance, avatarWindow: null, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL }),
+    alone,
+  );
+
+  // Enhanced and cropped: the window's config, key for key, plus the value.
+  const both = buildOnboardingTheme({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL, avatarEnhance });
+  assert.deepEqual(both, { ...plain, heroConfig: writeHeroEnhance(windowConfig, avatarEnhance) });
+  assert.deepEqual(writeHeroEnhance(both.heroConfig, null), windowConfig, 'take the value away and the window config is what is left');
+  assert.deepEqual(readHeroEnhance(both.heroConfig), avatarEnhance);
+  assert.ok(resolveHeroWindowFraming(both.heroConfig.window, 0.75, frame), `${base.pageStyle}: the window still paints`);
+  // …and without an uploaded original: window + value, no windowSource.
+  const noOriginal = buildOnboardingTheme({ ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: null, avatarEnhance });
+  assert.deepEqual(noOriginal.heroConfig, writeHeroEnhance({ fit: 'fill', posX: 50, posY: 50, window: avatarWindow }, avatarEnhance));
+
+  // What a path that clears the window clears with it (OnboardingFlow's no-upload update).
+  assert.equal(
+    JSON.stringify(buildOnboardingTheme({ ...croppedEnhanced(base), avatarWindow: null, avatarWindowSource: null, avatarEnhance: null })),
+    JSON.stringify(plain),
+  );
+
+  // Plain JSON: the sessionStorage round trip changes nothing.
+  const state = { ...base, avatarWindow, avatarWindowSource, avatarOriginalUrl: ORIGINAL_URL, avatarEnhance };
+  assert.deepEqual(buildOnboardingTheme(JSON.parse(JSON.stringify(state))), both);
+}
+ok('avatarEnhance null or unusable → the theme is byte-identical to today\'s, with a window and without (8 shapes, both page styles)');
+ok('enhanced, not cropped → heroConfig holds the enhancement alone');
+ok('enhanced and cropped → the window config, key for key, plus the enhancement');
+ok('avatarEnhance is plain JSON: a sessionStorage round trip changes nothing');
+
 // The window survives the wizard's sessionStorage round trip (JSON) unchanged.
 {
   const state = { ...stateB, avatarWindow, avatarWindowSource, avatarOriginalUrl: 'https://fixture.titilinks.test/original.webp' };
@@ -286,6 +350,15 @@ for (const block of blocks) {
   }
 }
 ok(`every seeded title / label / url / subtitle / badge exists in OnboardingFlow.tsx (${checked} strings)`);
+
+// PHOTO.POLISH.2: the one write site that drops the window (the update with no
+// uploaded URL) drops the enhancement with it — both describe one display file.
+assert.ok(
+  flowSrc.includes('buildOnboardingTheme({ ...state, avatarWindow: null, avatarWindowSource: null, avatarEnhance: null })'),
+  'OnboardingFlow clears avatarEnhance wherever it clears the window',
+);
+assert.equal((flowSrc.match(/avatarWindow: null/g) || []).length, 1, 'control: that is the only place OnboardingFlow clears the window');
+ok('OnboardingFlow clears the enhancement with the window');
 
 // The email badge is JSON.stringify'd at the write site, so the SERIALIZED form
 // is not in the source — its keys and values are. Check those instead.

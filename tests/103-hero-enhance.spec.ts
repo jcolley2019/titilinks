@@ -21,6 +21,14 @@
 //      hero cropped before windows were stored (its display file is a cut of
 //      the original with no record of where, so there is nothing to bake from).
 //
+// PHOTO.POLISH.2:
+//   8. Page 2's OWN hero (not inheriting): switch on, Save — the write goes to
+//      theme_json.avatar_url_page2 and heroConfig_page2 with `enhance`, and
+//      Page 1's picture column and hero slot are untouched;
+//   9. the canvas work is a lazy chunk: the public page never requests
+//      hero-enhance-canvas (nor the heavy half of auto-enhance), and the editor
+//      requests it once, only when the row is used.
+//
 // Built like spec 101. Battery account; reads patched; EVERY write is captured
 // and fulfilled in tests/helpers/hero-window-harness.ts — no real hero save, and
 // `ai-enhance` is trapped, never sent. The picture is synthetic: a dim,
@@ -35,44 +43,18 @@ import { pictureFitSeed } from '../src/lib/picture-fit';
 import { readHeroEnhance, type HeroEnhance } from '../src/lib/hero-enhance';
 import { isIdentity } from '../src/lib/auto-enhance';
 import {
-  AVATARS, FRAME,
-  installEditor, newEditorHarness, cloneEditorHarness, openEditor, heroDialog, pickHeroFile,
-  cropperReady, zoomAndDrag, heroSettled, objectPath,
+  AVATARS, FRAME, DIM,
+  installEditor, newEditorHarness, cloneEditorHarness, openEditor, openPublic, heroDialog, pickHeroFile,
+  cropperReady, zoomAndDrag, heroSettled, objectPath, dimPng,
   type EditorHarness, type StoredFile, type Win,
 } from './helpers/hero-window-harness';
 
 const EN = translations.en as Record<string, string>;
 const FIX_DIR = `${PINNED_TEST_USER_ID}/photopolish1`;
 const PLACARD = `${FIX_DIR}/before.png`;
-const DIM = { width: 800, height: 1200 };
 const GRID = 8;
 
-// ── the dim, photo-like picture ──────────────────────────────────────────────
-let dimCache: Buffer | null = null;
-function dimPng(): Buffer {
-  if (dimCache) return dimCache;
-  const { width: W, height: H } = DIM;
-  const png = new PNG({ width: W, height: H });
-  let seed = 20261126;
-  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = (y * W + x) * 4;
-    const u = x / W, v = y / H;
-    // A dim room: a soft light from the upper left, a darker floor.
-    let l = 24 + 46 * (1 - v) * (0.55 + 0.45 * (1 - u)) + 18 * Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
-    // A warm, face-sized patch above the middle.
-    const d = Math.hypot((u - 0.5) / 0.22, (v - 0.36) / 0.17);
-    const face = Math.max(0, 1 - d * d);
-    l += 34 * face;
-    const n = (rand() - 0.5) * 9;
-    png.data[i] = Math.max(0, Math.min(255, l + 10 * face + 3 + n));
-    png.data[i + 1] = Math.max(0, Math.min(255, l + 2 * face + n));
-    png.data[i + 2] = Math.max(0, Math.min(255, l - 9 * face + 6 * v + n));
-    png.data[i + 3] = 255;
-  }
-  dimCache = PNG.sync.write(png);
-  return dimCache;
-}
+// The dim, photo-like picture is the harness's (dimPng): spec 102 uses it too.
 const DIM_FILE = () => ({ name: 'dim.png', mimeType: 'image/png', buffer: dimPng() });
 
 /** A square cut: not the kept original's shape. */
@@ -143,7 +125,7 @@ const scratchBake = (
   enhance: HeroEnhance | null,
 ): Promise<Measured> => page.evaluate(async ({ b64, mime, region, out, enhance, grid }) => {
   // A string the bundler cannot follow: the spec is typechecked without the app's module graph.
-  const path = '/src/lib/hero-enhance.ts';
+  const path = '/src/lib/hero-enhance-canvas.ts';
   const mod = await import(/* @vite-ignore */ path);
   const img = new Image();
   img.src = `data:${mime};base64,${b64}`;
@@ -553,5 +535,108 @@ test.describe('PHOTO.POLISH.1 — Auto enhance in the Edit Photo screen', () => 
     await openPencil(page);
     await expect(row(page), 'control: with a kept original the row shows').toBeVisible({ timeout: 15_000 });
     await expect(toggle(page)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('8. Page 2\'s own hero: switch on, Save writes avatar_url_page2 and heroConfig_page2 with enhance; Page 1\'s slot is untouched', async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    const h = startHarness();
+    const page1Config = { ...h.heroConfig };
+    const page1Picture = h.avatarUrl;
+    // A second page with its own hero (heroInherit off), no picture yet.
+    h.page2 = { avatarUrl: null, originalUrl: null, heroConfig: null };
+    await installEditor(page, h);
+    const frame = await openEditor(page);
+    await heroSettled(page, 'hero', FRAME);
+
+    const page2Tab = frame.getByRole('button', { name: EN['editor.page2'], exact: true });
+    await expect(page2Tab, 'the two-page switcher is on the canvas').toBeVisible({ timeout: 15_000 });
+    await page2Tab.click();
+    await expect(page2Tab, 'Page 2 is the selected page').toHaveClass(/bg-\[#C9A55C\]/);
+
+    await pickDim(page);
+    await expect(toggle(page), 'the switch starts off').toHaveAttribute('aria-checked', 'false');
+    await toggle(page).click();
+    await previewShows(page, 'on');
+    await saveButton(page).click();
+    await waitPatch(page, h, 1);
+
+    // ONE write, to the theme alone: Page 2's hero lives in theme_json.
+    const patch = h.patches[0];
+    expect(Object.keys(patch), 'Page 1\'s picture columns are not written').toEqual(['theme_json']);
+    const theme = patch.theme_json as Record<string, unknown>;
+    expect(uploadKinds(h)).toEqual(['display', 'original']);
+    const displayUpload = h.uploads.find((u) => !u.path.includes('-original.'))!;
+    const originalUpload = h.uploads.find((u) => u.path.includes('-original.'))!;
+    expect(objectPath(theme.avatar_url_page2 as string), 'avatar_url_page2 is the display upload').toBe(displayUpload.path);
+    expect(objectPath(theme.avatar_original_url_page2 as string), 'avatar_original_url_page2 is the kept original').toBe(originalUpload.path);
+
+    // Page 2's slot carries enhance; Page 1's slot is exactly what it was.
+    const stored = readHeroEnhance(theme.heroConfig_page2);
+    expect(stored, 'heroConfig_page2 carries enhance').toBeTruthy();
+    expect(stored!.strength).toBe(1);
+    expect(isIdentity(stored!.params), 'the dim picture has something to enhance').toBe(false);
+    expect(theme.heroConfig, 'Page 1\'s hero slot is untouched').toEqual(page1Config);
+    expect(readHeroEnhance(theme.heroConfig), 'no enhance on Page 1').toBeNull();
+    expect(h.avatarUrl, 'Page 1\'s picture is untouched').toBe(page1Picture);
+    expect(JSON.stringify(h.deletes), 'Page 1\'s file is not deleted').not.toContain(PLACARD);
+
+    // The upload is the whole picture, enhanced with the stored numbers; the kept original is not.
+    const display = h.files.get(displayUpload.path)!;
+    const original = h.files.get(originalUpload.path)!;
+    const got = await measureFile(page, display);
+    const scratch = await scratchBake(page, original, null, { w: got.w, h: got.h }, stored);
+    expect(worstBlock(got, scratch), 'the upload == the whole picture, enhanced with the stored params').toBeLessThan(2);
+    const plain = await scratchBake(page, original, null, { w: got.w, h: got.h }, null);
+    expect(lum(got), 'brighter than the picture left alone').toBeGreaterThan(lum(plain) + 8);
+    const picked = await measure(page, { b64: dimPng().toString('base64'), mime: 'image/png' });
+    expect(worstBlock(await measureFile(page, original), picked), 'the kept original is the picture as picked').toBeLessThan(2);
+    expect(h.aiCalls, 'nothing reached ai-enhance').toEqual([]);
+  });
+
+  test('9. the public page never requests the canvas chunk; the editor does, once, when the row is used', async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    const h = startHarness();
+    await installEditor(page, h);
+    // The dev server serves every module as its own request, so a module on a
+    // page's path shows up by name.
+    const seen: string[] = [];
+    page.on('request', (req) => {
+      const p = new URL(req.url()).pathname;
+      if (p.startsWith('/src/lib/')) seen.push(p);
+    });
+    const requests = (file: string) => seen.filter((p) => p === `/src/lib/${file}`).length;
+
+    // A visitor: the stored-key module rides with the page, the canvas work does not.
+    await openPublic(page, { width: 402, height: 874 });
+    await heroSettled(page, 'hero', '');
+    // Down the whole page (mobile WebKit has no mouse wheel), so anything a scroll would load has loaded.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(1_500);
+    expect(requests('hero-enhance.ts'), 'control: hero-enhance.ts IS on the public page\'s path').toBe(1);
+    expect(requests('auto-enhance-params.ts'), 'control: so is the light params module').toBe(1);
+    expect(requests('hero-enhance-canvas.ts'), 'the public page does not request the canvas chunk').toBe(0);
+    expect(requests('auto-enhance.ts'), 'nor the heavy half of the enhancement').toBe(0);
+
+    // The editor: not on load, not when the Edit Photo screen opens…
+    seen.length = 0;
+    await openEditor(page);
+    await pickDim(page);
+    await previewShows(page, 'off');
+    await page.waitForTimeout(1_000);
+    expect(requests('hero-enhance.ts'), 'control: the editor loaded the stored-key module').toBe(1);
+    expect(requests('hero-enhance-canvas.ts'), 'the row on screen, unused: no canvas chunk yet').toBe(0);
+    expect(requests('auto-enhance.ts')).toBe(0);
+    // …but once the row is used.
+    await toggle(page).click();
+    await previewShows(page, 'on');
+    expect(requests('hero-enhance-canvas.ts'), 'the switch fetched the canvas chunk').toBe(1);
+    expect(requests('auto-enhance.ts'), 'and the heavy half with it').toBe(1);
+    // One cached load: using the row again fetches nothing.
+    await toggle(page).click();
+    await previewShows(page, 'off');
+    await toggle(page).click();
+    await previewShows(page, 'on');
+    expect(requests('hero-enhance-canvas.ts'), 'one load, kept').toBe(1);
+    expect(h.patches, 'looking writes nothing').toHaveLength(0);
   });
 });

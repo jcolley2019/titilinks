@@ -247,7 +247,11 @@ const checks = [
   // `vite build --manifest` into dist/ and reads the manifest: the static
   // import closure of the entry (what /:handle actually loads) must not carry
   // a lazy library's chunk, assets/ must hold >= 4 JS chunks,
-  // and no app chunk may exceed 1.2 MB raw. A lazy library's chunk is the one
+  // and no app chunk may exceed 1.2 MB raw. PHOTO.POLISH.2: the same closure
+  // rule holds for the named lazy APP chunks (hero-enhance-canvas: Auto
+  // enhance's canvas work) - each must exist as its own dynamic chunk and stay
+  // out of the entry's static closure; they keep the ordinary 1.2 MB cap.
+  // A lazy library's chunk is the one
   // named exception to that cap: it is a single pre-minified module that
   // cannot be split further, it is lazy, and it gets its own ceiling. A full
   // build, so it is the slowest invariant — it runs last.
@@ -871,6 +875,12 @@ for (const c of checks) {
     //                          lazily by src/lib/prepare-image.ts for non-iOS
     //                          HEIC picks only
     const LAZY_LIBS = ['heic2any'];
+    // The named lazy APP chunks: our own modules that a visitor must never
+    // download, each reached through ONE dynamic import.
+    //   hero-enhance-canvas  — Auto enhance's canvas work and the heavy half of
+    //                          auto-enhance.ts (PHOTO.POLISH.2), imported only
+    //                          by loadHeroEnhanceCanvas() in src/lib/hero-enhance.ts
+    const LAZY_CHUNKS = ['hero-enhance-canvas'];
     const vite = join(dirname(createRequire(import.meta.url).resolve('vite/package.json')), 'bin', 'vite.js');
     const bad = [];
     let summary = '';
@@ -904,6 +914,13 @@ for (const c of checks) {
           if (!files.length) bad.push(`no chunk for ${lib} in the manifest - the library is no longer a separate lazy chunk`);
           for (const f of files) lazyFiles.set(f, lib);
         }
+        const foundChunks = [];
+        for (const name of LAZY_CHUNKS) {
+          const own = Object.entries(manifest).filter(([k, m]) => k.includes(name) && m.isDynamicEntry && !m.isEntry);
+          if (!own.length) { bad.push(`no dynamic chunk for ${name} in the manifest - it is no longer a separate lazy chunk (a static import pulled it into another one)`); continue; }
+          foundChunks.push(name);
+          for (const [, m] of own) if (eager.has(m.file)) bad.push(`${m.file} (${name}) is in the entry's static import closure - /:handle would download it`);
+        }
         if (js.length < 4) bad.push(`assets/ holds ${js.length} JS chunk(s); route-level splitting should produce at least 4`);
         for (const [f, lib] of lazyFiles) if (eager.has(f)) bad.push(`${f} (${lib}) is in the entry's static import closure - /:handle would download it`);
         for (const n of js) {
@@ -914,7 +931,7 @@ for (const c of checks) {
         }
         const foundLibs = LAZY_LIBS.filter((lib) => [...lazyFiles.values()].includes(lib));
         const entryBytes = entry ?statSync(`${OUT}/${entry.file}`).size : 0;
-        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, ${foundLibs.length} lazy lib${foundLibs.length === 1 ? '' : 's'} (${foundLibs.join(', ')})`;
+        summary = `${js.length} JS chunks, entry ${entry ? entry.file.replace('assets/', '') : '?'} ${entryBytes.toLocaleString('en-US')} B raw, ${eager.size} eager, ${foundLibs.length} lazy lib${foundLibs.length === 1 ? '' : 's'} (${foundLibs.join(', ')}), ${foundChunks.length} lazy app chunk${foundChunks.length === 1 ? '' : 's'} (${foundChunks.join(', ')})`;
       }
     }
     if (bad.length) {
@@ -923,7 +940,8 @@ for (const c of checks) {
       bad.forEach((b) => console.error(`      ${b}`));
       console.error(`      one chunk serving every route is the AUDIT_rev6 #13 defect: /:handle visitors`);
       console.error(`      download the editor and the dashboard. Keep the routes in`);
-      console.error(`      App.tsx lazy and heic2any behind prepareImage();`);
+      console.error(`      App.tsx lazy, heic2any behind prepareImage() and`);
+      console.error(`      hero-enhance-canvas behind loadHeroEnhanceCanvas();`);
       console.error(`      never re-add a static import.`);
     } else {
       console.log(`ok ${c.name} (${summary})`);

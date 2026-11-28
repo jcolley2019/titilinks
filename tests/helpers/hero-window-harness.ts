@@ -127,6 +127,13 @@ export type EditorHarness = UploadLog & {
   /** Every request that tried to reach `ai-enhance` (trapped, never sent). */
   aiCalls: string[];
   blockId: string;
+  /**
+   * PHOTO.POLISH.2 — set to give the page a second page with its OWN hero (not
+   * inheriting Page 1's): the two-page switcher is on, a `page2` mode is
+   * answered, and Page 2's slots in theme_json are stamped from, and captured
+   * back into, this object.
+   */
+  page2?: { avatarUrl: string | null; originalUrl: string | null; heroConfig: Record<string, unknown> | null };
 };
 
 export const newEditorHarness = (style: Style, heroConfig: Record<string, unknown>, blockId = 'herofit3-links-block'): EditorHarness => ({
@@ -136,6 +143,7 @@ export const newEditorHarness = (style: Style, heroConfig: Record<string, unknow
 /** The same stored state on a fresh page: files and row kept, the logs empty. */
 export const cloneEditorHarness = (h: EditorHarness): EditorHarness => ({
   ...h, heroConfig: { ...h.heroConfig }, files: new Map(h.files), patches: [], uploads: [], deletes: [], aiCalls: [],
+  ...(h.page2 ? { page2: { ...h.page2 } } : {}),
 });
 
 /** The battery page with this harness's hero stamped on. Reads patched, every write captured and answered. */
@@ -152,7 +160,13 @@ export async function installEditor(page: Page, h: EditorHarness) {
       const res = await route.fetch();
       const body = await res.json();
       const arr = Array.isArray(body) ? body : [];
-      modeId = (arr.find((m: { type?: string }) => m?.type === 'page1') ?? arr[0])?.id ?? '';
+      const first = arr.find((m: { type?: string }) => m?.type === 'page1') ?? arr[0];
+      modeId = first?.id ?? '';
+      // A second page needs its mode row: the account's own when it has one,
+      // else Page 1's row re-typed (nothing is written; block reads are mocked).
+      if (h.page2 && first && !arr.some((m: { type?: string }) => m?.type === 'page2')) {
+        arr.push({ ...first, id: PAGE2_MODE_ID, type: 'page2' });
+      }
       await route.fulfill({ response: res, body: JSON.stringify(body) });
     } catch {
       try { await route.continue(); } catch { /* page already closing */ }
@@ -160,7 +174,9 @@ export async function installEditor(page: Page, h: EditorHarness) {
   });
   await page.route('**/rest/v1/blocks*', async (route) => {
     if (route.request().method() !== 'GET') return asJson(route, []);
-    const block = { id: h.blockId, mode_id: modeId, type: 'links', title: null, is_enabled: true, order_index: 0 };
+    // The block belongs to the mode that was asked for (Page 2 reads its own).
+    const asked = /^eq\.(.+)$/.exec(new URL(route.request().url()).searchParams.get('mode_id') ?? '')?.[1];
+    const block = { id: h.blockId, mode_id: asked ?? modeId, type: 'links', title: null, is_enabled: true, order_index: 0 };
     return asJson(route, wantsObject(route) ? block : [block]);
   });
   await page.route('**/rest/v1/block_items*', async (route) => {
@@ -188,9 +204,16 @@ export async function installEditor(page: Page, h: EditorHarness) {
       delete header.image_url;
       theme.header = header;
     }
+    const second: Record<string, unknown> = {};
+    if (h.page2) {
+      second.pages = { enabled: true, page2: { heroInherit: false } };
+      if (h.page2.avatarUrl) second.avatar_url_page2 = h.page2.avatarUrl;
+      if (h.page2.originalUrl) second.avatar_original_url_page2 = h.page2.originalUrl;
+      if (h.page2.heroConfig) second.heroConfig_page2 = h.page2.heroConfig;
+    }
     const out: Record<string, unknown> = {
       ...r, avatar_url: h.avatarUrl,
-      theme_json: { ...theme, pageStyle: h.style, heroConfig: h.heroConfig },
+      theme_json: { ...theme, pageStyle: h.style, heroConfig: h.heroConfig, ...second },
     };
     if (!isPublic) out.avatar_original_url = h.originalUrl;
     return out;
@@ -205,6 +228,11 @@ export async function installEditor(page: Page, h: EditorHarness) {
       if (typeof body.avatar_original_url === 'string') h.originalUrl = body.avatar_original_url;
       const tj = body.theme_json as Record<string, unknown> | undefined;
       if (tj && tj.heroConfig && typeof tj.heroConfig === 'object') h.heroConfig = tj.heroConfig as Record<string, unknown>;
+      if (h.page2 && tj) {
+        if (typeof tj.avatar_url_page2 === 'string') h.page2.avatarUrl = tj.avatar_url_page2;
+        if (typeof tj.avatar_original_url_page2 === 'string') h.page2.originalUrl = tj.avatar_original_url_page2;
+        if (tj.heroConfig_page2 && typeof tj.heroConfig_page2 === 'object') h.page2.heroConfig = tj.heroConfig_page2 as Record<string, unknown>;
+      }
       return route.fulfill({ status: 204, body: '' });
     }
     if (req.method() !== 'GET') return route.fallback();
@@ -256,6 +284,7 @@ export type OnboardingHarness = UploadLog & {
 };
 
 export const ONB_PAGE_ID = '11111111-1111-4111-8111-111111111111';
+const PAGE2_MODE_ID = '44444444-4444-4444-8444-444444444444';
 const ONB_MODE_ID = '22222222-2222-4222-8222-222222222222';
 const ONB_BLOCK_ID = '33333333-3333-4333-8333-333333333333';
 
@@ -427,6 +456,71 @@ export const expectWin = (got: Win, want: Win, what: string, tol = 0.5) => {
     expect(Math.abs(got[k] - want[k]), `${what}: ${k} ${got[k].toFixed(2)} vs ${want[k].toFixed(2)} (percent of the source)`).toBeLessThan(tol);
   }
 };
+
+// ── the dim picture ──────────────────────────────────────────────────────────
+
+/** The dim picture's size. */
+export const DIM = { width: 800, height: 1200 };
+
+/**
+ * A dim, photo-like scene (PHOTO.POLISH.1): a soft light from the upper left, a
+ * darker floor, a warm face-sized patch and per-pixel grain — something Auto
+ * enhance has real work to do on, and never mistakes for a flat graphic.
+ */
+let dimCache: Buffer | null = null;
+export function dimPng(): Buffer {
+  if (dimCache) return dimCache;
+  const { width: W, height: H } = DIM;
+  const png = new PNG({ width: W, height: H });
+  let seed = 20261126;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    const u = x / W, v = y / H;
+    // A dim room: a soft light from the upper left, a darker floor.
+    let l = 24 + 46 * (1 - v) * (0.55 + 0.45 * (1 - u)) + 18 * Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+    // A warm, face-sized patch above the middle.
+    const d = Math.hypot((u - 0.5) / 0.22, (v - 0.36) / 0.17);
+    const face = Math.max(0, 1 - d * d);
+    l += 34 * face;
+    const n = (rand() - 0.5) * 9;
+    png.data[i] = Math.max(0, Math.min(255, l + 10 * face + 3 + n));
+    png.data[i + 1] = Math.max(0, Math.min(255, l + 2 * face + n));
+    png.data[i + 2] = Math.max(0, Math.min(255, l - 9 * face + 6 * v + n));
+    png.data[i + 3] = 255;
+  }
+  dimCache = PNG.sync.write(png);
+  return dimCache;
+}
+
+/**
+ * A picture's size and mean luminance (0..255), decoded in the page. `src` is a
+ * file's bytes, or a selector for an <img> already on the page (its object URL
+ * may be revoked the moment the app replaces it, so it is read off the element).
+ */
+export const pictureLook = (page: Page, src: StoredFile | string): Promise<{ w: number; h: number; lum: number }> =>
+  page.evaluate(async (from) => {
+    let img: HTMLImageElement;
+    if (typeof from === 'string') {
+      img = document.querySelector(from) as HTMLImageElement;
+      if (!img.complete || !img.naturalWidth) await img.decode();
+    } else {
+      img = new Image();
+      img.src = `data:${from.mime};base64,${from.b64}`;
+      await img.decode();
+    }
+    const w = img.naturalWidth, h = img.naturalHeight;
+    // Mean luminance does not need every pixel: read at most 512 px on the long side.
+    const k = Math.min(1, 512 / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const ctx = c.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    return { w, h, lum: sum / (d.length / 4) };
+  }, typeof src === 'string' ? src : { b64: src.body.toString('base64'), mime: src.type });
 
 // ── the cropper ──────────────────────────────────────────────────────────────
 
